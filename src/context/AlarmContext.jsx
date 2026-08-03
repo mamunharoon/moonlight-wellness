@@ -11,7 +11,23 @@ export const AlarmProvider = ({ children }) => {
   const [bedTime, setBedTime] = useState('22:00'); // HH:MM
   const [isAlarmSet, setIsAlarmSet] = useState(true);
   const [isRinging, setIsRinging] = useState(false);
-  const [intentions, setIntentions] = useState(['Anxiety', 'Sleep']);
+  const [intentions, setIntentions] = useState(['Stay calm', 'Be kind to yourself']);
+  
+  // Morning Journey Progress State
+  const [routineDuration, setRoutineDuration] = useState(() => {
+    return localStorage.getItem('moonlight_duration') || 'standard'; // 'quick', 'standard', 'extended'
+  });
+  const [journeyStep, setJourneyStep] = useState(() => {
+    return localStorage.getItem('moonlight_journey_step') || ''; // 'alarm', 'start', 'affirmation', 'stretch', 'breathe', 'intention', 'complete'
+  });
+
+  useEffect(() => {
+    localStorage.setItem('moonlight_duration', routineDuration);
+  }, [routineDuration]);
+
+  useEffect(() => {
+    localStorage.setItem('moonlight_journey_step', journeyStep);
+  }, [journeyStep]);
 
   // Handle silent anonymous authentication on launch
   useEffect(() => {
@@ -41,6 +57,7 @@ export const AlarmProvider = ({ children }) => {
 
   // Fetch sleep/wake rhythms from Supabase
   const fetchRhythm = async (uid) => {
+    if (!supabase) return;
     const { data, error } = await supabase
       .from('rhythms')
       .select('wake_up_time, bedtime')
@@ -61,7 +78,7 @@ export const AlarmProvider = ({ children }) => {
   // Background Clock Observer
   useEffect(() => {
     const checkTime = () => {
-      if (!isAlarmSet || isRinging) return;
+      if (!isAlarmSet || isRinging || journeyStep !== '') return;
 
       const now = new Date();
       const currentHours = now.getHours().toString().padStart(2, '0');
@@ -70,6 +87,7 @@ export const AlarmProvider = ({ children }) => {
 
       if (currentTimeString === alarmTime) {
         setIsRinging(true);
+        setJourneyStep('alarm');
         playTrack({
           title: 'Morning Rise Alarm',
           url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
@@ -80,10 +98,11 @@ export const AlarmProvider = ({ children }) => {
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, playTrack]);
+  }, [alarmTime, isAlarmSet, isRinging, journeyStep, playTrack]);
 
   const snooze = () => {
     setIsRinging(false);
+    setJourneyStep('');
     const [hours, minutes] = alarmTime.split(':').map(Number);
     let newMinutes = minutes + 5;
     let newHours = hours;
@@ -102,9 +121,8 @@ export const AlarmProvider = ({ children }) => {
 
   // Save/Update rhythms in Supabase database
   const saveRhythm = async (newAlarm, newBed) => {
-    if (!userId) return;
+    if (!supabase || !userId) return;
 
-    // Check if a row already exists
     const { data, error: fetchError } = await supabase
       .from('rhythms')
       .select('id')
@@ -114,13 +132,11 @@ export const AlarmProvider = ({ children }) => {
     if (fetchError) return;
 
     if (data) {
-      // Update
       await supabase
         .from('rhythms')
         .update({ wake_up_time: newAlarm, bedtime: newBed })
         .eq('user_id', userId);
     } else {
-      // Insert
       await supabase
         .from('rhythms')
         .insert({ user_id: userId, wake_up_time: newAlarm, bedtime: newBed });
@@ -142,7 +158,11 @@ export const AlarmProvider = ({ children }) => {
       setIntentions,
       snooze,
       dismissAlarm,
-      saveRhythm
+      saveRhythm,
+      routineDuration,
+      setRoutineDuration,
+      journeyStep,
+      setJourneyStep
     }}>
       {children}
     </AlarmContext.Provider>
@@ -150,4 +170,3 @@ export const AlarmProvider = ({ children }) => {
 };
 
 export const useAlarm = () => useContext(AlarmContext);
-

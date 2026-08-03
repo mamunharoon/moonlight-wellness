@@ -1,83 +1,122 @@
-﻿import React, { useState, useEffect } from 'react';
-import { useAudio } from '../context/AudioContext';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAlarm } from '../context/AlarmContext';
+import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const Breathe = () => {
-  const [breatheState, setBreatheState] = useState('Inhale');
-  const [timerVal, setTimerVal] = useState('04:52');
-  const { playTrack } = useAudio();
+  const navigate = useNavigate();
+  const { setJourneyStep } = useAlarm();
+  const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
+  const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute breathing grounding session
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    const states = ['Inhale', 'Exhale'];
-    let index = 0;
+    if (isPaused) return;
 
-    const interval = setInterval(() => {
-      index = (index + 1) % states.length;
-      setBreatheState(states[index]);
-    }, 4000);
+    if (secondsLeft <= 0) {
+      handleComplete();
+      return;
+    }
 
-    return () => clearInterval(interval);
-  }, []);
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [secondsLeft, isPaused]);
+
+  // Handle breathing state cycles (4s Inhale, 4s Hold, 6s Exhale)
+  useEffect(() => {
+    if (isPaused || secondsLeft <= 0) return;
+
+    const cycleTime = (56 - secondsLeft) % 14;
+
+    if (cycleTime < 4) {
+      setBreatheState('Inhale');
+    } else if (cycleTime < 8) {
+      setBreatheState('Hold');
+    } else {
+      setBreatheState('Exhale');
+    }
+  }, [secondsLeft, isPaused]);
+
+  const handleComplete = () => {
+    setJourneyStep('intention');
+    navigate('/intention-setup');
+  };
+
+  const handleSkip = () => {
+    setJourneyStep('intention');
+    navigate('/intention-setup');
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-12">
-      <div className="relative w-72 h-72 md:w-80 md:h-80 flex items-center justify-center">
+    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
+      <ProgressIndicator activeStep="breathe" />
+
+      <div className="text-center space-y-2">
+        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise</span>
+        <h2 className="text-2xl font-bold text-on-surface">Center Yourself</h2>
+        <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+          Take a deep breath. Let the world fade away for just a minute.
+        </p>
+      </div>
+
+      {/* Breathing Ring Visualizer */}
+      <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
+        {/* Soft pulsing glow */}
         <div className={`absolute inset-0 rounded-full bg-primary/10 blur-3xl transition-all duration-[4000ms] ${
-          breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-90 opacity-60'
+          breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-95 opacity-50'
         }`}></div>
-        
-        <div className={`w-48 h-48 rounded-full bg-gradient-to-br from-primary-container to-primary flex flex-col items-center justify-center shadow-2xl transition-all duration-[4000ms] ease-in-out ${
-          breatheState === 'Inhale' ? 'scale-110 shadow-primary/30' : 'scale-95 shadow-transparent'
+
+        {/* Outer tracking ring */}
+        <div className="absolute inset-0 border-2 border-white/5 rounded-full"></div>
+
+        {/* Center expanding circle */}
+        <div className={`rounded-full bg-gradient-to-br from-[#954835] to-[#ff9d85] flex flex-col items-center justify-center shadow-xl shadow-primary/10 text-white transition-all duration-[4000ms] ease-in-out ${
+          breatheState === 'Inhale' ? 'w-48 h-48' : breatheState === 'Hold' ? 'w-48 h-48 brightness-110' : 'w-36 h-36'
         }`}>
-          <span className="text-white font-headline-md text-2xl tracking-widest uppercase transition-opacity">
-            {breatheState}
-          </span>
-          <span className="material-symbols-outlined text-white/50 text-2xl mt-1 animate-pulse">air</span>
+          <span className="text-lg font-bold tracking-wider uppercase">{breatheState}</span>
+          <span className="text-xs text-white/60 mt-1 font-semibold">{secondsLeft}s left</span>
         </div>
       </div>
 
-      <div className="text-center">
-        <h3 className="text-4xl font-extrabold tracking-tight text-on-surface">{timerVal}</h3>
-        <p className="text-xs text-on-surface-variant uppercase tracking-widest mt-1">Remaining</p>
+      <div className="text-center space-y-2">
+        <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
+          Deep Belly Breath (4-4-6)
+        </span>
       </div>
 
-      <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <h3 className="font-label-md text-sm text-on-surface flex items-center gap-2 font-bold">
-            <span className="material-symbols-outlined text-primary text-[20px]">timer</span> Set Duration
-          </h3>
-          <div className="flex justify-between gap-2">
-            {['1 min', '5 min', '10 min'].map((dur, i) => (
-              <button key={i} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold border ${
-                i === 1 
-                  ? 'bg-primary-container text-on-primary-container border-primary-container/20' 
-                  : 'bg-white/5 border-white/10 text-on-surface-variant/80 hover:bg-white/10'
-              }`}>
-                {dur}
-              </button>
-            ))}
-          </div>
+      {/* Controls */}
+      <div className="space-y-3 w-full">
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsPaused(!isPaused)}
+            className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+          >
+            <span className="material-symbols-outlined text-sm">{isPaused ? 'play_arrow' : 'pause'}</span>
+            <span>{isPaused ? 'Resume' : 'Pause'}</span>
+          </button>
+          <button 
+            onClick={handleComplete}
+            className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span>Continue</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
         </div>
-
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <h3 className="font-label-md text-sm text-on-surface flex items-center gap-2 font-bold">
-            <span className="material-symbols-outlined text-secondary text-[20px]">waves</span> Ambient Sound
-          </h3>
-          <div className="space-y-2">
-            <button 
-              onClick={() => playTrack({
-                title: 'Midnight Rain',
-                url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-                image: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=150'
-              })}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-all text-xs text-on-surface font-semibold"
-            >
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-lg">water_drop</span> Midnight Rain
-              </span>
-              <span className="material-symbols-outlined text-secondary text-sm">volume_up</span>
-            </button>
-          </div>
-        </div>
+        <button 
+          onClick={handleSkip}
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        >
+          Skip Breathing
+        </button>
       </div>
     </div>
   );

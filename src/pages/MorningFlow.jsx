@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAlarm } from '../context/AlarmContext';
+import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const MorningFlow = () => {
   const navigate = useNavigate();
+  const { setJourneyStep, routineDuration } = useAlarm();
   const [activeStep, setActiveStep] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(15);
+
+  // Set duration dynamically based on selected routine mode
+  const getStepDuration = () => {
+    if (routineDuration === 'extended') return 45;
+    return 15; // default to 15s for rapid standard testing
+  };
+
+  const [timeLeft, setTimeLeft] = useState(getStepDuration());
 
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
@@ -14,12 +24,7 @@ export const MorningFlow = () => {
 
   useEffect(() => {
     if (timeLeft <= 0) {
-      if (activeStep < steps.length - 1) {
-        setActiveStep(prev => prev + 1);
-        setTimeLeft(15);
-      } else {
-        navigate('/session-complete');
-      }
+      handleNextStep();
       return;
     }
 
@@ -28,31 +33,50 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, activeStep, navigate, steps.length]);
+  }, [timeLeft]);
+
+  const handleNextStep = () => {
+    if (activeStep < steps.length - 1) {
+      setActiveStep(prev => prev + 1);
+      setTimeLeft(getStepDuration());
+    } else {
+      setJourneyStep('breathe');
+      navigate('/breathe');
+    }
+  };
+
+  const handleSkip = () => {
+    setJourneyStep('breathe');
+    navigate('/breathe');
+  };
 
   return (
-    <div className="max-w-xl mx-auto space-y-8 py-6 select-none">
+    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
+      <ProgressIndicator activeStep="stretch" />
+
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Awakening</span>
-        <h2 className="text-2xl font-bold text-on-surface">Gentle Morning Stretching</h2>
-        <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-          Wake up your muscles and release sleep tension with slow, guided exercises.
+        <h2 className="text-2xl font-bold text-on-surface">Light Morning Stretching</h2>
+        <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
+          Wake up your body with 2 minutes of gentle movement.
         </p>
       </div>
 
-      <div className="glass-panel p-5 rounded-2xl space-y-3">
+      {/* Progress visual bar */}
+      <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-sm">
         <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
           <span>Overall Progress</span>
-          <span>Step {activeStep + 1} of {steps.length}</span>
+          <span>Exercise {activeStep + 1} of {steps.length}</span>
         </div>
-        <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden">
+        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000" 
-            style={{ width: `${(activeStep / steps.length) * 100 || 5}%` }}
+            style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
           ></div>
         </div>
       </div>
 
+      {/* Steps List */}
       <div className="space-y-4">
         {steps.map((step, idx) => {
           const isCompleted = idx < activeStep;
@@ -62,7 +86,7 @@ export const MorningFlow = () => {
             <div 
               key={idx}
               className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
-                isActive ? 'border-primary/30 opacity-100' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
+                isActive ? 'border-primary/30 opacity-100 shadow-md shadow-primary/5 bg-primary/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
               }`}
             >
               <div className="flex gap-4 items-center">
@@ -89,6 +113,22 @@ export const MorningFlow = () => {
             </div>
           );
         })}
+      </div>
+
+      <div className="space-y-3 w-full">
+        <button 
+          onClick={handleNextStep}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+        <button 
+          onClick={handleSkip}
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        >
+          Skip Stretching
+        </button>
       </div>
     </div>
   );
