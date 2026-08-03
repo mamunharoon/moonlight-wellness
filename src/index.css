@@ -1,0 +1,75 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #954835;
+    --color-on-primary: #ffffff;
+    --color-primary-container: #ff9d85;
+    --color-on-primary-container: #783221;
+    --color-secondary: #3e6658;
+    --color-on-secondary: #ffffff;
+    --color-secondary-container: #c0ecda;
+    --color-on-secondary-container: #446c5e;
+    --color-tertiary: #30628a;
+    --color-on-tertiary: #ffffff;
+    --color-tertiary-container: #8bbbe7;
+    --color-on-tertiary-container: #114b71;
+    --color-background: #f8f9fa;
+    --color-on-background: #191c1d;
+    --color-surface: #f8f9fa;
+    --color-on-surface: #191c1d;
+    --color-surface-variant: #e1e3e4;
+    --color-on-surface-variant: #54433f;
+    --color-outline: #87726e;
+    --color-outline-variant: #dac1bb;
+    --color-surface-lowest: #ffffff;
+    --color-surface-low: #f3f4f5;
+    --color-surface-container: #edeeef;
+    --color-surface-high: #e7e8e9;
+    --color-surface-highest: #e1e3e4;
+  }
+
+  .dark {
+    --color-primary: #ffc5b7;
+    --color-on-primary: #5a1c0c;
+    --color-primary-container: #ff9d85;
+    --color-on-primary-container: #783221;
+    --color-secondary: #7bd0ff;
+    --color-on-secondary: #00354a;
+    --color-secondary-container: #00a6e0;
+    --color-on-secondary-container: #00374d;
+    --color-tertiary: #7fe4d0;
+    --color-on-tertiary: #003730;
+    --color-tertiary-container: #62c8b5;
+    --color-on-tertiary-container: #005247;
+    --color-background: #0b1326;
+    --color-on-background: #dae2fd;
+    --color-surface: #0b1326;
+    --color-on-surface: #dae2fd;
+    --color-surface-variant: #2d3449;
+    --color-on-surface-variant: #dac1bb;
+    --color-outline: #a28c87;
+    --color-outline-variant: #54433f;
+    --color-surface-lowest: #060e20;
+    --color-surface-low: #131b2e;
+    --color-surface-container: #171f33;
+    --color-surface-high: #222a3d;
+    --color-surface-highest: #2d3449;
+  }
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
