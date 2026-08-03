@@ -1,6 +1,6 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAudio } from './AudioContext';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
 const AlarmContext = createContext();
 
@@ -150,3 +150,4 @@ export const AlarmProvider = ({ children }) => {
 };
 
 export const useAlarm = () => useContext(AlarmContext);
+
