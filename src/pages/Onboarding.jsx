@@ -4,7 +4,7 @@ import { useAlarm } from '../context/AlarmContext';
 
 export const Onboarding = () => {
   const navigate = useNavigate();
-  const { setAlarmTime, setBedTime, intentions, setIntentions } = useAlarm();
+  const { setAlarmTime, setBedTime, intentions, setIntentions, saveRhythm } = useAlarm();
   const [step, setStep] = useState(1);
   const [localAlarm, setLocalAlarm] = useState('07:30');
   const [localBed, setLocalBed] = useState('22:00');
@@ -29,6 +29,7 @@ export const Onboarding = () => {
     } else {
       setAlarmTime(localAlarm);
       setBedTime(localBed);
+      saveRhythm(localAlarm, localBed); // Sync setup to Supabase database!
       navigate('/');
     }
   };
