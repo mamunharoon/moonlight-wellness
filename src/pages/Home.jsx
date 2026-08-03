@@ -29,7 +29,7 @@ export const Home = () => {
     if (shouldBeDark !== isDark) {
       toggleTheme();
     }
-  }, [timeState]);
+  }, [timeState, isDark, toggleTheme]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -46,7 +46,7 @@ export const Home = () => {
         </div>
       )}
 
-      {/* 2. RENDER STATE: MORNING - BEFORE COMPLETION (Uplifting Peach & Cream) */}
+      {/* 2. RENDER STATE: MORNING - BEFORE COMPLETION */}
       {timeState === 'morning-pre' && (
         <div className="space-y-8">
           <div className="space-y-1">
@@ -61,22 +61,22 @@ export const Home = () => {
               <h3 className="text-2xl font-bold leading-tight text-slate-800">Waking Goal</h3>
               <p className="text-sm text-slate-700 font-medium">Scheduled for {alarmTime} with 'Gentle Breeze'</p>
             </div>
-            <Link to="/morning-flow" className="block w-full py-4 rounded-xl bg-primary text-on-primary font-semibold text-center hover:opacity-90 active:scale-95 transition-all shadow-md shadow-primary/10">
+            <Link to="/morning-flow" className="block w-full py-4 rounded-xl bg-primary text-on-primary font-semibold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20">
               Begin Your Morning
             </Link>
           </div>
         </div>
       )}
 
-      {/* 3. RENDER STATE: MORNING - AFTER COMPLETION (Bright Coral Summary) */}
+      {/* 3. RENDER STATE: MORNING - AFTER COMPLETION */}
       {timeState === 'morning-post' && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-white tracking-tight">Morning Awakening</h2>
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">Clear Mind, Calm Spirit</h2>
             <p className="text-xs text-on-surface-variant font-medium">You started today with intention.</p>
           </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
-            <p className="text-xs font-semibold uppercase tracking-wider text-secondary">Today's Intention</p>
+          <div className="glass-panel p-6 rounded-3xl space-y-4">
+            <p className="text-sm font-semibold uppercase tracking-wider text-secondary">Today's Intention</p>
             <p className="text-lg italic font-medium">"{intentions.join(', ') || 'Reduce Anxiety'}"</p>
             <div className="flex justify-between items-center pt-4 border-t border-white/5 text-xs text-on-surface-variant">
               <span>Current Streak</span>
@@ -86,7 +86,7 @@ export const Home = () => {
         </div>
       )}
 
-      {/* 4. RENDER STATE: DAYTIME (Clean, Minimalist Blue/Grey) */}
+      {/* 4. RENDER STATE: DAYTIME */}
       {timeState === 'daytime' && (
         <div className="space-y-8">
           <div className="space-y-1">
@@ -106,7 +106,7 @@ export const Home = () => {
         </div>
       )}
 
-      {/* 5. RENDER STATE: EVENING (Calm, Restorative Moonlit Navy) */}
+      {/* 5. RENDER STATE: EVENING */}
       {timeState === 'evening' && (
         <div className="space-y-8">
           <div className="space-y-1">
@@ -126,7 +126,7 @@ export const Home = () => {
         </div>
       )}
 
-      {/* 6. RENDER STATE: LATE NIGHT (Deep Rest) */}
+      {/* 6. RENDER STATE: LATE NIGHT */}
       {timeState === 'night' && (
         <div className="space-y-8 text-center py-8">
           <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center">

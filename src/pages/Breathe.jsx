@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -7,14 +7,15 @@ export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
-  const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute breathing grounding session
+  const [secondsLeft, setSecondsLeft] = useState(56);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isPaused) return;
 
     if (secondsLeft <= 0) {
-      handleComplete();
+      setJourneyStep('intention');
+      navigate('/intention-setup');
       return;
     }
 
@@ -23,9 +24,8 @@ export const Breathe = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, isPaused]);
+  }, [secondsLeft, isPaused, navigate, setJourneyStep]);
 
-  // Handle breathing state cycles (4s Inhale, 4s Hold, 6s Exhale)
   useEffect(() => {
     if (isPaused || secondsLeft <= 0) return;
 
@@ -50,12 +50,6 @@ export const Breathe = () => {
     navigate('/intention-setup');
   };
 
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
       <ProgressIndicator activeStep="breathe" />
@@ -68,17 +62,13 @@ export const Breathe = () => {
         </p>
       </div>
 
-      {/* Breathing Ring Visualizer */}
       <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
-        {/* Soft pulsing glow */}
         <div className={`absolute inset-0 rounded-full bg-primary/10 blur-3xl transition-all duration-[4000ms] ${
           breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-95 opacity-50'
         }`}></div>
 
-        {/* Outer tracking ring */}
         <div className="absolute inset-0 border-2 border-white/5 rounded-full"></div>
 
-        {/* Center expanding circle */}
         <div className={`rounded-full bg-gradient-to-br from-[#954835] to-[#ff9d85] flex flex-col items-center justify-center shadow-xl shadow-primary/10 text-white transition-all duration-[4000ms] ease-in-out ${
           breatheState === 'Inhale' ? 'w-48 h-48' : breatheState === 'Hold' ? 'w-48 h-48 brightness-110' : 'w-36 h-36'
         }`}>
@@ -93,7 +83,6 @@ export const Breathe = () => {
         </span>
       </div>
 
-      {/* Controls */}
       <div className="space-y-3 w-full">
         <div className="flex gap-3">
           <button 

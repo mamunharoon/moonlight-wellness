@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -8,10 +8,9 @@ export const MorningFlow = () => {
   const { setJourneyStep, routineDuration } = useAlarm();
   const [activeStep, setActiveStep] = useState(0);
 
-  // Set duration dynamically based on selected routine mode
   const getStepDuration = () => {
     if (routineDuration === 'extended') return 45;
-    return 15; // default to 15s for rapid standard testing
+    return 15;
   };
 
   const [timeLeft, setTimeLeft] = useState(getStepDuration());
@@ -23,8 +22,16 @@ export const MorningFlow = () => {
   ];
 
   useEffect(() => {
+    const stepDur = routineDuration === 'extended' ? 45 : 15;
+
     if (timeLeft <= 0) {
-      handleNextStep();
+      if (activeStep < steps.length - 1) {
+        setActiveStep(prev => prev + 1);
+        setTimeLeft(stepDur);
+      } else {
+        setJourneyStep('breathe');
+        navigate('/breathe');
+      }
       return;
     }
 
@@ -33,12 +40,13 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, activeStep, navigate, setJourneyStep, steps.length, routineDuration]);
 
   const handleNextStep = () => {
+    const stepDur = routineDuration === 'extended' ? 45 : 15;
     if (activeStep < steps.length - 1) {
       setActiveStep(prev => prev + 1);
-      setTimeLeft(getStepDuration());
+      setTimeLeft(stepDur);
     } else {
       setJourneyStep('breathe');
       navigate('/breathe');
@@ -62,7 +70,6 @@ export const MorningFlow = () => {
         </p>
       </div>
 
-      {/* Progress visual bar */}
       <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-sm">
         <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
           <span>Overall Progress</span>
@@ -76,7 +83,6 @@ export const MorningFlow = () => {
         </div>
       </div>
 
-      {/* Steps List */}
       <div className="space-y-4">
         {steps.map((step, idx) => {
           const isCompleted = idx < activeStep;
