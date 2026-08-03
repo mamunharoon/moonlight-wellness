@@ -13,7 +13,7 @@ export const Routines = () => {
 
       <div className="space-y-6">
         {/* Morning Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-primary">
+        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-primary shadow-[0_8px_30px_rgba(0,0,0,0.03)] bg-gradient-to-br from-[#ffffff]/5 to-transparent">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Morning Awakening</span>
@@ -24,30 +24,30 @@ export const Routines = () => {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Curated sequence featuring a gentle morning affirmation, light muscle stretching, and grounding breath.
           </p>
-          <Link to="/morning-flow" className="block w-full py-3 rounded-xl bg-primary text-on-primary text-center font-semibold text-xs hover:opacity-90 active:scale-95 transition-all">
+          <Link to="/morning-flow" className="block w-full py-3 rounded-xl bg-primary text-on-primary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
             Start Morning Flow
           </Link>
         </div>
 
         {/* Midday Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-secondary">
+        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-secondary shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-secondary uppercase font-bold tracking-wider">Midday Anchors</span>
-              <h3 className="text-lg font-bold text-white mt-0.5">60-Second Reset</h3>
+              <h3 className="text-lg font-bold text-white mt-0.5">Gentle Reset</h3>
             </div>
             <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">1 min</span>
           </div>
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Quick, on-the-spot breathing visualizer to lower heart rate and restore mental clarity during active work.
           </p>
-          <Link to="/breathe" className="block w-full py-3 rounded-xl bg-secondary text-on-secondary text-center font-semibold text-xs hover:opacity-90 active:scale-95 transition-all">
+          <Link to="/breathe" className="block w-full py-3 rounded-xl bg-secondary text-on-secondary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
             Reset Now
           </Link>
         </div>
 
         {/* Evening Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-tertiary">
+        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-tertiary shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-tertiary uppercase font-bold tracking-wider">Nightrest</span>
@@ -58,7 +58,7 @@ export const Routines = () => {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Wind down with brief, personal gratitude journal logging, calming breathing loops, and sleep soundscapes.
           </p>
-          <Link to="/journal" className="block w-full py-3 rounded-xl bg-tertiary text-on-tertiary text-center font-semibold text-xs hover:opacity-90 active:scale-95 transition-all">
+          <Link to="/journal" className="block w-full py-3 rounded-xl bg-tertiary text-on-tertiary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
             Begin Wind-Down
           </Link>
         </div>

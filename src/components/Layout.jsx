@@ -36,12 +36,12 @@ export const Layout = () => {
         <div className="absolute bottom-[20%] right-1/4 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* Main Responsive Container - No decorative phone borders */}
-      <div className="relative flex-1 flex flex-col max-w-2xl w-full mx-auto z-10">
+      {/* Main Responsive Container - Balanced width (768px / max-w-3xl) */}
+      <div className="relative flex-1 flex flex-col max-w-3xl w-full mx-auto z-10">
         
         {/* Global Page Header */}
         {!hideNavigation && (
-          <header className="flex justify-between items-center px-4 py-4 w-full border-b border-white/5 shrink-0 z-40">
+          <header className="flex justify-between items-center px-4 py-5 w-full border-b border-white/5 shrink-0 z-40">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
@@ -55,7 +55,7 @@ export const Layout = () => {
         )}
 
         {/* Dynamic Route Content */}
-        <div className="flex-1 overflow-y-auto scroll-hide pb-28 pt-4 px-4">
+        <div className="flex-1 overflow-y-auto scroll-hide pb-28 pt-6 px-4">
           <Outlet />
         </div>
 
@@ -79,9 +79,9 @@ export const Layout = () => {
           </div>
         )}
 
-        {/* Flat Bottom Navigation bar (Responsive mobile/desktop hybrid) */}
+        {/* Flat Bottom Navigation bar */}
         {!hideNavigation && (
-          <nav className="absolute bottom-4 left-4 right-4 z-40 glass-panel rounded-full h-16 shadow-[0_10px_20px_rgba(149,72,53,0.15)] border border-white/10 flex justify-around items-center px-4">
+          <nav className="absolute bottom-4 left-4 right-4 z-40 glass-panel rounded-full h-16 shadow-[0_8px_30px_rgba(149,72,53,0.06)] border border-white/10 flex justify-around items-center px-4">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '/today');
               return (

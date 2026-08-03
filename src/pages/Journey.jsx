@@ -45,12 +45,12 @@ export const Journey = () => {
 
       {/* Completion Streak */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="glass-panel p-6 rounded-2xl text-center space-y-1">
+        <div className="glass-panel p-6 rounded-2xl text-center space-y-1 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           <span className="material-symbols-outlined text-primary text-2xl">local_fire_department</span>
           <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold">Current Streak</p>
           <p className="text-2xl font-extrabold text-primary">12 Days</p>
         </div>
-        <div className="glass-panel p-6 rounded-2xl text-center space-y-1">
+        <div className="glass-panel p-6 rounded-2xl text-center space-y-1 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           <span className="material-symbols-outlined text-secondary text-2xl">spa</span>
           <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold">Completed Sessions</p>
           <p className="text-2xl font-extrabold text-secondary">32</p>
@@ -58,7 +58,7 @@ export const Journey = () => {
       </div>
 
       {/* Recent Intentions */}
-      <div className="glass-panel p-6 rounded-3xl space-y-4">
+      <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">Active Intentions</h3>
         <div className="flex flex-wrap gap-2">
           {intentions.map((intent, idx) => (
@@ -70,7 +70,7 @@ export const Journey = () => {
       </div>
 
       {/* Recent Gratitude List */}
-      <div className="glass-panel p-6 rounded-3xl space-y-4">
+      <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">Recent Reflections</h3>
         <div className="space-y-3">
           {loading ? (
