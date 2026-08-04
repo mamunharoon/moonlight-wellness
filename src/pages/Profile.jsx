@@ -1,19 +1,65 @@
-﻿import { useAlarm } from '../context/AlarmContext';
+﻿/* eslint-disable no-unused-vars */
+import { Link } from 'react-router-dom';
+import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Profile = () => {
   const { alarmTime, bedTime, intentions } = useAlarm();
+  const { user, isGuest, signOut } = useAuth();
+
+  const fullName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name]
+    .filter(Boolean)
+    .join(' ');
+  const displayName = fullName || user?.email;
 
   return (
     <div className="space-y-6">
       {/* Profile Header Card */}
       <div className="glass-panel p-6 rounded-2xl text-center space-y-3 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
-        <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-primary/20">
-          <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJJIk9TTzx_k9IDSHIWRP-c-nHSpvsuFC349yqoVNF6TBIZDar6-ja8R1OJUx1NyMYRB7G6WaIKRYbkf4-QwfRainB1NbaRfBrPrdJoGOJ91GWwlKVTAqoj1zvOCvRpF2_ZSo3gJWr_AOG7_MxK_iuglzuR4JR_Sv9EcHz6VkCbCyMY2G8rqhewFf4hUlllaiQkc2hAC1GXeT6vowAaz9-ySaepkEAQG-bq6mWz9PPfGdWQJjCMk_V" alt="Alex Rivera" />
+        <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+          <span className="material-symbols-outlined text-primary text-4xl">
+            {isGuest ? 'person' : 'account_circle'}
+          </span>
         </div>
-        <div>
-          <h3 className="text-xl font-extrabold text-white">Alex Rivera</h3>
-          <p className="text-[10px] text-secondary uppercase font-bold tracking-widest mt-1">Premium Member</p>
-        </div>
+
+        {isGuest ? (
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-xl font-extrabold text-on-surface">Guest Profile</h3>
+              <p className="text-[10px] text-secondary uppercase font-bold tracking-widest mt-1">Local Mode</p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Link
+                to="/auth"
+                className="px-4 py-2 rounded-full bg-primary text-on-primary text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/auth"
+                className="px-4 py-2 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
+              >
+                Create Account
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-xl font-extrabold text-on-surface">{displayName}</h3>
+              {fullName && (
+                <p className="text-[10px] text-on-surface-variant font-semibold mt-1">{user.email}</p>
+              )}
+            </div>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t border-white/5">
           <div>
             <p className="text-lg font-bold text-primary">12</p>

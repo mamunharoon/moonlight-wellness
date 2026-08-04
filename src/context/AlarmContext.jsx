@@ -1,13 +1,15 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAudio } from './AudioContext';
+import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabaseClient';
 
 const AlarmContext = createContext();
 
 export const AlarmProvider = ({ children }) => {
   const { playTrack } = useAudio();
-  const [userId, setUserId] = useState(null);
+  const { user } = useAuth();
+  const userId = user && !user.is_anonymous ? user.id : null;
   const [alarmTime, setAlarmTime] = useState('07:30'); // HH:MM
   const [bedTime, setBedTime] = useState('22:00'); // HH:MM
   const [isAlarmSet, setIsAlarmSet] = useState(true);
@@ -50,35 +52,15 @@ export const AlarmProvider = ({ children }) => {
     }
   };
 
-  // Handle silent anonymous authentication on launch
+  // Fetch stored rhythm once a real (non-guest) user session is available
   useEffect(() => {
-    const initializeUser = async () => {
-      if (!supabase) {
-        console.warn("Supabase is not initialized. Running in local mock mode.");
-        return;
-      }
-      let sessionUser = null;
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        sessionUser = session.user;
-      } else {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          console.error('Error signing in anonymously:', error.message);
-          return;
-        }
-        sessionUser = data.user;
-      }
-
-      if (sessionUser) {
-        setUserId(sessionUser.id);
-        fetchRhythm(sessionUser.id);
-      }
+    const loadRhythm = async () => {
+      if (!userId) return;
+      await fetchRhythm(userId);
     };
 
-    initializeUser();
-  }, []);
+    loadRhythm();
+  }, [userId]);
 
   // Background Clock Observer
   useEffect(() => {

@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { Layout } from './components/Layout';
@@ -19,14 +20,17 @@ import { SessionComplete } from './pages/SessionComplete';
 import { IntentionSetup } from './pages/IntentionSetup';
 import { MorningStart } from './pages/MorningStart';
 import { Affirmation } from './pages/Affirmation';
+import { Auth } from './pages/Auth';
+import { ResetPassword } from './pages/ResetPassword';
 
 function App() {
   return (
     <ThemeProvider>
-      <AudioProvider>
-        <AlarmProvider>
-          <Router>
-            <Routes>
+      <AuthProvider>
+        <AudioProvider>
+          <AlarmProvider>
+            <Router>
+              <Routes>
               {/* Full-Screen flows */}
               <Route path="alarm-trigger" element={<AlarmActive />} />
               <Route path="onboarding" element={<Onboarding />} />
@@ -34,7 +38,9 @@ function App() {
               <Route path="morning-start" element={<MorningStart />} />
               <Route path="affirmation" element={<Affirmation />} />
               <Route path="intention-setup" element={<IntentionSetup />} />
-              
+              <Route path="auth" element={<Auth />} />
+              <Route path="reset-password" element={<ResetPassword />} />
+
               {/* Main Tabbed Frame */}
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
@@ -53,9 +59,10 @@ function App() {
               {/* Fallback to Today */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </Router>
-        </AlarmProvider>
-      </AudioProvider>
+            </Router>
+          </AlarmProvider>
+        </AudioProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

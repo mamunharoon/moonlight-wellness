@@ -1,4 +1,6 @@
-﻿import { useAlarm } from '../context/AlarmContext';
+﻿/* eslint-disable no-unused-vars */
+import { Link } from 'react-router-dom';
+import { useAlarm } from '../context/AlarmContext';
 
 export const Home = () => {
     const { alarmTime, intentions } = useAlarm();
