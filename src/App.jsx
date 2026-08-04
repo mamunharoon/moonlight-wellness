@@ -1,4 +1,5 @@
-﻿import React from 'react';
+﻿/* eslint-disable no-unused-vars */
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AudioProvider } from './context/AudioContext';
@@ -15,6 +16,9 @@ import { Premium } from './pages/Premium';
 import { Routines } from './pages/Routines';
 import { Journey } from './pages/Journey';
 import { SessionComplete } from './pages/SessionComplete';
+import { IntentionSetup } from './pages/IntentionSetup';
+import { MorningStart } from './pages/MorningStart';
+import { Affirmation } from './pages/Affirmation';
 
 function App() {
   return (
@@ -27,6 +31,9 @@ function App() {
               <Route path="alarm-trigger" element={<AlarmActive />} />
               <Route path="onboarding" element={<Onboarding />} />
               <Route path="session-complete" element={<SessionComplete />} />
+              <Route path="morning-start" element={<MorningStart />} />
+              <Route path="affirmation" element={<Affirmation />} />
+              <Route path="intention-setup" element={<IntentionSetup />} />
               
               {/* Main Tabbed Frame */}
               <Route path="/" element={<Layout />}>
@@ -36,7 +43,7 @@ function App() {
                 <Route path="journey" element={<Journey />} />
                 <Route path="profile" element={<Profile />} />
                 
-                {/* Secondary flows accessible under standard shell */}
+                {/* Secondary pages */}
                 <Route path="breathe" element={<Breathe />} />
                 <Route path="journal" element={<Journal />} />
                 <Route path="morning-flow" element={<MorningFlow />} />

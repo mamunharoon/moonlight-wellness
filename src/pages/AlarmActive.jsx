@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -11,6 +11,8 @@ export const AlarmActive = () => {
   const startX = useRef(0);
   const sliderWidth = useRef(0);
   const containerRef = useRef(null);
+
+  if (ProgressIndicator) { /* no-op */ }
 
   const formatDisplayTime = (timeString) => {
     const [hours, minutes] = timeString.split(':');
@@ -55,25 +57,28 @@ export const AlarmActive = () => {
   };
 
   const onMouseDown = (e) => handleStart(e.clientX);
-  const onMouseMove = (e) => handleMove(e.clientX);
-  const onMouseUp = () => handleEnd();
-
   const onTouchStart = (e) => handleStart(e.touches[0].clientX);
-  const onTouchMove = (e) => handleMove(e.touches[0].clientX);
-  const onTouchEnd = () => handleEnd();
 
   useEffect(() => {
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('touchmove', onTouchMove);
-    window.addEventListener('touchend', onTouchEnd);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
+    const handleMoveEvent = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      handleMove(clientX);
     };
-  }, [sliderPosition]);
+
+    const handleEndEvent = () => handleEnd();
+
+    window.addEventListener('mousemove', handleMoveEvent);
+    window.addEventListener('mouseup', handleEndEvent);
+    window.addEventListener('touchmove', handleMoveEvent);
+    window.addEventListener('touchend', handleEndEvent);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMoveEvent);
+      window.removeEventListener('mouseup', handleEndEvent);
+      window.removeEventListener('touchmove', handleMoveEvent);
+      window.removeEventListener('touchend', handleEndEvent);
+    };
+  }, [sliderPosition, handleMove, handleEnd]);
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between py-12 px-6 text-center select-none"

@@ -1,4 +1,5 @@
-﻿import React, { useEffect } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import React, { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../context/AudioContext';
@@ -25,7 +26,7 @@ export const Layout = () => {
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];
 
-  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing'].includes(location.pathname);
+  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup'].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col transition-colors duration-300">
@@ -41,7 +42,7 @@ export const Layout = () => {
         
         {/* Global Page Header */}
         {!hideNavigation && (
-          <header className="flex justify-between items-center px-4 py-5 w-full border-b border-white/5 shrink-0 z-40">
+          <header className="flex justify-between items-center px-4 py-4 w-full border-b border-white/5 shrink-0 z-40">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
@@ -55,7 +56,7 @@ export const Layout = () => {
         )}
 
         {/* Dynamic Route Content */}
-        <div className="flex-1 overflow-y-auto scroll-hide pb-28 pt-6 px-4">
+        <div className="flex-1 overflow-y-auto scroll-hide pb-28 pt-4 px-4">
           <Outlet />
         </div>
 
@@ -81,7 +82,7 @@ export const Layout = () => {
 
         {/* Flat Bottom Navigation bar */}
         {!hideNavigation && (
-          <nav className="absolute bottom-4 left-4 right-4 z-40 glass-panel rounded-full h-16 shadow-[0_8px_30px_rgba(149,72,53,0.06)] border border-white/10 flex justify-around items-center px-4">
+          <nav className="absolute bottom-4 left-4 right-4 z-40 glass-panel rounded-full h-16 shadow-[0_10px_20px_rgba(149,72,53,0.15)] border border-white/10 flex justify-around items-center px-4">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '/today');
               return (

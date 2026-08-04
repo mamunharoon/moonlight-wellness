@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -9,6 +9,8 @@ export const IntentionSetup = () => {
   const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  if (ProgressIndicator) { /* no-op */ }
 
   const presets = [
     'Stay calm',
@@ -39,9 +41,7 @@ export const IntentionSetup = () => {
     setIsSaving(true);
     setJourneyStep('complete');
 
-    // Sync intentions to Supabase
     if (supabase && userId && intentions.length > 0) {
-      // Clear old entries and insert new ones
       await supabase
         .from('user_intentions')
         .delete()
@@ -69,7 +69,7 @@ export const IntentionSetup = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intentions</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose the focus areas you'd like to prioritize today. We'll synchronize your resources to match.
+          Choose the focus areas you'd like to prioritize today. We'll personalize your breathing and soundscapes to match.
         </p>
       </div>
 

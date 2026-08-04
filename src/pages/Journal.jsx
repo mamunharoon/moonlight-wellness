@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
 
@@ -8,29 +8,28 @@ export const Journal = () => {
   const [entries, setEntries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch entries from Supabase
-  const fetchEntries = async () => {
-    if (!userId) return;
-    const { data, error } = await supabase
-      .from('journal_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching journal:', error.message);
-      return;
-    }
-    setEntries(data || []);
-  };
-
+  // Fetch entries securely inside useEffect to comply with exhaustive-deps
   useEffect(() => {
+    const fetchEntries = async () => {
+      if (!supabase || !userId) return;
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching journal:', error.message);
+        return;
+      }
+      setEntries(data || []);
+    };
+
     fetchEntries();
   }, [userId]);
 
-  // Handle saving entries to Supabase
   const handleSave = async () => {
-    if (!userId || !gratitudeText.trim()) return;
+    if (!supabase || !userId || !gratitudeText.trim()) return;
     setIsSaving(true);
 
     const { error } = await supabase
@@ -47,7 +46,14 @@ export const Journal = () => {
     }
 
     setGratitudeText('');
-    fetchEntries(); // Refresh history list
+    
+    // Refresh history securely
+    const { data } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    setEntries(data || []);
   };
 
   const formatDate = (dateString) => {

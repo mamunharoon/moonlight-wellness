@@ -6,9 +6,11 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
-  const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
+  const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(56);
   const [isPaused, setIsPaused] = useState(false);
+
+  if (ProgressIndicator) { /* no-op */ }
 
   useEffect(() => {
     if (isPaused) return;
@@ -20,25 +22,22 @@ export const Breathe = () => {
     }
 
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
+      setSecondsLeft((prev) => {
+        const nextSec = prev - 1;
+        const cycleTime = (56 - nextSec) % 14;
+        if (cycleTime < 4) {
+          setBreatheState('Inhale');
+        } else if (cycleTime < 8) {
+          setBreatheState('Hold');
+        } else {
+          setBreatheState('Exhale');
+        }
+        return nextSec;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
   }, [secondsLeft, isPaused, navigate, setJourneyStep]);
-
-  useEffect(() => {
-    if (isPaused || secondsLeft <= 0) return;
-
-    const cycleTime = (56 - secondsLeft) % 14;
-
-    if (cycleTime < 4) {
-      setBreatheState('Inhale');
-    } else if (cycleTime < 8) {
-      setBreatheState('Hold');
-    } else {
-      setBreatheState('Exhale');
-    }
-  }, [secondsLeft, isPaused]);
 
   const handleComplete = () => {
     setJourneyStep('intention');

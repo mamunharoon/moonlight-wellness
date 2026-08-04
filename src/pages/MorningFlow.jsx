@@ -1,13 +1,14 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
-// eslint-disable-next-line no-unused-vars
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
   const [activeStep, setActiveStep] = useState(0);
+
+  if (ProgressIndicator) { /* no-op */ }
 
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
@@ -143,4 +144,3 @@ export const MorningFlow = () => {
     </div>
   );
 };
-

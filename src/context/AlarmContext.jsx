@@ -1,4 +1,5 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useAudio } from './AudioContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -15,10 +16,10 @@ export const AlarmProvider = ({ children }) => {
   
   // Morning Journey Progress State
   const [routineDuration, setRoutineDuration] = useState(() => {
-    return localStorage.getItem('moonlight_duration') || 'standard'; // 'quick', 'standard', 'extended'
+    return localStorage.getItem('moonlight_duration') || 'standard';
   });
   const [journeyStep, setJourneyStep] = useState(() => {
-    return localStorage.getItem('moonlight_journey_step') || ''; // 'alarm', 'start', 'affirmation', 'stretch', 'breathe', 'intention', 'complete'
+    return localStorage.getItem('moonlight_journey_step') || '';
   });
 
   useEffect(() => {
@@ -29,9 +30,33 @@ export const AlarmProvider = ({ children }) => {
     localStorage.setItem('moonlight_journey_step', journeyStep);
   }, [journeyStep]);
 
+  // Fetch sleep/wake rhythms from Supabase
+  const fetchRhythm = async (uid) => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('rhythms')
+      .select('wake_up_time, bedtime')
+      .eq('user_id', uid)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching rhythm:', error.message);
+      return;
+    }
+
+    if (data) {
+      setAlarmTime(data.wake_up_time);
+      setBedTime(data.bedtime);
+    }
+  };
+
   // Handle silent anonymous authentication on launch
   useEffect(() => {
     const initializeUser = async () => {
+      if (!supabase) {
+        console.warn("Supabase is not initialized. Running in local mock mode.");
+        return;
+      }
       let sessionUser = null;
       
       const { data: { session } } = await supabase.auth.getSession();
@@ -54,26 +79,6 @@ export const AlarmProvider = ({ children }) => {
 
     initializeUser();
   }, []);
-
-  // Fetch sleep/wake rhythms from Supabase
-  const fetchRhythm = async (uid) => {
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from('rhythms')
-      .select('wake_up_time, bedtime')
-      .eq('user_id', uid)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching rhythm:', error.message);
-      return;
-    }
-
-    if (data) {
-      setAlarmTime(data.wake_up_time);
-      setBedTime(data.bedtime);
-    }
-  };
 
   // Background Clock Observer
   useEffect(() => {

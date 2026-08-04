@@ -1,6 +1,4 @@
-import React from 'react';
-
-export const ProgressIndicator = ({ activeStep }) => {
+﻿export const ProgressIndicator = ({ activeStep }) => {
   const steps = [
     { key: 'alarm', label: 'Alarm' },
     { key: 'affirmation', label: 'Affirm' },
