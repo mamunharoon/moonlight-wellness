@@ -1,12 +1,10 @@
-﻿import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAlarm } from '../context/AlarmContext';
+﻿import { useAlarm } from '../context/AlarmContext';
 
 export const Profile = () => {
   const { alarmTime, bedTime, intentions } = useAlarm();
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6">
       {/* Profile Header Card */}
       <div className="glass-panel p-6 rounded-2xl text-center space-y-3 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
         <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-primary/20">
@@ -36,21 +34,19 @@ export const Profile = () => {
       <div className="glass-panel p-5 rounded-2xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <h4 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Daily Rhythm</h4>
         
-        <Link to="/onboarding" className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
           <div className="flex gap-3 items-center">
             <span className="material-symbols-outlined text-primary text-xl">wb_sunny</span>
             <span className="text-sm font-semibold">Wake-up Time ({alarmTime})</span>
           </div>
-          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-        </Link>
+        </div>
 
-        <Link to="/onboarding" className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
           <div className="flex gap-3 items-center">
             <span className="material-symbols-outlined text-secondary text-xl">bedtime</span>
             <span className="text-sm font-semibold">Bedtime ({bedTime})</span>
           </div>
-          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-        </Link>
+        </div>
       </div>
 
       {/* Personalization Section */}
@@ -63,17 +59,8 @@ export const Profile = () => {
           </div>
         </div>
       </div>
-
-      {/* Account Settings */}
-      <div className="glass-panel p-5 rounded-2xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-        <h4 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Account</h4>
-        <Link to="/premium" className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-all text-primary font-semibold">
-          <span className="flex gap-3 items-center text-sm">
-            <span className="material-symbols-outlined text-xl">workspace_premium</span> Moonlight Plus Premium
-          </span>
-          <span className="material-symbols-outlined text-sm">chevron_right</span>
-        </Link>
-      </div>
     </div>
   );
 };
+
+

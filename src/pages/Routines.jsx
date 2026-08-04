@@ -1,7 +1,4 @@
-﻿import React from 'react';
-import { Link } from 'react-router-dom';
-
-export const Routines = () => {
+﻿export const Routines = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
@@ -24,9 +21,6 @@ export const Routines = () => {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Curated sequence featuring a gentle morning affirmation, light muscle stretching, and grounding breath.
           </p>
-          <Link to="/morning-flow" className="block w-full py-3 rounded-xl bg-primary text-on-primary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
-            Start Morning Flow
-          </Link>
         </div>
 
         {/* Midday Section */}
@@ -41,9 +35,6 @@ export const Routines = () => {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Quick, on-the-spot breathing visualizer to lower heart rate and restore mental clarity during active work.
           </p>
-          <Link to="/breathe" className="block w-full py-3 rounded-xl bg-secondary text-on-secondary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
-            Reset Now
-          </Link>
         </div>
 
         {/* Evening Section */}
@@ -58,11 +49,10 @@ export const Routines = () => {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             Wind down with brief, personal gratitude journal logging, calming breathing loops, and sleep soundscapes.
           </p>
-          <Link to="/journal" className="block w-full py-3 rounded-xl bg-tertiary text-on-tertiary text-center font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm">
-            Begin Wind-Down
-          </Link>
         </div>
       </div>
     </div>
   );
 };
+
+

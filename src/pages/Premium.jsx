@@ -1,6 +1,4 @@
-import React from 'react';
-
-export const Premium = () => {
+﻿export const Premium = () => {
   return (
     <div className="space-y-6 py-4">
       {/* Header Panel */}
@@ -49,3 +47,4 @@ export const Premium = () => {
     </div>
   );
 };
+

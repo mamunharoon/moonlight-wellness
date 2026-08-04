@@ -3,7 +3,7 @@
 export const Notifications = () => {
   const [alerts, setAlerts] = useState([
     { id: 1, title: 'Time for Mindful Breathing', body: 'The evening is settling in. Take 3 minutes for a guided box-breathing session.', time: '2m ago', read: false, icon: 'air', color: 'bg-primary/10 text-primary' },
-    { id: 2, title: 'Community Response', body: 'Sarah and 4 others liked your recent vibe entry \"Midnight Reflections\".', time: '1h ago', read: false, icon: 'favorite', color: 'bg-secondary/10 text-secondary' },
+    { id: 2, title: 'Community Response', body: 'Sarah and 4 others liked your recent vibe entry "Midnight Reflections".', time: '1h ago', read: false, icon: 'favorite', color: 'bg-secondary/10 text-secondary' },
     { id: 3, title: 'Streak Milestone Unlocked', body: '7-Day Serenity Streak achieved! Your consistency has been noted.', time: 'Yesterday', read: true, icon: 'workspace_premium', color: 'bg-tertiary/10 text-tertiary' }
   ]);
 
@@ -52,3 +52,4 @@ export const Notifications = () => {
     </div>
   );
 };
+

@@ -1,12 +1,19 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+// eslint-disable-next-line no-unused-vars
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
   const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
+    { title: 'Neck Rolls', desc: 'Gently roll your head in a slow circle.', icon: 'autorenew' },
+    { title: 'Shoulder Shrugs', desc: 'Lift your shoulders to your ears and release.', icon: 'spa' }
+  ];
 
   const getStepDuration = () => {
     if (routineDuration === 'extended') return 45;
@@ -15,32 +22,29 @@ export const MorningFlow = () => {
 
   const [timeLeft, setTimeLeft] = useState(getStepDuration());
 
-  const steps = [
-    { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
-    { title: 'Neck Rolls', desc: 'Gently roll your head in a slow circle.', icon: 'autorenew' },
-    { title: 'Shoulder Shrugs', desc: 'Lift your shoulders to your ears and release.', icon: 'spa' }
-  ];
-
   useEffect(() => {
     const stepDur = routineDuration === 'extended' ? 45 : 15;
 
-    if (timeLeft <= 0) {
-      if (activeStep < steps.length - 1) {
-        setActiveStep(prev => prev + 1);
-        setTimeLeft(stepDur);
-      } else {
-        setJourneyStep('breathe');
-        navigate('/breathe');
-      }
-      return;
-    }
-
     const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setActiveStep((curr) => {
+            if (curr < steps.length - 1) {
+              return curr + 1;
+            } else {
+              setJourneyStep('breathe');
+              navigate('/breathe');
+              return curr;
+            }
+          });
+          return stepDur;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, activeStep, navigate, setJourneyStep, steps.length, routineDuration]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 45 : 15;
@@ -139,3 +143,4 @@ export const MorningFlow = () => {
     </div>
   );
 };
+

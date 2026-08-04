@@ -1,6 +1,5 @@
 ﻿import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
-import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const MorningStart = () => {
   const navigate = useNavigate();
@@ -31,8 +30,6 @@ export const MorningStart = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
-      <ProgressIndicator activeStep="alarm" />
-
       <div className="space-y-6 text-center my-auto">
         <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
           <span className="material-symbols-outlined text-3xl">wb_sunny</span>
@@ -78,3 +75,5 @@ export const MorningStart = () => {
     </div>
   );
 };
+
+
