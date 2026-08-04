@@ -14,7 +14,7 @@
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Morning Awakening</span>
-              <h3 className="text-lg font-bold text-white mt-0.5">Rise & Reset</h3>
+              <h3 className="text-lg font-bold text-on-surface mt-0.5">Rise & Reset</h3>
             </div>
             <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">5 min</span>
           </div>
@@ -28,7 +28,7 @@
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-secondary uppercase font-bold tracking-wider">Midday Anchors</span>
-              <h3 className="text-lg font-bold text-white mt-0.5">Gentle Reset</h3>
+              <h3 className="text-lg font-bold text-on-surface mt-0.5">Gentle Reset</h3>
             </div>
             <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">1 min</span>
           </div>
@@ -42,7 +42,7 @@
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-tertiary uppercase font-bold tracking-wider">Nightrest</span>
-              <h3 className="text-lg font-bold text-white mt-0.5">Begin Wind-Down</h3>
+              <h3 className="text-lg font-bold text-on-surface mt-0.5">Begin Wind-Down</h3>
             </div>
             <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">10 min</span>
           </div>
@@ -54,5 +54,4 @@
     </div>
   );
 };
-
 

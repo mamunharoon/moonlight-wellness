@@ -1,7 +1,6 @@
 ﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
-import { ProgressIndicator } from '../components/ProgressIndicator';
 import { supabase } from '../lib/supabaseClient';
 
 export const IntentionSetup = () => {
@@ -9,8 +8,6 @@ export const IntentionSetup = () => {
   const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
-  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
   const presets = [
     'Stay calm',
@@ -22,38 +19,46 @@ export const IntentionSetup = () => {
   ];
 
   const handleSelectPreset = (preset) => {
-    if (intentions.includes(preset)) {
-      setIntentions(intentions.filter(item => item !== preset));
-    } else {
-      setIntentions([preset]); // Keep it focused on selecting one primary intention
-    }
+    setIntentions([preset]); // Allow exactly ONE primary intention as requested
   };
 
   const handleAddCustom = () => {
-    if (!customIntention.trim()) return;
-    setIntentions([customIntention.trim()]);
+    const trimmed = customIntention.trim();
+    if (!trimmed) return;
+    setIntentions([trimmed]);
     setCustomIntention('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddCustom();
+    }
   };
 
   const handleComplete = async () => {
     setIsSaving(true);
     setJourneyStep('complete');
 
+    const primaryIntention = intentions[0] || 'Stay calm';
+    localStorage.setItem('moonlight_today_intention', primaryIntention);
+
     if (supabase && userId && intentions.length > 0) {
-      // Clear old active entries and insert new primary intention
-      await supabase
-        .from('user_intentions')
-        .delete()
-        .eq('user_id', userId);
+      try {
+        await supabase
+          .from('user_intentions')
+          .delete()
+          .eq('user_id', userId);
 
-      const inserts = intentions.map(intent => ({
-        user_id: userId,
-        intention: intent
-      }));
-
-      await supabase
-        .from('user_intentions')
-        .insert(inserts);
+        await supabase
+          .from('user_intentions')
+          .insert({
+            user_id: userId,
+            intention: primaryIntention
+          });
+      } catch (e) {
+        console.warn('Supabase sync skipped during offline/mock state:', e.message);
+      }
     }
 
     setIsSaving(false);
@@ -61,14 +66,13 @@ export const IntentionSetup = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
-      <ProgressIndicator activeStep="intention" />
-
+    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-8 select-none">
+      
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
-        <h2 className="text-2xl font-bold text-on-surface">Set your intentions</h2>
+        <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose the primary area you would like to focus on today. We'll adjust your daily rhythm to match.
+          Choose one primary intention to anchor your focus today.
         </p>
       </div>
 
@@ -80,9 +84,9 @@ export const IntentionSetup = () => {
             <button 
               key={idx}
               onClick={() => handleSelectPreset(preset)}
-              className={`p-4 rounded-2xl border text-xs font-semibold text-center transition-all ${
+              className={`p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
                 isSelected 
-                  ? 'bg-primary-container/30 border-primary text-primary font-bold shadow-md shadow-primary/5' 
+                  ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5' 
                   : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
               }`}
             >
@@ -92,18 +96,20 @@ export const IntentionSetup = () => {
         })}
       </div>
 
-      {/* Custom Intention Creator */}
-      <div className="glass-panel p-4 rounded-2xl w-full flex items-center gap-2">
+      {/* Unified custom input/button control */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
         <input 
           type="text"
           value={customIntention}
           onChange={(e) => setCustomIntention(e.target.value)}
-          className="flex-1 bg-transparent border-none text-xs text-white placeholder:text-on-surface-variant/40 outline-none"
-          placeholder="Add custom intention..."
+          onKeyDown={handleKeyDown}
+          className="flex-1 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+          placeholder="Write your own..."
         />
         <button 
           onClick={handleAddCustom}
-          className="px-3 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-[10px] font-bold uppercase tracking-wider active:scale-95"
+          disabled={!customIntention.trim()}
+          className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
         >
           Add
         </button>
@@ -111,8 +117,8 @@ export const IntentionSetup = () => {
 
       <button 
         onClick={handleComplete}
-        disabled={isSaving || intentions.length === 0}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+        disabled={isSaving}
+        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
       >
         <span>{isSaving ? 'Saving...' : 'Start Your Journey'}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>

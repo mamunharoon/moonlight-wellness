@@ -1,21 +1,18 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
-import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const AlarmActive = () => {
   const { snooze, dismissAlarm, alarmTime, setJourneyStep } = useAlarm();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
-  const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00');
+  const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00 AM');
   const isDragging = useRef(false);
   const startX = useRef(0);
   const sliderWidth = useRef(0);
   const containerRef = useRef(null);
 
-  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
-
-  // Tick the local clock face dynamically every second
+  // Tick the clock dynamically every second
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -90,34 +87,49 @@ export const AlarmActive = () => {
   }, [sliderPosition, handleMove, handleEnd]);
 
   const getWordingFromTargetTime = () => {
-    const [hours] = alarmTime.split(':').map(Number);
-    if (hours < 12) return "Good morning.";
-    return "A new day has begun.";
+  if (!alarmTime) {
+    return 'Good morning.';
+  }
+
+  const [hours] = alarmTime.split(':').map(Number);
+
+  if (hours < 12) {
+    return 'Good morning.';
+  }
+
+  return 'A new day has begun.';
+};
+
+  // Render actual, current local date dynamically
+  const getDisplayDate = () => {
+    const options = { weekday: 'long', month: 'short', day: 'numeric' };
+    return new Date().toLocaleDateString('en-US', options);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between py-12 px-6 text-center select-none"
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between py-16 px-6 text-center select-none"
          style={{ background: 'linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%)' }}>
       
-      <ProgressIndicator activeStep="alarm" />
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-secondary/10 rounded-full blur-3xl"></div>
 
-      {/* Center Alarm Details */}
-      <div className="relative z-10 space-y-6 my-auto">
-        <div className="w-20 h-20 rounded-full bg-white/40 backdrop-blur-md flex items-center justify-center mx-auto border border-white/40 shadow-inner">
+      <div className="relative z-10 space-y-2 mt-12">
+        <p className="text-xs text-primary font-bold uppercase tracking-widest">Moonlight Wellness</p>
+        <h2 className="text-3xl font-extrabold text-[#5c3d2e]">{getWordingFromTargetTime()}</h2>
+      </div>
+
+      <div className="relative z-10 space-y-6">
+        <div className="w-24 h-24 rounded-full bg-white/40 backdrop-blur-md flex items-center justify-center mx-auto border border-white/40 shadow-inner">
           <span className="material-symbols-outlined text-[#954835] text-4xl animate-pulse">wb_twilight</span>
         </div>
-        <div className="space-y-1">
-          <h1 className="text-6xl font-extrabold text-[#5c3d2e] tracking-tighter leading-none">
-            {currentTimeDisplay.split(' ')[0]}
-          </h1>
-          <p className="text-xs text-[#5c3d2e]/60 uppercase tracking-widest font-bold">{getWordingFromTargetTime()}</p>
-        </div>
-        <p className="text-sm text-[#5c3d2e]/70 max-w-xs mx-auto italic font-medium">
-          "Let's begin gently."
+        <h1 className="text-[72px] font-bold text-[#5c3d2e] tracking-tighter leading-none">
+          {currentTimeDisplay}
+        </h1>
+        <p className="text-[#5c3d2e]/70 font-label-md font-semibold tracking-wide uppercase">
+          {getDisplayDate()}
         </p>
       </div>
 
-      {/* Slide to Unlock Area */}
       <div className="relative z-10 w-full max-w-sm space-y-6">
         <div 
           ref={containerRef}

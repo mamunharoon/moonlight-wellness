@@ -34,30 +34,16 @@ export const Journey = () => {
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
-  return (
+    return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
         <h2 className="font-headline-lg text-2xl md:text-3xl text-on-surface font-bold tracking-tight">Your Journey</h2>
         <p className="text-on-surface-variant font-body-md mt-1">
-          Simple milestone stats and reflective journal entries.
+          Honest tracking of your sleep, intentions, and reflections.
         </p>
       </div>
 
-      {/* Completion Streak */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="glass-panel p-6 rounded-2xl text-center space-y-1 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-          <span className="material-symbols-outlined text-primary text-2xl">local_fire_department</span>
-          <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold">Current Streak</p>
-          <p className="text-2xl font-extrabold text-primary">12 Days</p>
-        </div>
-        <div className="glass-panel p-6 rounded-2xl text-center space-y-1 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-          <span className="material-symbols-outlined text-secondary text-2xl">spa</span>
-          <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold">Completed Sessions</p>
-          <p className="text-2xl font-extrabold text-secondary">32</p>
-        </div>
-      </div>
-
-      {/* Recent Intentions */}
+            {/* Recent Intentions */}
       <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">Active Intentions</h3>
         <div className="flex flex-wrap gap-2">
@@ -71,7 +57,7 @@ export const Journey = () => {
 
       {/* Recent Gratitude List */}
       <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">Recent Reflections</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">Your Reflections</h3>
         <div className="space-y-3">
           {loading ? (
             <p className="text-xs text-on-surface-variant/40 italic">Loading entries...</p>
@@ -88,7 +74,7 @@ export const Journey = () => {
               </div>
             ))
           ) : (
-            <p className="text-xs text-on-surface-variant/40 italic">No recent entries found. Save reflections to build your journey.</p>
+            <p className="text-xs text-on-surface-variant/40 italic">Not started yet. Complete your first evening reflection to build your logs.</p>
           )}
         </div>
       </div>

@@ -1,23 +1,21 @@
 ﻿import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
-import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
   const { intentions, setJourneyStep } = useAlarm();
 
-  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
-
   const handleReturnHome = () => {
-    // Reset active morning flow trackers so dashboard switches to morning-post state!
+    localStorage.setItem('moonlight_morning_completed_date', new Date().toDateString());
     setJourneyStep('');
     navigate('/');
   };
 
-  return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
-      <ProgressIndicator activeStep="complete" />
+  const primaryIntention = intentions[0] || localStorage.getItem('moonlight_today_intention') || 'Stay calm';
 
+  return (
+    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">
+      
       {/* Circular Gauge */}
       <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-6">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -33,30 +31,16 @@ export const SessionComplete = () => {
 
       {/* Text Success Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-extrabold text-white leading-tight">You started today with intention.</h2>
+        <h2 className="text-2xl font-extrabold text-on-surface leading-tight">You started today with intention.</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           "Carry this feeling into your day." One small step at a time.
         </p>
       </div>
 
-      {/* Rewards Grid */}
-      <div className="grid grid-cols-2 gap-4 w-full">
-        <div className="glass-panel p-5 rounded-2xl text-center space-y-1 shadow-sm">
-          <span className="material-symbols-outlined text-primary text-xl">auto_awesome</span>
-          <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-semibold">Vibe Points</p>
-          <p className="text-xl font-extrabold text-primary">+450</p>
-        </div>
-        <div className="glass-panel p-5 rounded-2xl text-center space-y-1 shadow-sm">
-          <span className="material-symbols-outlined text-secondary text-xl">local_fire_department</span>
-          <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-semibold">Daily Streak</p>
-          <p className="text-xl font-extrabold text-secondary">12 Days</p>
-        </div>
-      </div>
-
       {/* Summary card */}
-      <div className="glass-panel p-4 rounded-2xl text-left text-xs text-on-surface-variant w-full max-w-sm mx-auto space-y-1">
+      <div className="glass-panel p-5 rounded-2xl text-left text-xs text-on-surface-variant w-full max-w-sm mx-auto space-y-2 shadow-sm">
         <span className="font-semibold uppercase text-primary">Your Morning Intention</span>
-        <p className="text-white font-medium italic">"{intentions.join(', ') || 'Reduce Anxiety'}"</p>
+        <p className="text-on-surface font-medium italic">"{primaryIntention}"</p>
       </div>
 
       <div className="space-y-3 w-full">
