@@ -23,8 +23,11 @@ export const ResetPassword = () => {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setStatus((current) => (current === 'valid' ? current : session ? 'valid' : 'invalid'));
+    // getSession() is used only to know when Supabase has finished processing
+    // the URL for a recovery token — never as proof of recovery itself. Any
+    // pre-existing session (anonymous or normal) must not grant access.
+    supabase.auth.getSession().then(() => {
+      setStatus((current) => (current === 'valid' ? current : 'invalid'));
     });
 
     return () => subscription.unsubscribe();
