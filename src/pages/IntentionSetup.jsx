@@ -10,14 +10,14 @@ export const IntentionSetup = () => {
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  if (ProgressIndicator) { /* no-op */ }
+  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
   const presets = [
     'Stay calm',
     'Be grateful',
     'Be patient',
-    'Take one step forward',
     'Stay focused',
+    'Take one step forward',
     'Be kind to yourself'
   ];
 
@@ -25,15 +25,13 @@ export const IntentionSetup = () => {
     if (intentions.includes(preset)) {
       setIntentions(intentions.filter(item => item !== preset));
     } else {
-      setIntentions([...intentions, preset]);
+      setIntentions([preset]); // Keep it focused on selecting one primary intention
     }
   };
 
   const handleAddCustom = () => {
     if (!customIntention.trim()) return;
-    if (!intentions.includes(customIntention.trim())) {
-      setIntentions([...intentions, customIntention.trim()]);
-    }
+    setIntentions([customIntention.trim()]);
     setCustomIntention('');
   };
 
@@ -42,6 +40,7 @@ export const IntentionSetup = () => {
     setJourneyStep('complete');
 
     if (supabase && userId && intentions.length > 0) {
+      // Clear old active entries and insert new primary intention
       await supabase
         .from('user_intentions')
         .delete()
@@ -69,7 +68,7 @@ export const IntentionSetup = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intentions</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose the focus areas you'd like to prioritize today. We'll personalize your breathing and soundscapes to match.
+          Choose the primary area you would like to focus on today. We'll adjust your daily rhythm to match.
         </p>
       </div>
 

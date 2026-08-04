@@ -8,16 +8,33 @@ import { useAlarm } from '../context/AlarmContext';
 export const Layout = () => {
   const { isDark, toggleTheme } = useTheme();
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
-  const { isRinging } = useAlarm();
+  const { isRinging, journeyStep } = useAlarm();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Redirect to immersive alarm overlay when active
+  // Programmatic Interruption & Resume Observer
   useEffect(() => {
     if (isRinging) {
       navigate('/alarm-trigger');
+      return;
     }
-  }, [isRinging, navigate]);
+
+    // List of active morning sub-routes
+    const stepPaths = {
+      alarm: '/alarm-trigger',
+      start: '/morning-start',
+      affirmation: '/affirmation',
+      stretch: '/morning-flow',
+      breathe: '/breathe',
+      intention: '/intention-setup',
+      complete: '/session-complete'
+    };
+
+    const activePath = stepPaths[journeyStep];
+    if (activePath && location.pathname !== activePath) {
+      navigate(activePath);
+    }
+  }, [isRinging, journeyStep, location.pathname, navigate]);
 
   const navItems = [
     { label: 'Today', path: '/', icon: 'home_health' },
@@ -26,7 +43,7 @@ export const Layout = () => {
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];
 
-  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup'].includes(location.pathname);
+  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup', '/morning-flow', '/breathe'].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col transition-colors duration-300">
@@ -37,8 +54,8 @@ export const Layout = () => {
         <div className="absolute bottom-[20%] right-1/4 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* Main Responsive Container - Balanced width (768px / max-w-3xl) */}
-      <div className="relative flex-1 flex flex-col max-w-3xl w-full mx-auto z-10">
+      {/* Main Responsive Container */}
+      <div className="relative flex-1 flex flex-col max-w-md w-full mx-auto z-10">
         
         {/* Global Page Header */}
         {!hideNavigation && (
@@ -46,7 +63,7 @@ export const Layout = () => {
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
-                {isDark ? 'Moonlight Wellness' : 'Daily Intention'}
+                {isDark ? 'Moonlight' : 'Daily Intention'}
               </h1>
             </div>
             <button onClick={toggleTheme} className="text-on-surface-variant p-2 rounded-full hover:bg-white/5 transition-transform active:scale-90">

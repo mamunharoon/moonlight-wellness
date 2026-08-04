@@ -14,7 +14,7 @@ export const AlarmProvider = ({ children }) => {
   const [isRinging, setIsRinging] = useState(false);
   const [intentions, setIntentions] = useState(['Stay calm', 'Be kind to yourself']);
   
-  // Morning Journey Progress State
+  // Morning Journey Progress State (With local storage synchronization for resume support)
   const [routineDuration, setRoutineDuration] = useState(() => {
     return localStorage.getItem('moonlight_duration') || 'standard';
   });

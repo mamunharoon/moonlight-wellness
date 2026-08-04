@@ -8,23 +8,24 @@ export const MorningFlow = () => {
   const { setJourneyStep, routineDuration } = useAlarm();
   const [activeStep, setActiveStep] = useState(0);
 
-  if (ProgressIndicator) { /* no-op */ }
+  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
-    { title: 'Neck Rolls', desc: 'Gently roll your head in a slow circle.', icon: 'autorenew' },
-    { title: 'Shoulder Shrugs', desc: 'Lift your shoulders to your ears and release.', icon: 'spa' }
+    { title: 'Shoulder Rolls', desc: 'Roll your shoulders backward gently.', icon: 'rotate_right' },
+    { title: 'Gentle Neck Stretch', desc: 'Slowly lower your ear to your shoulder.', icon: 'autorenew' },
+    { title: 'Gentle Twist', desc: 'Slowly rotate your torso from side to side.', icon: 'spa' }
   ];
 
   const getStepDuration = () => {
-    if (routineDuration === 'extended') return 45;
-    return 15;
+    if (routineDuration === 'extended') return 40;
+    return 20; // Default to 20s for standard routine mode
   };
 
   const [timeLeft, setTimeLeft] = useState(getStepDuration());
 
   useEffect(() => {
-    const stepDur = routineDuration === 'extended' ? 45 : 15;
+    const stepDur = routineDuration === 'extended' ? 40 : 20;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -48,7 +49,7 @@ export const MorningFlow = () => {
   }, [navigate, setJourneyStep, routineDuration, steps.length]);
 
   const handleNextStep = () => {
-    const stepDur = routineDuration === 'extended' ? 45 : 15;
+    const stepDur = routineDuration === 'extended' ? 40 : 20;
     if (activeStep < steps.length - 1) {
       setActiveStep(prev => prev + 1);
       setTimeLeft(stepDur);
@@ -71,13 +72,14 @@ export const MorningFlow = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Awakening</span>
         <h2 className="text-2xl font-bold text-on-surface">Light Morning Stretching</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-          Wake up your body with 2 minutes of gentle movement.
+          Wake up your body with gentle, slow stretches.
         </p>
       </div>
 
-      <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-sm">
+      {/* Progress visual bar */}
+      <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
-          <span>Overall Progress</span>
+          <span>Stretching Progress</span>
           <span>Exercise {activeStep + 1} of {steps.length}</span>
         </div>
         <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
@@ -88,6 +90,7 @@ export const MorningFlow = () => {
         </div>
       </div>
 
+      {/* Steps List */}
       <div className="space-y-4">
         {steps.map((step, idx) => {
           const isCompleted = idx < activeStep;

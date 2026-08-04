@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -7,30 +7,38 @@ export const AlarmActive = () => {
   const { snooze, dismissAlarm, alarmTime, setJourneyStep } = useAlarm();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
+  const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00');
   const isDragging = useRef(false);
   const startX = useRef(0);
   const sliderWidth = useRef(0);
   const containerRef = useRef(null);
 
-  if (ProgressIndicator) { /* no-op */ }
+  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
-  const formatDisplayTime = (timeString) => {
-    const [hours, minutes] = timeString.split(':');
-    const hr = parseInt(hours);
-    const ampm = hr >= 12 ? 'PM' : 'AM';
-    const displayHr = hr % 12 || 12;
-    return `${displayHr}:${minutes} ${ampm}`;
-  };
+  // Tick the local clock face dynamically every second
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const hr = now.getHours();
+      const mins = now.getMinutes().toString().padStart(2, '0');
+      const displayHr = hr % 12 || 12;
+      const ampm = hr >= 12 ? 'PM' : 'AM';
+      setCurrentTimeDisplay(`${displayHr}:${mins} ${ampm}`);
+    };
 
-  const handleStart = (clientX) => {
-    isDragging.current = true;
-    startX.current = clientX;
-    if (containerRef.current) {
-      sliderWidth.current = containerRef.current.offsetWidth - 64;
-    }
-  };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleMove = (clientX) => {
+  const handleUnlock = useCallback(() => {
+    isDragging.current = false;
+    dismissAlarm();
+    setJourneyStep('start');
+    navigate('/morning-start');
+  }, [dismissAlarm, navigate, setJourneyStep]);
+
+  const handleMove = useCallback((clientX) => {
     if (!isDragging.current) return;
     const deltaX = clientX - startX.current;
     const boundedX = Math.max(0, Math.min(deltaX, sliderWidth.current));
@@ -39,21 +47,22 @@ export const AlarmActive = () => {
     if (boundedX >= sliderWidth.current * 0.95) {
       handleUnlock();
     }
-  };
+  }, [handleUnlock]);
 
-  const handleEnd = () => {
+  const handleEnd = useCallback(() => {
     if (!isDragging.current) return;
     isDragging.current = false;
     if (sliderPosition < sliderWidth.current * 0.95) {
       setSliderPosition(0);
     }
-  };
+  }, [sliderPosition]);
 
-  const handleUnlock = () => {
-    isDragging.current = false;
-    dismissAlarm();
-    setJourneyStep('start');
-    navigate('/morning-start');
+  const handleStart = (clientX) => {
+    isDragging.current = true;
+    startX.current = clientX;
+    if (containerRef.current) {
+      sliderWidth.current = containerRef.current.offsetWidth - 64;
+    }
   };
 
   const onMouseDown = (e) => handleStart(e.clientX);
@@ -80,6 +89,12 @@ export const AlarmActive = () => {
     };
   }, [sliderPosition, handleMove, handleEnd]);
 
+  const getWordingFromTargetTime = () => {
+    const [hours] = alarmTime.split(':').map(Number);
+    if (hours < 12) return "Good morning.";
+    return "A new day has begun.";
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between py-12 px-6 text-center select-none"
          style={{ background: 'linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%)' }}>
@@ -93,12 +108,12 @@ export const AlarmActive = () => {
         </div>
         <div className="space-y-1">
           <h1 className="text-6xl font-extrabold text-[#5c3d2e] tracking-tighter leading-none">
-            {formatDisplayTime(alarmTime).split(' ')[0]}
+            {currentTimeDisplay.split(' ')[0]}
           </h1>
-          <p className="text-xs text-[#5c3d2e]/60 uppercase tracking-widest font-bold">Wake Up Gently</p>
+          <p className="text-xs text-[#5c3d2e]/60 uppercase tracking-widest font-bold">{getWordingFromTargetTime()}</p>
         </div>
-        <p className="text-sm text-[#5c3d2e]/70 max-w-xs mx-auto italic">
-          "A new day has begun. Let's begin with intention."
+        <p className="text-sm text-[#5c3d2e]/70 max-w-xs mx-auto italic font-medium">
+          "Let's begin gently."
         </p>
       </div>
 

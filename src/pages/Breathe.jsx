@@ -6,11 +6,11 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
-  const [breatheState, setBreatheState] = useState('Inhale');
-  const [secondsLeft, setSecondsLeft] = useState(56);
+  const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
+  const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
 
-  if (ProgressIndicator) { /* no-op */ }
+  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
     if (isPaused) return;
@@ -61,6 +61,7 @@ export const Breathe = () => {
         </p>
       </div>
 
+      {/* Breathing Ring Visualizer */}
       <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
         <div className={`absolute inset-0 rounded-full bg-primary/10 blur-3xl transition-all duration-[4000ms] ${
           breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-95 opacity-50'
@@ -82,6 +83,7 @@ export const Breathe = () => {
         </span>
       </div>
 
+      {/* Controls */}
       <div className="space-y-3 w-full">
         <div className="flex gap-3">
           <button 
