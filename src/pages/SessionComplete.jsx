@@ -11,7 +11,7 @@ export const SessionComplete = () => {
     navigate('/');
   };
 
-  const primaryIntention = intentions[0] || localStorage.getItem('moonlight_today_intention') || 'Stay calm';
+  const primaryIntention = intentions[0] || 'Stay calm';
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">

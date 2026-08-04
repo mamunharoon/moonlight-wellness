@@ -1,9 +1,35 @@
 ﻿import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
+
+const JOURNAL_KEY = 'moonlight_journal_entries';
+const MAX_BODY_LENGTH = 500;
+const MAX_ENTRIES = 100;
+
+const isValidJournalEntry = (entry) =>
+  entry !== null &&
+  typeof entry === 'object' &&
+  typeof entry.body === 'string' &&
+  entry.body.trim().length > 0 &&
+  typeof entry.created_at === 'string' &&
+  !Number.isNaN(new Date(entry.created_at).getTime());
+
+const readGuestJournalEntries = () => {
+  try {
+    const raw = localStorage.getItem(JOURNAL_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidJournalEntry);
+  } catch {
+    return [];
+  }
+};
 
 export const Journal = () => {
   const { userId } = useAlarm();
+  const { loading: authLoading, isGuest } = useAuth();
   const [gratitudeText, setGratitudeText] = useState('');
   const [entries, setEntries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -11,6 +37,13 @@ export const Journal = () => {
   // Fetch entries securely inside useEffect to comply with exhaustive-deps
   useEffect(() => {
     const fetchEntries = async () => {
+      if (authLoading) return;
+
+      if (isGuest) {
+        setEntries(readGuestJournalEntries());
+        return;
+      }
+
       if (!supabase || !userId) return;
       const { data, error } = await supabase
         .from('journal_entries')
@@ -26,17 +59,39 @@ export const Journal = () => {
     };
 
     fetchEntries();
-  }, [userId]);
+  }, [userId, authLoading, isGuest]);
 
   const handleSave = async () => {
-    if (!supabase || !userId || !gratitudeText.trim()) return;
+    if (authLoading) return;
+    const trimmed = gratitudeText.trim().slice(0, MAX_BODY_LENGTH);
+    if (!trimmed) return;
+
+    if (isGuest) {
+      const newEntry = {
+        local_id: crypto.randomUUID(),
+        body: trimmed,
+        created_at: new Date().toISOString()
+      };
+      const updated = [newEntry, ...readGuestJournalEntries()].slice(0, MAX_ENTRIES);
+      try {
+        localStorage.setItem(JOURNAL_KEY, JSON.stringify(updated));
+      } catch {
+        // Storage write failed (e.g. quota exceeded) - still reflect the
+        // entry in this session's UI even if it can't persist across reload.
+      }
+      setEntries(updated);
+      setGratitudeText('');
+      return;
+    }
+
+    if (!supabase || !userId) return;
     setIsSaving(true);
 
     const { error } = await supabase
       .from('journal_entries')
       .insert({
         user_id: userId,
-        body: gratitudeText.trim()
+        body: trimmed
       });
 
     setIsSaving(false);
@@ -46,7 +101,7 @@ export const Journal = () => {
     }
 
     setGratitudeText('');
-    
+
     // Refresh history securely
     const { data } = await supabase
       .from('journal_entries')
@@ -78,17 +133,18 @@ export const Journal = () => {
         </div>
         <div className="space-y-4">
           <label className="text-sm text-on-surface-variant font-medium">One thing I am grateful for today...</label>
-          <textarea 
-            rows="3" 
+          <textarea
+            rows="3"
             value={gratitudeText}
             onChange={(e) => setGratitudeText(e.target.value)}
+            maxLength={MAX_BODY_LENGTH}
             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-on-surface-variant/40 outline-none"
             placeholder="The warm sun on my face..."
             disabled={isSaving}
           ></textarea>
-          <button 
+          <button
             onClick={handleSave}
-            disabled={isSaving || !gratitudeText.trim()}
+            disabled={isSaving || authLoading || !gratitudeText.trim()}
             className="w-full bg-primary text-on-primary py-3 rounded-full font-label-md text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
           >
             <span>{isSaving ? 'Saving...' : 'Save to Journal'}</span>
@@ -102,8 +158,8 @@ export const Journal = () => {
         <h3 className="font-headline-md text-lg text-on-surface font-bold">Recent Reflections</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {entries.length > 0 ? (
-            entries.map((entry) => (
-              <div key={entry.id} className="glass-panel p-6 rounded-2xl space-y-3 hover:bg-white/10 transition-colors">
+            entries.map((entry, index) => (
+              <div key={entry.local_id ?? entry.id ?? index} className="glass-panel p-6 rounded-2xl space-y-3 hover:bg-white/10 transition-colors">
                 <div className="flex justify-between text-xs text-on-surface-variant/60 font-semibold">
                   <span>{formatDate(entry.created_at)}</span>
                   <span className="material-symbols-outlined text-sm text-secondary">favorite</span>

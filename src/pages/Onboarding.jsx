@@ -4,7 +4,7 @@ import { useAlarm } from '../context/AlarmContext';
 
 export const Onboarding = () => {
   const navigate = useNavigate();
-  const { setAlarmTime, setBedTime, intentions, setIntentions } = useAlarm();
+  const { intentions, setIntentions, updateRhythm } = useAlarm();
   const [step, setStep] = useState(1);
   const [localAlarm, setLocalAlarm] = useState('07:30');
   const [localBed, setLocalBed] = useState('22:00');
@@ -27,8 +27,7 @@ export const Onboarding = () => {
     if (step < 4) {
       setStep(step + 1);
     } else {
-      setAlarmTime(localAlarm);
-      setBedTime(localBed);
+      updateRhythm(localAlarm, localBed);
       navigate('/');
     }
   };

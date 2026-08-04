@@ -5,12 +5,17 @@ import { useAuth } from '../context/AuthContext';
 
 export const Profile = () => {
   const { alarmTime, bedTime, intentions } = useAlarm();
-  const { user, isGuest, signOut } = useAuth();
+  const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
 
-  const fullName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name]
+  // Fallback order: loaded profile row -> auth metadata -> email -> generic label.
+  const profileFullName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+    : '';
+  const metadataFullName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name]
     .filter(Boolean)
     .join(' ');
-  const displayName = fullName || user?.email;
+  const hasNameDisplay = Boolean(profileFullName || metadataFullName);
+  const displayName = profileFullName || metadataFullName || user?.email || 'Moonlight User';
 
   return (
     <div className="space-y-6">
@@ -46,11 +51,16 @@ export const Profile = () => {
         ) : (
           <div className="space-y-3">
             <div>
-              <h3 className="text-xl font-extrabold text-on-surface">{displayName}</h3>
-              {fullName && (
+              <h3 className="text-xl font-extrabold text-on-surface">
+                {profileLoading && !profile ? 'Loading profile...' : displayName}
+              </h3>
+              {hasNameDisplay && user?.email && (
                 <p className="text-[10px] text-on-surface-variant font-semibold mt-1">{user.email}</p>
               )}
             </div>
+            {profileError && (
+              <p role="alert" className="text-[10px] text-red-400 font-medium">{profileError}</p>
+            )}
             <button
               onClick={signOut}
               className="px-4 py-2 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
@@ -60,19 +70,8 @@ export const Profile = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t border-white/5">
-          <div>
-            <p className="text-lg font-bold text-primary">12</p>
-            <p className="text-[9px] text-on-surface-variant uppercase font-semibold">Streak Days</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-secondary">42</p>
-            <p className="text-[9px] text-on-surface-variant uppercase font-semibold">Vibe Points</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-tertiary">8.5h</p>
-            <p className="text-[9px] text-on-surface-variant uppercase font-semibold">Avg Sleep</p>
-          </div>
+        <div className="pt-2 text-center border-t border-white/5">
+          <p className="text-xs text-on-surface-variant/60 italic">No activity recorded yet.</p>
         </div>
       </div>
 

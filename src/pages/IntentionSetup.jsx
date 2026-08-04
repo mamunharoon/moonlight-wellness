@@ -41,23 +41,27 @@ export const IntentionSetup = () => {
     setJourneyStep('complete');
 
     const primaryIntention = intentions[0] || 'Stay calm';
-    localStorage.setItem('moonlight_today_intention', primaryIntention);
 
     if (supabase && userId && intentions.length > 0) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('user_intentions')
-          .delete()
-          .eq('user_id', userId);
+          .upsert(
+            {
+              user_id: userId,
+              intention: primaryIntention
+            },
+            { onConflict: 'user_id' }
+          );
 
-        await supabase
-          .from('user_intentions')
-          .insert({
-            user_id: userId,
-            intention: primaryIntention
-          });
+        if (error) {
+          // Cloud sync failed - the app continues locally regardless (existing
+          // UX never blocks navigation on a Supabase error), so log distinctly
+          // to avoid this ever being confused with a successful cloud save.
+          console.warn('Intention saved locally only - cloud sync failed:', error.message);
+        }
       } catch (e) {
-        console.warn('Supabase sync skipped during offline/mock state:', e.message);
+        console.warn('Intention saved locally only - cloud sync skipped:', e.message);
       }
     }
 

@@ -7,7 +7,6 @@ export const Home = () => {
 
   // Retrieve real completion data from local storage
   const isMorningDone = localStorage.getItem('moonlight_morning_completed_date') === new Date().toDateString();
-  const streak = parseInt(localStorage.getItem('moonlight_streak') || '0');
 
   // Derived timeState logic (0% chance of set-state-in-effect errors)
   const hours = new Date().getHours();
@@ -22,7 +21,7 @@ export const Home = () => {
     timeState = 'night';
   }
 
-  const primaryIntention = intentions[0] || localStorage.getItem('moonlight_today_intention') || 'Stay calm';
+  const primaryIntention = intentions[0] || 'Stay calm';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -60,10 +59,6 @@ export const Home = () => {
           <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-secondary">Today's Intention</p>
             <p className="text-lg italic font-medium text-on-surface">"{primaryIntention}"</p>
-            <div className="flex justify-between items-center pt-4 border-t border-white/5 text-xs text-on-surface-variant">
-              <span>Current Streak</span>
-              <span className="text-secondary font-bold">{streak > 0 ? `${streak} Days` : 'Not started yet'}</span>
-            </div>
           </div>
         </div>
       )}

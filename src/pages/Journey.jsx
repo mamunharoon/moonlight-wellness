@@ -1,14 +1,46 @@
 ﻿import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
+
+const JOURNAL_KEY = 'moonlight_journal_entries';
+
+const isValidJournalEntry = (entry) =>
+  entry !== null &&
+  typeof entry === 'object' &&
+  typeof entry.body === 'string' &&
+  entry.body.trim().length > 0 &&
+  typeof entry.created_at === 'string' &&
+  !Number.isNaN(new Date(entry.created_at).getTime());
+
+const readGuestJournalEntries = () => {
+  try {
+    const raw = localStorage.getItem(JOURNAL_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidJournalEntry);
+  } catch {
+    return [];
+  }
+};
 
 export const Journey = () => {
   const { userId, intentions } = useAlarm();
+  const { loading: authLoading, isGuest } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchJournal = async () => {
+    const loadEntries = async () => {
+      if (authLoading) return;
+
+      if (isGuest) {
+        setEntries(readGuestJournalEntries().slice(0, 5));
+        setLoading(false);
+        return;
+      }
+
       if (!supabase || !userId) {
         setLoading(false);
         return;
@@ -26,8 +58,8 @@ export const Journey = () => {
       setLoading(false);
     };
 
-    fetchJournal();
-  }, [userId]);
+    loadEntries();
+  }, [userId, authLoading, isGuest]);
 
   const formatDate = (dateString) => {
     const options = { month: 'short', day: 'numeric' };
@@ -62,8 +94,8 @@ export const Journey = () => {
           {loading ? (
             <p className="text-xs text-on-surface-variant/40 italic">Loading entries...</p>
           ) : entries.length > 0 ? (
-            entries.map((entry) => (
-              <div key={entry.id} className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
+            entries.map((entry, index) => (
+              <div key={entry.local_id ?? entry.id ?? index} className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
                 <div className="flex justify-between text-[10px] text-on-surface-variant/60 font-semibold">
                   <span>{formatDate(entry.created_at)}</span>
                   <span>Gratitude</span>
