@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -24,7 +24,9 @@ const getFriendlyErrorMessage = (error) => {
 
 export const Auth = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('signIn'); // 'signIn' | 'signUp' | 'forgotPassword'
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('tab') === 'signup' ? 'signUp' : 'signIn';
+  const [mode, setMode] = useState(initialMode); // 'signIn' | 'signUp' | 'forgotPassword'
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
