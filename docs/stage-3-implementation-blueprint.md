@@ -142,7 +142,7 @@ Dawn, Daylight, Dusk, and Moonlight are **not four separate layers** — they ar
 
 ### 2.3 Compositing order (back to front)
 
-`Gradient → Clouds → Stars → Mist/Rain (session-specific) → Aurora (celebration-only) → Particles → UI/Components`
+`Gradient → Clouds → Stars → Mist/Rain (session-specific) → Particles → Aurora (celebration-only) → UI/Components`
 
 ### 2.4 Performance tiers
 

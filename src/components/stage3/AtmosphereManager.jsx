@@ -2,38 +2,81 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from 'react';
 import { Gradient, PHASES, resolvePhaseFromDate } from './Gradient';
+import { Clouds } from './Clouds';
+import { Stars } from './Stars';
+import { Mist } from './Mist';
+import { Rain } from './Rain';
+import { Aurora } from './Aurora';
+import { Particles } from './Particles';
 
 /*
- * Stage 3 — AtmosphereManager (MLT-3B-18 / MLT-3B-13/14/15, Ticket Groups 1-2)
+ * Stage 3 — AtmosphereManager (MLT-3B-18 / MLT-3B-13/14/15 / MLT-3B-01/03 / MLT-3B-05/06/07 / MLT-3B-11/12, Ticket Groups 1-6)
  *
  * The Environmental Engine's orchestration root from
  * docs/stage-3-implementation-blueprint.md §2 and §6 ("Atmospheric
  * layers... Tier-gated"). Group 1 established phase detection,
  * reduced-motion detection, performance-tier detection, compositing
- * order, and extension points. Group 2 hardens the tier and
- * reduced-motion system into a gating *contract* every future layer
- * registers against — it does not add any visual layer. Gradient is
- * still the only layer actually mounted. Clouds, Stars, Mist, Rain,
- * Particles, and Aurora are not built yet; no session, celebration, or
- * audio integration exists.
+ * order, and extension points. Group 2 hardened the tier and
+ * reduced-motion system into a gating contract. Group 3 mounted the
+ * first two conditional layers — Clouds (Daylight/Dusk) and Stars
+ * (Moonlight). Group 4 mounted Mist and Rain, gated by tier plus a stub
+ * session trigger. Group 5 mounted Particles, gated by tier plus an
+ * explicit event request — the only layer whose mount condition also
+ * checked reduced-motion and document-visibility directly (see MOUNTED
+ * LAYERS below), since a one-shot event should never start firing while
+ * hidden or motion-reduced, not just render paused. Group 6 mounts
+ * Aurora — the most restricted layer, gated by tier plus phase plus an
+ * explicit `auroraActive` trigger, and (like Particles) also checking
+ * reduced-motion and document-visibility directly. Gradient, Clouds,
+ * Stars, Mist, Rain, Particles, and Aurora are now the only layers
+ * mounted. No celebration, session, or audio integration exists yet —
+ * Stage3Preview.jsx's manual overrides are Particles' and Aurora's only
+ * caller.
  *
  * PROPS
- *   phase       optional: 'moonlight' | 'dawn' | 'daylight' | 'dusk'.
- *               Overrides automatic time resolution — same override
- *               contract as Gradient.jsx, used by Stage3Preview.jsx.
- *   tier        optional: 0 | 1 | 2 | 3. Overrides automatic device-
- *               capability detection — lets a future layer ticket (or
- *               Stage3Preview.jsx) force-test each tier without needing
- *               matching hardware, per the tiering system's own
- *               testability requirement (workbook MLT-3B-13 acceptance
- *               criteria: "any single tier can be forced for QA"). An
- *               invalid value (not 0/1/2/3) is silently ignored and
- *               automatic detection is used instead — it never throws
- *               and never produces an out-of-range tier.
- *   className   optional extra classes, forwarded to Gradient's container.
- *   children    real UI content, rendered above every atmospheric layer —
- *               the "→ UI/Components" terminal step of the compositing
- *               order below.
+ *   phase              optional: 'moonlight' | 'dawn' | 'daylight' | 'dusk'.
+ *                      Overrides automatic time resolution — same override
+ *                      contract as Gradient.jsx, used by Stage3Preview.jsx.
+ *   tier               optional: 0 | 1 | 2 | 3. Overrides automatic device-
+ *                      capability detection — lets a future layer ticket (or
+ *                      Stage3Preview.jsx) force-test each tier without needing
+ *                      matching hardware, per the tiering system's own
+ *                      testability requirement (workbook MLT-3B-13 acceptance
+ *                      criteria: "any single tier can be forced for QA"). An
+ *                      invalid value (not 0/1/2/3) is silently ignored and
+ *                      automatic detection is used instead — it never throws
+ *                      and never produces an out-of-range tier.
+ *   mistActive         optional boolean, default false. Stub extension point
+ *                      for the Session Engine (Phase 3C, not built) — the real
+ *                      trigger will be "an overwhelmed-support session is
+ *                      active" (blueprint §2.2). Stage3Preview.jsx overrides
+ *                      this manually for QA; nothing else sets it yet.
+ *   rainActive         optional boolean, default false. Same stub pattern —
+ *                      the real trigger will be "an anxiety/stress support
+ *                      session is active" (blueprint §2.2).
+ *   particleEventType  optional: 'breath-cycle' | 'gratitude-save' |
+ *                      'celebration' | null (default null). Stub extension
+ *                      point — the real callers (Session Engine breath
+ *                      cycles, Gratitude flow saves, Celebration Engine
+ *                      blooms) don't exist yet. null means no event is
+ *                      requested, regardless of tier.
+ *   particleTriggerKey optional string | number, default 0. Changing this
+ *                      while `particleEventType` is set replays that event
+ *                      — see Particles.jsx's own REPLAY SEMANTICS.
+ *   auroraActive       optional boolean, default false. Stub extension
+ *                      point for a future Celebration/Session Engine —
+ *                      the real trigger will eventually be celebration
+ *                      completion, milestone acknowledgement, deep
+ *                      reflection, or a special evening moment (none of
+ *                      those systems exist yet). Stage3Preview.jsx
+ *                      overrides this manually for QA; nothing else sets
+ *                      it yet. Tier permission alone and Moonlight phase
+ *                      alone must never activate Aurora — see MOUNTED
+ *                      LAYERS below.
+ *   className          optional extra classes, forwarded to Gradient's container.
+ *   children           real UI content, rendered above every atmospheric layer —
+ *                      the "→ UI/Components" terminal step of the compositing
+ *                      order below.
  *
  * PHASE DETECTION
  *   Reuses Gradient.jsx's exported `resolvePhaseFromDate`, deliberately
@@ -68,9 +111,10 @@ import { Gradient, PHASES, resolvePhaseFromDate } from './Gradient';
  *   Tier 2 — Tier 1 + Mist/Rain/Particles. Mid-tier-and-above devices only.
  *   Tier 3 — Tier 2 + Aurora. Highest-capability devices only. Tier 3
  *            only ever grants *permission* to mount Aurora — it does not
- *            make Aurora appear. Aurora also requires a valid celebration
- *            trigger (Phase 3E, not built yet), so at Tier 3 today Aurora
- *            still correctly renders nothing.
+ *            make Aurora appear. Aurora also requires Moonlight phase and
+ *            an explicit `auroraActive` trigger (see MOUNTED LAYERS
+ *            below), so at Tier 3 today Aurora still renders nothing
+ *            unless Stage3Preview.jsx's manual override is on.
  *   This asymmetry — tier as a ceiling, never a trigger — applies to
  *   every future conditional layer, not just Aurora: a layer needs both
  *   "the tier permits it" AND "its own real trigger condition is true"
@@ -112,33 +156,56 @@ import { Gradient, PHASES, resolvePhaseFromDate } from './Gradient';
  *
  * COMPOSITING ORDER
  *   Fixed by docs/stage-3-implementation-blueprint.md §2.3:
- *     Gradient → Clouds → Stars → Mist/Rain → Aurora → Particles → UI
+ *     Gradient → Clouds → Stars → Mist/Rain → Particles → Aurora → UI
  *   Reproduced below as the exported LAYER_ORDER constant and mirrored by
- *   the ordered (currently empty) slot comments in the render output, so
- *   later tickets have one already-agreed place to add each layer rather
- *   than re-deriving the order.
+ *   the render output — Clouds, Stars, Mist, Rain, Particles, and Aurora
+ *   now mount in this order (see MOUNTED LAYERS below).
  *
  * LAYER-GATING CONTRACT
  *   `canRenderTier(currentTier, requiredTier)` — deliberately just an
  *   inequality (`currentTier >= requiredTier`), not a registry, plugin
- *   system, or event bus. A future layer ticket checks this once before
- *   mounting; it grants permission only, never activation (see
- *   PERFORMANCE-TIER CONTRACT above). The six commented slots below show
- *   the exact call each future layer will make.
+ *   system, or event bus. Grants permission only, never activation (see
+ *   PERFORMANCE-TIER CONTRACT above) — every mounted layer below is
+ *   gated by `canRenderTier(tier, N) && <some other real condition>`,
+ *   both required, neither sufficient alone.
  *
- * VISIBILITY / BACKGROUND HANDLING — deliberately deferred, not built
- *   Inspected for this ticket group and intentionally not implemented.
- *   The only timer that exists anywhere in AtmosphereManager today is the
- *   60-second phase check, which is already cheap enough (a single date
- *   comparison once a minute) that pausing it in the background would
- *   save nothing measurable — adding a `document.visibilitychange`
- *   listener now would be state with no consumer, which this ticket
- *   group's own instructions rule out ("do not add animation logic yet").
- *   Visibility handling belongs with the first continuously-animating
- *   layer (most likely Clouds, per the recommended implementation order)
- *   where a real, continuous CSS/JS animation actually needs to pause
- *   when the tab is backgrounded (risk R-03, battery). Revisit there, not
- *   here.
+ * MOUNTED LAYERS
+ *   Clouds (Group 3) — canRenderTier(tier, 1) AND resolvedPhase is
+ *   'daylight' or 'dusk'. Stars (Group 3) — canRenderTier(tier, 1) AND
+ *   resolvedPhase is 'moonlight'. Mist (Group 4) — canRenderTier(tier, 2)
+ *   AND mistActive. Rain (Group 4) — canRenderTier(tier, 2) AND
+ *   rainActive. Particles (Group 5) — canRenderTier(tier, 2) AND
+ *   particleEventType is set AND !reducedMotion AND !documentHidden.
+ *   Aurora (Group 6) — canRenderTier(tier, 3) AND resolvedPhase ===
+ *   'moonlight' AND auroraActive AND !reducedMotion AND !documentHidden —
+ *   three independent conditions are all required (tier permission,
+ *   Moonlight phase, and the explicit trigger); tier alone never
+ *   activates it, and Moonlight phase alone never activates it either.
+ *   Particles and Aurora are the only two layers whose mount condition
+ *   checks reduced-motion and visibility explicitly (the other three are
+ *   technically redundant with the tier-0/paused-prop mechanisms already
+ *   in place, kept anyway per this ticket's explicit instruction, since a
+ *   one-shot or highest-cost layer should never start the instant a
+ *   hidden tab regains focus). None of the six components check phase,
+ *   tier, or their own active/event props themselves — see each file's
+ *   own doc comment. All are plain conditional React mounts, not
+ *   cross-faded in/out — the lowest-cost implementation; a future ticket
+ *   may revisit this if a transition reads as too abrupt in practice.
+ *
+ * VISIBILITY / BACKGROUND HANDLING
+ *   Group 1/2 deliberately deferred this until "the first
+ *   continuously-animating layer" existed. That layer was Clouds, so
+ *   Group 3 added exactly one `document.visibilitychange` listener here,
+ *   exposing `documentHidden`. Group 4 reused that same listener and
+ *   state (no second one created) and extended the `paused` prop to Mist
+ *   and Rain as well. Group 5 reused it a third time — Particles both
+ *   receives `paused` (for the standalone-preview path) and has
+ *   `documentHidden` folded directly into its own mount condition (for
+ *   the real, integrated path). Group 6 reuses it a fourth time — Aurora
+ *   has the same dual pattern as Particles (`paused` prop plus
+ *   `documentHidden` folded into its own mount condition) — still exactly
+ *   one listener in the whole file. Stars' cheap opacity-only twinkle
+ *   still does not receive `paused` (see Stars.jsx's own doc comment).
  *
  * EXTENSION POINTS
  *   `resolvedPhase`, `reducedMotion`, and `tier` are computed once here
@@ -146,11 +213,11 @@ import { Gradient, PHASES, resolvePhaseFromDate } from './Gradient';
  *   ticket adds a layer by importing it directly into this file and
  *   passing it these already-computed values as props, in the slot that
  *   matches its position in LAYER_ORDER, guarded by `canRenderTier`. This
- *   file does not export a context or a public setter for any of the
- *   three; nothing outside AtmosphereManager needs them yet.
+ *   file does not export a context or a public setter for any of them;
+ *   nothing outside AtmosphereManager needs them yet.
  */
 
-export const LAYER_ORDER = ['gradient', 'clouds', 'stars', 'mist', 'rain', 'aurora', 'particles'];
+export const LAYER_ORDER = ['gradient', 'clouds', 'stars', 'mist', 'rain', 'particles', 'aurora'];
 
 const TIERS = [0, 1, 2, 3];
 
@@ -170,6 +237,24 @@ const usePrefersReducedMotion = () => {
   }, []);
 
   return reduced;
+};
+
+// Added in Ticket Group 3 alongside Clouds, the first continuously-
+// animating layer — see VISIBILITY / BACKGROUND HANDLING above for why
+// this wasn't added in Group 1/2. Passed only to Clouds, not Stars.
+const useDocumentHidden = () => {
+  const [hidden, setHidden] = useState(
+    () => typeof document !== 'undefined' && document.hidden
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onChange = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', onChange);
+    return () => document.removeEventListener('visibilitychange', onChange);
+  }, []);
+
+  return hidden;
 };
 
 // Pure — see DEVICE-CAPABILITY HEURISTIC above for the exact thresholds
@@ -198,12 +283,18 @@ export const canRenderTier = (currentTier, requiredTier) => currentTier >= requi
 export const AtmosphereManager = ({
   phase: phaseOverride,
   tier: tierOverride,
+  mistActive = false,
+  rainActive = false,
+  particleEventType = null,
+  particleTriggerKey = 0,
+  auroraActive = false,
   className = '',
   children,
 }) => {
   const [autoPhase, setAutoPhase] = useState(() => resolvePhaseFromDate(new Date()));
   const [deviceTier] = useState(detectDeviceTier);
   const reducedMotion = usePrefersReducedMotion();
+  const documentHidden = useDocumentHidden();
 
   const isPhaseOverridden = phaseOverride && PHASES.includes(phaseOverride);
   const resolvedPhase = isPhaseOverridden ? phaseOverride : autoPhase;
@@ -232,6 +323,18 @@ export const AtmosphereManager = ({
   // device detection, the fallback when neither of the above applies.
   const tier = reducedMotion ? 0 : (isTierOverridden ? tierOverride : deviceTier);
 
+  const cloudsActive = canRenderTier(tier, 1) && (resolvedPhase === 'daylight' || resolvedPhase === 'dusk');
+  const starsActive = canRenderTier(tier, 1) && resolvedPhase === 'moonlight';
+  const mistGateActive = canRenderTier(tier, 2) && mistActive;
+  const rainGateActive = canRenderTier(tier, 2) && rainActive;
+  // Particles and Aurora are the only gates that also check reduced-
+  // motion/visibility directly — see MOUNTED LAYERS above for why. Aurora's
+  // three independent conditions are all required: tier permission,
+  // Moonlight phase, and the explicit auroraActive trigger — neither tier
+  // nor phase alone is ever sufficient.
+  const particlesGateActive = canRenderTier(tier, 2) && particleEventType !== null && !reducedMotion && !documentHidden;
+  const auroraGateActive = canRenderTier(tier, 3) && resolvedPhase === 'moonlight' && auroraActive && !reducedMotion && !documentHidden;
+
   return (
     // `display: contents` — a plain DOM carrier for the two data
     // attributes below that takes no part in layout itself. Gradient.jsx
@@ -242,20 +345,18 @@ export const AtmosphereManager = ({
     // needing to read component internals.
     <div className="contents" data-atmosphere-tier={tier} data-atmosphere-reduced-motion={reducedMotion}>
       <Gradient phase={resolvedPhase} className={className}>
-        {/* Compositing order (blueprint §2.3) — reserved slots, ordered.
-            Ticket Group 2 mounts none of them; Gradient (above, via the
-            <Gradient> this is nested inside) is the only rendered layer.
-            Each future layer's own mount condition will be
-            `canRenderTier(tier, N) && <its own real trigger>` — tier
-            alone only ever grants permission, per PERFORMANCE-TIER
-            CONTRACT above. */}
+        {/* Compositing order (blueprint §2.3). Clouds, Stars, Mist, Rain,
+            Particles, and Aurora are all real, gated mounts — see MOUNTED
+            LAYERS above. */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          {/* Tier 1 — Clouds slot (Daylight/Dusk only). Gate: canRenderTier(tier, 1). Not yet built. */}
-          {/* Tier 1 — Stars slot (Moonlight only). Gate: canRenderTier(tier, 1). Not yet built. */}
-          {/* Tier 2 — Mist slot (session-specific, overwhelmed sessions). Gate: canRenderTier(tier, 2). Not yet built. */}
-          {/* Tier 2 — Rain slot (session-specific, anxiety/stress sessions). Gate: canRenderTier(tier, 2). Not yet built. */}
-          {/* Tier 3 — Aurora slot (celebration-only, Moonlight window). Gate: canRenderTier(tier, 3) && celebrationActive. Not yet built. */}
-          {/* Tier 2 — Particles slot (event-triggered: breath/gratitude/celebration). Gate: canRenderTier(tier, 2) && eventActive. Not yet built. */}
+          {cloudsActive && <Clouds paused={documentHidden} />}
+          {starsActive && <Stars />}
+          {mistGateActive && <Mist active={mistActive} paused={documentHidden} />}
+          {rainGateActive && <Rain active={rainActive} paused={documentHidden} />}
+          {particlesGateActive && (
+            <Particles eventType={particleEventType} triggerKey={particleTriggerKey} paused={documentHidden} />
+          )}
+          {auroraGateActive && <Aurora active={auroraActive} paused={documentHidden} />}
         </div>
 
         {children}

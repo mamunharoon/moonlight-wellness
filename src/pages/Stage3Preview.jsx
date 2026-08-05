@@ -13,6 +13,12 @@ import { useState } from 'react';
 import { Gradient, PHASES } from '../components/stage3/Gradient';
 import { Moon } from '../components/stage3/Moon';
 import { Breathing } from '../components/stage3/Breathing';
+import { Clouds } from '../components/stage3/Clouds';
+import { Stars } from '../components/stage3/Stars';
+import { Mist } from '../components/stage3/Mist';
+import { Rain } from '../components/stage3/Rain';
+import { Aurora } from '../components/stage3/Aurora';
+import { Particles, PARTICLE_POOL_SIZE } from '../components/stage3/Particles';
 import { AtmosphereManager, resolvePerformanceTier } from '../components/stage3/AtmosphereManager';
 
 const phaseLabels = {
@@ -57,6 +63,20 @@ export const Stage3Preview = () => {
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
   const detectedTier = resolvePerformanceTier(hardwareInfo);
+
+  // Ticket Group 5 demo state only — manual trigger buttons standing in
+  // for the Session/Gratitude/Celebration Engines, none of which exist
+  // yet. `key` incrementing on each click is what causes a replay;
+  // `sameKeyTrigger` deliberately never changes its key, to demonstrate
+  // that a repeated triggerKey does not replay.
+  const [particleTrigger, setParticleTrigger] = useState({ type: null, key: 0 });
+  const [sameKeyClicks, setSameKeyClicks] = useState(0);
+  const fireParticle = (type) => setParticleTrigger((prev) => ({ type, key: prev.key + 1 }));
+
+  // Ticket Group 6 demo state only — a manual on/off toggle standing in
+  // for the Celebration/Session Engine's future auroraActive trigger,
+  // which doesn't exist yet.
+  const [auroraOn, setAuroraOn] = useState(false);
 
   return (
     <div className="min-h-screen bg-stage3-ink text-stage3-mist px-6 py-10">
@@ -486,10 +506,361 @@ export const Stage3Preview = () => {
           </AtmosphereManager>
 
           <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed">
-            <strong className="text-stage3-mist">Scope:</strong> this group hardens phase detection, reduced-motion
-            detection, and performance-tier detection into a gating contract (<code className="font-mono">canRenderTier</code>)
-            every future layer registers against — it adds no visual layer. Every panel above still renders Gradient
-            alone, by design.
+            <strong className="text-stage3-mist">Scope (Groups 1-2):</strong> phase detection, reduced-motion
+            detection, and performance-tier detection hardened into a gating contract (<code className="font-mono">canRenderTier</code>).
+            Every panel above renders Gradient alone — Clouds and Stars, gated by that same contract, are
+            demonstrated in the next section.
+          </p>
+        </section>
+
+        {/* Ticket Group 3 — Clouds & Stars (MLT-3B-01, 03)
+            Standalone panels first (each component with no gating, so its
+            own animation/appearance can be inspected directly), then
+            composed inside AtmosphereManager at forced phases to confirm
+            the real gate: canRenderTier(tier, 1) && phase match. */}
+        <section>
+          <h2 className="text-xs uppercase tracking-[0.1em] text-stage3-mist-dim font-bold mb-4">
+            08 — Clouds &amp; Stars <span className="normal-case font-normal text-stage3-mist-dim opacity-70">(Phase 3B, Ticket Group 3)</span>
+          </h2>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Clouds — standalone, 3 clouds, 120-180s crossing
+          </p>
+          <Gradient phase="dusk" className="h-40 rounded-lg mb-8 relative overflow-hidden">
+            <Clouds />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Stars — standalone, 15 stars, deterministic field
+          </p>
+          <Gradient phase="moonlight" className="h-40 rounded-lg mb-8 relative overflow-hidden">
+            <Stars />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Composed — AtmosphereManager gating (canRenderTier(tier, 1) &amp;&amp; phase match)
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-2">
+            <div>
+              <AtmosphereManager phase="dusk" tier={1} className="h-32 rounded-lg flex items-center justify-center" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">phase=&quot;dusk&quot; tier=1 — Clouds active, Stars absent</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="moonlight" tier={1} className="h-32 rounded-lg flex items-center justify-center" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">phase=&quot;moonlight&quot; tier=1 — Stars active, Clouds absent</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="daylight" tier={1} className="h-32 rounded-lg flex items-center justify-center" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">phase=&quot;daylight&quot; tier=1 — Clouds active (daylight also qualifies)</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={0} className="h-32 rounded-lg flex items-center justify-center" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">phase=&quot;dusk&quot; tier=0 — right phase, wrong tier: neither mounts</p>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed mt-6">
+            <strong className="text-stage3-mist">Reduced-motion test:</strong> with &quot;Reduce motion&quot; enabled
+            (OS setting, or DevTools → Rendering → emulate <code className="font-mono">prefers-reduced-motion: reduce</code>),
+            reload this page — every composed panel above forces tier to 0 regardless of the <code className="font-mono">tier</code> prop,
+            so neither Clouds nor Stars mount anywhere in this section, leaving Gradient alone. The two standalone
+            panels above them are the one exception: they render Clouds/Stars directly, outside AtmosphereManager's
+            gate, specifically so each component&apos;s own defensive <code className="font-mono">@media</code> fallback
+            (frozen, static, non-animating) can be inspected in isolation.
+          </p>
+        </section>
+
+        {/* Ticket Group 4 — Mist & Rain (MLT-3B-05, 06)
+            Standalone panels first (each component with no gating), then
+            active/inactive comparisons (mounted either way — `active`
+            toggles visual state, not mounting), then composed inside
+            AtmosphereManager to confirm the real gate:
+            canRenderTier(tier, 2) && mistActive/rainActive. */}
+        <section>
+          <h2 className="text-xs uppercase tracking-[0.1em] text-stage3-mist-dim font-bold mb-4">
+            09 — Mist &amp; Rain <span className="normal-case font-normal text-stage3-mist-dim opacity-70">(Phase 3B, Ticket Group 4)</span>
+          </h2>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Mist — standalone, 3 bands, opacity 0.03-0.08
+          </p>
+          <Gradient phase="moonlight" className="h-40 rounded-lg mb-8 relative overflow-hidden">
+            <Mist />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Rain — standalone, 25 droplets, long falling cycles
+          </p>
+          <Gradient phase="moonlight" className="h-40 rounded-lg mb-8 relative overflow-hidden">
+            <Rain />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Mist active vs. inactive — mounted either way, active toggles visual state
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div>
+              <Gradient phase="dusk" className="h-28 rounded-lg relative overflow-hidden">
+                <Mist active />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">active=true</p>
+            </div>
+            <div>
+              <Gradient phase="dusk" className="h-28 rounded-lg relative overflow-hidden">
+                <Mist active={false} />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">active=false</p>
+            </div>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Rain active vs. inactive — mounted either way, active toggles visual state
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div>
+              <Gradient phase="dusk" className="h-28 rounded-lg relative overflow-hidden">
+                <Rain active />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">active=true</p>
+            </div>
+            <div>
+              <Gradient phase="dusk" className="h-28 rounded-lg relative overflow-hidden">
+                <Rain active={false} />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">active=false</p>
+            </div>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Combined — Mist and Rain layered together
+          </p>
+          <Gradient phase="moonlight" className="h-40 rounded-lg mb-8 relative overflow-hidden">
+            <Mist />
+            <Rain />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Composed — AtmosphereManager gating (canRenderTier(tier, 2) &amp;&amp; mistActive/rainActive)
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-2">
+            <div>
+              <AtmosphereManager phase="dusk" tier={2} mistActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2 mistActive — Mist mounts, Rain absent</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={2} rainActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2 rainActive — Rain mounts, Mist absent</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={2} mistActive rainActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2 both active — both mount together</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={1} mistActive rainActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=1 both active — Tier 2 not met: neither mounts</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={0} mistActive rainActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=0 both active — Tier 0 behaviour: neither mounts</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={2} className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2, no trigger — tier alone is not enough: neither mounts</p>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed mt-6">
+            <strong className="text-stage3-mist">Reduced-motion test:</strong> with &quot;Reduce motion&quot; enabled,
+            reload this page — every composed panel above forces tier to 0 regardless of the <code className="font-mono">tier</code> prop,
+            so neither Mist nor Rain mount anywhere in the composed row, leaving Gradient alone. The standalone and
+            active/inactive panels above them render Mist/Rain directly, outside AtmosphereManager&apos;s gate,
+            specifically so each component&apos;s own defensive <code className="font-mono">@media</code> fallback can
+            be inspected in isolation. <strong className="text-stage3-mist">Session integration:</strong> `mistActive`/
+            `rainActive` are stub extension points only — no Session Engine exists yet to drive them for real.
+          </p>
+        </section>
+
+        {/* Ticket Group 5 — Particle Engine (MLT-3B-07/08/09/10)
+            Manual buttons only, standing in for the Session/Gratitude/
+            Celebration Engines, none of which exist yet. One shared
+            <Particles> component, three event types — never a bespoke
+            component per event. */}
+        <section>
+          <h2 className="text-xs uppercase tracking-[0.1em] text-stage3-mist-dim font-bold mb-4">
+            10 — Particle Engine <span className="normal-case font-normal text-stage3-mist-dim opacity-70">(Phase 3B, Ticket Group 5)</span>
+          </h2>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Standalone — manual triggers, one shared pool
+          </p>
+          <Gradient phase="moonlight" className="h-48 rounded-lg mb-3 relative overflow-hidden">
+            <Particles eventType={particleTrigger.type} triggerKey={particleTrigger.key} />
+          </Gradient>
+          <div className="flex flex-wrap gap-2 mb-8">
+            <button
+              onClick={() => fireParticle('breath-cycle')}
+              className="px-3 py-1.5 rounded-full glass-panel text-[11px] font-mono text-stage3-mist hover:bg-white/10 transition-colors"
+            >
+              Fire breath-cycle
+            </button>
+            <button
+              onClick={() => fireParticle('gratitude-save')}
+              className="px-3 py-1.5 rounded-full glass-panel text-[11px] font-mono text-stage3-mist hover:bg-white/10 transition-colors"
+            >
+              Fire gratitude-save
+            </button>
+            <button
+              onClick={() => fireParticle('celebration')}
+              className="px-3 py-1.5 rounded-full glass-panel text-[11px] font-mono text-stage3-mist hover:bg-white/10 transition-colors"
+            >
+              Fire celebration
+            </button>
+            <span className="px-3 py-1.5 text-[11px] font-mono text-stage3-mist-dim">
+              last: {particleTrigger.type ?? 'none'} (key={particleTrigger.key})
+            </span>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Repeated triggerKey — same key never replays, changed key always does
+          </p>
+          <Gradient phase="dusk" className="h-32 rounded-lg mb-3 relative overflow-hidden">
+            <Particles eventType={sameKeyClicks > 0 ? 'celebration' : null} triggerKey={1} />
+          </Gradient>
+          <div className="flex flex-wrap items-center gap-2 mb-8">
+            <button
+              onClick={() => setSameKeyClicks((n) => n + 1)}
+              className="px-3 py-1.5 rounded-full glass-panel text-[11px] font-mono text-stage3-mist hover:bg-white/10 transition-colors"
+            >
+              Fire celebration (always key=1)
+            </button>
+            <span className="text-[11px] font-mono text-stage3-mist-dim">
+              clicked {sameKeyClicks}× — only the first click replays; every click after it is the same triggerKey (1), so no replay
+            </span>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Inactive — mounted, active=false, no emission regardless of triggerKey
+          </p>
+          <Gradient phase="dusk" className="h-28 rounded-lg mb-8 relative overflow-hidden">
+            <Particles eventType="celebration" triggerKey={5} active={false} />
+          </Gradient>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Composed — AtmosphereManager gating (canRenderTier(tier, 2) &amp;&amp; particleEventType set)
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-2">
+            <div>
+              <AtmosphereManager phase="dusk" tier={1} particleEventType="celebration" particleTriggerKey={particleTrigger.key} className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=1 — Tier 2 not met: Particles does not mount</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="dusk" tier={2} particleEventType="celebration" particleTriggerKey={particleTrigger.key} className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2 — Particles mounts; click &quot;Fire celebration&quot; above to trigger it here too (shares triggerKey)</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed mb-8">
+            <strong className="text-stage3-mist">Trigger still required at Tier 2:</strong> a third panel with
+            tier=2 and no <code className="font-mono">particleEventType</code> would mount nothing — tier alone
+            never activates an event, matching the same &quot;permission, not activation&quot; rule Mist/Rain
+            established in Group 4.
+          </p>
+
+          <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed">
+            <strong className="text-stage3-mist">Pool size:</strong> {PARTICLE_POOL_SIZE} particle elements per
+            instance, allocated once and reused for every event type and every trigger — never recreated.{' '}
+            <strong className="text-stage3-mist">Hidden/paused:</strong> AtmosphereManager's composed panels above
+            fold document-visibility directly into their mount condition — a hidden tab means Particles is not
+            mounted at all, so no new emission can start; the standalone panels above them instead receive Particles'
+            own <code className="font-mono">paused</code> prop path, which pauses (not stops) any in-flight
+            animation. <strong className="text-stage3-mist">Reduced-motion test:</strong> with &quot;Reduce
+            motion&quot; enabled, reload this page — the composed panels force tier to 0 so Particles never mounts
+            there; the standalone panels above still mount but their defensive{' '}
+            <code className="font-mono">@media</code> fallback holds every particle at opacity 0 regardless of any
+            trigger.
+          </p>
+        </section>
+
+        {/* Ticket Group 6 — Aurora (MLT-3B-11/12)
+            Standalone panels first (inactive vs. active, no gating), then
+            composed inside AtmosphereManager to confirm the real gate:
+            canRenderTier(tier, 3) && phase === 'moonlight' && auroraActive
+            && !reducedMotion && !documentHidden. The most restricted layer
+            in the stack — three independent conditions, all required. */}
+        <section>
+          <h2 className="text-xs uppercase tracking-[0.1em] text-stage3-mist-dim font-bold mb-4">
+            11 — Aurora <span className="normal-case font-normal text-stage3-mist-dim opacity-70">(Phase 3B, Ticket Group 6)</span>
+          </h2>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Standalone — inactive vs. active, 3 bands, moonlight blue / muted teal / soft lavender
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div>
+              <Gradient phase="moonlight" className="h-40 rounded-lg relative overflow-hidden">
+                <Aurora active={false} />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">Aurora inactive</p>
+            </div>
+            <div>
+              <Gradient phase="moonlight" className="h-40 rounded-lg relative overflow-hidden">
+                <Aurora active={auroraOn} />
+              </Gradient>
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">Aurora active</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-8">
+            <button
+              onClick={() => setAuroraOn((v) => !v)}
+              className="px-3 py-1.5 rounded-full glass-panel text-[11px] font-mono text-stage3-mist hover:bg-white/10 transition-colors"
+            >
+              Toggle standalone Aurora ({auroraOn ? 'on' : 'off'})
+            </button>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-[0.1em] text-stage3-moonlight-dim font-bold mb-2">
+            Composed — AtmosphereManager gating (canRenderTier(tier, 3) &amp;&amp; phase === &quot;moonlight&quot; &amp;&amp; auroraActive)
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-2">
+            <div>
+              <AtmosphereManager phase="moonlight" tier={2} auroraActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=2 blocked — Tier 3 not met: Aurora does not mount</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="moonlight" tier={3} auroraActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">tier=3 allowed — every other condition also met: Aurora mounts</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="daylight" tier={3} auroraActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">daylight blocked — right tier, wrong phase: Aurora does not mount</p>
+            </div>
+            <div>
+              <AtmosphereManager phase="moonlight" tier={3} auroraActive={false} className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">moonlight, tier=3, no trigger — tier and phase alone are not enough: Aurora does not mount</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 mb-2">
+            <div>
+              <AtmosphereManager phase="moonlight" tier={3} auroraActive className="h-28 rounded-lg" />
+              <p className="text-[11px] font-mono text-stage3-mist-dim mt-2">moonlight allowed — tier=3, phase=&quot;moonlight&quot;, auroraActive all satisfied together: Aurora mounts</p>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-stage3-mist-dim max-w-lg leading-relaxed mt-6">
+            <strong className="text-stage3-mist">Visibility behaviour:</strong> like Particles, Aurora&apos;s real
+            gate folds <code className="font-mono">documentHidden</code> directly into the mount condition above (a
+            backgrounded tab means Aurora is not mounted at all, so it cannot begin appearing the instant focus
+            returns); the standalone panels at the top of this section instead receive Aurora&apos;s own{' '}
+            <code className="font-mono">paused</code> prop path, which freezes any in-flight drift in place rather
+            than unmounting it — try backgrounding this tab while the standalone &quot;Aurora active&quot; panel
+            above is playing, then returning to it.{' '}
+            <strong className="text-stage3-mist">Reduced-motion test:</strong> with &quot;Reduce motion&quot;
+            enabled, reload this page — every composed panel above forces tier to 0 regardless of the{' '}
+            <code className="font-mono">tier</code> prop, so Aurora never mounts anywhere in the composed rows,
+            leaving Gradient alone; the standalone panels still mount but their defensive{' '}
+            <code className="font-mono">@media</code> fallback holds each band at a static, non-animating position.{' '}
+            <strong className="text-stage3-mist">Trigger integration:</strong> <code className="font-mono">auroraActive</code>{' '}
+            is a stub extension point only — no Celebration/Session Engine exists yet to drive it for real; the
+            buttons and props above are this page&apos;s only caller.
           </p>
         </section>
 

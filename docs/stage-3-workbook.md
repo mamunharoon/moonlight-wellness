@@ -88,24 +88,24 @@ Only 3A→3B→3C is a hard, strictly linear dependency chain. 3D and 3E both br
 | MLT-3A-14 | 8pt spacing scale + touch-target audit | 3A-E1 | P1 | 2 | Completed |
 | MLT-3A-15 | Design-token visual regression baseline | 3A-E1 | P2 | 3 | Completed |
 | MLT-3A-16 | Isolated Stage 3 preview route (new, approved) | 3A-E1 | P1 | 2 | Completed |
-| MLT-3B-01 | Cloud layer — render & drift | 3B-E1 | P1 | 5 | Not started |
+| MLT-3B-01 | Cloud layer — render & drift | 3B-E1 | P1 | 5 | Completed |
 | MLT-3B-02 | Cloud layer — emotional density/speed response | 3B-E1 | P2 | 3 | Not started |
-| MLT-3B-03 | Star layer — render & twinkle | 3B-E2 | P1 | 5 | Not started |
+| MLT-3B-03 | Star layer — render & twinkle | 3B-E2 | P1 | 5 | Completed |
 | MLT-3B-04 | Star layer — celebration density boost | 3B-E2 | P2 | 2 | Not started |
-| MLT-3B-05 | Mist layer | 3B-E3 | P1 | 5 | Not started |
-| MLT-3B-06 | Rain layer + audio hook | 3B-E3 | P1 | 5 | Not started |
-| MLT-3B-07 | Particle system core (event-triggered engine) | 3B-E4 | P0 | 8 | Not started |
-| MLT-3B-08 | Breath-cycle particles | 3B-E4 | P1 | 3 | Not started |
-| MLT-3B-09 | Gratitude-save particle burst | 3B-E4 | P2 | 2 | Not started |
-| MLT-3B-10 | Celebration particle burst | 3B-E4 | P1 | 3 | Not started |
-| MLT-3B-11 | Aurora layer (celebration-exclusive) | 3B-E5 | P1 | 8 | Not started |
-| MLT-3B-12 | Aurora — gating so it renders nowhere else | 3B-E5 | P0 | 2 | Not started |
-| MLT-3B-13 | Performance tier system (Tier 0–3) | 3B-E6 | P0 | 8 | Not started |
-| MLT-3B-14 | Device capability detection & auto-tiering | 3B-E6 | P1 | 5 | Not started |
-| MLT-3B-15 | Reduced-motion variants — all layers | 3B-E6 | P0 | 5 | Not started |
-| MLT-3B-16 | Layer compositing order enforcement | 3B-E1 | P1 | 3 | Not started |
+| MLT-3B-05 | Mist layer | 3B-E3 | P1 | 5 | Completed |
+| MLT-3B-06 | Rain layer + audio hook | 3B-E3 | P1 | 5 | Completed — visual layer only; audio hook explicitly out of scope, not built |
+| MLT-3B-07 | Particle system core (event-triggered engine) | 3B-E4 | P0 | 8 | Completed |
+| MLT-3B-08 | Breath-cycle particles | 3B-E4 | P1 | 3 | Completed — animation built; no real Session Engine trigger wired yet |
+| MLT-3B-09 | Gratitude-save particle burst | 3B-E4 | P2 | 2 | Completed — animation built; no real Gratitude flow trigger wired yet |
+| MLT-3B-10 | Celebration particle burst | 3B-E4 | P1 | 3 | Completed — animation built; no real Celebration Engine trigger wired yet |
+| MLT-3B-11 | Aurora layer (celebration-exclusive) | 3B-E5 | P1 | 8 | Completed — visual layer built; real trigger (celebration/milestone/reflection) not wired, Stage3Preview manual override only |
+| MLT-3B-12 | Aurora — gating so it renders nowhere else | 3B-E5 | P0 | 2 | Completed |
+| MLT-3B-13 | Performance tier system (Tier 0–3) | 3B-E6 | P0 | 8 | Completed |
+| MLT-3B-14 | Device capability detection & auto-tiering | 3B-E6 | P1 | 5 | Completed |
+| MLT-3B-15 | Reduced-motion variants — all layers | 3B-E6 | P0 | 5 | Completed |
+| MLT-3B-16 | Layer compositing order enforcement | 3B-E1 | P1 | 3 | Completed |
 | MLT-3B-17 | Atmospheric layer performance instrumentation | 3B-E6 | P2 | 3 | Not started |
-| MLT-3B-18 | Environmental Engine public API (layer request surface) | 3B-E1 | P0 | 5 | Not started |
+| MLT-3B-18 | Environmental Engine public API (layer request surface) | 3B-E1 | P0 | 5 | Completed |
 | MLT-3C-01 | Session schema & catalog registry | 3C-E1 | P0 | 5 | Not started |
 | MLT-3C-02 | Session Player — step runner core | 3C-E1 | P0 | 8 | Not started |
 | MLT-3C-03 | Session Player — skip handling | 3C-E1 | P1 | 3 | Not started |
