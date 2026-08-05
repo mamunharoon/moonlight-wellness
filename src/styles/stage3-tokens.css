@@ -1,0 +1,42 @@
+/*
+ * Stage 3 design tokens — additive only.
+ *
+ * These are namespaced --stage3-* custom properties, entirely separate
+ * from the existing --color-* tokens defined in src/index.css. Nothing
+ * here is read by any Stage 2 page; only src/components/stage3/* and
+ * src/pages/Stage3Preview.jsx consume these.
+ *
+ * Dark is the default identity, per docs/stage-3-design-proposal.md §12 —
+ * :root holds the dark values directly (no wrapping .dark class needed,
+ * matching the app's actual default state) and .light overrides using the
+ * same class-based mechanism ThemeContext already drives on <html>.
+ *
+ * Source of truth for these exact values: docs/stage-3-design-proposal.md,
+ * frozen. Do not adjust a value here without updating that document first.
+ */
+
+:root {
+  --stage3-ink: #0D0E1A;
+  --stage3-ink-raised: #14162A;
+  --stage3-dusk: #1B1E38;
+  --stage3-dusk-line: rgba(184, 196, 240, 0.14);
+  --stage3-moonlight: #B8C4F0;
+  --stage3-moonlight-dim: #7C87B8;
+  --stage3-dawn: #F2A785;
+  --stage3-ember: #E08A4F;
+  --stage3-mist: #EDEAE3;
+  --stage3-mist-dim: #9CA0B8;
+}
+
+.light {
+  --stage3-ink: #F7F5F0;
+  --stage3-ink-raised: #FFFFFF;
+  --stage3-dusk: #EAE6DD;
+  --stage3-dusk-line: rgba(27, 30, 56, 0.12);
+  --stage3-moonlight: #4C5A9E;
+  --stage3-moonlight-dim: #7C87B8;
+  --stage3-dawn: #C05F30;
+  --stage3-ember: #B85A2A;
+  --stage3-mist: #1B1E38;
+  --stage3-mist-dim: #5A5E78;
+}

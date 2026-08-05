@@ -15,7 +15,7 @@ export const Landing = () => {
           <span className="text-primary italic">rhythm of nature.</span>
         </h1>
         <p className="text-on-surface-variant max-w-xl mx-auto text-sm leading-relaxed">
-          Moonlight Wellness guides you through a seamless cycle of rejuvenationâ€”from the softest dawn to the deepest midnight.
+          Solas guides you through a seamless cycle of rejuvenationâ€”from the softest dawn to the deepest midnight.
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
           <Link to="/" className="bg-primary text-on-primary font-label-md px-8 py-3.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 font-bold">

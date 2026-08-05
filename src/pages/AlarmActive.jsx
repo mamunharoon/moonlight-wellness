@@ -114,7 +114,7 @@ export const AlarmActive = () => {
       <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-secondary/10 rounded-full blur-3xl"></div>
 
       <div className="relative z-10 space-y-2 mt-12">
-        <p className="text-xs text-primary font-bold uppercase tracking-widest">Moonlight Wellness</p>
+        <p className="text-xs text-primary font-bold uppercase tracking-widest">Solas</p>
         <h2 className="text-3xl font-extrabold text-[#5c3d2e]">{getWordingFromTargetTime()}</h2>
       </div>
 

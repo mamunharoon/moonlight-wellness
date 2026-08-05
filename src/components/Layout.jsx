@@ -1,12 +1,10 @@
 ﻿/* eslint-disable no-unused-vars */
 import React, { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../context/AudioContext';
 import { useAlarm } from '../context/AlarmContext';
 
 export const Layout = () => {
-  const { isDark, toggleTheme } = useTheme();
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
   const { isRinging, journeyStep } = useAlarm();
   const location = useLocation();
@@ -63,12 +61,9 @@ export const Layout = () => {
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
-                {isDark ? 'Moonlight' : 'Daily Intention'}
+                Solas
               </h1>
             </div>
-            <button onClick={toggleTheme} className="text-on-surface-variant p-2 rounded-full hover:bg-white/5 transition-transform active:scale-90">
-              <span className="material-symbols-outlined text-xl">{isDark ? 'light_mode' : 'dark_mode'}</span>
-            </button>
           </header>
         )}
 

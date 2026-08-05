@@ -22,6 +22,7 @@ import { MorningStart } from './pages/MorningStart';
 import { Affirmation } from './pages/Affirmation';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
+import { Stage3Preview } from './pages/Stage3Preview';
 
 function App() {
   return (
@@ -40,6 +41,11 @@ function App() {
               <Route path="intention-setup" element={<IntentionSetup />} />
               <Route path="auth" element={<Auth />} />
               <Route path="reset-password" element={<ResetPassword />} />
+
+              {/* MLT-3A-16: Stage 3 internal preview — not linked from any
+                  nav, not part of any Stage 2 flow. Renders outside
+                  <Layout /> so it never touches existing navigation chrome. */}
+              <Route path="stage3-preview" element={<Stage3Preview />} />
 
               {/* Main Tabbed Frame */}
               <Route path="/" element={<Layout />}>

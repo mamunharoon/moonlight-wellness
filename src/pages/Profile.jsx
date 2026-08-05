@@ -15,7 +15,7 @@ export const Profile = () => {
     .filter(Boolean)
     .join(' ');
   const hasNameDisplay = Boolean(profileFullName || metadataFullName);
-  const displayName = profileFullName || metadataFullName || user?.email || 'Moonlight User';
+  const displayName = profileFullName || metadataFullName || user?.email || 'Solas User';
 
   return (
     <div className="space-y-6">

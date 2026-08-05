@@ -47,7 +47,7 @@ export const Onboarding = () => {
           <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center text-primary">
             <span className="material-symbols-outlined text-4xl">spa</span>
           </div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight leading-tight">Welcome to Moonlight</h2>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight leading-tight">Welcome to Solas</h2>
           <p className="text-sm text-on-surface-variant leading-relaxed px-4">
             Align your daily rituals with the natural flow of time. From the softest dawn to the deepest midnight, we guide you through a seamless cycle of rejuvenation.
           </p>

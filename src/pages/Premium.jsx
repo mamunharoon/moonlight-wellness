@@ -4,7 +4,7 @@
       {/* Header Panel */}
       <div className="text-center space-y-3 py-6">
         <span className="inline-flex items-center px-4 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest">
-          Moonlight Plus
+          Solas Plus
         </span>
         <h2 className="text-3xl font-extrabold text-white tracking-tight leading-tight">Unlock Your Full Potential</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto">

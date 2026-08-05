@@ -1,37 +1,19 @@
-﻿@tailwind base;
+﻿@import './styles/stage3-tokens.css';
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Dark mode is the only supported mode (frozen product decision) — this
+ * palette is the single source of truth. There is no separate light
+ * palette and no override block; the .dark class stays permanently on
+ * <html> (see ThemeContext.jsx) solely so Tailwind's class-based dark:
+ * variant (darkMode: 'class') keeps resolving, e.g. Home.jsx's
+ * dark:from-[...] gradient stop.
+ */
 @layer base {
   :root {
-    --color-primary: #954835;
-    --color-on-primary: #ffffff;
-    --color-primary-container: #ff9d85;
-    --color-on-primary-container: #783221;
-    --color-secondary: #3e6658;
-    --color-on-secondary: #ffffff;
-    --color-secondary-container: #c0ecda;
-    --color-on-secondary-container: #446c5e;
-    --color-tertiary: #30628a;
-    --color-on-tertiary: #ffffff;
-    --color-tertiary-container: #8bbbe7;
-    --color-on-tertiary-container: #114b71;
-    --color-background: #f8f9fa;
-    --color-on-background: #191c1d;
-    --color-surface: #f8f9fa;
-    --color-on-surface: #191c1d;
-    --color-surface-variant: #e1e3e4;
-    --color-on-surface-variant: #54433f;
-    --color-outline: #87726e;
-    --color-outline-variant: #dac1bb;
-    --color-surface-lowest: #ffffff;
-    --color-surface-low: #f3f4f5;
-    --color-surface-container: #edeeef;
-    --color-surface-high: #e7e8e9;
-    --color-surface-highest: #e1e3e4;
-  }
-
-  .dark {
     --color-primary: #ffc5b7;
     --color-on-primary: #5a1c0c;
     --color-primary-container: #ff9d85;
@@ -58,6 +40,11 @@
     --color-surface-high: #222a3d;
     --color-surface-highest: #2d3449;
   }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+  }
 }
 
 .glass-panel {
@@ -65,11 +52,4 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.light .glass-panel {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
 }

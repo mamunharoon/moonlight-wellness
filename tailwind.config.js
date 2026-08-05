@@ -33,9 +33,25 @@ export default {
         "surface-container": "var(--color-surface-container)",
         "surface-container-high": "var(--color-surface-high)",
         "surface-container-highest": "var(--color-surface-highest)",
+
+        // Stage 3 tokens — additive only, namespaced, never consumed by
+        // any existing Stage 2 file. See src/styles/stage3-tokens.css.
+        "stage3-ink": "var(--stage3-ink)",
+        "stage3-ink-raised": "var(--stage3-ink-raised)",
+        "stage3-dusk": "var(--stage3-dusk)",
+        "stage3-dusk-line": "var(--stage3-dusk-line)",
+        "stage3-moonlight": "var(--stage3-moonlight)",
+        "stage3-moonlight-dim": "var(--stage3-moonlight-dim)",
+        "stage3-dawn": "var(--stage3-dawn)",
+        "stage3-ember": "var(--stage3-ember)",
+        "stage3-mist": "var(--stage3-mist)",
+        "stage3-mist-dim": "var(--stage3-mist-dim)",
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        // Stage 3's "felt" voice (design proposal §11) — additive; no
+        // existing file uses the default font-serif utility today.
+        serif: ['"Newsreader"', 'Georgia', 'serif'],
       },
       borderRadius: {
         'xl': '12px',
