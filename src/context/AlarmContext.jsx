@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAudio } from './AudioContext';
 import { useAuth } from './AuthContext';
+import { useSession } from './SessionContext';
 import { supabase } from '../lib/supabaseClient';
 
 const AlarmContext = createContext();
@@ -54,7 +55,11 @@ const getInitialIntentions = () =>
 
 export const AlarmProvider = ({ children }) => {
   const { playTrack } = useAudio();
-  const { user, loading: authLoading, isGuest } = useAuth();
+  const { user, loading: authLoading, isGuest, migrationRevision } = useAuth();
+  // Stage 3C Group 3B2: a new, standalone line — does not modify the
+  // protected useAuth() destructure above. See the Background Clock
+  // Observer below for the only place this is actually used.
+  const { state: sessionState, startSession, resetSession } = useSession();
   const userId = user && !user.is_anonymous ? user.id : null;
   const [alarmTime, setAlarmTime] = useState(() => {
     return localStorage.getItem('moonlight_wake_up_time') || '07:30';
@@ -165,7 +170,12 @@ export const AlarmProvider = ({ children }) => {
     };
 
     syncRhythm();
-  }, [userId]);
+    // migrationRevision: re-run this same identity-sync logic after a
+    // successful guest-to-account migration (Group 5.3), so a rhythm row
+    // written during migration appears without requiring a manual page
+    // refresh. Idempotent either way - re-fetching an unchanged cloud state
+    // just re-sets the same values.
+  }, [userId, migrationRevision]);
 
   // Fetch the current authenticated user's saved intention from Supabase.
   // No row yet is not an error - the existing local/default state is left
@@ -210,7 +220,9 @@ export const AlarmProvider = ({ children }) => {
     };
 
     syncIntentions();
-  }, [userId]);
+    // migrationRevision: see the matching rhythm-sync effect above - same
+    // reasoning applies to a migrated intention row.
+  }, [userId, migrationRevision]);
 
   // Background Clock Observer
   useEffect(() => {
@@ -230,12 +242,27 @@ export const AlarmProvider = ({ children }) => {
           url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
           image: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=150'
         });
+
+        // Stage 3C Group 3B2: mirror the alarm-fire event into the Session
+        // Engine. journeyStep (above) remains the sole authoritative driver
+        // of navigation - this call only keeps the Session Engine's runtime
+        // state in step, per the approved Group 3B2 design. A leftover
+        // 'playing'/'interrupted' mirror (only possible today as a stale
+        // remnant from a prior day, since no production page yet completes
+        // or resets it - that is Group 3D scope) is reset before starting
+        // fresh, so a new alarm always produces a clean mirror rather than
+        // being silently rejected by the reducer's own already-approved
+        // START_SESSION guard (see src/session/sessionReducer.js).
+        if (sessionState.status === 'playing' || sessionState.status === 'interrupted') {
+          resetSession();
+        }
+        startSession('morning-routine');
       }
     };
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, journeyStep, playTrack]);
+  }, [alarmTime, isAlarmSet, isRinging, journeyStep, playTrack, sessionState.status, startSession, resetSession]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
