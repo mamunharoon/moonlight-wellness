@@ -59,7 +59,7 @@ export const AlarmProvider = ({ children }) => {
   // Stage 3C Group 3B2: a new, standalone line — does not modify the
   // protected useAuth() destructure above. See the Background Clock
   // Observer below for the only place this is actually used.
-  const { state: sessionState, startSession, resetSession } = useSession();
+  const { state: sessionState, startSession, resetSession, interruptSession } = useSession();
   const userId = user && !user.is_anonymous ? user.id : null;
   const [alarmTime, setAlarmTime] = useState(() => {
     return localStorage.getItem('moonlight_wake_up_time') || '07:30';
@@ -270,6 +270,17 @@ export const AlarmProvider = ({ children }) => {
   const snooze = () => {
     setIsRinging(false);
     setJourneyStep('');
+
+    // Stage 3C Group 3D Batch D snooze-alignment fix: mirror the snooze
+    // pause into the Session Engine so Layout's session-authoritative
+    // navigation (Batch D) doesn't force the user back to /alarm-trigger
+    // while snoozed. checkTime()'s existing 'playing' || 'interrupted'
+    // reset-then-start branch already handles resuming correctly on the
+    // next alarm fire - no other change needed.
+    if (sessionState.status === 'playing') {
+      interruptSession('snooze');
+    }
+
     const [hours, minutes] = alarmTime.split(':').map(Number);
     let newMinutes = minutes + 5;
     let newHours = hours;

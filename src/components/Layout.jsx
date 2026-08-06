@@ -3,10 +3,15 @@ import React, { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 
 export const Layout = () => {
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
   const { isRinging, journeyStep } = useAlarm();
+  // Stage 3C Group 3D Batch D: Session Engine navigation cutover. Only the
+  // two narrow values the forced-navigation effect below actually reads —
+  // not the whole context — per the approved dependency-review guidance.
+  const { state, currentStep } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -17,7 +22,9 @@ export const Layout = () => {
       return;
     }
 
-    // List of active morning sub-routes
+    // List of active morning sub-routes. Temporarily retained as the
+    // fallback authority only (see sessionRoute below) — legacy retirement
+    // is a separate, not-yet-approved decision (docs/stage-3-workbook.md).
     const stepPaths = {
       alarm: '/alarm-trigger',
       start: '/morning-start',
@@ -28,11 +35,21 @@ export const Layout = () => {
       complete: '/session-complete'
     };
 
-    const activePath = stepPaths[journeyStep];
+    // Stage 3C Group 3D Batch D: dual-source route authority, temporary.
+    // The Session Engine wins whenever it is genuinely 'playing' — never
+    // for 'completed'/'skipped'/'idle', so a persisted-but-inactive runtime
+    // never forces a route. journeyStep/stepPaths remains a fallback for
+    // rollback safety, and is what still governs when no session is
+    // playing (e.g. mid-migration, or if the Session Engine mirror for a
+    // given page were ever disabled).
+    const sessionRoute = state.status === 'playing' ? currentStep?.route ?? null : null;
+    const legacyRoute = journeyStep ? stepPaths[journeyStep] ?? null : null;
+    const activePath = sessionRoute ?? legacyRoute;
+
     if (activePath && location.pathname !== activePath) {
       navigate(activePath);
     }
-  }, [isRinging, journeyStep, location.pathname, navigate]);
+  }, [isRinging, journeyStep, state.status, currentStep, location.pathname, navigate]);
 
   const navItems = [
     { label: 'Today', path: '/', icon: 'home_health' },

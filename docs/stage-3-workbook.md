@@ -106,13 +106,13 @@ Only 3A→3B→3C is a hard, strictly linear dependency chain. 3D and 3E both br
 | MLT-3B-16 | Layer compositing order enforcement | 3B-E1 | P1 | 3 | Completed |
 | MLT-3B-17 | Atmospheric layer performance instrumentation | 3B-E6 | P2 | 3 | Not started |
 | MLT-3B-18 | Environmental Engine public API (layer request surface) | 3B-E1 | P0 | 5 | Completed |
-| MLT-3C-01 | Session schema & catalog registry | 3C-E1 | P0 | 5 | Not started |
-| MLT-3C-02 | Session Player — step runner core | 3C-E1 | P0 | 8 | Not started |
-| MLT-3C-03 | Session Player — skip handling | 3C-E1 | P1 | 3 | Not started |
-| MLT-3C-04 | Awakening session | 3C-E2 | P0 | 5 | Not started |
-| MLT-3C-05 | Stretching session | 3C-E2 | P1 | 3 | Not started |
-| MLT-3C-06 | Grounding session (morning variant) | 3C-E2 | P1 | 3 | Not started |
-| MLT-3C-07 | Intention session (set + re-check) | 3C-E2 | P0 | 5 | Not started |
+| MLT-3C-01 | Session schema & catalog registry | 3C-E1 | P0 | 5 | Completed — one continuous `morning-routine` session (7 steps), not the blueprint's four-module split; see sessionDefinitions.js "WHY ONE SESSION, NOT FOUR" |
+| MLT-3C-02 | Session Player — step runner core | 3C-E1 | P0 | 8 | Completed for the morning flow only — reducer/context built (Group 2); as of Group 3D Batch D, the Session Engine is the *primary* navigation source in Layout.jsx while a morning session is `playing`, with legacy `journeyStep` retained as a temporary fallback (rollback safety, not yet retired). Evening/Support/Panic Mode session types not started |
+| MLT-3C-03 | Session Player — skip handling | 3C-E1 | P1 | 3 | Not started as a generic Player mechanism — each morning page's own pre-existing Skip button now additionally mirrors into the Session Engine (SKIP_STEP/ABANDON_SESSION), but there is no shared, session-type-agnostic skip runner |
+| MLT-3C-04 | Awakening session | 3C-E2 | P0 | 5 | Not started as a standalone module — alarm/start/affirmation steps exist only as part of the single `morning-routine` session (see MLT-3C-01) |
+| MLT-3C-05 | Stretching session | 3C-E2 | P1 | 3 | Not started as a standalone module — see MLT-3C-04 note |
+| MLT-3C-06 | Grounding session (morning variant) | 3C-E2 | P1 | 3 | Not started as a standalone module — see MLT-3C-04 note |
+| MLT-3C-07 | Intention session (set + re-check) | 3C-E2 | P0 | 5 | Not started as a standalone module — see MLT-3C-04 note |
 | MLT-3C-08 | Gratitude session | 3C-E3 | P0 | 5 | Not started |
 | MLT-3C-09 | Reflection session | 3C-E3 | P1 | 3 | Not started |
 | MLT-3C-10 | Breathing session (evening) | 3C-E3 | P0 | 5 | Not started |
@@ -125,7 +125,7 @@ Only 3A→3B→3C is a hard, strictly linear dependency chain. 3D and 3E both br
 | MLT-3C-17 | Panic Mode — zero-friction exit | 3C-E5 | P0 | 2 | Not started |
 | MLT-3C-18 | Interruption handling — call/notification | 3C-E6 | P0 | 8 | Not started |
 | MLT-3C-19 | Interruption handling — app backgrounding | 3C-E6 | P0 | 5 | Not started |
-| MLT-3C-20 | Session completion event bus | 3C-E1 | P0 | 5 | Not started |
+| MLT-3C-20 | Session completion event bus | 3C-E1 | P0 | 5 | Partially completed — `completionEventId` is minted idempotently on `COMPLETE_SESSION` (verified once-only under StrictMode double-invoke); no actual event bus or consumers exist yet (Stage 3D Recommendation Engine dependency, MLT-3D-16) |
 | MLT-3D-01 | Emotional state data model (8 states, 4 families) | 3D-E1 | P0 | 5 | Not started |
 | MLT-3D-02 | Non-display guardrail (state never rendered as label) | 3D-E1 | P0 | 2 | Not started |
 | MLT-3D-03 | Check-in scale component wiring | 3D-E2 | P0 | 5 | Not started |
@@ -367,6 +367,15 @@ Very High (76 points, 18 tickets) — the widest phase by layer count, and the o
 
 ### Objectives
 Deliver every session module in the catalog (blueprint §3) behind a shared Session Player, with genuine interruption-safety and Panic Mode as a first-class, not bolted-on, feature. This is the first phase where Solas is usable end-to-end (self-selected, not yet recommended).
+
+### Implementation status — Morning flow navigation cutover (Batches A–D)
+Scoped narrower than the objective above: only the morning flow (`morning-routine`, one continuous session, MLT-3C-01) has been built, and only its own 7 existing pages (Group 3D Batches A–C: AlarmActive, MorningStart, Affirmation, MorningFlow, Breathe, IntentionSetup, SessionComplete) mirror their transitions into the Session Engine. Evening, Support, and Panic Mode session types remain not started.
+
+As of Batch D, `src/components/Layout.jsx`'s forced-navigation effect uses the Session Engine as the **primary** route authority whenever `state.status === 'playing'` (never for `completed`/`skipped`/`idle`). The legacy `journeyStep`/`stepPaths` mechanism is retained as a **temporary fallback** for rollback safety and governs navigation only when no session is actively playing — it has not been retired, and `moonlight_journey_step` continues to be read and written exactly as before. Legacy retirement is inspection-only so far (Batch D final report); no reads or writes have been removed.
+
+Browser Back and manual Home-navigation behaviour while a session is playing are unchanged from pre-cutover: Layout still corrects the route back to the active step, with no confirmation dialog and no abandon behaviour — this remains an open product decision for the final Stage 3C interaction pass, not resolved here.
+
+**Snooze verification (critical acceptance gate):** the cutover initially exposed exactly the conflict anticipated — after snoozing, the Session Engine remained `playing` at the `alarm` step (snooze was deliberately scoped outside Session Engine control in Group 3B2), so the new session-authoritative Layout logic forced the user back to `/alarm-trigger` and blocked navigation away for the full snooze duration. Fixed with a minimal, approved change: `AlarmContext.jsx`'s `snooze()` now calls the existing `interruptSession('snooze')` action when a session is playing, alongside the pre-existing `setJourneyStep('')`. `interruptSession` transitions `playing → interrupted`, which Layout does not treat as authoritative, so the fallback (empty `journeyStep`) correctly permits normal navigation during a snooze. The subsequent alarm re-fire already handled resuming from `interrupted` (a dormant branch in `checkTime()` written in Group 3B2, exercised for the first time by this fix) — verified live: `interruptionReason` cleared and a fresh `startedAt` on re-fire.
 
 ### Epics
 - **3C-E1** Session Player Core
