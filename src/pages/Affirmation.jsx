@@ -1,12 +1,29 @@
 ﻿import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const Affirmation = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
+  // Stage 3C Group 3D Batch A: mirrors the affirmation -> stretch (standard
+  // and gentle) or affirmation -> breathe (quick, an atomic forward jump)
+  // transition into the Session Engine. See handleNext/handleSkip below.
+  const { state, currentStep, advanceStep, advanceToStep } = useSession();
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
+
+  // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
+  // playing at the 'affirmation' step — a direct-route visit with no
+  // active session, or a mismatched mirror, silently does nothing here.
+  const mirrorTransition = () => {
+    if (state.status !== 'playing' || currentStep?.id !== 'affirmation') return;
+    if (routineDuration === 'quick') {
+      advanceToStep('breathe');
+    } else {
+      advanceStep();
+    }
+  };
 
   const handleNext = () => {
     if (routineDuration === 'quick') {
@@ -16,6 +33,7 @@ export const Affirmation = () => {
       setJourneyStep('stretch');
       navigate('/morning-flow');
     }
+    mirrorTransition();
   };
 
   const handleSkip = () => {
@@ -26,6 +44,7 @@ export const Affirmation = () => {
       setJourneyStep('stretch');
       navigate('/morning-flow');
     }
+    mirrorTransition();
   };
 
   return (

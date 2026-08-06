@@ -1,9 +1,15 @@
 ﻿import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 
 export const MorningStart = () => {
   const navigate = useNavigate();
   const { routineDuration, setJourneyStep } = useAlarm();
+  // Stage 3C Group 3D Batch A: mirrors the start -> affirmation transition
+  // (Begin) and the start -> abandoned transition (Skip Routine) into the
+  // Session Engine. See handleBegin/handleSkip below for the only places
+  // any of this is used.
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
 
   const getDurationDetails = () => {
     switch (routineDuration) {
@@ -21,11 +27,25 @@ export const MorningStart = () => {
   const handleBegin = () => {
     setJourneyStep('affirmation');
     navigate('/affirmation');
+
+    // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
+    // playing at the 'start' step — a direct-route visit with no active
+    // session, or a mismatched mirror, silently does nothing here.
+    if (state.status === 'playing' && currentStep?.id === 'start') {
+      advanceStep();
+    }
   };
 
   const handleSkip = () => {
     setJourneyStep('');
     navigate('/');
+
+    // Stage 3C Group 3D Batch A: mirror the routine-skip as an abandoned
+    // session, guarded the same way as handleBegin above. resetSession()
+    // is deliberately not used here per the approved plan.
+    if (state.status === 'playing' && currentStep?.id === 'start') {
+      abandonSession();
+    }
   };
 
   return (

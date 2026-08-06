@@ -21,6 +21,7 @@ import { getSessionById } from './sessionRegistry';
  *   skipped     --START_SESSION-->    playing   (a new session; see note)
  *   playing     --ADVANCE_STEP-->     playing   (only when a next step exists)
  *   playing     --SKIP_STEP-->        playing   (only when currentStep.skippable)
+ *   playing     --ADVANCE_TO_STEP-->  playing   (only forward, to an existing step)
  *   playing     --INTERRUPT_SESSION-->interrupted
  *   interrupted --RESUME_SESSION-->   playing
  *   playing     --COMPLETE_SESSION--> completed (only at the terminal step)
@@ -66,6 +67,19 @@ import { getSessionById } from './sessionRegistry';
  *   completionEventId) a single, auditable code path rather than
  *   something that can also happen as a side effect of advancing.
  *
+ * ADVANCE_TO_STEP — explicit forward-only jump
+ *   Added for callers that need to mirror a multi-step legacy transition
+ *   (e.g. a quick-routine branch that legally skips an intermediate step)
+ *   as a single atomic dispatch rather than several ADVANCE_STEP calls.
+ *   Same preconditions as ADVANCE_STEP (status must be 'playing', current
+ *   sessionId must resolve) plus its own target checks: the target step id
+ *   must exist in the current session, and its index must be strictly
+ *   greater than the current stepIndex — same-step, backward, and unknown
+ *   targets are all rejected exactly like any other precondition failure
+ *   (same state reference returned, optional dev-only warning). This does
+ *   not introduce a new persistence shape; the resulting state is the same
+ *   shape ADVANCE_STEP produces.
+ *
  * ABANDON_SESSION -> 'skipped' — explicit decision
  *   The brief states "skipped is a terminal session state only when the
  *   whole session is skipped or abandoned by an approved action" — read
@@ -89,6 +103,7 @@ const VALID_STATUSES = Object.values(SESSION_STATUS);
 export const SESSION_ACTION_TYPES = Object.freeze({
   START_SESSION: 'START_SESSION',
   ADVANCE_STEP: 'ADVANCE_STEP',
+  ADVANCE_TO_STEP: 'ADVANCE_TO_STEP',
   SKIP_STEP: 'SKIP_STEP',
   INTERRUPT_SESSION: 'INTERRUPT_SESSION',
   RESUME_SESSION: 'RESUME_SESSION',
@@ -177,6 +192,29 @@ export const sessionReducer = (state, action) => {
         return state;
       }
       return { ...state, stepIndex: state.stepIndex + 1, updatedAt: now() };
+    }
+
+    case SESSION_ACTION_TYPES.ADVANCE_TO_STEP: {
+      if (state.status !== SESSION_STATUS.PLAYING) {
+        devWarn(`ADVANCE_TO_STEP rejected — session status is "${state.status}", not "playing".`);
+        return state;
+      }
+      const session = getSessionById(state.sessionId);
+      if (!session) {
+        devWarn('ADVANCE_TO_STEP rejected — current sessionId no longer resolves in the registry.');
+        return state;
+      }
+      const targetStepId = action.payload?.stepId;
+      const targetIndex = session.steps.findIndex((step) => step.id === targetStepId);
+      if (targetIndex === -1) {
+        devWarn(`ADVANCE_TO_STEP rejected — unknown step id "${targetStepId}" for session "${session.id}".`);
+        return state;
+      }
+      if (targetIndex <= state.stepIndex) {
+        devWarn(`ADVANCE_TO_STEP rejected — target step "${targetStepId}" (index ${targetIndex}) is not ahead of the current step (index ${state.stepIndex}).`);
+        return state;
+      }
+      return { ...state, stepIndex: targetIndex, updatedAt: now() };
     }
 
     case SESSION_ACTION_TYPES.SKIP_STEP: {

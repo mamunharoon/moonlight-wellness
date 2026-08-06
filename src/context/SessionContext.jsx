@@ -82,6 +82,12 @@ export const SessionProvider = ({ children }) => {
     dispatch({ type: SESSION_ACTION_TYPES.START_SESSION, payload: { sessionId, startIndex: options?.startIndex } });
   }, []);
   const advanceStep = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.ADVANCE_STEP }), []);
+  // Plain, dedicated method — deliberately not folded into advanceStep, so
+  // callers stay explicit about whether they mean "next step" or "jump
+  // forward to a specific step" (Stage 3C Group 3D Batch A, Unit 3).
+  const advanceToStep = useCallback((stepId) => {
+    dispatch({ type: SESSION_ACTION_TYPES.ADVANCE_TO_STEP, payload: { stepId } });
+  }, []);
   const skipStep = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.SKIP_STEP }), []);
   const interruptSession = useCallback((reason) => {
     dispatch({ type: SESSION_ACTION_TYPES.INTERRUPT_SESSION, payload: { reason } });
@@ -105,6 +111,7 @@ export const SessionProvider = ({ children }) => {
       progress,
       startSession,
       advanceStep,
+      advanceToStep,
       skipStep,
       interruptSession,
       resumeSession,
@@ -124,6 +131,7 @@ export const SessionProvider = ({ children }) => {
       progress,
       startSession,
       advanceStep,
+      advanceToStep,
       skipStep,
       interruptSession,
       resumeSession,

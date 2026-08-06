@@ -1,9 +1,15 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 
 export const AlarmActive = () => {
   const { snooze, dismissAlarm, alarmTime, setJourneyStep } = useAlarm();
+  // Stage 3C Group 3D Cycle 1: a new, standalone line — mirrors the
+  // successful-unlock transition into the Session Engine. See handleUnlock
+  // below for the only place any of this is used; snooze/dismissAlarm are
+  // untouched and never consume this.
+  const { state, currentStep, advanceStep } = useSession();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
   const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00 AM');
@@ -11,6 +17,15 @@ export const AlarmActive = () => {
   const startX = useRef(0);
   const sliderWidth = useRef(0);
   const containerRef = useRef(null);
+  // One-shot guard for the new mirror call only (see handleUnlock) — the
+  // rapid mousemove events that can accumulate mid-drag would otherwise be
+  // able to call advanceStep() more than once before any re-render occurs,
+  // over-advancing the Session Engine past 'start'. The existing legacy
+  // statements (dismissAlarm/setJourneyStep/navigate) are already safe
+  // against repeated calls today (idempotent same-value writes, harmless
+  // repeated navigation to the same route) and are deliberately left
+  // outside this guard.
+  const hasMirroredUnlockRef = useRef(false);
 
   // Tick the clock dynamically every second
   useEffect(() => {
@@ -33,7 +48,24 @@ export const AlarmActive = () => {
     dismissAlarm();
     setJourneyStep('start');
     navigate('/morning-start');
-  }, [dismissAlarm, navigate, setJourneyStep]);
+
+    // Stage 3C Group 3D Cycle 1: mirror the alarm -> start transition into
+    // the Session Engine. Guarded by a one-shot ref so rapid mousemove
+    // events within a single unlock gesture cannot call advanceStep() more
+    // than once (see hasMirroredUnlockRef above). The status/currentStep
+    // check additionally ensures this only fires when the mirror is
+    // genuinely at the 'alarm' step of a playing session — a direct
+    // /alarm-trigger visit with no active session, or a mismatched mirror,
+    // silently does nothing here and never affects the legacy behaviour
+    // above.
+    if (!hasMirroredUnlockRef.current) {
+      hasMirroredUnlockRef.current = true;
+
+      if (state.status === 'playing' && currentStep?.id === 'alarm') {
+        advanceStep();
+      }
+    }
+  }, [dismissAlarm, navigate, setJourneyStep, state.status, currentStep, advanceStep]);
 
   const handleMove = useCallback((clientX) => {
     if (!isDragging.current) return;
