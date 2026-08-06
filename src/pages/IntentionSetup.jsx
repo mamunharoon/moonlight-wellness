@@ -1,11 +1,15 @@
 ﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 import { supabase } from '../lib/supabaseClient';
 
 export const IntentionSetup = () => {
   const navigate = useNavigate();
   const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
+  // Stage 3C Group 3D Batch C: mirrors the intention -> complete transition
+  // into the Session Engine. See handleComplete below.
+  const { state, currentStep, advanceStep } = useSession();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -39,6 +43,13 @@ export const IntentionSetup = () => {
   const handleComplete = async () => {
     setIsSaving(true);
     setJourneyStep('complete');
+
+    // Stage 3C Group 3D Batch C: mirror only when the engine is genuinely
+    // playing at the 'intention' step — a direct-route visit with no
+    // active session, or a mismatched mirror, silently does nothing here.
+    if (state.status === 'playing' && currentStep?.id === 'intention') {
+      advanceStep();
+    }
 
     const primaryIntention = intentions[0] || 'Stay calm';
 

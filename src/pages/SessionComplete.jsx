@@ -1,14 +1,31 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
   const { intentions, setJourneyStep } = useAlarm();
+  // Stage 3C Group 3D Batch C: mirrors the final intention -> complete
+  // completion into the Session Engine on mount, and resets the mirror on
+  // Return Home. COMPLETE_SESSION is idempotent in the reducer itself (a
+  // repeat call once status is already 'completed' returns the exact same
+  // state reference, no new completionEventId) — this is what keeps a
+  // StrictMode double-invoke of the mount effect below safe without needing
+  // an extra guard ref here.
+  const { state, currentStep, completeSession, resetSession } = useSession();
+
+  useEffect(() => {
+    if (state.status === 'playing' && currentStep?.id === 'complete') {
+      completeSession();
+    }
+  }, [state.status, currentStep, completeSession]);
 
   const handleReturnHome = () => {
     localStorage.setItem('moonlight_morning_completed_date', new Date().toDateString());
     setJourneyStep('');
     navigate('/');
+    resetSession();
   };
 
   const primaryIntention = intentions[0] || 'Stay calm';
