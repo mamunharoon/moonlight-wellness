@@ -1,16 +1,45 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
+  // Stage 3C Group 3D Batch B: mirrors the breathe -> intention transition
+  // into the Session Engine from all three genuine exits (timer expiry,
+  // Complete/Continue, Skip Breathing). See mirrorBreathingExitRef below.
+  // Pause/resume deliberately never calls interruptSession()/resumeSession()
+  // — it only ever toggles the pre-existing local isPaused state.
+  const { state, currentStep, advanceStep } = useSession();
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
+
+  // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
+  // mirror only — multiple exits (timer, manual, skip) could theoretically
+  // reach the mirror close together, and this ensures it dispatches at
+  // most once regardless of which exit gets there first. It never blocks
+  // or alters the legacy countdown/breathing-cycle/pause-resume/navigation
+  // statements it sits beside.
+  const hasMirroredExitRef = useRef(false);
+  // Kept as a ref (rather than depending on state.status/currentStep
+  // directly in the timer effect below) so the countdown effect's own
+  // dependency array — and therefore its timing — is completely untouched
+  // by Session Engine state.
+  const mirrorBreathingExitRef = useRef(() => {});
+  useEffect(() => {
+    mirrorBreathingExitRef.current = () => {
+      if (hasMirroredExitRef.current) return;
+      hasMirroredExitRef.current = true;
+      if (state.status === 'playing' && currentStep?.id === 'breathe') {
+        advanceStep();
+      }
+    };
+  }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -18,6 +47,7 @@ export const Breathe = () => {
     if (secondsLeft <= 0) {
       setJourneyStep('intention');
       navigate('/intention-setup');
+      mirrorBreathingExitRef.current();
       return;
     }
 
@@ -42,11 +72,13 @@ export const Breathe = () => {
   const handleComplete = () => {
     setJourneyStep('intention');
     navigate('/intention-setup');
+    mirrorBreathingExitRef.current();
   };
 
   const handleSkip = () => {
     setJourneyStep('intention');
     navigate('/intention-setup');
+    mirrorBreathingExitRef.current();
   };
 
   return (

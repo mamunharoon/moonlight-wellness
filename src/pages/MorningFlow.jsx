@@ -1,11 +1,17 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
+  // Stage 3C Group 3D Batch B: mirrors the stretch -> breathe transition
+  // into the Session Engine from all three genuine exits (timer
+  // auto-advance, manual Next/Continue on the final exercise, Skip
+  // Stretching). See mirrorStretchExitRef below.
+  const { state, currentStep, advanceStep } = useSession();
   const [activeStep, setActiveStep] = useState(0);
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
@@ -24,6 +30,30 @@ export const MorningFlow = () => {
 
   const [timeLeft, setTimeLeft] = useState(getStepDuration());
 
+  // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
+  // mirror only — multiple exits (timer, manual, skip) could theoretically
+  // reach the mirror close together (e.g. a manual click right as the
+  // timer expires), and this ensures it dispatches at most once regardless
+  // of which exit gets there first. It never blocks or alters the legacy
+  // navigation/timer/exercise-progression statements it sits beside.
+  const hasMirroredExitRef = useRef(false);
+  // The timer effect below is set up once and its dependency array
+  // deliberately excludes Session Engine state (adding it would reset the
+  // running countdown whenever the mirror fires) — so its setInterval
+  // closure calls through this ref, which is kept pointing at a fresh
+  // closure on every render, instead of depending on stale values captured
+  // at effect-setup time.
+  const mirrorStretchExitRef = useRef(() => {});
+  useEffect(() => {
+    mirrorStretchExitRef.current = () => {
+      if (hasMirroredExitRef.current) return;
+      hasMirroredExitRef.current = true;
+      if (state.status === 'playing' && currentStep?.id === 'stretch') {
+        advanceStep();
+      }
+    };
+  }, [state.status, currentStep, advanceStep]);
+
   useEffect(() => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
@@ -36,6 +66,7 @@ export const MorningFlow = () => {
             } else {
               setJourneyStep('breathe');
               navigate('/breathe');
+              mirrorStretchExitRef.current();
               return curr;
             }
           });
@@ -56,12 +87,14 @@ export const MorningFlow = () => {
     } else {
       setJourneyStep('breathe');
       navigate('/breathe');
+      mirrorStretchExitRef.current();
     }
   };
 
   const handleSkip = () => {
     setJourneyStep('breathe');
     navigate('/breathe');
+    mirrorStretchExitRef.current();
   };
 
   return (
