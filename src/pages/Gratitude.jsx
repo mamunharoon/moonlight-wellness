@@ -5,7 +5,7 @@ import { PromptStepper } from '../components/evening/PromptStepper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 
 /*
- * Stage 4 Batch F4 (+ Completion Pass) — Gratitude
+ * Stage 4 Batch F4/F6 — Gratitude
  *
  * Third step of the evening-wind-down session. Structurally identical to
  * Reflection.jsx (see that file's own doc comment for the glass-panel/
@@ -13,14 +13,12 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
  * database/storage persistence are all explicitly deferred for this
  * screen too).
  *
- * The one real difference: Breathing and Sleep Preparation (F6, not this
- * batch) still don't have pages, so completing the final prompt here
- * jumps straight to 'completion' via advanceToStep — the same
- * forward-only jump EveningWindDown.jsx used in F3 before Reflection
- * existed. "At this stage: Gratitude -> Completion" per this batch's own
- * ticket; F6 changes this one call to advanceStep() into 'breathing'
- * instead, same as F4 already changed EveningWindDown.jsx's equivalent
- * call this batch.
+ * F4 had this jump straight to 'completion' via advanceToStep, since
+ * Breathing/Sleep Preparation had no pages yet. Now that EveningBreathing
+ * exists (F6), completing the final prompt advances one real step at a
+ * time via advanceStep() instead — gratitude -> breathing is immediately
+ * adjacent, so advanceStep() is correct here, same change already made
+ * to EveningWindDown.jsx in F4.
  */
 const GRATITUDE_PROMPTS = [
   { id: 'appreciated-moment', label: 'Name one moment you appreciated today.' },
@@ -30,15 +28,15 @@ const GRATITUDE_PROMPTS = [
 
 export const Gratitude = () => {
   const navigate = useNavigate();
-  const { state, currentStep, advanceToStep } = useSession();
+  const { state, currentStep, advanceStep } = useSession();
 
   if (EveningSceneShell && PromptStepper && ProgressIndicator) { /* no-op to satisfy blind linter */ }
 
   const handleComplete = () => {
     if (state.status === 'playing' && currentStep?.id === 'gratitude') {
-      advanceToStep('completion');
+      advanceStep();
     }
-    navigate('/evening-complete');
+    navigate('/evening-breathing');
   };
 
   return (

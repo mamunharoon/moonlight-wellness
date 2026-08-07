@@ -219,16 +219,26 @@ export const EVENING_ROUTINE_SESSION = {
       audioCue: null,
     },
     {
+      // Stage 4 Batch F6: route filled in now that EveningBreathing.jsx
+      // exists — see WIND_DOWN's own comment above for the established
+      // reasoning. skippable: true — a real Skip control exists on this
+      // screen. durationSeconds: 76 — EveningBreathing.jsx's own fixed
+      // secondsLeft starting value (a slower 4-7-8 cycle, 4 full cycles,
+      // deliberately calmer/longer than Breathe.jsx's 56s/4-4-6 cycle).
       id: EVENING_STEP_IDS.BREATHING,
-      route: null,
-      skippable: false,
-      durationSeconds: null,
+      route: '/evening-breathing',
+      skippable: true,
+      durationSeconds: 76,
       atmosphereRequest: null,
       audioCue: null,
     },
     {
+      // Stage 4 Batch F6: route filled in now that PrepareForRest.jsx
+      // exists. skippable: false — this screen has a single "Continue"
+      // action only, no separate Skip affordance (ticket did not request
+      // one for this step, unlike Evening Breathing).
       id: EVENING_STEP_IDS.SLEEP_PREPARATION,
-      route: null,
+      route: '/prepare-for-rest',
       skippable: false,
       durationSeconds: null,
       atmosphereRequest: null,

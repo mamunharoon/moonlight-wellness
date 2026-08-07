@@ -30,6 +30,8 @@ import { EveningWindDown } from './pages/EveningWindDown';
 import { EveningComplete } from './pages/EveningComplete';
 import { Reflection } from './pages/Reflection';
 import { Gratitude } from './pages/Gratitude';
+import { EveningBreathing } from './pages/EveningBreathing';
+import { PrepareForRest } from './pages/PrepareForRest';
 
 function App() {
   return (
@@ -57,13 +59,15 @@ function App() {
                 <Route path="auth" element={<Auth />} />
                 <Route path="reset-password" element={<ResetPassword />} />
 
-                {/* Stage 4 Batch F3/F4: evening-wind-down session steps. Full-bleed
+                {/* Stage 4 Batch F3/F4/F6: evening-wind-down session steps. Full-bleed
                     (fixed inset-0 z-[100], via EveningSceneShell) same as
                     AlarmActive.jsx above, so placed outside <Layout> for the same
                     reason. */}
                 <Route path="evening-wind-down" element={<EveningWindDown />} />
                 <Route path="reflection" element={<Reflection />} />
                 <Route path="gratitude" element={<Gratitude />} />
+                <Route path="evening-breathing" element={<EveningBreathing />} />
+                <Route path="prepare-for-rest" element={<PrepareForRest />} />
                 <Route path="evening-complete" element={<EveningComplete />} />
 
                 {/* MLT-3A-16: Stage 3 internal preview — not linked from any
