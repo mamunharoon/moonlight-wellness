@@ -227,7 +227,16 @@ export const AlarmProvider = ({ children }) => {
   // Background Clock Observer
   useEffect(() => {
     const checkTime = () => {
-      if (!isAlarmSet || isRinging || journeyStep !== '') return;
+      // Stage 3C Group 3D Batch E: re-fire guard now reads the Session
+      // Engine directly instead of journeyStep. 'playing' and 'completed'
+      // are the only two statuses that always coincide with a non-empty
+      // journeyStep (mid-journey, and finished-but-not-yet-returned-home
+      // respectively) - both must keep blocking a new alarm. 'interrupted'
+      // (snooze) and 'skipped' (Skip Routine) both coincide with an EMPTY
+      // journeyStep today and must keep allowing a fresh fire - snooze's
+      // whole purpose is a delayed re-fire, and an abandoned session must
+      // not permanently block the next alarm. 'idle' obviously allows it.
+      if (!isAlarmSet || isRinging || sessionState.status === 'playing' || sessionState.status === 'completed') return;
 
       const now = new Date();
       const currentHours = now.getHours().toString().padStart(2, '0');
@@ -262,7 +271,7 @@ export const AlarmProvider = ({ children }) => {
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, journeyStep, playTrack, sessionState.status, startSession, resetSession]);
+  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, startSession, resetSession]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
