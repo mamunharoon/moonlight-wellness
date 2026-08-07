@@ -1,10 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { migrateGuestData } from '../lib/migrateGuestData';
 
 const AuthContext = createContext();
 
 const PROFILE_COLUMNS = 'id, first_name, last_name, avatar_url';
+const MIGRATION_MARKER_PREFIX = 'moonlight_migration_v1_';
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
@@ -13,6 +15,9 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(null);
+  // Bumped only after a successful guest-to-account migration. Group 5.4
+  // will consume this to know when to re-fetch rhythm/intention state.
+  const [migrationRevision, setMigrationRevision] = useState(0);
 
   useEffect(() => {
     if (!supabase) return;
@@ -120,6 +125,58 @@ export const AuthProvider = ({ children }) => {
 
   const refreshProfile = () => loadProfile(user);
 
+  // Stage 2B Group 5.3: one-time guest-to-account data migration. Runs only
+  // for a permanent (non-anonymous) authenticated user who hasn't already
+  // completed this migration version, per the moonlight_migration_v1_<id>
+  // marker. Guest localStorage is never cleared here (retained per the
+  // approved Group 5 data-retention policy) and the marker is written only
+  // on full success, so a partial failure retries safely on the next
+  // sign-in/refresh without risking duplicate or overwritten cloud data -
+  // migrateGuestData.js's own cloud-first checks and the client_id unique
+  // constraint are what make that retry safe.
+  useEffect(() => {
+    const runMigration = async () => {
+      if (loading) return;
+      if (!user || user.is_anonymous || !user.id) return;
+
+      const markerKey = `${MIGRATION_MARKER_PREFIX}${user.id}`;
+
+      let alreadyMigrated;
+      try {
+        alreadyMigrated = localStorage.getItem(markerKey);
+      } catch {
+        // localStorage unavailable this session - skip rather than risk a
+        // migration attempt with no way to record completion.
+        return;
+      }
+      if (alreadyMigrated) return;
+
+      const result = await migrateGuestData(user.id);
+
+      if (!result.success) {
+        console.warn('migrateGuestData: migration did not complete successfully, will retry next sign-in', {
+          rhythm: result.rhythm,
+          intention: result.intention,
+          journal: result.journal
+        });
+        return;
+      }
+
+      try {
+        localStorage.setItem(markerKey, new Date().toISOString());
+      } catch (e) {
+        // Migration itself succeeded and cloud data is safe, but without a
+        // recorded marker this will simply be retried (safely) next time.
+        console.warn('migrateGuestData: migration succeeded but marker write failed:', e.message);
+        return;
+      }
+
+      setMigrationRevision((prev) => prev + 1);
+    };
+
+    runMigration();
+  }, [user, loading]);
+
   return (
     <AuthContext.Provider value={{
       session,
@@ -130,7 +187,8 @@ export const AuthProvider = ({ children }) => {
       profile,
       profileLoading,
       profileError,
-      refreshProfile
+      refreshProfile,
+      migrationRevision
     }}>
       {children}
     </AuthContext.Provider>
