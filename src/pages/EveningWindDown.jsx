@@ -3,16 +3,15 @@ import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 
 /*
- * Stage 4 Batch F3 — EveningWindDown
+ * Stage 4 Batch F3/F4 — EveningWindDown
  *
  * Entry step of the evening-wind-down session (src/session/
- * sessionDefinitions.js). Reflection/Gratitude/Breathing/Sleep
- * Preparation (F4/F6, not this batch) don't have pages yet, so Begin
- * jumps straight to the 'completion' step via advanceToStep — the same
- * forward-only jump the reducer already supports for a legal multi-step
- * transition (see sessionReducer.js's own ADVANCE_TO_STEP doc comment).
- * A later batch that builds the intermediate steps changes this one call
- * to advanceStep() into 'reflection' instead; nothing else here changes.
+ * sessionDefinitions.js). Breathing/Sleep Preparation (F6, not this
+ * batch) still don't have pages, but Reflection/Gratitude (F4) now do,
+ * so Begin advances one real step at a time via advanceStep() — the
+ * F3 version of this file jumped straight to 'completion' via
+ * advanceToStep() since no intermediate page existed yet; that shortcut
+ * is now replaced with the genuine next step.
  *
  * startSession('evening-wind-down') is called unconditionally on Begin,
  * mirroring checkTime()'s role for the morning session (AlarmContext.jsx)
@@ -21,18 +20,18 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
  * link or a direct /evening-wind-down visit): the reducer rejects
  * START_SESSION outright while a session is already 'playing'/
  * 'interrupted' and no-ops back the same state, which the following
- * advanceToStep call then chains off correctly either way.
+ * advanceStep call then chains off correctly either way.
  */
 export const EveningWindDown = () => {
   const navigate = useNavigate();
-  const { startSession, advanceToStep } = useSession();
+  const { startSession, advanceStep } = useSession();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
     startSession('evening-wind-down');
-    advanceToStep('completion');
-    navigate('/evening-complete');
+    advanceStep();
+    navigate('/reflection');
   };
 
   return (

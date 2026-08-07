@@ -58,7 +58,7 @@ export const Layout = () => {
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];
 
-  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup', '/morning-flow', '/breathe', '/evening-wind-down', '/evening-complete'].includes(location.pathname);
+  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup', '/morning-flow', '/breathe', '/evening-wind-down', '/reflection', '/gratitude', '/evening-complete'].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col transition-colors duration-300">

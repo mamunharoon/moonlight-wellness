@@ -197,17 +197,23 @@ export const EVENING_ROUTINE_SESSION = {
       audioCue: null,
     },
     {
+      // Stage 4 Batch F4: route filled in now that Reflection.jsx exists
+      // — see WIND_DOWN's own comment above for the established reasoning.
+      // skippable: true — PromptStepper's own Skip control is a real
+      // per-prompt affordance on this screen today (see PromptStepper.jsx).
       id: EVENING_STEP_IDS.REFLECTION,
-      route: null,
-      skippable: false,
+      route: '/reflection',
+      skippable: true,
       durationSeconds: null,
       atmosphereRequest: null,
       audioCue: null,
     },
     {
+      // Stage 4 Batch F4: route filled in now that Gratitude.jsx exists
+      // — same reasoning as REFLECTION above.
       id: EVENING_STEP_IDS.GRATITUDE,
-      route: null,
-      skippable: false,
+      route: '/gratitude',
+      skippable: true,
       durationSeconds: null,
       atmosphereRequest: null,
       audioCue: null,
