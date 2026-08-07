@@ -3,32 +3,40 @@ import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 
 /*
- * Stage 4 Batch F3/F4 — EveningWindDown
+ * Stage 4 Batch F3/F4 (fixed in F7 validation) — EveningWindDown
  *
  * Entry step of the evening-wind-down session (src/session/
- * sessionDefinitions.js). Breathing/Sleep Preparation (F6, not this
- * batch) still don't have pages, but Reflection/Gratitude (F4) now do,
- * so Begin advances one real step at a time via advanceStep() — the
- * F3 version of this file jumped straight to 'completion' via
- * advanceToStep() since no intermediate page existed yet; that shortcut
- * is now replaced with the genuine next step.
+ * sessionDefinitions.js). Begin advances one real step at a time via
+ * advanceStep() — the F3 version of this file jumped straight to
+ * 'completion' via advanceToStep() since no intermediate page existed
+ * yet; F4 replaced that shortcut with the genuine next step.
  *
- * startSession('evening-wind-down') is called unconditionally on Begin,
- * mirroring checkTime()'s role for the morning session (AlarmContext.jsx)
- * — whatever triggers entry into a flow is what starts it. It is safe to
- * call every time regardless of how this page was reached (via Home's
- * link or a direct /evening-wind-down visit): the reducer rejects
- * START_SESSION outright while a session is already 'playing'/
- * 'interrupted' and no-ops back the same state, which the following
- * advanceStep call then chains off correctly either way.
+ * F7 defect fix: startSession('evening-wind-down') is only safe to call
+ * unconditionally when no session is already in progress. The previous
+ * version called startSession()+advanceStep() unconditionally on every
+ * Begin click, reasoning that a rejected (no-op) startSession() while
+ * already 'playing' made the following advanceStep() "chain off
+ * correctly either way" — that reasoning was wrong: advanceStep() is
+ * NOT a no-op in that case. It advances from wherever the session
+ * CURRENTLY is, not always from 'windDown'. Reproduced via browser Back:
+ * Begin -> Reflection, Back -> Wind-down (session still 'playing' at
+ * 'reflection'), Begin again -> advanceStep() silently pushed the engine
+ * to 'gratitude' while the URL still read '/reflection', a real
+ * state/URL mismatch. Fixed by only starting+advancing a fresh session
+ * when none is already playing; an in-progress session is resumed at
+ * its own currentStep.route instead of being blindly re-advanced.
  */
 export const EveningWindDown = () => {
   const navigate = useNavigate();
-  const { startSession, advanceStep } = useSession();
+  const { state, currentStep, startSession, advanceStep } = useSession();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
+    if (state.status === 'playing' && currentStep) {
+      navigate(currentStep.route ?? '/reflection');
+      return;
+    }
     startSession('evening-wind-down');
     advanceStep();
     navigate('/reflection');
