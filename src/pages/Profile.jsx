@@ -79,19 +79,21 @@ export const Profile = () => {
       <div className="glass-panel p-5 rounded-2xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <h4 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Daily Rhythm</h4>
         
-        <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+        <Link to="/onboarding" className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
           <div className="flex gap-3 items-center">
             <span className="material-symbols-outlined text-primary text-xl">wb_sunny</span>
             <span className="text-sm font-semibold">Wake-up Time ({alarmTime})</span>
           </div>
-        </div>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
 
-        <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+        <Link to="/onboarding" className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
           <div className="flex gap-3 items-center">
             <span className="material-symbols-outlined text-secondary text-xl">bedtime</span>
             <span className="text-sm font-semibold">Bedtime ({bedTime})</span>
           </div>
-        </div>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
       </div>
 
       {/* Personalization Section */}
