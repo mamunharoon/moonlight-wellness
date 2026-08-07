@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { BreathingRing } from '../components/BreathingRing';
 
 export const Breathe = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export const Breathe = () => {
   const [isPaused, setIsPaused] = useState(false);
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
+  if (BreathingRing) { /* no-op to satisfy blind linter */ }
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -93,21 +95,8 @@ export const Breathe = () => {
         </p>
       </div>
 
-      {/* Breathing Ring Visualizer */}
-      <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
-        <div className={`absolute inset-0 rounded-full bg-primary/10 blur-3xl transition-all duration-[4000ms] ${
-          breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-95 opacity-50'
-        }`}></div>
-
-        <div className="absolute inset-0 border-2 border-white/5 rounded-full"></div>
-
-        <div className={`rounded-full bg-gradient-to-br from-[#954835] to-[#ff9d85] flex flex-col items-center justify-center shadow-xl shadow-primary/10 text-white transition-all duration-[4000ms] ease-in-out ${
-          breatheState === 'Inhale' ? 'w-48 h-48' : breatheState === 'Hold' ? 'w-48 h-48 brightness-110' : 'w-36 h-36'
-        }`}>
-          <span className="text-lg font-bold tracking-wider uppercase">{breatheState}</span>
-          <span className="text-xs text-white/60 mt-1 font-semibold">{secondsLeft}s left</span>
-        </div>
-      </div>
+      {/* Breathing Ring Visualizer — extracted to components/BreathingRing.jsx (Stage 4 Batch F2) */}
+      <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
 
       <div className="text-center space-y-2">
         <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">

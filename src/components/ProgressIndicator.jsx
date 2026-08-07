@@ -60,15 +60,24 @@ const VISIBLE_STEP_IDS = new Set(['alarm', 'affirmation', 'stretch', 'breathe', 
 
 const FALLBACK_STEP_IDS = ['alarm', 'affirmation', 'stretch', 'breathe', 'intention', 'complete'];
 
-const getVisibleStepIds = () => {
-  const session = getSessionById(MORNING_SESSION_ID);
+const getVisibleStepIds = (sessionId) => {
+  const session = getSessionById(sessionId);
   if (!session) return FALLBACK_STEP_IDS;
   const ids = session.steps.map((step) => step.id).filter((id) => VISIBLE_STEP_IDS.has(id));
   return ids.length > 0 ? ids : FALLBACK_STEP_IDS;
 };
 
-export const ProgressIndicator = ({ activeStep }) => {
-  const steps = getVisibleStepIds().map((id) => ({ key: id, label: STEP_LABELS[id] ?? id }));
+// Stage 4 Batch F2: optional `sessionId` prop, defaulting to the exact
+// same MORNING_SESSION_ID this component has always used — every
+// existing caller (Breathe.jsx, MorningFlow.jsx, Affirmation.jsx) omits
+// this prop today, so their behaviour is byte-for-byte unchanged.
+// STEP_LABELS/VISIBLE_STEP_IDS/FALLBACK_STEP_IDS below remain
+// morning-specific presentation constants — generalizing the *lookup*
+// mechanism is this batch's whole scope ("shared components only, no
+// screens"); labels for a non-morning session are a product decision
+// for whichever batch first renders one.
+export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID }) => {
+  const steps = getVisibleStepIds(sessionId).map((id) => ({ key: id, label: STEP_LABELS[id] ?? id }));
 
   const activeIndex = steps.findIndex(step => step.key === activeStep);
 
