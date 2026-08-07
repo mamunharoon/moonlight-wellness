@@ -1,4 +1,4 @@
-import { SESSION_CATEGORIES, MORNING_STEP_IDS } from './sessionConstants';
+import { SESSION_CATEGORIES, MORNING_STEP_IDS, EVENING_STEP_IDS } from './sessionConstants';
 
 /*
  * Stage 3C — Session Engine, session/step definitions (Ticket Group 1)
@@ -136,9 +136,104 @@ export const MORNING_ROUTINE_SESSION = {
   ],
 };
 
-// The full registry content. A single entry today — see "WHY ONE
-// SESSION, NOT FOUR" above. Evening and support sessions, and Panic
-// Mode, are explicitly out of scope for Group 1 (task brief: "Do not
-// implement evening sessions. Do not implement support sessions. Do not
-// implement panic mode.").
-export const SESSION_DEFINITIONS = [MORNING_ROUTINE_SESSION];
+/*
+ * Stage 4 Batch F1 — evening-wind-down
+ *
+ * Registry/definitions only, per the approved Stage 4 architecture: one
+ * continuous session (same "one session, not four" philosophy as
+ * MORNING_ROUTINE_SESSION above, applied consistently rather than
+ * reintroducing the blueprint's original separate-modules split for
+ * evening either). Approved flow: Home -> Evening Wind-down ->
+ * Reflection -> Gratitude -> Evening Breathing -> Prepare For Rest ->
+ * Completion -> Home.
+ *
+ * route: null for every step. Unlike the morning session (whose pages
+ * already existed before Group 1 ever described them), no evening page,
+ * route, or component exists yet — this batch is explicitly scoped to
+ * registry/definitions only ("No screens. No routes. No components.").
+ * Populating a route string that doesn't correspond to a real
+ * react-router route would be inaccurate data, not a harmless
+ * placeholder. Each step's route is filled in by the batch that
+ * implements that step's page (planned batches F3/F4/F6).
+ *
+ * skippable: false for every step, for the same reason — this field's
+ * own documented meaning (above) is "whether the step's *existing
+ * screen* has a Skip affordance today." No screen exists today, so
+ * there is no affordance to reflect yet, regardless of what the Stage 4
+ * design proposal envisions for the eventual UI. Revisited per-step as
+ * each page is actually built.
+ *
+ * durationSeconds: null for every step, for the same reason as
+ * `skippable` — this field reflects a *current implementation's*
+ * genuine fixed duration (see the shared doc comment above); there is
+ * no implementation yet to measure.
+ *
+ * atmosphereRequest / audioCue: null for every step, matching the
+ * morning session exactly — no page consumes either yet. Wiring
+ * AtmosphereManager is explicitly out of scope for this batch.
+ */
+export const EVENING_ROUTINE_SESSION = {
+  id: 'evening-wind-down',
+  category: SESSION_CATEGORIES.EVENING,
+  title: 'Evening Wind-down',
+  entryStates: null, // reserved for Stage 3D
+  completionEffect: null, // reserved for Stage 3D
+  steps: [
+    {
+      id: EVENING_STEP_IDS.WIND_DOWN,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      id: EVENING_STEP_IDS.REFLECTION,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      id: EVENING_STEP_IDS.GRATITUDE,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      id: EVENING_STEP_IDS.BREATHING,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      id: EVENING_STEP_IDS.SLEEP_PREPARATION,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      id: EVENING_STEP_IDS.COMPLETION,
+      route: null,
+      skippable: false,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+  ],
+};
+
+// The full registry content. Two entries as of Stage 4 Batch F1 — see
+// "WHY ONE SESSION, NOT FOUR" above (morning) and the evening-wind-down
+// doc comment above (evening). Support sessions and Panic Mode remain
+// explicitly out of scope (Stage 4 architecture proposal §5/§7 — Panic
+// Mode conflicts with the reducer's single-active-session model and
+// needs its own decision before implementation).
+export const SESSION_DEFINITIONS = [MORNING_ROUTINE_SESSION, EVENING_ROUTINE_SESSION];

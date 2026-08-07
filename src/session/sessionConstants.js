@@ -31,6 +31,20 @@ export const MORNING_STEP_IDS = Object.freeze({
   COMPLETE: 'complete',
 });
 
+// Stage 4 Batch F1 — same role as MORNING_STEP_IDS above, for the
+// approved single-continuous-session evening flow (Home -> Evening
+// Wind-down -> Reflection -> Gratitude -> Evening Breathing -> Prepare
+// For Rest -> Completion -> Home). No page, route, or component reads
+// this yet - this batch is registry/definitions only.
+export const EVENING_STEP_IDS = Object.freeze({
+  WIND_DOWN: 'windDown',
+  REFLECTION: 'reflection',
+  GRATITUDE: 'gratitude',
+  BREATHING: 'breathing',
+  SLEEP_PREPARATION: 'sleepPreparation',
+  COMPLETION: 'completion',
+});
+
 // Illustrative placeholder vocabulary only (see the Group 1 task brief's
 // AUDIO CONTRACT section and execution plan §15). No audio file,
 // dependency, or playback code exists anywhere in the Session Engine —
