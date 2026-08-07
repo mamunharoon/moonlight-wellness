@@ -126,6 +126,24 @@ export const Home = () => {
           </div>
         </div>
       )}
+
+      {/* Solas — Support & Calm, Sprint 1 Phase 2: Home entry point.
+          Deliberately outside every timeState branch above (not
+          duplicated per-branch) so it's present regardless of time of
+          day — a moment of stress isn't scheduled to the same daypart
+          logic as the rest of this page. "Small, unobtrusive": a plain
+          text link, not a glass-panel card like the primary time-based
+          CTAs above — it should read as quietly available, not compete
+          with them for attention. */}
+      <div className="text-center">
+        <Link
+          to="/support"
+          className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant/70 font-medium hover:text-on-surface-variant transition-colors"
+        >
+          <span className="material-symbols-outlined text-sm">self_improvement</span>
+          <span>Need a moment?</span>
+        </Link>
+      </div>
     </div>
   );
 };

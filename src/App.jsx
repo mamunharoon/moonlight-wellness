@@ -32,6 +32,12 @@ import { Reflection } from './pages/Reflection';
 import { Gratitude } from './pages/Gratitude';
 import { EveningBreathing } from './pages/EveningBreathing';
 import { PrepareForRest } from './pages/PrepareForRest';
+import { Support } from './pages/Support';
+import { PanicMode } from './pages/PanicMode';
+import { Grounding } from './pages/Grounding';
+import { SupportComplete } from './pages/SupportComplete';
+import { StressRelease } from './pages/StressRelease';
+import { QuietBreathing } from './pages/QuietBreathing';
 
 function App() {
   return (
@@ -69,6 +75,23 @@ function App() {
                 <Route path="evening-breathing" element={<EveningBreathing />} />
                 <Route path="prepare-for-rest" element={<PrepareForRest />} />
                 <Route path="evening-complete" element={<EveningComplete />} />
+
+                {/* Support & Calm, Sprint 1: lightweight grounding/panic/
+                    stress/breathing support flow. Full-bleed (same
+                    EveningSceneShell pattern as the evening routes above),
+                    placed outside <Layout> for the same reason — no bottom
+                    nav chrome during a moment of acute stress. Not a
+                    Session Engine session: this is a standalone comfort
+                    flow, not a scheduled morning/evening routine, so it
+                    uses plain react-router navigation only. Phase 2 adds
+                    Stress Release and Quiet Breathing alongside Phase 1's
+                    Support Hub, Panic Mode, Grounding, and Completion. */}
+                <Route path="support" element={<Support />} />
+                <Route path="panic" element={<PanicMode />} />
+                <Route path="grounding" element={<Grounding />} />
+                <Route path="stress-release" element={<StressRelease />} />
+                <Route path="quiet-breathing" element={<QuietBreathing />} />
+                <Route path="support-complete" element={<SupportComplete />} />
 
                 {/* MLT-3A-16: Stage 3 internal preview — not linked from any
                     nav, not part of any Stage 2 flow. Renders outside
