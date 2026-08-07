@@ -8,6 +8,7 @@ import { Mist } from './Mist';
 import { Rain } from './Rain';
 import { Aurora } from './Aurora';
 import { Particles } from './Particles';
+import { getReducedMotionPreference } from '../../lib/reducedMotionPreference';
 
 /*
  * Stage 3 — AtmosphereManager (MLT-3B-18 / MLT-3B-13/14/15 / MLT-3B-01/03 / MLT-3B-05/06/07 / MLT-3B-11/12, Ticket Groups 1-6)
@@ -223,15 +224,23 @@ const TIERS = [0, 1, 2, 3];
 
 const CHECK_INTERVAL_MS = 60 * 1000; // matches Gradient.jsx's own low-frequency check
 
+// Settings & Profile Polish, Sprint 1: OR'd with getReducedMotionPreference()
+// so a user's manual "Reduced motion" toggle (Settings > Experience) forces
+// this true even when the OS-level media query doesn't request it. The OS
+// query remains the live-updating source (its own change listener still
+// only watches that query) — the manual preference is read fresh on every
+// evaluation instead, which is sufficient since it only ever changes via a
+// full navigation to/from Settings, never while this hook is already mounted
+// and idle.
 const usePrefersReducedMotion = () => {
   const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    () => (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || getReducedMotionPreference()
   );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = (e) => setReduced(e.matches);
+    const onChange = (e) => setReduced(e.matches || getReducedMotionPreference());
     query.addEventListener('change', onChange);
     return () => query.removeEventListener('change', onChange);
   }, []);

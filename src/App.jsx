@@ -38,6 +38,8 @@ import { Grounding } from './pages/Grounding';
 import { SupportComplete } from './pages/SupportComplete';
 import { StressRelease } from './pages/StressRelease';
 import { QuietBreathing } from './pages/QuietBreathing';
+import { Settings } from './pages/Settings';
+import { SettingsInfo } from './pages/SettingsInfo';
 
 function App() {
   return (
@@ -124,6 +126,13 @@ function App() {
                   <Route path="journal" element={<Journal />} />
                   <Route path="morning-flow" element={<MorningFlow />} />
                   <Route path="premium" element={<Premium />} />
+
+                  {/* Settings & Profile Polish, Sprint 1: reached from
+                      Profile's gear icon, not a bottom-nav tab — same
+                      "secondary page" placement as breathe/journal/premium
+                      above, inside <Layout> for the same header/nav chrome. */}
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="settings/:slug" element={<SettingsInfo />} />
                 </Route>
 
                 {/* Fallback to Today */}
