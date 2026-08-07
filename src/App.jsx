@@ -26,6 +26,8 @@ import { ResetPassword } from './pages/ResetPassword';
 import { Stage3Preview } from './pages/Stage3Preview';
 import { SessionRegistryPreview } from './pages/SessionRegistryPreview';
 import { SessionEnginePreview } from './pages/SessionEnginePreview';
+import { EveningWindDown } from './pages/EveningWindDown';
+import { EveningComplete } from './pages/EveningComplete';
 
 function App() {
   return (
@@ -52,6 +54,13 @@ function App() {
                 <Route path="intention-setup" element={<IntentionSetup />} />
                 <Route path="auth" element={<Auth />} />
                 <Route path="reset-password" element={<ResetPassword />} />
+
+                {/* Stage 4 Batch F3: evening-wind-down session entry and terminal
+                    steps. Full-bleed (fixed inset-0 z-[100], via EveningSceneShell)
+                    same as AlarmActive.jsx above, so placed outside <Layout> for
+                    the same reason. */}
+                <Route path="evening-wind-down" element={<EveningWindDown />} />
+                <Route path="evening-complete" element={<EveningComplete />} />
 
                 {/* MLT-3A-16: Stage 3 internal preview — not linked from any
                     nav, not part of any Stage 2 flow. Renders outside

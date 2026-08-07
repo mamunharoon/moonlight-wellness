@@ -51,7 +51,13 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
       {...atmosphere}
       className={`fixed inset-0 z-[100] flex flex-col overflow-y-auto ${className}`.trim()}
     >
-      <div className="relative z-10 flex-1 flex flex-col justify-between max-w-xl w-full mx-auto px-6 py-10">
+      {/* Stage 4 Batch F3 fix: min-h-screen is required here, not decorative.
+          Gradient.jsx wraps its children in a plain (non-flex) `relative`
+          div with no defined height, so without an explicit height on this
+          div, flex-1/justify-between above have nothing to distribute and
+          title/button collapse together instead of spreading across the
+          screen like AlarmActive.jsx's own fixed inset-0 container does. */}
+      <div className="relative z-10 flex flex-col justify-between min-h-screen max-w-xl w-full mx-auto px-6 py-10">
         {content}
       </div>
     </AtmosphereManager>

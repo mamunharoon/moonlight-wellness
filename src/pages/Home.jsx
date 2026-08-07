@@ -99,6 +99,15 @@ export const Home = () => {
             <Link to="/journal" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
               Log Gratitude
             </Link>
+            {/* Stage 4 Batch F3: entry point into the evening-wind-down
+                Session Engine flow, distinct from the Log Gratitude journal
+                feature above. A plain navigation link, no session-engine
+                calls here — EveningWindDown.jsx's own Begin button starts
+                the session, mirroring how Home never starts the morning
+                session either (checkTime() in AlarmContext.jsx does). */}
+            <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
+              Begin Evening Wind-down
+            </Link>
           </div>
         </div>
       )}

@@ -180,8 +180,17 @@ export const EVENING_ROUTINE_SESSION = {
   completionEffect: null, // reserved for Stage 3D
   steps: [
     {
+      // Stage 4 Batch F3: route filled in now that EveningWindDown.jsx
+      // exists — see the file-level doc comment above ("Each step's
+      // route is filled in by the batch that implements that step's
+      // page"). skippable/durationSeconds/atmosphereRequest/audioCue
+      // stay null for the same reason they started null: this step's
+      // real screen has no Skip affordance, no fixed duration, and
+      // doesn't feed AtmosphereManager through the registry (F3 wires
+      // the atmosphere directly on the page instead — see that reasoning
+      // in EveningWindDown.jsx).
       id: EVENING_STEP_IDS.WIND_DOWN,
-      route: null,
+      route: '/evening-wind-down',
       skippable: false,
       durationSeconds: null,
       atmosphereRequest: null,
@@ -220,8 +229,10 @@ export const EVENING_ROUTINE_SESSION = {
       audioCue: null,
     },
     {
+      // Stage 4 Batch F3: route filled in now that EveningComplete.jsx
+      // exists — same reasoning as the WIND_DOWN step above.
       id: EVENING_STEP_IDS.COMPLETION,
-      route: null,
+      route: '/evening-complete',
       skippable: false,
       durationSeconds: null,
       atmosphereRequest: null,
