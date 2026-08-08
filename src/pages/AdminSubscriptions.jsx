@@ -13,7 +13,7 @@ import { fetchAdminSubscriptions, setSubscriptionStatus } from '../lib/adminApi'
  * migration's admin_set_subscription_status(), which only ever writes
  * `status`.
  */
-const PLAN_LABELS = { free: 'Free', plus: 'Solas Plus' };
+const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
 const STATUS_OPTIONS = ['trial', 'active', 'cancelled', 'expired'];
 const STATUS_LABELS = { trial: 'Trial', active: 'Active', cancelled: 'Cancelled', expired: 'Expired' };
 const PROVIDER_LABELS = { manual: 'Manual', stripe: 'Stripe', apple: 'Apple', google: 'Google' };

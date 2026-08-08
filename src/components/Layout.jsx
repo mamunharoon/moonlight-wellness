@@ -78,7 +78,7 @@ export const Layout = () => {
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
-                Solas
+                WakeWise
               </h1>
             </div>
           </header>

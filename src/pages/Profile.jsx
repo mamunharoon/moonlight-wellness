@@ -46,7 +46,7 @@ export const Profile = () => {
   const metadataFullName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name]
     .filter(Boolean)
     .join(' ');
-  const displayName = profileFullName || metadataFullName || user?.email || 'Solas User';
+  const displayName = profileFullName || metadataFullName || user?.email || 'WakeWise User';
   const primaryIntention = intentions[0] || 'Stay calm';
 
   const handleSignOut = async () => {

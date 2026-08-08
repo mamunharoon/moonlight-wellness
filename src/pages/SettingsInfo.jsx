@@ -27,8 +27,8 @@ const CONTENT = {
     body: 'This content will be available soon.'
   },
   'about-solas': {
-    title: 'About Solas',
-    body: 'Solas by ZavaraAi\n\nA quiet companion for mornings, evenings, and moments when life feels heavy.'
+    title: 'About WakeWise',
+    body: 'WakeWise by ZavaraAi\n\nA quiet companion for mornings, evenings, and moments when life feels heavy.'
   }
 };
 

@@ -44,7 +44,7 @@ const PLUS_FEATURES = [
   { id: 'premium', icon: 'diamond', title: 'Premium experiences', description: 'Exclusive soundscapes and sessions.' }
 ];
 
-const PLAN_LABELS = { free: 'Free', plus: 'Solas Plus' };
+const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
 const STATUS_LABELS = { trial: 'Trial', active: 'Active', cancelled: 'Cancelled', expired: 'Expired' };
 const INTERVAL_LABELS = { monthly: 'Monthly', yearly: 'Yearly' };
 
@@ -217,7 +217,7 @@ export const Subscription = () => {
 
       {/* Solas Plus */}
       <section className="space-y-2">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Solas Plus</h3>
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">WakeWise Plus</h3>
         <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           {PLUS_FEATURES.map((feature) => (
             <div key={feature.id} className="flex items-center gap-3 p-4 min-h-[56px]">
@@ -252,7 +252,7 @@ export const Subscription = () => {
             disabled={checkoutLoading}
             className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60"
           >
-            {checkoutLoading ? 'Redirecting to checkout…' : 'Upgrade to Solas Plus'}
+            {checkoutLoading ? 'Redirecting to checkout…' : 'Upgrade to WakeWise Plus'}
           </button>
           {checkoutError && (
             <p role="alert" className="text-[10px] text-red-400 font-medium px-1">{checkoutError}</p>
@@ -284,7 +284,7 @@ export const Subscription = () => {
       <ConfirmDialog
         open={activeDialog === 'sign-in'}
         title="Sign in required"
-        message="Create an account or sign in to upgrade to Solas Plus."
+        message="Create an account or sign in to upgrade to WakeWise Plus."
         confirmLabel="Sign in"
         cancelLabel="Cancel"
         onConfirm={() => navigate('/auth')}

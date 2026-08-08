@@ -116,7 +116,7 @@ export const Settings = () => {
           <Link to="/subscription" className={rowClass}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">workspace_premium</span>
-              Solas Plus
+              WakeWise Plus
             </span>
             <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
           </Link>
@@ -189,7 +189,7 @@ export const Settings = () => {
           <Link to="/settings/about-solas" className={rowClass}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">info</span>
-              About Solas
+              About WakeWise
             </span>
             <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
           </Link>
