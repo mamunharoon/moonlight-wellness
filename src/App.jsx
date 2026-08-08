@@ -41,6 +41,10 @@ import { QuietBreathing } from './pages/QuietBreathing';
 import { Settings } from './pages/Settings';
 import { SettingsInfo } from './pages/SettingsInfo';
 import { Subscription } from './pages/Subscription';
+import { AdminRoute } from './components/AdminRoute';
+import { AdminHome } from './pages/AdminHome';
+import { AdminUsers } from './pages/AdminUsers';
+import { AdminSubscriptions } from './pages/AdminSubscriptions';
 
 function App() {
   return (
@@ -120,6 +124,20 @@ function App() {
                     keeps its own isolated, independently-resettable state and
                     never reads or writes real production session state. */}
                 <Route path="session-engine-preview" element={<SessionEnginePreview />} />
+
+                {/* Subscription Model, Sprint 2 Stage 2: administration
+                    foundation. AdminRoute gates every nested route on
+                    server-verified admin status (see AdminRoute.jsx and
+                    adminApi.js) — guests and non-admin authenticated
+                    users are redirected before any admin page renders.
+                    Rendered outside <Layout>, same reasoning as the
+                    full-bleed routes above: this isn't part of the
+                    tabbed app frame and has no use for the bottom nav. */}
+                <Route path="admin" element={<AdminRoute />}>
+                  <Route index element={<AdminHome />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="subscriptions" element={<AdminSubscriptions />} />
+                </Route>
 
                 {/* Main Tabbed Frame */}
                 <Route path="/" element={<Layout />}>

@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .env.local
+
+# Supabase CLI local link state (contains a live DB connection string)
+supabase/.temp/
