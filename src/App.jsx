@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { SessionProvider } from './context/SessionContext';
@@ -14,7 +15,6 @@ import { Onboarding } from './pages/Onboarding';
 import { AlarmActive } from './pages/AlarmActive';
 import { MorningFlow } from './pages/MorningFlow';
 import { Profile } from './pages/Profile';
-import { Premium } from './pages/Premium';
 import { Routines } from './pages/Routines';
 import { Journey } from './pages/Journey';
 import { SessionComplete } from './pages/SessionComplete';
@@ -40,11 +40,19 @@ import { StressRelease } from './pages/StressRelease';
 import { QuietBreathing } from './pages/QuietBreathing';
 import { Settings } from './pages/Settings';
 import { SettingsInfo } from './pages/SettingsInfo';
+import { Subscription } from './pages/Subscription';
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        {/* Subscription Model, Sprint 2 Stage 1: mounted directly inside
+            AuthProvider (SubscriptionContext's only dependency is
+            useAuth()) and outside AudioProvider/SessionProvider/
+            AlarmProvider — a cross-cutting concern like auth itself, not
+            tied to any of that machinery. No page consumes it yet except
+            Subscription.jsx; this mount is otherwise inert. */}
+        <SubscriptionProvider>
         <AudioProvider>
           {/* Stage 3C Ticket Group 3A: production SessionProvider mount.
               Wraps AlarmProvider only (AlarmProvider will need useSession in
@@ -125,14 +133,29 @@ function App() {
                   <Route path="breathe" element={<Breathe />} />
                   <Route path="journal" element={<Journal />} />
                   <Route path="morning-flow" element={<MorningFlow />} />
-                  <Route path="premium" element={<Premium />} />
+
+                  {/* Subscription Model, Stage 1A: /premium retired. It was
+                      an orphaned, unwired mock page (fabricated price, dead
+                      "Upgrade Now" button, a different feature list than
+                      the real /subscription screen) — linked from nowhere
+                      in the app, confirmed by grep before removal. Kept as
+                      a redirect rather than deleted outright: "do not break
+                      existing routes" — any old link/bookmark to /premium
+                      still resolves, just to the real screen now. Same
+                      pattern already used by the "today" redirect above. */}
+                  <Route path="premium" element={<Navigate to="/subscription" replace />} />
 
                   {/* Settings & Profile Polish, Sprint 1: reached from
                       Profile's gear icon, not a bottom-nav tab — same
-                      "secondary page" placement as breathe/journal/premium
-                      above, inside <Layout> for the same header/nav chrome. */}
+                      "secondary page" placement as breathe/journal above,
+                      inside <Layout> for the same header/nav chrome. */}
                   <Route path="settings" element={<Settings />} />
                   <Route path="settings/:slug" element={<SettingsInfo />} />
+
+                  {/* Subscription Model, Sprint 2 Stage 1: reached from
+                      Settings, same "secondary page" placement as
+                      settings/:slug above. */}
+                  <Route path="subscription" element={<Subscription />} />
                 </Route>
 
                 {/* Fallback to Today */}
@@ -142,6 +165,7 @@ function App() {
             </AlarmProvider>
           </SessionProvider>
         </AudioProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>
   );
