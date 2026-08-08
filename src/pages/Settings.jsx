@@ -149,15 +149,43 @@ export const Settings = () => {
             </button>
           </div>
 
-          <div className={`${rowClass} cursor-default`}>
-            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface-variant">
+          <Link to="/settings/notifications" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">notifications</span>
               Notification preferences
             </span>
-            <span className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 bg-white/5 px-2 py-1 rounded-full">
-              Coming soon
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* Closed Beta Preparation, Phase A: entry points into the beta
+          hub, feedback flow, and release notes — same placement pattern
+          as the Subscription section above. */}
+      <section className="space-y-2">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Beta Program</h3>
+        <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+          <Link to="/beta" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">science</span>
+              Beta Program
             </span>
-          </div>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/feedback" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">feedback</span>
+              Send Feedback
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/release-notes" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">history_edu</span>
+              Release Notes
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
         </div>
       </section>
 

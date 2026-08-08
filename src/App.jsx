@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { SessionProvider } from './context/SessionContext';
@@ -41,6 +42,10 @@ import { QuietBreathing } from './pages/QuietBreathing';
 import { Settings } from './pages/Settings';
 import { SettingsInfo } from './pages/SettingsInfo';
 import { Subscription } from './pages/Subscription';
+import { Beta } from './pages/Beta';
+import { Feedback } from './pages/Feedback';
+import { ReleaseNotes } from './pages/ReleaseNotes';
+import { NotificationSettings } from './pages/NotificationSettings';
 import { AdminRoute } from './components/AdminRoute';
 import { AdminHome } from './pages/AdminHome';
 import { AdminUsers } from './pages/AdminUsers';
@@ -57,6 +62,13 @@ function App() {
             tied to any of that machinery. No page consumes it yet except
             Subscription.jsx; this mount is otherwise inert. */}
         <SubscriptionProvider>
+        {/* Notifications & Reminders, Phase B: local-only, no auth/session
+            dependency (see NotificationContext.jsx) — mounted as another
+            cross-cutting sibling provider, same reasoning as
+            SubscriptionProvider above. Inert until a page calls
+            useNotifications(); NotificationSettings.jsx is the first
+            consumer. */}
+        <NotificationProvider>
         <AudioProvider>
           {/* Stage 3C Ticket Group 3A: production SessionProvider mount.
               Wraps AlarmProvider only (AlarmProvider will need useSession in
@@ -170,10 +182,22 @@ function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="settings/:slug" element={<SettingsInfo />} />
 
+                  {/* Notifications & Reminders, Phase B: reached from
+                      Settings' "Notification preferences" row, same
+                      "secondary page" placement as settings/:slug above. */}
+                  <Route path="settings/notifications" element={<NotificationSettings />} />
+
                   {/* Subscription Model, Sprint 2 Stage 1: reached from
                       Settings, same "secondary page" placement as
                       settings/:slug above. */}
                   <Route path="subscription" element={<Subscription />} />
+
+                  {/* Closed Beta Preparation, Phase A: reached from
+                      Settings' "Beta Program" section, same "secondary
+                      page" placement as settings/:slug above. */}
+                  <Route path="beta" element={<Beta />} />
+                  <Route path="feedback" element={<Feedback />} />
+                  <Route path="release-notes" element={<ReleaseNotes />} />
                 </Route>
 
                 {/* Fallback to Today */}
@@ -183,6 +207,7 @@ function App() {
             </AlarmProvider>
           </SessionProvider>
         </AudioProvider>
+        </NotificationProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </ThemeProvider>
