@@ -179,6 +179,41 @@ export const Settings = () => {
             </span>
             <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
           </Link>
+          <Link to="/settings/subscription-terms" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">receipt_long</span>
+              Subscription Terms
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/settings/refund-policy" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">currency_exchange</span>
+              Refund Policy
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/settings/medical-disclaimer" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">health_and_safety</span>
+              Medical and Wellbeing Disclaimer
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/settings/account-deletion-policy" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">person_remove</span>
+              Account Deletion Policy
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+          <Link to="/settings/data-retention-policy" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">database</span>
+              Data Retention Policy
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
           <Link to="/settings/contact-us" className={rowClass}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">support_agent</span>
