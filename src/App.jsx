@@ -1,5 +1,5 @@
 ﻿/* eslint-disable no-unused-vars */
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
@@ -50,6 +50,25 @@ import { AdminRoute } from './components/AdminRoute';
 import { AdminHome } from './pages/AdminHome';
 import { AdminUsers } from './pages/AdminUsers';
 import { AdminSubscriptions } from './pages/AdminSubscriptions';
+
+// Audio Architecture, Phase C1 (optimisation pass): the only three
+// lazy-loaded routes in the app. Named exports (not default), so each
+// dynamic import resolves to `{ default: <the named export> }` — same
+// shape React.lazy requires. Everything else in this file stays a
+// regular static import; this optimisation is scoped to these three
+// pages only, not the rest of the bundle.
+const AudioLibrary = lazy(() => import('./pages/AudioLibrary').then((m) => ({ default: m.AudioLibrary })));
+const AudioCategory = lazy(() => import('./pages/AudioCategory').then((m) => ({ default: m.AudioCategory })));
+const AudioDetails = lazy(() => import('./pages/AudioDetails').then((m) => ({ default: m.AudioDetails })));
+
+// Matches AdminRoute.jsx's existing "Checking access…" loading screen
+// exactly (same container classes) — the app's one established
+// full-screen loading pattern, reused rather than inventing a new one.
+const AudioRouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background text-on-surface-variant text-sm">
+    Loading…
+  </div>
+);
 
 function App() {
   return (
@@ -198,6 +217,17 @@ function App() {
                   <Route path="beta" element={<Beta />} />
                   <Route path="feedback" element={<Feedback />} />
                   <Route path="release-notes" element={<ReleaseNotes />} />
+
+                  {/* Audio Architecture, Phase C1: reached from Settings'
+                      "Audio Library" row, same "secondary page"
+                      placement as settings/:slug above. No audio plays
+                      yet — see AudioPlayerPlaceholder.jsx. Lazy-loaded
+                      (see AudioRouteFallback above) — the only routes
+                      in this file that are; every other route above
+                      stays a regular static import. */}
+                  <Route path="audio" element={<Suspense fallback={<AudioRouteFallback />}><AudioLibrary /></Suspense>} />
+                  <Route path="audio/:categoryId" element={<Suspense fallback={<AudioRouteFallback />}><AudioCategory /></Suspense>} />
+                  <Route path="audio/:categoryId/:entryId" element={<Suspense fallback={<AudioRouteFallback />}><AudioDetails /></Suspense>} />
                 </Route>
 
                 {/* Fallback to Today */}

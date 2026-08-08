@@ -123,6 +123,22 @@ export const Settings = () => {
         </div>
       </section>
 
+      {/* Audio Architecture, Phase C1: entry point into the audio
+          library — same placement pattern as the Subscription section
+          above. No audio plays yet (see AudioPlayerPlaceholder.jsx). */}
+      <section className="space-y-2">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Content</h3>
+        <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+          <Link to="/audio" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">library_music</span>
+              Audio Library
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+        </div>
+      </section>
+
       {/* Experience */}
       <section className="space-y-2">
         <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Experience</h3>

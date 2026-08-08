@@ -41,6 +41,11 @@ export const EVENT_CATALOGUE = {
     properties: ['result'],
     status: 'wired'
   },
+  audio_playback_toggled: {
+    description: 'The placeholder play/pause control on an audio session was pressed (see AudioPlayerPlaceholder.jsx — no real audio plays yet).',
+    properties: ['entryId', 'category', 'action'],
+    status: 'wired'
+  },
 
   // --- Planned (catalogued, not yet instrumented — would require
   //     touching session/flow logic this phase does not modify) ---
