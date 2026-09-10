@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { BetaChecklist } from '../components/BetaChecklist';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BETA_VIDEO_MANIFEST } from '../lib/betaVideoManifest';
 import { CONTACT_INFO } from '../lib/legalContent';
 
 /*
@@ -19,8 +21,12 @@ export const Beta = () => {
   const { user, isGuest, loading: authLoading } = useAuth();
   const [betaAccess, setBetaAccess] = useState(null); // null = loading, else boolean
   const [error, setError] = useState(null);
+  // id of the BETA_VIDEO_MANIFEST entry currently open in the player
+  // modal, or null. Exactly one modal is ever mounted at a time, which
+  // is what makes "only one video plays at a time" hold structurally.
+  const [openVideoId, setOpenVideoId] = useState(null);
 
-  if (Link && BetaChecklist) { /* no-op to satisfy blind linter */ }
+  if (Link && BetaChecklist && BetaVideoModal) { /* no-op to satisfy blind linter */ }
 
   const loadBetaAccess = async (currentUser) => {
     if (!currentUser || currentUser.is_anonymous) {
@@ -96,6 +102,49 @@ export const Beta = () => {
       </section>
 
       <BetaChecklist />
+
+      {/* Beta Video Preview: four completed exercise videos, gated the
+          same way as the rest of this page (profiles.beta_access) since
+          this is beta-tester content, not Plus-subscriber content — a
+          different entitlement than AudioDetails.jsx's Plus gate. Cards
+          request a signed URL only when opened (BetaVideoModal), never
+          eagerly for all four on page load. */}
+      {betaAccess && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Exercise Videos</h3>
+            <span className="text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Beta</span>
+          </div>
+          <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+            {BETA_VIDEO_MANIFEST.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setOpenVideoId(entry.id)}
+                className={`${rowClass} w-full text-left hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset`}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-on-surface truncate">{entry.title}</span>
+                    <span className="block text-xs text-on-surface-variant leading-relaxed line-clamp-1">{entry.description}</span>
+                  </span>
+                </span>
+                <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {openVideoId && (
+        <BetaVideoModal
+          entry={BETA_VIDEO_MANIFEST.find((entry) => entry.id === openVideoId)}
+          onClose={() => setOpenVideoId(null)}
+        />
+      )}
 
       <section className="space-y-2">
         <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">More</h3>
