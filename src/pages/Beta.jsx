@@ -143,6 +143,7 @@ export const Beta = () => {
         <BetaVideoModal
           entry={BETA_VIDEO_MANIFEST.find((entry) => entry.id === openVideoId)}
           onClose={() => setOpenVideoId(null)}
+          showBetaBadge
         />
       )}
 

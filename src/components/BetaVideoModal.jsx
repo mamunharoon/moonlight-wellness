@@ -19,8 +19,18 @@ import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess'
  * user gesture, which is what lets .play() start with sound). The
  * overlay hides once the <video>'s own onPlay event confirms playback
  * has actually begun, not merely on click.
+ *
+ * showBetaBadge controls only the small "Beta preview" pill at the
+ * bottom of the panel - purely cosmetic, no bearing on access control.
+ * profiles.beta_access gating happens entirely server-side, in
+ * get-beta-video-url and in each caller's own beta_access check before
+ * ever rendering this modal; hiding this label doesn't loosen or bypass
+ * any of that. Defaults to false (hidden) since the integrated Support
+ * Hub / Evening Wind-down journeys are meant to feel like a normal part
+ * of those flows, not a QA artifact - Beta.jsx passes true explicitly to
+ * keep the label on its own standalone admin/QA catalogue.
  */
-export const BetaVideoModal = ({ entry, onClose }) => {
+export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -209,9 +219,11 @@ export const BetaVideoModal = ({ entry, onClose }) => {
           )}
         </div>
 
-        <span className="inline-block text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 bg-white/5 px-2 py-1 rounded-full">
-          Beta preview
-        </span>
+        {showBetaBadge && (
+          <span className="inline-block text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 bg-white/5 px-2 py-1 rounded-full">
+            Beta preview
+          </span>
+        )}
       </div>
     </div>
   );
