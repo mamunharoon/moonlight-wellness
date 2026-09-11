@@ -20,8 +20,8 @@
 // out of the bucket. This intentionally duplicates the id/path pairing
 // in src/lib/betaVideoManifest.js (that file also carries title/
 // description, which this function has no use for, and a Deno Edge
-// Function can't import a Vite-bundled client file) — if the four beta
-// videos are ever renamed in Storage, both places need the update.
+// Function can't import a Vite-bundled client file) — if any of these
+// beta videos are ever renamed in Storage, both places need the update.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
@@ -37,7 +37,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['E02', 'exercises/WW_E02_OverwhelmedMind_Final_v2.mp4Use.mp4'],
   ['E03', 'exercises/WW_E03_InstantCalm_v3.mp4.mp4'],
   ['E04', 'exercises/WW_E04_ReleaseTension_Portrait_v2png.mp4'],
-  ['E05', 'exercises/WW_E05_NightTimeCalm_v2.mp4.mp4']
+  ['E05', 'exercises/WW_E05_NightTimeCalm_v2.mp4.mp4'],
+  ['E06', 'exercises/WW_E06_GentleAwakening_Gratitude_v3.mp3.mp4'],
+  ['E07', 'exercises/WW_E07_MorningGratitude_Music_v2.mp3.mp4'],
+  ['E08', 'exercises/WW_E08_DeepBreathing_v2.mp4.mp4'],
+  ['E09', 'exercises/WW_E09_MindfulPause_Music_v1.mp3.mp4'],
+  ['E10', 'exercises/WW_E10_EveningReflection_Music_v1.mp3.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

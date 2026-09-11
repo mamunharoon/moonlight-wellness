@@ -1,7 +1,22 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
+import { useAuth } from '../context/AuthContext';
+import { fetchOwnBetaAccess } from '../lib/betaAccess';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
 
+const GENTLE_AWAKENING_VIDEO = getBetaVideoById('E06');
+
+// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
+// offering "Gentle Awakening" right at the morning routine's own entry
+// screen - the natural "Rise & Reset" moment, before Begin/Skip Routine.
+// Gated on profiles.beta_access the same way as every other integration
+// point (Support.jsx/PrepareForRest.jsx); non-beta users and guests see
+// this screen completely unchanged. No "Beta" label on the row itself -
+// it presents as an ordinary WakeWise exercise, per this batch's
+// labeling requirement; that framing stays on /beta only.
 export const MorningStart = () => {
   const navigate = useNavigate();
   const { routineDuration, setJourneyStep } = useAlarm();
@@ -10,6 +25,30 @@ export const MorningStart = () => {
   // Session Engine. See handleBegin/handleSkip below for the only places
   // any of this is used.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
+  const { user, isGuest, loading: authLoading } = useAuth();
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
+
+  if (BetaVideoModal) { /* no-op to satisfy blind linter */ }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (authLoading) return;
+      if (isGuest) {
+        setBetaAccess(false);
+        return;
+      }
+      const value = await fetchOwnBetaAccess(user.id);
+      if (!cancelled) setBetaAccess(value);
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isGuest, authLoading]);
 
   const getDurationDetails = () => {
     switch (routineDuration) {
@@ -75,23 +114,47 @@ export const MorningStart = () => {
             ))}
           </ul>
         </div>
+
+        {betaAccess && GENTLE_AWAKENING_VIDEO && (
+          <button
+            type="button"
+            onClick={() => setVideoOpen(true)}
+            className="w-full max-w-sm mx-auto flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+          >
+            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-on-surface">Watch: {GENTLE_AWAKENING_VIDEO.title}</span>
+              <span className="block text-xs text-on-surface-variant">A soft guided start before you begin.</span>
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+          </button>
+        )}
       </div>
 
       <div className="space-y-3 w-full">
-        <button 
+        <button
           onClick={handleBegin}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
           <span>Begin</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
-        <button 
+        <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
           Skip Routine
         </button>
       </div>
+
+      {/* Closing this leaves the user right here on the morning routine's
+          entry screen - no navigation needed for a return path. Begin/Skip
+          Routine above are entirely unaffected by whether this is open. */}
+      {videoOpen && (
+        <BetaVideoModal entry={GENTLE_AWAKENING_VIDEO} onClose={() => setVideoOpen(false)} />
+      )}
     </div>
   );
 };

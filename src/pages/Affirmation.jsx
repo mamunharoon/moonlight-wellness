@@ -1,8 +1,22 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { useAuth } from '../context/AuthContext';
+import { fetchOwnBetaAccess } from '../lib/betaAccess';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
 
+const MORNING_GRATITUDE_VIDEO = getBetaVideoById('E07');
+
+// Beta Video Integration (E06-E10 batch): this is the morning session's
+// own moment of positive reflection - the closest existing analogue to a
+// "morning gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only
+// steps) - so E07 lives here as one additional, beta-gated row. Gated on
+// profiles.beta_access, same inline pattern as every other integration
+// point; non-beta users and guests see this screen unchanged. No "Beta"
+// label on the row - presents as an ordinary WakeWise exercise.
 export const Affirmation = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
@@ -10,8 +24,30 @@ export const Affirmation = () => {
   // and gentle) or affirmation -> breathe (quick, an atomic forward jump)
   // transition into the Session Engine. See handleNext/handleSkip below.
   const { state, currentStep, advanceStep, advanceToStep } = useSession();
+  const { user, isGuest, loading: authLoading } = useAuth();
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
-  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
+  if (ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (authLoading) return;
+      if (isGuest) {
+        setBetaAccess(false);
+        return;
+      }
+      const value = await fetchOwnBetaAccess(user.id);
+      if (!cancelled) setBetaAccess(value);
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isGuest, authLoading]);
 
   // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
   // playing at the 'affirmation' step — a direct-route visit with no
@@ -67,21 +103,45 @@ export const Affirmation = () => {
         </div>
       </div>
 
+      {betaAccess && MORNING_GRATITUDE_VIDEO && (
+        <button
+          type="button"
+          onClick={() => setVideoOpen(true)}
+          className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        >
+          <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-on-surface">Watch: {MORNING_GRATITUDE_VIDEO.title}</span>
+            <span className="block text-xs text-on-surface-variant">A short guided moment of gratitude.</span>
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+        </button>
+      )}
+
       <div className="space-y-3 w-full">
-        <button 
+        <button
           onClick={handleNext}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
         >
           <span>Continue</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
-        <button 
+        <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
           Skip
         </button>
       </div>
+
+      {/* Closing this leaves the user right here on the affirmation screen
+          - no navigation needed for a return path. Continue/Skip above are
+          entirely unaffected by whether this is open. */}
+      {videoOpen && (
+        <BetaVideoModal entry={MORNING_GRATITUDE_VIDEO} onClose={() => setVideoOpen(false)} />
+      )}
     </div>
   );
 };

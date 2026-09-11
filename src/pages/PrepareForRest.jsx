@@ -104,7 +104,7 @@ export const PrepareForRest = () => {
                 <span className="block text-sm font-semibold text-on-surface">Watch: {NIGHT_TIME_VIDEO.title}</span>
                 <span className="block text-xs text-on-surface-variant">A short guided video to ease toward sleep.</span>
               </span>
-              <span className="text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">Beta</span>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
             </button>
           )}
         </div>

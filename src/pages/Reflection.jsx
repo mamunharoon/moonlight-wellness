@@ -1,8 +1,15 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { PromptStepper } from '../components/evening/PromptStepper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { useAuth } from '../context/AuthContext';
+import { fetchOwnBetaAccess } from '../lib/betaAccess';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+
+const EVENING_REFLECTION_VIDEO = getBetaVideoById('E10');
 
 /*
  * Stage 4 Batch F4 (+ Completion Pass) — Reflection
@@ -40,11 +47,39 @@ const REFLECTION_PROMPTS = [
   { id: 'release', label: 'What are you ready to release?' },
 ];
 
+// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
+// below the reflection prompts offers "Evening Reflection" - the exact
+// evening wind-down reflection stage the mapping calls for. Gated on
+// profiles.beta_access, same inline pattern as every other integration
+// point; non-beta users and guests see this screen unchanged, and
+// PromptStepper's own journaling/Continue/Skip are entirely unaffected.
 export const Reflection = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
+  const { user, isGuest, loading: authLoading } = useAuth();
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
-  if (EveningSceneShell && PromptStepper && ProgressIndicator) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (authLoading) return;
+      if (isGuest) {
+        setBetaAccess(false);
+        return;
+      }
+      const value = await fetchOwnBetaAccess(user.id);
+      if (!cancelled) setBetaAccess(value);
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isGuest, authLoading]);
 
   const handleComplete = () => {
     if (state.status === 'playing' && currentStep?.id === 'reflection') {
@@ -56,11 +91,35 @@ export const Reflection = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'dusk' }}>
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" />
-      <div className="flex-1 flex flex-col justify-center">
+      <div className="flex-1 flex flex-col justify-center space-y-4">
         <div className="glass-panel rounded-3xl p-6">
           <PromptStepper prompts={REFLECTION_PROMPTS} onComplete={handleComplete} />
         </div>
+
+        {betaAccess && EVENING_REFLECTION_VIDEO && (
+          <button
+            type="button"
+            onClick={() => setVideoOpen(true)}
+            className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+          >
+            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-on-surface">Watch: {EVENING_REFLECTION_VIDEO.title}</span>
+              <span className="block text-xs text-on-surface-variant">A guided video to close out your day.</span>
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+          </button>
+        )}
       </div>
+
+      {/* Closing this leaves the user right here on Reflection - no
+          navigation needed for a return path. PromptStepper's own
+          journaling/Continue/Skip above are entirely unaffected. */}
+      {videoOpen && (
+        <BetaVideoModal entry={EVENING_REFLECTION_VIDEO} onClose={() => setVideoOpen(false)} />
+      )}
     </EveningSceneShell>
   );
 };

@@ -31,6 +31,11 @@ import { BetaVideoModal } from '../components/BetaVideoModal';
  * page completely unchanged from Phase 2 — every card still navigates
  * immediately via handleCardSelect's fallback path.
  *
+ * No "Beta" label appears anywhere in this intro view (E06-E10 batch,
+ * per its labeling requirement): access is still fully gated on
+ * betaAccess, but the video option itself presents as an ordinary part
+ * of this flow, not a QA artifact — that framing stays on /beta only.
+ *
  * Each card is a single native <button> (icon + title + description all
  * inside it) rather than a card with a separate nested action button —
  * satisfies "a single action button" literally and gives keyboard/
@@ -183,8 +188,6 @@ export const Support = () => {
               Continue without video
             </button>
           </div>
-
-          <span className="self-center text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Beta</span>
         </div>
       ) : (
         <div className="flex-1 flex flex-col justify-center space-y-8 py-8">

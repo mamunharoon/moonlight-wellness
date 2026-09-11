@@ -4,7 +4,21 @@ import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingRing } from '../components/BreathingRing';
+import { useAuth } from '../context/AuthContext';
+import { fetchOwnBetaAccess } from '../lib/betaAccess';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
 
+const DEEP_BREATHING_VIDEO = getBetaVideoById('E08');
+
+// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
+// offering "Deep Breathing" alongside the morning routine's own breathing
+// step - reuses this exact page rather than adding a parallel breathing
+// screen, since its own copy ("Deep Belly Breath") already matches the
+// video's subject. Gated on profiles.beta_access, same inline pattern as
+// every other integration point; non-beta users and guests see this
+// screen unchanged, and the countdown/Pause/Continue/Skip below are
+// entirely unaffected by whether the row is shown or the video watched.
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
@@ -17,9 +31,31 @@ export const Breathe = () => {
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
+  const { user, isGuest, loading: authLoading } = useAuth();
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
-  if (BreathingRing) { /* no-op to satisfy blind linter */ }
+  if (BreathingRing && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (authLoading) return;
+      if (isGuest) {
+        setBetaAccess(false);
+        return;
+      }
+      const value = await fetchOwnBetaAccess(user.id);
+      if (!cancelled) setBetaAccess(value);
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isGuest, authLoading]);
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -104,6 +140,23 @@ export const Breathe = () => {
         </span>
       </div>
 
+      {betaAccess && DEEP_BREATHING_VIDEO && (
+        <button
+          type="button"
+          onClick={() => setVideoOpen(true)}
+          className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        >
+          <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-on-surface">Watch: {DEEP_BREATHING_VIDEO.title}</span>
+            <span className="block text-xs text-on-surface-variant">A guided video for this breathing exercise.</span>
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+        </button>
+      )}
+
       {/* Controls */}
       <div className="space-y-3 w-full">
         <div className="flex gap-3">
@@ -122,13 +175,22 @@ export const Breathe = () => {
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         </div>
-        <button 
+        <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
           Skip Breathing
         </button>
       </div>
+
+      {/* Closing this leaves the user right here on the breathing screen -
+          no navigation needed for a return path. The countdown/Pause/
+          Continue/Skip above are entirely unaffected by whether this is
+          open (the countdown keeps running in the background, exactly as
+          it already does behind any other interruption on this screen). */}
+      {videoOpen && (
+        <BetaVideoModal entry={DEEP_BREATHING_VIDEO} onClose={() => setVideoOpen(false)} />
+      )}
     </div>
   );
 };

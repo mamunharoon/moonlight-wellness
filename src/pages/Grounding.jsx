@@ -1,6 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { useAuth } from '../context/AuthContext';
+import { fetchOwnBetaAccess } from '../lib/betaAccess';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+
+const MINDFUL_PAUSE_VIDEO = getBetaVideoById('E09');
 
 /*
  * Solas — Support & Calm, Sprint 1 Phase 1: Grounding (5-4-3-2-1)
@@ -19,6 +25,14 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
  * countdown itself (5, 4, 3, 2, 1) already carries that sense — adding a
  * second, separate progress readout on top of it would be exactly the
  * kind of counted-progress UI the principle warns against.
+ *
+ * Beta Video Integration (E06-E10 batch): one additional, beta-gated row
+ * offers "Mindful Pause" - this is the app's closest existing analogue to
+ * a midday/quick-reset grounding journey (reached from the Support Hub's
+ * "overwhelmed"/"anxious" cards via Panic Mode). Gated on
+ * profiles.beta_access, same inline pattern as every other integration
+ * point; non-beta users and guests see this screen unchanged, and the
+ * 5-4-3-2-1 stepper/Previous/Next/Skip below are entirely unaffected.
  */
 const PROMPTS = [
   { id: 'see', count: 5, icon: 'visibility', text: 'Five things you can see.' },
@@ -31,8 +45,30 @@ const PROMPTS = [
 export const Grounding = () => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
+  const { user, isGuest, loading: authLoading } = useAuth();
+  const [betaAccess, setBetaAccess] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
-  if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (authLoading) return;
+      if (isGuest) {
+        setBetaAccess(false);
+        return;
+      }
+      const value = await fetchOwnBetaAccess(user.id);
+      if (!cancelled) setBetaAccess(value);
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isGuest, authLoading]);
 
   const active = PROMPTS[activeIndex];
   const isFirst = activeIndex === 0;
@@ -79,6 +115,23 @@ export const Grounding = () => {
       </div>
 
       <div className="space-y-3">
+        {betaAccess && MINDFUL_PAUSE_VIDEO && (
+          <button
+            type="button"
+            onClick={() => setVideoOpen(true)}
+            className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+          >
+            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-on-surface">Watch: {MINDFUL_PAUSE_VIDEO.title}</span>
+              <span className="block text-xs text-on-surface-variant">A brief guided pause, whenever you need one.</span>
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
+          </button>
+        )}
+
         <div className="flex gap-3">
           {!isFirst && (
             <button
@@ -104,6 +157,13 @@ export const Grounding = () => {
           Skip
         </button>
       </div>
+
+      {/* Closing this leaves the user right here on Grounding - no
+          navigation needed for a return path. The 5-4-3-2-1 stepper and
+          Previous/Next/Skip above are entirely unaffected. */}
+      {videoOpen && (
+        <BetaVideoModal entry={MINDFUL_PAUSE_VIDEO} onClose={() => setVideoOpen(false)} />
+      )}
     </EveningSceneShell>
   );
 };

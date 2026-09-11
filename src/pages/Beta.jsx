@@ -103,12 +103,18 @@ export const Beta = () => {
 
       <BetaChecklist />
 
-      {/* Beta Video Preview: four completed exercise videos, gated the
-          same way as the rest of this page (profiles.beta_access) since
-          this is beta-tester content, not Plus-subscriber content — a
-          different entitlement than AudioDetails.jsx's Plus gate. Cards
-          request a signed URL only when opened (BetaVideoModal), never
-          eagerly for all four on page load. */}
+      {/* Beta Video Preview: this is the admin/QA catalogue for every beta
+          exercise video (E02-E10), gated the same way as the rest of this
+          page (profiles.beta_access) since this is beta-tester content,
+          not Plus-subscriber content — a different entitlement than
+          AudioDetails.jsx's Plus gate. Cards request a signed URL only
+          when opened (BetaVideoModal), never eagerly for all of them on
+          page load. E06-E10 also each have their own contextual entry
+          point in the real Morning/Support/Evening journeys (see
+          MorningStart.jsx, Affirmation.jsx, Breathe.jsx, Grounding.jsx,
+          Reflection.jsx) — this list stays the single place to test every
+          video centrally, per this batch's explicit instruction to keep
+          it as a QA catalogue until the integrated flows are approved. */}
       {betaAccess && (
         <section className="space-y-2">
           <div className="flex items-center gap-2 px-1">
