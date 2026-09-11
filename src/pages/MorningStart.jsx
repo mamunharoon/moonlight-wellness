@@ -1,22 +1,20 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
 const GENTLE_AWAKENING_VIDEO = getBetaVideoById('E06');
 
-// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
-// offering "Gentle Awakening" right at the morning routine's own entry
-// screen - the natural "Rise & Reset" moment, before Begin/Skip Routine.
-// Gated on profiles.beta_access the same way as every other integration
-// point (Support.jsx/PrepareForRest.jsx); non-beta users and guests see
-// this screen completely unchanged. No "Beta" label on the row itself -
-// it presents as an ordinary WakeWise exercise, per this batch's
-// labeling requirement; that framing stays on /beta only.
+// Video Integration: one additional row offering "Gentle Awakening"
+// right at the morning routine's own entry screen - the natural "Rise &
+// Reset" moment, before Begin/Skip Routine. Shown to any signed-in user
+// (guests excluded); no "Beta" label on the row itself - it presents as
+// an ordinary WakeWise exercise. Access was originally gated on
+// profiles.beta_access; that gate was removed once the videos were
+// approved for general availability in this environment.
 export const MorningStart = () => {
   const navigate = useNavigate();
   const { routineDuration, setJourneyStep } = useAlarm();
@@ -25,30 +23,10 @@ export const MorningStart = () => {
   // Session Engine. See handleBegin/handleSkip below for the only places
   // any of this is used.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   const getDurationDetails = () => {
     switch (routineDuration) {
@@ -115,7 +93,7 @@ export const MorningStart = () => {
           </ul>
         </div>
 
-        {betaAccess && GENTLE_AWAKENING_VIDEO && (
+        {!isGuest && GENTLE_AWAKENING_VIDEO && (
           <button
             type="button"
             onClick={() => setVideoOpen(true)}

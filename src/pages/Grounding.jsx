@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
@@ -26,13 +25,14 @@ const MINDFUL_PAUSE_VIDEO = getBetaVideoById('E09');
  * second, separate progress readout on top of it would be exactly the
  * kind of counted-progress UI the principle warns against.
  *
- * Beta Video Integration (E06-E10 batch): one additional, beta-gated row
- * offers "Mindful Pause" - this is the app's closest existing analogue to
- * a midday/quick-reset grounding journey (reached from the Support Hub's
- * "overwhelmed"/"anxious" cards via Panic Mode). Gated on
- * profiles.beta_access, same inline pattern as every other integration
- * point; non-beta users and guests see this screen unchanged, and the
+ * Video Integration: one additional row offers "Mindful Pause" - this is
+ * the app's closest existing analogue to a midday/quick-reset grounding
+ * journey (reached from the Support Hub's "overwhelmed"/"anxious" cards
+ * via Panic Mode). Shown to any signed-in user (guests excluded); the
  * 5-4-3-2-1 stepper/Previous/Next/Skip below are entirely unaffected.
+ * Access was originally gated on profiles.beta_access; that gate was
+ * removed once the videos were approved for general availability in
+ * this environment.
  */
 const PROMPTS = [
   { id: 'see', count: 5, icon: 'visibility', text: 'Five things you can see.' },
@@ -45,30 +45,10 @@ const PROMPTS = [
 export const Grounding = () => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (EveningSceneShell && BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   const active = PROMPTS[activeIndex];
   const isFirst = activeIndex === 0;
@@ -115,7 +95,7 @@ export const Grounding = () => {
       </div>
 
       <div className="space-y-3">
-        {betaAccess && MINDFUL_PAUSE_VIDEO && (
+        {!isGuest && MINDFUL_PAUSE_VIDEO && (
           <button
             type="button"
             onClick={() => setVideoOpen(true)}

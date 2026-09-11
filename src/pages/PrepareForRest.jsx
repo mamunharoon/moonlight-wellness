@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
@@ -25,13 +24,16 @@ const NIGHT_TIME_VIDEO = getBetaVideoById('E05');
  * for the full reasoning. sleepPreparation -> completion is immediately
  * adjacent, so advanceStep() (not advanceToStep) is correct here.
  *
- * Beta Video Integration: one additional, beta-gated row below
- * REST_ITEMS offers E05 (Night-time Calm) — still nothing to check off,
- * REST_ITEMS itself is untouched, and Continue/advanceStep() below are
- * completely unaffected by whether the video row is shown or watched.
- * This is the closing step of the routine, right before Completion —
- * the natural place for a night-time calming video, without displacing
- * Gratitude.jsx (an earlier, distinct step) or Reflection.jsx.
+ * Video Integration: one additional row below REST_ITEMS offers E05
+ * (Night-time Calm) to any signed-in user (guests excluded) — still
+ * nothing to check off, REST_ITEMS itself is untouched, and Continue/
+ * advanceStep() below are completely unaffected by whether the video row
+ * is shown or watched. This is the closing step of the routine, right
+ * before Completion — the natural place for a night-time calming video,
+ * without displacing Gratitude.jsx (an earlier, distinct step) or
+ * Reflection.jsx. Access was originally gated on profiles.beta_access;
+ * that gate was removed once the videos were approved for general
+ * availability in this environment.
  */
 const REST_ITEMS = [
   { icon: 'smartphone', text: 'Put your phone down soon.' },
@@ -43,31 +45,10 @@ const REST_ITEMS = [
 export const PrepareForRest = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (EveningSceneShell && ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  // Same inline fetchOwnBetaAccess check as Beta.jsx/Support.jsx.
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   const handleContinue = () => {
     if (state.status === 'playing' && currentStep?.id === 'sleepPreparation') {
@@ -91,7 +72,7 @@ export const PrepareForRest = () => {
             </div>
           ))}
 
-          {betaAccess && NIGHT_TIME_VIDEO && (
+          {!isGuest && NIGHT_TIME_VIDEO && (
             <button
               type="button"
               onClick={() => setVideoOpen(true)}

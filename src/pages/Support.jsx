@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
@@ -22,19 +21,21 @@ import { BetaVideoModal } from '../components/BetaVideoModal';
  * needs to be solved right now") already speaks to both without needing
  * two separate entry flows.
  *
- * Beta Video Integration: for signed-in beta testers only
- * (profiles.beta_access), three of these four moods — overwhelmed, calm,
- * stressed — now open an inline video intro instead of navigating
- * straight away (see MOOD_VIDEO_MAP below); "anxious" is deliberately
- * excluded and always still goes straight to /panic, since its own beta
- * video hasn't been supplied yet. Non-beta users and guests see this
- * page completely unchanged from Phase 2 — every card still navigates
- * immediately via handleCardSelect's fallback path.
+ * Video Integration: for any signed-in user (guests excluded), three of
+ * these four moods — overwhelmed, calm, stressed — now open an inline
+ * video intro instead of navigating straight away (see MOOD_VIDEO_MAP
+ * below); "anxious" is deliberately excluded and always still goes
+ * straight to /panic, since its own video hasn't been supplied yet.
+ * Guests see this page completely unchanged from Phase 2 — every card
+ * still navigates immediately via handleCardSelect's fallback path.
+ * Access was originally gated on profiles.beta_access; that gate was
+ * removed once the videos were approved for general availability in
+ * this environment — get-beta-video-url now only requires a real
+ * signed-in user, not beta_access, so client and server agree.
  *
- * No "Beta" label appears anywhere in this intro view (E06-E10 batch,
- * per its labeling requirement): access is still fully gated on
- * betaAccess, but the video option itself presents as an ordinary part
- * of this flow, not a QA artifact — that framing stays on /beta only.
+ * No "Beta" label appears anywhere in this intro view — the video option
+ * presents as an ordinary part of this flow, not a QA artifact. That
+ * framing stays on /beta only.
  *
  * Each card is a single native <button> (icon + title + description all
  * inside it) rather than a card with a separate nested action button —
@@ -73,11 +74,11 @@ const CARDS = [
   }
 ];
 
-// Beta Video Integration: maps a subset of Support Hub moods to their
-// approved beta exercise video (BETA_VIDEO_MANIFEST). "anxious" has no
-// entry here deliberately — its own video hasn't been supplied yet, so
-// it must keep going straight to /panic exactly as before, for every
-// user, beta or not. heading/body below are reused verbatim from each
+// Maps a subset of Support Hub moods to their approved exercise video
+// (BETA_VIDEO_MANIFEST). "anxious" has no entry here deliberately — its
+// own video hasn't been supplied yet, so it must keep going straight to
+// /panic exactly as before, for every user. heading/body below are
+// reused verbatim from each
 // mood's own existing on-screen copy ("retain the existing introduction
 // where appropriate") rather than newly written lines: overwhelmed's
 // from PanicMode.jsx, calm's from QuietBreathing.jsx, stressed's from
@@ -106,8 +107,7 @@ const MOOD_VIDEO_MAP = {
 
 export const Support = () => {
   const navigate = useNavigate();
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   // id of the mood currently showing its video intro (Back returns to
   // the card list), or null for the normal card-list view.
   const [activeMoodId, setActiveMoodId] = useState(null);
@@ -115,35 +115,12 @@ export const Support = () => {
 
   if (EveningSceneShell && BetaVideoModal) { /* no-op to satisfy blind linter */ }
 
-  // Same inline fetchOwnBetaAccess check Beta.jsx already does, kept
-  // local to this page rather than shared — matches how AdminRoute.jsx
-  // and Beta.jsx each already do their own inline version of this
-  // pattern in this codebase, rather than a new shared hook.
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
-
-  // Only intercepts navigation for a beta tester on a mapped mood.
-  // Every other case — a non-beta user, or "anxious" (absent from
+  // Only intercepts navigation for a signed-in user on a mapped mood.
+  // Every other case — a guest, or "anxious" (absent from
   // MOOD_VIDEO_MAP) — keeps the exact original behaviour: navigate
   // straight to card.to, unchanged.
   const handleCardSelect = (card) => {
-    if (betaAccess && MOOD_VIDEO_MAP[card.id]) {
+    if (!isGuest && MOOD_VIDEO_MAP[card.id]) {
       setActiveMoodId(card.id);
       return;
     }

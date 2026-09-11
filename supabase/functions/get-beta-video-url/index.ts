@@ -1,18 +1,24 @@
 // WakeWise — Beta Video Preview — get-beta-video-url
 //
-// NOT YET DEPLOYED. Written for review alongside the Checkpoint 2
-// report; deploy only after explicit approval (`supabase functions
-// deploy get-beta-video-url --project-ref kvdxuhyndevrfvsalgnx`).
+// Deployed to project kvdxuhyndevrfvsalgnx via
+// `supabase functions deploy get-beta-video-url --project-ref kvdxuhyndevrfvsalgnx`
+// after each change to this file passes lint/build.
 //
 // Same shape as create-checkout-session/index.ts: verify the caller's
 // JWT server-side (never trust a client-supplied user id), then use the
-// service-role client for the privileged part. The privileged part here
-// is two things: (1) reading profiles.beta_access, which RLS would
-// otherwise restrict to the row's own owner anyway but this avoids a
-// second round trip with the user's own token, and (2) signing a
-// Storage URL, which requires the service role because `wellness-videos`
-// is a private bucket with no anon/authenticated read policy — and
-// stays that way; this function is the only path to a usable URL.
+// service-role client for the privileged part — signing a Storage URL,
+// which requires the service role because `wellness-videos` is a private
+// bucket with no anon/authenticated read policy — and stays that way;
+// this function is the only path to a usable URL.
+//
+// E02-E10 no longer require profiles.beta_access: any authenticated,
+// non-anonymous user may request a signed URL for a video in
+// EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
+// still exist and still gate the /beta QA catalogue client-side — this
+// function simply no longer checks it, now that these videos are
+// approved for general availability in this environment. A future
+// exercise that should stay beta-only would need its own check here;
+// nothing currently in EXERCISE_PATHS does.
 //
 // The client sends an `exerciseId` (e.g. "E02"), never a raw Storage
 // path — EXERCISE_PATHS below is the single source of truth for what
@@ -93,21 +99,6 @@ Deno.serve(async (req) => {
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('beta_access')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    console.error('get-beta-video-url: failed to read beta_access', profileError.message);
-    return json({ error: 'Could not verify access. Please try again.' }, 500);
-  }
-
-  if (!profile?.beta_access) {
-    return json({ error: "You don't have access to this beta preview." }, 403);
-  }
 
   const { data: signed, error: signError } = await supabaseAdmin.storage
     .from('wellness-videos')

@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { PromptStepper } from '../components/evening/PromptStepper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
@@ -47,39 +46,20 @@ const REFLECTION_PROMPTS = [
   { id: 'release', label: 'What are you ready to release?' },
 ];
 
-// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
-// below the reflection prompts offers "Evening Reflection" - the exact
-// evening wind-down reflection stage the mapping calls for. Gated on
-// profiles.beta_access, same inline pattern as every other integration
-// point; non-beta users and guests see this screen unchanged, and
-// PromptStepper's own journaling/Continue/Skip are entirely unaffected.
+// Video Integration: one additional row below the reflection prompts
+// offers "Evening Reflection" - the exact evening wind-down reflection
+// stage the mapping calls for. Shown to any signed-in user (guests
+// excluded); PromptStepper's own journaling/Continue/Skip are entirely
+// unaffected. Access was originally gated on profiles.beta_access; that
+// gate was removed once the videos were approved for general
+// availability in this environment.
 export const Reflection = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   const handleComplete = () => {
     if (state.status === 'playing' && currentStep?.id === 'reflection') {
@@ -96,7 +76,7 @@ export const Reflection = () => {
           <PromptStepper prompts={REFLECTION_PROMPTS} onComplete={handleComplete} />
         </div>
 
-        {betaAccess && EVENING_REFLECTION_VIDEO && (
+        {!isGuest && EVENING_REFLECTION_VIDEO && (
           <button
             type="button"
             onClick={() => setVideoOpen(true)}

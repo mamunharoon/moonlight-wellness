@@ -5,20 +5,20 @@ import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingRing } from '../components/BreathingRing';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
 const DEEP_BREATHING_VIDEO = getBetaVideoById('E08');
 
-// Beta Video Integration (E06-E10 batch): one additional, beta-gated row
-// offering "Deep Breathing" alongside the morning routine's own breathing
-// step - reuses this exact page rather than adding a parallel breathing
-// screen, since its own copy ("Deep Belly Breath") already matches the
-// video's subject. Gated on profiles.beta_access, same inline pattern as
-// every other integration point; non-beta users and guests see this
-// screen unchanged, and the countdown/Pause/Continue/Skip below are
-// entirely unaffected by whether the row is shown or the video watched.
+// Video Integration: one additional row offering "Deep Breathing"
+// alongside the morning routine's own breathing step - reuses this exact
+// page rather than adding a parallel breathing screen, since its own
+// copy ("Deep Belly Breath") already matches the video's subject. Shown
+// to any signed-in user (guests excluded); the countdown/Pause/Continue/
+// Skip below are entirely unaffected by whether the row is shown or the
+// video watched. Access was originally gated on profiles.beta_access;
+// that gate was removed once the videos were approved for general
+// availability in this environment.
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
@@ -31,31 +31,11 @@ export const Breathe = () => {
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
   if (BreathingRing && BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -140,7 +120,7 @@ export const Breathe = () => {
         </span>
       </div>
 
-      {betaAccess && DEEP_BREATHING_VIDEO && (
+      {!isGuest && DEEP_BREATHING_VIDEO && (
         <button
           type="button"
           onClick={() => setVideoOpen(true)}

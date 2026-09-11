@@ -1,22 +1,22 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
-import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 
 const MORNING_GRATITUDE_VIDEO = getBetaVideoById('E07');
 
-// Beta Video Integration (E06-E10 batch): this is the morning session's
-// own moment of positive reflection - the closest existing analogue to a
-// "morning gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only
-// steps) - so E07 lives here as one additional, beta-gated row. Gated on
-// profiles.beta_access, same inline pattern as every other integration
-// point; non-beta users and guests see this screen unchanged. No "Beta"
-// label on the row - presents as an ordinary WakeWise exercise.
+// Video Integration: this is the morning session's own moment of
+// positive reflection - the closest existing analogue to a "morning
+// gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only steps)
+// - so E07 lives here as one additional row, shown to any signed-in user
+// (guests excluded). No "Beta" label on the row - presents as an
+// ordinary WakeWise exercise. Access was originally gated on
+// profiles.beta_access; that gate was removed once the videos were
+// approved for general availability in this environment.
 export const Affirmation = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
@@ -24,30 +24,10 @@ export const Affirmation = () => {
   // and gentle) or affirmation -> breathe (quick, an atomic forward jump)
   // transition into the Session Engine. See handleNext/handleSkip below.
   const { state, currentStep, advanceStep, advanceToStep } = useSession();
-  const { user, isGuest, loading: authLoading } = useAuth();
-  const [betaAccess, setBetaAccess] = useState(false);
+  const { isGuest } = useAuth();
   const [videoOpen, setVideoOpen] = useState(false);
 
   if (ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (isGuest) {
-        setBetaAccess(false);
-        return;
-      }
-      const value = await fetchOwnBetaAccess(user.id);
-      if (!cancelled) setBetaAccess(value);
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isGuest, authLoading]);
 
   // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
   // playing at the 'affirmation' step — a direct-route visit with no
@@ -103,7 +83,7 @@ export const Affirmation = () => {
         </div>
       </div>
 
-      {betaAccess && MORNING_GRATITUDE_VIDEO && (
+      {!isGuest && MORNING_GRATITUDE_VIDEO && (
         <button
           type="button"
           onClick={() => setVideoOpen(true)}
