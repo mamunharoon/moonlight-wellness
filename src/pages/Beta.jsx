@@ -104,12 +104,12 @@ export const Beta = () => {
       <BetaChecklist />
 
       {/* Beta Video Preview: this is the admin/QA catalogue for every beta
-          exercise video (E02-E20), gated the same way as the rest of this
+          exercise video (E02-E30), gated the same way as the rest of this
           page (profiles.beta_access) since this is beta-tester content,
           not Plus-subscriber content — a different entitlement than
           AudioDetails.jsx's Plus gate. Cards request a signed URL only
           when opened (BetaVideoModal), never eagerly for all of them on
-          page load. E06-E20 also each have their own contextual entry
+          page load. E06-E30 also each have their own contextual entry
           point in the real Morning/Support/Evening journeys (see
           MorningStart.jsx, Affirmation.jsx, Breathe.jsx, Grounding.jsx,
           Reflection.jsx, PrepareForRest.jsx) — this list stays the single

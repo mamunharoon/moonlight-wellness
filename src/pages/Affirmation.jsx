@@ -15,7 +15,11 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 const AFFIRMATION_VIDEOS = [
   { id: 'E07', blurb: 'A short guided moment of gratitude.' },
   { id: 'E11', blurb: 'A guided video to lift your energy and mood.' },
-  { id: 'E12', blurb: 'A guided video to help you feel steady and self-assured.' }
+  { id: 'E12', blurb: 'A guided video to help you feel steady and self-assured.' },
+  { id: 'E21', blurb: 'A guided video for gentle self-compassion.' },
+  { id: 'E22', blurb: 'A guided video to help you feel your own inner strength.' },
+  { id: 'E24', blurb: 'A guided video to help you feel confident and capable.' },
+  { id: 'E26', blurb: 'A guided video to help you feel accepted, just as you are.' }
 ];
 
 // Video Integration: this is the morning session's own moment of

@@ -14,7 +14,9 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 // it was assigned to this screen.
 const PREPARE_FOR_REST_VIDEOS = [
   { id: 'E05', blurb: 'A short guided video to ease toward sleep.' },
-  { id: 'E20', blurb: 'A guided video to quiet a busy mind before rest.' }
+  { id: 'E20', blurb: 'A guided video to quiet a busy mind before rest.' },
+  { id: 'E27', blurb: 'A guided video for deep physical relaxation.' },
+  { id: 'E30', blurb: 'A guided video to ease you into peaceful sleep.' }
 ];
 
 /*

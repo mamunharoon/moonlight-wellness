@@ -11,7 +11,7 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
-// E02-E20 no longer require profiles.beta_access: any authenticated,
+// E02-E30 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
@@ -58,7 +58,17 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['E17', 'exercises/WW_E17_StressReset_BackgroundMusic_v1.mp3.mp4'],
   ['E18', 'exercises/WW_E18_FindingBalance_BackgroundMusic_v1.mp3.mp4'],
   ['E19', 'exercises/WW_E19_LettingGo_BackgroundMusic_v1.mp3.mp4'],
-  ['E20', 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4']
+  ['E20', 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4'],
+  ['E21', 'exercises/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3.mp4'],
+  ['E22', 'exercises/WW_E22_InnerStrength_Mobile_Background_v1.png.mp4'],
+  ['E23', 'exercises/WW_E23_Gratitude_Mobile_Background_v1.png.mp4'],
+  ['E24', 'exercises/WW_E24_Confidence_BackgroundMusic_v1.mp3.mp4'],
+  ['E25', 'exercises/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3.mp4'],
+  ['E26', 'exercises/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3.mp4'],
+  ['E27', 'exercises/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3.mp4'],
+  ['E28', 'exercises/WW_E28_MindfulBreathing_v2.mp4.mp4'],
+  ['E29', 'exercises/WW_E29_Patience_BackgroundMusic_v1.mp3.mp4'],
+  ['E30', 'exercises/WW_E30_PeacefulSleep_v1.mp4.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

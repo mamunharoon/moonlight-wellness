@@ -12,7 +12,8 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 // it was assigned to this screen.
 const GROUNDING_VIDEOS = [
   { id: 'E09', blurb: 'A brief guided pause, whenever you need one.' },
-  { id: 'E18', blurb: 'A guided video to help you feel steady and centered.' }
+  { id: 'E18', blurb: 'A guided video to help you feel steady and centered.' },
+  { id: 'E29', blurb: 'A guided video to help you find patience.' }
 ];
 
 /*

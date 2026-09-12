@@ -3,7 +3,7 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because nineteen beta exercise videos are live in Storage today and
+// because twenty-nine beta exercise videos are live in Storage today and
 // need a minimal, typed, isolated place to map an id -> title -> object
 // path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E20)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -142,6 +142,66 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Quieting the Mind',
     storagePath: 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4',
     description: 'A guided video to quiet a busy mind before rest.'
+  },
+  {
+    id: 'E21',
+    title: 'Self Compassion',
+    storagePath: 'exercises/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video for gentle self-compassion.'
+  },
+  {
+    id: 'E22',
+    title: 'Inner Strength',
+    storagePath: 'exercises/WW_E22_InnerStrength_Mobile_Background_v1.png.mp4',
+    description: 'A guided video to help you feel your own inner strength.'
+  },
+  {
+    id: 'E23',
+    title: 'Gratitude',
+    storagePath: 'exercises/WW_E23_Gratitude_Mobile_Background_v1.png.mp4',
+    description: 'A guided video for a quiet moment of gratitude.'
+  },
+  {
+    id: 'E24',
+    title: 'Confidence',
+    storagePath: 'exercises/WW_E24_Confidence_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to help you feel confident and capable.'
+  },
+  {
+    id: 'E25',
+    title: 'Hope and Healing',
+    storagePath: 'exercises/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video for hope and healing.'
+  },
+  {
+    id: 'E26',
+    title: 'Self Acceptance',
+    storagePath: 'exercises/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to help you feel accepted, just as you are.'
+  },
+  {
+    id: 'E27',
+    title: 'Deep Relaxation',
+    storagePath: 'exercises/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video for deep physical relaxation.'
+  },
+  {
+    id: 'E28',
+    title: 'Mindful Breathing',
+    storagePath: 'exercises/WW_E28_MindfulBreathing_v2.mp4.mp4',
+    description: 'A guided video for slow, mindful breathing.'
+  },
+  {
+    id: 'E29',
+    title: 'Patience',
+    storagePath: 'exercises/WW_E29_Patience_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to help you find patience.'
+  },
+  {
+    id: 'E30',
+    title: 'Peaceful Sleep',
+    storagePath: 'exercises/WW_E30_PeacefulSleep_v1.mp4.mp4',
+    description: 'A guided video to ease you into peaceful sleep.'
   }
 ];
 

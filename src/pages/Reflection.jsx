@@ -15,7 +15,9 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 // it was assigned to this screen.
 const REFLECTION_VIDEOS = [
   { id: 'E10', blurb: 'A guided video to close out your day.' },
-  { id: 'E19', blurb: "A guided video to help you release what isn't yours to carry." }
+  { id: 'E19', blurb: "A guided video to help you release what isn't yours to carry." },
+  { id: 'E23', blurb: 'A guided video for a quiet moment of gratitude.' },
+  { id: 'E25', blurb: 'A guided video for hope and healing.' }
 ];
 
 /*
