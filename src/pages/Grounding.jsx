@@ -4,8 +4,16 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
-const MINDFUL_PAUSE_VIDEO = getBetaVideoById('E09');
+// Each { id, blurb } pairs a manifest entry with this page's own short,
+// contextual line, matching the pattern already established for E09
+// here. E09 first since it was already here, E18 appended in the order
+// it was assigned to this screen.
+const GROUNDING_VIDEOS = [
+  { id: 'E09', blurb: 'A brief guided pause, whenever you need one.' },
+  { id: 'E18', blurb: 'A guided video to help you feel steady and centered.' }
+];
 
 /*
  * Solas — Support & Calm, Sprint 1 Phase 1: Grounding (5-4-3-2-1)
@@ -25,14 +33,14 @@ const MINDFUL_PAUSE_VIDEO = getBetaVideoById('E09');
  * second, separate progress readout on top of it would be exactly the
  * kind of counted-progress UI the principle warns against.
  *
- * Video Integration: one additional row offers "Mindful Pause" - this is
- * the app's closest existing analogue to a midday/quick-reset grounding
- * journey (reached from the Support Hub's "overwhelmed"/"anxious" cards
- * via Panic Mode). Shown to any signed-in user (guests excluded); the
- * 5-4-3-2-1 stepper/Previous/Next/Skip below are entirely unaffected.
- * Access was originally gated on profiles.beta_access; that gate was
- * removed once the videos were approved for general availability in
- * this environment.
+ * Video Integration: additional rows offer "Mindful Pause" and "Finding
+ * Balance" - this is the app's closest existing analogue to a midday/
+ * quick-reset grounding journey (reached from the Support Hub's
+ * "overwhelmed"/"anxious" cards via Panic Mode). Shown to any signed-in
+ * user (guests excluded); the 5-4-3-2-1 stepper/Previous/Next/Skip below
+ * are entirely unaffected. Access was originally gated on
+ * profiles.beta_access; that gate was removed once these videos were
+ * approved for general availability in this environment.
  */
 const PROMPTS = [
   { id: 'see', count: 5, icon: 'visibility', text: 'Five things you can see.' },
@@ -46,9 +54,10 @@ export const Grounding = () => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
   const { isGuest } = useAuth();
-  const [videoOpen, setVideoOpen] = useState(false);
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (EveningSceneShell && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const active = PROMPTS[activeIndex];
   const isFirst = activeIndex === 0;
@@ -95,22 +104,18 @@ export const Grounding = () => {
       </div>
 
       <div className="space-y-3">
-        {!isGuest && MINDFUL_PAUSE_VIDEO && (
-          <button
-            type="button"
-            onClick={() => setVideoOpen(true)}
-            className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-on-surface">Watch: {MINDFUL_PAUSE_VIDEO.title}</span>
-              <span className="block text-xs text-on-surface-variant">A brief guided pause, whenever you need one.</span>
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
-          </button>
-        )}
+        {!isGuest && GROUNDING_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => setOpenVideoId(id)}
+            />
+          );
+        })}
 
         <div className="flex gap-3">
           {!isFirst && (
@@ -141,8 +146,8 @@ export const Grounding = () => {
       {/* Closing this leaves the user right here on Grounding - no
           navigation needed for a return path. The 5-4-3-2-1 stepper and
           Previous/Next/Skip above are entirely unaffected. */}
-      {videoOpen && (
-        <BetaVideoModal entry={MINDFUL_PAUSE_VIDEO} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </EveningSceneShell>
   );

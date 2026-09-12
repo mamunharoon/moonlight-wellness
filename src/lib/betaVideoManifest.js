@@ -3,8 +3,8 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because nine beta exercise videos are live in Storage today and need
-// a minimal, typed, isolated place to map an id -> title -> object
+// because nineteen beta exercise videos are live in Storage today and
+// need a minimal, typed, isolated place to map an id -> title -> object
 // path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
@@ -14,12 +14,12 @@
 // public URL. It is only ever sent to the get-beta-video-url Edge
 // Function, which is the one place allowed to turn it into a short-lived
 // signed URL. Object names are exactly what's in Storage today (verified
-// via `supabase db query --linked` against storage.objects for E02-E10,
+// via `supabase db query --linked` against storage.objects for every id,
 // not assumed from any spec) — not renamed, typos and double extensions
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E10)
+// @property {string} id            - stable id sent to the Edge Function (E02-E20)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -82,6 +82,66 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Evening Reflection',
     storagePath: 'exercises/WW_E10_EveningReflection_Music_v1.mp3.mp4',
     description: 'A guided reflection to close out your day.'
+  },
+  {
+    id: 'E11',
+    title: 'Positive Energy',
+    storagePath: 'exercises/WW_E11_PositiveEnergy_Music_v1.mp3.mp4',
+    description: 'A guided video to lift your energy and mood.'
+  },
+  {
+    id: 'E12',
+    title: 'Confidence Builder',
+    storagePath: 'exercises/WW_E12_ConfidenceBuilder_Portrait_v1.png.mp4',
+    description: 'A guided video to help you feel steady and self-assured.'
+  },
+  {
+    id: 'E13',
+    title: 'Morning Focus',
+    storagePath: 'exercises/WW_E13_MorningFocus_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to sharpen your focus for the day ahead.'
+  },
+  {
+    id: 'E14',
+    title: 'Motivation Boost',
+    storagePath: 'exercises/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3.mp4',
+    description: 'A guided video to help you find momentum this morning.'
+  },
+  {
+    id: 'E15',
+    title: 'A Fresh Start',
+    storagePath: 'exercises/WW_E15_AFreshStart_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video for a clean, hopeful start to your day.'
+  },
+  {
+    id: 'E16',
+    title: 'Anxiety Relief',
+    storagePath: 'exercises/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to ease a racing mind or a tight chest.'
+  },
+  {
+    id: 'E17',
+    title: 'Stress Reset',
+    storagePath: 'exercises/WW_E17_StressReset_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to release built-up stress.'
+  },
+  {
+    id: 'E18',
+    title: 'Finding Balance',
+    storagePath: 'exercises/WW_E18_FindingBalance_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to help you feel steady and centered.'
+  },
+  {
+    id: 'E19',
+    title: 'Letting Go',
+    storagePath: 'exercises/WW_E19_LettingGo_BackgroundMusic_v1.mp3.mp4',
+    description: "A guided video to help you release what isn't yours to carry."
+  },
+  {
+    id: 'E20',
+    title: 'Quieting the Mind',
+    storagePath: 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided video to quiet a busy mind before rest.'
   }
 ];
 

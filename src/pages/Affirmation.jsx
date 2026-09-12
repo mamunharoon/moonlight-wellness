@@ -6,16 +6,25 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
-const MORNING_GRATITUDE_VIDEO = getBetaVideoById('E07');
+// Each { id, blurb } pairs a manifest entry with this page's own short,
+// contextual line, matching the pattern already established for E07
+// here. E07 first since it was already here, E11-E12 appended in the
+// order they were assigned to this screen.
+const AFFIRMATION_VIDEOS = [
+  { id: 'E07', blurb: 'A short guided moment of gratitude.' },
+  { id: 'E11', blurb: 'A guided video to lift your energy and mood.' },
+  { id: 'E12', blurb: 'A guided video to help you feel steady and self-assured.' }
+];
 
 // Video Integration: this is the morning session's own moment of
 // positive reflection - the closest existing analogue to a "morning
 // gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only steps)
-// - so E07 lives here as one additional row, shown to any signed-in user
-// (guests excluded). No "Beta" label on the row - presents as an
-// ordinary WakeWise exercise. Access was originally gated on
-// profiles.beta_access; that gate was removed once the videos were
+// - so these videos live here as additional rows, shown to any signed-in
+// user (guests excluded). No "Beta" label on any row - each presents as
+// an ordinary WakeWise exercise. Access was originally gated on
+// profiles.beta_access; that gate was removed once these videos were
 // approved for general availability in this environment.
 export const Affirmation = () => {
   const navigate = useNavigate();
@@ -25,9 +34,10 @@ export const Affirmation = () => {
   // transition into the Session Engine. See handleNext/handleSkip below.
   const { state, currentStep, advanceStep, advanceToStep } = useSession();
   const { isGuest } = useAuth();
-  const [videoOpen, setVideoOpen] = useState(false);
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
   // playing at the 'affirmation' step — a direct-route visit with no
@@ -83,21 +93,21 @@ export const Affirmation = () => {
         </div>
       </div>
 
-      {!isGuest && MORNING_GRATITUDE_VIDEO && (
-        <button
-          type="button"
-          onClick={() => setVideoOpen(true)}
-          className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        >
-          <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-on-surface">Watch: {MORNING_GRATITUDE_VIDEO.title}</span>
-            <span className="block text-xs text-on-surface-variant">A short guided moment of gratitude.</span>
-          </span>
-          <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
-        </button>
+      {!isGuest && (
+        <div className="space-y-3">
+          {AFFIRMATION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
+        </div>
       )}
 
       <div className="space-y-3 w-full">
@@ -119,8 +129,8 @@ export const Affirmation = () => {
       {/* Closing this leaves the user right here on the affirmation screen
           - no navigation needed for a return path. Continue/Skip above are
           entirely unaffected by whether this is open. */}
-      {videoOpen && (
-        <BetaVideoModal entry={MORNING_GRATITUDE_VIDEO} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </div>
   );

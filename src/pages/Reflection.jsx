@@ -7,8 +7,16 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
-const EVENING_REFLECTION_VIDEO = getBetaVideoById('E10');
+// Each { id, blurb } pairs a manifest entry with this page's own short,
+// contextual line, matching the pattern already established for E10
+// here. E10 first since it was already here, E19 appended in the order
+// it was assigned to this screen.
+const REFLECTION_VIDEOS = [
+  { id: 'E10', blurb: 'A guided video to close out your day.' },
+  { id: 'E19', blurb: "A guided video to help you release what isn't yours to carry." }
+];
 
 /*
  * Stage 4 Batch F4 (+ Completion Pass) — Reflection
@@ -46,20 +54,21 @@ const REFLECTION_PROMPTS = [
   { id: 'release', label: 'What are you ready to release?' },
 ];
 
-// Video Integration: one additional row below the reflection prompts
-// offers "Evening Reflection" - the exact evening wind-down reflection
-// stage the mapping calls for. Shown to any signed-in user (guests
-// excluded); PromptStepper's own journaling/Continue/Skip are entirely
-// unaffected. Access was originally gated on profiles.beta_access; that
-// gate was removed once the videos were approved for general
-// availability in this environment.
+// Video Integration: additional rows below the reflection prompts offer
+// "Evening Reflection" and "Letting Go" - the exact evening wind-down
+// reflection stage the mapping calls for. Shown to any signed-in user
+// (guests excluded); PromptStepper's own journaling/Continue/Skip are
+// entirely unaffected. Access was originally gated on
+// profiles.beta_access; that gate was removed once these videos were
+// approved for general availability in this environment.
 export const Reflection = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
   const { isGuest } = useAuth();
-  const [videoOpen, setVideoOpen] = useState(false);
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const handleComplete = () => {
     if (state.status === 'playing' && currentStep?.id === 'reflection') {
@@ -76,29 +85,25 @@ export const Reflection = () => {
           <PromptStepper prompts={REFLECTION_PROMPTS} onComplete={handleComplete} />
         </div>
 
-        {!isGuest && EVENING_REFLECTION_VIDEO && (
-          <button
-            type="button"
-            onClick={() => setVideoOpen(true)}
-            className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-on-surface">Watch: {EVENING_REFLECTION_VIDEO.title}</span>
-              <span className="block text-xs text-on-surface-variant">A guided video to close out your day.</span>
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
-          </button>
-        )}
+        {!isGuest && REFLECTION_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => setOpenVideoId(id)}
+            />
+          );
+        })}
       </div>
 
       {/* Closing this leaves the user right here on Reflection - no
           navigation needed for a return path. PromptStepper's own
           journaling/Continue/Skip above are entirely unaffected. */}
-      {videoOpen && (
-        <BetaVideoModal entry={EVENING_REFLECTION_VIDEO} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </EveningSceneShell>
   );

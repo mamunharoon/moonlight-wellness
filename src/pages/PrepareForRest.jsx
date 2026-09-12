@@ -6,8 +6,16 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
-const NIGHT_TIME_VIDEO = getBetaVideoById('E05');
+// Each { id, blurb } pairs a manifest entry with this page's own short,
+// contextual line, matching the pattern already established for E05
+// here. E05 first since it was already here, E20 appended in the order
+// it was assigned to this screen.
+const PREPARE_FOR_REST_VIDEOS = [
+  { id: 'E05', blurb: 'A short guided video to ease toward sleep.' },
+  { id: 'E20', blurb: 'A guided video to quiet a busy mind before rest.' }
+];
 
 /*
  * Stage 4 Batch F6 — PrepareForRest
@@ -24,16 +32,16 @@ const NIGHT_TIME_VIDEO = getBetaVideoById('E05');
  * for the full reasoning. sleepPreparation -> completion is immediately
  * adjacent, so advanceStep() (not advanceToStep) is correct here.
  *
- * Video Integration: one additional row below REST_ITEMS offers E05
- * (Night-time Calm) to any signed-in user (guests excluded) — still
- * nothing to check off, REST_ITEMS itself is untouched, and Continue/
- * advanceStep() below are completely unaffected by whether the video row
- * is shown or watched. This is the closing step of the routine, right
- * before Completion — the natural place for a night-time calming video,
- * without displacing Gratitude.jsx (an earlier, distinct step) or
- * Reflection.jsx. Access was originally gated on profiles.beta_access;
- * that gate was removed once the videos were approved for general
- * availability in this environment.
+ * Video Integration: additional rows below REST_ITEMS offer E05
+ * (Night-time Calm) and E20 (Quieting the Mind) to any signed-in user
+ * (guests excluded) — still nothing to check off, REST_ITEMS itself is
+ * untouched, and Continue/advanceStep() below are completely unaffected
+ * by whether a row is shown or watched. This is the closing step of the
+ * routine, right before Completion — the natural place for a night-time
+ * calming video, without displacing Gratitude.jsx (an earlier, distinct
+ * step) or Reflection.jsx. Access was originally gated on
+ * profiles.beta_access; that gate was removed once these videos were
+ * approved for general availability in this environment.
  */
 const REST_ITEMS = [
   { icon: 'smartphone', text: 'Put your phone down soon.' },
@@ -46,9 +54,10 @@ export const PrepareForRest = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
   const { isGuest } = useAuth();
-  const [videoOpen, setVideoOpen] = useState(false);
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (EveningSceneShell && ProgressIndicator && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const handleContinue = () => {
     if (state.status === 'playing' && currentStep?.id === 'sleepPreparation') {
@@ -72,22 +81,18 @@ export const PrepareForRest = () => {
             </div>
           ))}
 
-          {!isGuest && NIGHT_TIME_VIDEO && (
-            <button
-              type="button"
-              onClick={() => setVideoOpen(true)}
-              className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-            >
-              <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold text-on-surface">Watch: {NIGHT_TIME_VIDEO.title}</span>
-                <span className="block text-xs text-on-surface-variant">A short guided video to ease toward sleep.</span>
-              </span>
-              <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
-            </button>
-          )}
+          {!isGuest && PREPARE_FOR_REST_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -102,8 +107,8 @@ export const PrepareForRest = () => {
       {/* Closing this leaves the user right here on Prepare for Rest —
           already "Evening Wind-down", no navigation needed for a return
           path. Continue/advanceStep() above are entirely unaffected. */}
-      {videoOpen && (
-        <BetaVideoModal entry={NIGHT_TIME_VIDEO} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </EveningSceneShell>
   );

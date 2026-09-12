@@ -4,6 +4,7 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
 /*
  * Solas — Support & Calm, Sprint 1: Support Hub
@@ -21,13 +22,14 @@ import { BetaVideoModal } from '../components/BetaVideoModal';
  * needs to be solved right now") already speaks to both without needing
  * two separate entry flows.
  *
- * Video Integration: for any signed-in user (guests excluded), three of
- * these four moods — overwhelmed, calm, stressed — now open an inline
- * video intro instead of navigating straight away (see MOOD_VIDEO_MAP
- * below); "anxious" is deliberately excluded and always still goes
- * straight to /panic, since its own video hasn't been supplied yet.
- * Guests see this page completely unchanged from Phase 2 — every card
- * still navigates immediately via handleCardSelect's fallback path.
+ * Video Integration: for any signed-in user (guests excluded), all four
+ * moods now open an inline video intro instead of navigating straight
+ * away (see MOOD_VIDEO_MAP below) — "anxious" originally had no video
+ * and always went straight to /panic; it now maps to E16 (Anxiety
+ * Relief) once that video was supplied. "stressed" maps to two videos
+ * (E04 and E17), shown as separate rows — see the multi-video handling
+ * below. Guests see this page completely unchanged from Phase 2 — every
+ * card still navigates immediately via handleCardSelect's fallback path.
  * Access was originally gated on profiles.beta_access; that gate was
  * removed once the videos were approved for general availability in
  * this environment — get-beta-video-url now only requires a real
@@ -74,31 +76,41 @@ const CARDS = [
   }
 ];
 
-// Maps a subset of Support Hub moods to their approved exercise video
-// (BETA_VIDEO_MANIFEST). "anxious" has no entry here deliberately — its
-// own video hasn't been supplied yet, so it must keep going straight to
-// /panic exactly as before, for every user. heading/body below are
-// reused verbatim from each
-// mood's own existing on-screen copy ("retain the existing introduction
-// where appropriate") rather than newly written lines: overwhelmed's
-// from PanicMode.jsx, calm's from QuietBreathing.jsx, stressed's from
-// this same file's own CARDS description above (StressRelease.jsx has
-// no heading copy of its own to reuse).
+// Maps every Support Hub mood to its approved exercise video(s)
+// (BETA_VIDEO_MANIFEST) - `videos` is a list of { id, blurb } so a mood
+// with more than one video (stressed: E04 + E17) renders each as its own
+// clearly labelled row rather than picking one. heading/body below are
+// reused verbatim from each mood's own existing on-screen copy ("retain
+// the existing introduction where appropriate") rather than newly
+// written lines: anxious's and overwhelmed's from PanicMode.jsx (which
+// has always shown identical copy for both moods - see the file-level
+// comment above), calm's from QuietBreathing.jsx, stressed's from this
+// same file's own CARDS description above (StressRelease.jsx has no
+// heading copy of its own to reuse).
 const MOOD_VIDEO_MAP = {
+  anxious: {
+    videos: [{ id: 'E16', blurb: 'A guided video to ease a racing mind or a tight chest.' }],
+    heading: "You're safe. Let's slow things down together.",
+    body: 'Nothing needs to be solved right now. Just stay with this moment.',
+    continueTo: '/panic'
+  },
   overwhelmed: {
-    videoId: 'E02',
+    videos: [{ id: 'E02', blurb: 'Too much at once. A guided video to help you set some of it down.' }],
     heading: "You're safe. Let's slow things down together.",
     body: 'Nothing needs to be solved right now. Just stay with this moment.',
     continueTo: '/panic'
   },
   calm: {
-    videoId: 'E03',
+    videos: [{ id: 'E03', blurb: 'A fast, guided reset for your nervous system.' }],
     heading: 'Just breathe.',
     body: 'There is nowhere else to be.',
     continueTo: '/quiet-breathing'
   },
   stressed: {
-    videoId: 'E04',
+    videos: [
+      { id: 'E04', blurb: 'A short guided sequence to let go of physical tension.' },
+      { id: 'E17', blurb: 'A guided video to release built-up stress.' }
+    ],
     heading: "Let's set some of it down.",
     body: 'Tension you’re carrying — a guided video, or the usual guided moment below. Either way works.',
     continueTo: '/stress-release'
@@ -111,14 +123,16 @@ export const Support = () => {
   // id of the mood currently showing its video intro (Back returns to
   // the card list), or null for the normal card-list view.
   const [activeMoodId, setActiveMoodId] = useState(null);
-  const [videoOpen, setVideoOpen] = useState(false);
+  // id of the specific video currently open in the modal, or null.
+  // Exactly one modal is ever mounted (see the render below), so only
+  // one of a mood's rows can ever be playing at a time.
+  const [openVideoId, setOpenVideoId] = useState(null);
 
-  if (EveningSceneShell && BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   // Only intercepts navigation for a signed-in user on a mapped mood.
-  // Every other case — a guest, or "anxious" (absent from
-  // MOOD_VIDEO_MAP) — keeps the exact original behaviour: navigate
-  // straight to card.to, unchanged.
+  // The only other case now is a guest, who keeps the exact original
+  // behaviour: navigate straight to card.to, unchanged.
   const handleCardSelect = (card) => {
     if (!isGuest && MOOD_VIDEO_MAP[card.id]) {
       setActiveMoodId(card.id);
@@ -127,8 +141,13 @@ export const Support = () => {
     navigate(card.to);
   };
 
+  const handleBack = () => {
+    setActiveMoodId(null);
+    setOpenVideoId(null);
+  };
+
   const activeMapping = activeMoodId ? MOOD_VIDEO_MAP[activeMoodId] : null;
-  const activeVideo = activeMapping ? getBetaVideoById(activeMapping.videoId) : null;
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
@@ -136,7 +155,7 @@ export const Support = () => {
         <div className="flex-1 flex flex-col justify-center space-y-8 py-8">
           <button
             type="button"
-            onClick={() => setActiveMoodId(null)}
+            onClick={handleBack}
             aria-label="Back to how are you feeling"
             className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all self-start focus-visible:ring-2 focus-visible:ring-primary"
           >
@@ -149,14 +168,18 @@ export const Support = () => {
           </div>
 
           <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => setVideoOpen(true)}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            >
-              <span className="material-symbols-outlined text-lg">play_circle</span>
-              <span>Watch Video</span>
-            </button>
+            {activeMapping.videos.map(({ id, blurb }) => {
+              const entry = getBetaVideoById(id);
+              if (!entry) return null;
+              return (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  onClick={() => setOpenVideoId(id)}
+                />
+              );
+            })}
             <button
               type="button"
               onClick={() => navigate(activeMapping.continueTo)}
@@ -198,8 +221,8 @@ export const Support = () => {
 
       {/* Closing this returns to the mood intro view above — still
           Support Hub, no navigation involved, which is the return path. */}
-      {videoOpen && activeVideo && (
-        <BetaVideoModal entry={activeVideo} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </EveningSceneShell>
   );

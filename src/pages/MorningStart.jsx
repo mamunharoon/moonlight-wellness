@@ -5,16 +5,27 @@ import { useSession } from '../context/SessionContext';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 
-const GENTLE_AWAKENING_VIDEO = getBetaVideoById('E06');
+// Each { id, blurb } pairs a manifest entry with this page's own short,
+// contextual line (distinct from the manifest's generic description,
+// matching the pattern already established for E06 here). Order is
+// display order on the page - E06 first since it was already here,
+// E13-E15 appended in the order they were assigned to this screen.
+const MORNING_START_VIDEOS = [
+  { id: 'E06', blurb: 'A soft guided start before you begin.' },
+  { id: 'E13', blurb: 'A guided video to sharpen your focus for the day ahead.' },
+  { id: 'E14', blurb: 'A guided video to help you find momentum this morning.' },
+  { id: 'E15', blurb: 'A guided video for a clean, hopeful start.' }
+];
 
-// Video Integration: one additional row offering "Gentle Awakening"
-// right at the morning routine's own entry screen - the natural "Rise &
-// Reset" moment, before Begin/Skip Routine. Shown to any signed-in user
-// (guests excluded); no "Beta" label on the row itself - it presents as
-// an ordinary WakeWise exercise. Access was originally gated on
-// profiles.beta_access; that gate was removed once the videos were
-// approved for general availability in this environment.
+// Video Integration: additional rows right at the morning routine's own
+// entry screen - the natural "Rise & Reset" moment, before Begin/Skip
+// Routine. Shown to any signed-in user (guests excluded); no "Beta"
+// label on any row - each presents as an ordinary WakeWise exercise.
+// Access was originally gated on profiles.beta_access; that gate was
+// removed once these videos were approved for general availability in
+// this environment.
 export const MorningStart = () => {
   const navigate = useNavigate();
   const { routineDuration, setJourneyStep } = useAlarm();
@@ -24,9 +35,13 @@ export const MorningStart = () => {
   // any of this is used.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   const { isGuest } = useAuth();
-  const [videoOpen, setVideoOpen] = useState(false);
+  // id of the video currently open in the modal, or null. Exactly one
+  // modal is ever mounted (see the render below), so only one of these
+  // rows can ever be playing at a time.
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (BetaVideoModal) { /* no-op to satisfy blind linter */ }
+  if (BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const getDurationDetails = () => {
     switch (routineDuration) {
@@ -93,21 +108,21 @@ export const MorningStart = () => {
           </ul>
         </div>
 
-        {!isGuest && GENTLE_AWAKENING_VIDEO && (
-          <button
-            type="button"
-            onClick={() => setVideoOpen(true)}
-            className="w-full max-w-sm mx-auto flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <span className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary text-xl">play_circle</span>
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-on-surface">Watch: {GENTLE_AWAKENING_VIDEO.title}</span>
-              <span className="block text-xs text-on-surface-variant">A soft guided start before you begin.</span>
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
-          </button>
+        {!isGuest && (
+          <div className="w-full max-w-sm mx-auto space-y-3">
+            {MORNING_START_VIDEOS.map(({ id, blurb }) => {
+              const entry = getBetaVideoById(id);
+              if (!entry) return null;
+              return (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  onClick={() => setOpenVideoId(id)}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -130,8 +145,8 @@ export const MorningStart = () => {
       {/* Closing this leaves the user right here on the morning routine's
           entry screen - no navigation needed for a return path. Begin/Skip
           Routine above are entirely unaffected by whether this is open. */}
-      {videoOpen && (
-        <BetaVideoModal entry={GENTLE_AWAKENING_VIDEO} onClose={() => setVideoOpen(false)} />
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
       )}
     </div>
   );
