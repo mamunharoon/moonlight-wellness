@@ -22,6 +22,21 @@ const AFFIRMATION_VIDEOS = [
   { id: 'E26', blurb: 'A guided video to help you feel accepted, just as you are.' }
 ];
 
+// A01-A06: a distinct "Affirmation Sessions" series, kept in its own
+// array/section (with its own heading) rather than merged into
+// AFFIRMATION_VIDEOS above, specifically so titles like "Confidence
+// Affirmations" read as their own thing next to the existing E-series
+// rows (e.g. E24 "Confidence") on this same page, not as duplicates of
+// them.
+const AFFIRMATION_SERIES_VIDEOS = [
+  { id: 'A01', blurb: 'A guided affirmation video to help you feel confident and capable.' },
+  { id: 'A02', blurb: 'A guided affirmation video to help you feel calm and settled.' },
+  { id: 'A03', blurb: 'A guided affirmation video to help sharpen your focus.' },
+  { id: 'A04', blurb: 'A guided affirmation video to help you find momentum.' },
+  { id: 'A05', blurb: 'A guided affirmation video for a grateful moment.' },
+  { id: 'A06', blurb: 'A guided affirmation video to help you feel worthy, just as you are.' }
+];
+
 // Video Integration: this is the morning session's own moment of
 // positive reflection - the closest existing analogue to a "morning
 // gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only steps)
@@ -100,6 +115,24 @@ export const Affirmation = () => {
       {!isGuest && (
         <div className="space-y-3">
           {AFFIRMATION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {!isGuest && (
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Affirmation Sessions</h3>
+          {AFFIRMATION_SERIES_VIDEOS.map(({ id, blurb }) => {
             const entry = getBetaVideoById(id);
             if (!entry) return null;
             return (

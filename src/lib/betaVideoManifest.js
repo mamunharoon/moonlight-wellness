@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because twenty-nine beta exercise videos are live in Storage today and
-// need a minimal, typed, isolated place to map an id -> title -> object
-// path. When a real "exercises" table exists, replace this file with a
+// because thirty-five beta exercise videos (E02-E30, A01-A06) are live in
+// Storage today and need a minimal, typed, isolated place to map an id ->
+// title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -202,6 +202,42 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Peaceful Sleep',
     storagePath: 'exercises/WW_E30_PeacefulSleep_v1.mp4.mp4',
     description: 'A guided video to ease you into peaceful sleep.'
+  },
+  {
+    id: 'A01',
+    title: 'Confidence Affirmations',
+    storagePath: 'exercises/WW_A01_Confidence_v1.mp4.mp4',
+    description: 'A guided affirmation video to help you feel confident and capable.'
+  },
+  {
+    id: 'A02',
+    title: 'Calmness Affirmations',
+    storagePath: 'exercises/WW_A02_Calmness_v1.mp4.mp4',
+    description: 'A guided affirmation video to help you feel calm and settled.'
+  },
+  {
+    id: 'A03',
+    title: 'Focus Affirmations',
+    storagePath: 'exercises/WW_A03_Focus_v1.mp4.mp4',
+    description: 'A guided affirmation video to help sharpen your focus.'
+  },
+  {
+    id: 'A04',
+    title: 'Motivation Affirmations',
+    storagePath: 'exercises/WW_A04_Motivation_v1.mp4.mp4',
+    description: 'A guided affirmation video to help you find momentum.'
+  },
+  {
+    id: 'A05',
+    title: 'Gratitude Affirmations',
+    storagePath: 'exercises/WW_A05_Gratitude_v2.mp4.mp4',
+    description: 'A guided affirmation video for a grateful moment.'
+  },
+  {
+    id: 'A06',
+    title: 'Self-Worth Affirmations',
+    storagePath: 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4',
+    description: 'A guided affirmation video to help you feel worthy, just as you are.'
   }
 ];
 
