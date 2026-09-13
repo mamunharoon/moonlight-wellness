@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because forty beta exercise videos (E02-E30, A01-A06, B01-B05) are live
-// in Storage today and need a minimal, typed, isolated place to map an id
-// -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because forty-three beta exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03) are live in Storage today and need a minimal, typed, isolated
+// place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -271,6 +271,24 @@ export const BETA_VIDEO_MANIFEST = [
     // technique name "Alternate Nostril Breathing" regardless.
     storagePath: 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4',
     description: 'A guided video for alternate nostril breathing.'
+  },
+  {
+    id: 'F01',
+    title: 'Deep Work',
+    storagePath: 'exercises/WW_F01_DeepWork_v1.mp4.mp4',
+    description: 'A guided video to help you settle into deep, focused work.'
+  },
+  {
+    id: 'F02',
+    title: 'Study',
+    storagePath: 'exercises/WW_F02_Study.mp4.mp4',
+    description: 'A guided video to help you focus while studying.'
+  },
+  {
+    id: 'F03',
+    title: 'Concentration',
+    storagePath: 'exercises/WW_F03_Concentration_v1.mp4.mp4',
+    description: 'A guided video to help you sharpen your concentration.'
   }
 ];
 

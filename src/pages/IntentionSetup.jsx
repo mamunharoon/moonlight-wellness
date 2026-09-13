@@ -2,7 +2,22 @@
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
+import { useAuth } from '../context/AuthContext';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
 import { supabase } from '../lib/supabaseClient';
+
+// F01-F03: a "Focus Sessions" collection - this page is the app's own
+// dedicated focus/intention-setting step ("Set your intention... anchor
+// your focus today"), the natural home for Deep Work/Study/Concentration
+// content, distinct from A03 "Focus Affirmations" (Affirmation.jsx) and
+// E13 "Morning Focus" (MorningStart.jsx).
+const FOCUS_SESSION_VIDEOS = [
+  { id: 'F01', blurb: 'A guided video to help you settle into deep, focused work.' },
+  { id: 'F02', blurb: 'A guided video to help you focus while studying.' },
+  { id: 'F03', blurb: 'A guided video to help you sharpen your concentration.' }
+];
 
 export const IntentionSetup = () => {
   const navigate = useNavigate();
@@ -12,6 +27,11 @@ export const IntentionSetup = () => {
   const { state, currentStep, advanceStep } = useSession();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const { isGuest } = useAuth();
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+
+  if (BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const presets = [
     'Stay calm',
@@ -130,7 +150,25 @@ export const IntentionSetup = () => {
         </button>
       </div>
 
-      <button 
+      {!isGuest && (
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Focus Sessions</h3>
+          {FOCUS_SESSION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <button
         onClick={handleComplete}
         disabled={isSaving}
         className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
@@ -138,6 +176,13 @@ export const IntentionSetup = () => {
         <span>{isSaving ? 'Saving...' : 'Start Your Journey'}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>
       </button>
+
+      {/* Closing this leaves the user right here on Set Your Intention -
+          no navigation needed for a return path. Start Your Journey above
+          is entirely unaffected by whether this is open. */}
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+      )}
     </div>
   );
 };
