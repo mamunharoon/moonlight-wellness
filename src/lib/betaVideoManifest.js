@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because thirty-five beta exercise videos (E02-E30, A01-A06) are live in
-// Storage today and need a minimal, typed, isolated place to map an id ->
-// title -> object path. When a real "exercises" table exists, replace this file with a
+// because forty beta exercise videos (E02-E30, A01-A06, B01-B05) are live
+// in Storage today and need a minimal, typed, isolated place to map an id
+// -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -238,6 +238,39 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Self-Worth Affirmations',
     storagePath: 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4',
     description: 'A guided affirmation video to help you feel worthy, just as you are.'
+  },
+  {
+    id: 'B01',
+    title: 'Deep Breathing Practice',
+    storagePath: 'exercises/WW_B01_DeepBreathing_Mobile_Background_v1.png.mp4',
+    description: 'A guided video for a deep breathing practice.'
+  },
+  {
+    id: 'B02',
+    title: 'Box Breathing',
+    storagePath: 'exercises/WW_B02_BoxBreathing_v1.mp4.mp4',
+    description: 'A guided video for box breathing.'
+  },
+  {
+    id: 'B03',
+    title: '4-7-8 Breathing',
+    storagePath: 'exercises/WW_B03_478Breathing_v1.mp4.mp4',
+    description: 'A guided video for 4-7-8 breathing.'
+  },
+  {
+    id: 'B04',
+    title: 'Coherent Breathing',
+    storagePath: 'exercises/WW_B04_CoherentBreathing_v1.mp4.mp4',
+    description: 'A guided video for coherent breathing.'
+  },
+  {
+    id: 'B05',
+    title: 'Alternate Nostril Breathing',
+    // Storage object name uses "althernativeNostril" (typo, as uploaded) -
+    // preserved exactly; the app-facing title uses the recognised
+    // technique name "Alternate Nostril Breathing" regardless.
+    storagePath: 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4',
+    description: 'A guided video for alternate nostril breathing.'
   }
 ];
 

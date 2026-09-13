@@ -11,7 +11,7 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
-// E02-E30 and A01-A06 no longer require profiles.beta_access: any authenticated,
+// E02-E30, A01-A06 and B01-B05 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
@@ -74,7 +74,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['A03', 'exercises/WW_A03_Focus_v1.mp4.mp4'],
   ['A04', 'exercises/WW_A04_Motivation_v1.mp4.mp4'],
   ['A05', 'exercises/WW_A05_Gratitude_v2.mp4.mp4'],
-  ['A06', 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4']
+  ['A06', 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4'],
+  ['B01', 'exercises/WW_B01_DeepBreathing_Mobile_Background_v1.png.mp4'],
+  ['B02', 'exercises/WW_B02_BoxBreathing_v1.mp4.mp4'],
+  ['B03', 'exercises/WW_B03_478Breathing_v1.mp4.mp4'],
+  ['B04', 'exercises/WW_B04_CoherentBreathing_v1.mp4.mp4'],
+  ['B05', 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

@@ -18,6 +18,19 @@ const BREATHE_VIDEOS = [
   { id: 'E28', blurb: 'A guided video for slow, mindful breathing.' }
 ];
 
+// B01-B05: a distinct "Breathing Sessions" collection, kept in its own
+// array/section (with its own heading) rather than merged into
+// BREATHE_VIDEOS above, specifically so "Deep Breathing Practice" (B01)
+// reads as its own thing next to the existing E08 "Deep Breathing" row on
+// this same page, not as a duplicate of it.
+const BREATHING_SESSION_VIDEOS = [
+  { id: 'B01', blurb: 'A guided video for a deep breathing practice.' },
+  { id: 'B02', blurb: 'A guided video for box breathing.' },
+  { id: 'B03', blurb: 'A guided video for 4-7-8 breathing.' },
+  { id: 'B04', blurb: 'A guided video for coherent breathing.' },
+  { id: 'B05', blurb: 'A guided video for alternate nostril breathing.' }
+];
+
 // Video Integration: additional rows offering "Deep Breathing" and
 // "Mindful Breathing" alongside the morning routine's own breathing step
 // - reuses this exact page rather than adding a parallel breathing
@@ -141,6 +154,24 @@ export const Breathe = () => {
           />
         );
       })}
+
+      {!isGuest && (
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+          {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="space-y-3 w-full">
