@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because forty-seven beta exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04) are live in Storage today and need a minimal, typed,
-// isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because fifty-two beta exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, M01-M05) are live in Storage today and need a
+// minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -313,6 +313,36 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Sensory Reset',
     storagePath: 'exercises/WW_G04_SensoryReset_v1.mp4.mp4',
     description: 'A guided video for a quick sensory reset.'
+  },
+  {
+    id: 'M01',
+    title: 'Mindfulness Meditation',
+    storagePath: 'exercises/WW_M01_MindfulnessMeditation_v1.mp4.mp4',
+    description: 'A guided mindfulness meditation.'
+  },
+  {
+    id: 'M02',
+    title: 'Body Scan',
+    storagePath: 'exercises/WW_M02_BodyScan_v1.mp4.mp4',
+    description: 'A guided body scan meditation.'
+  },
+  {
+    id: 'M03',
+    title: 'Loving Kindness',
+    storagePath: 'exercises/WW_M03_LovingKindness_v1.mp4.mp4',
+    description: 'A guided loving kindness meditation.'
+  },
+  {
+    id: 'M04',
+    title: 'Gratitude Meditation',
+    storagePath: 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4',
+    description: 'A guided meditation for gratitude.'
+  },
+  {
+    id: 'M05',
+    title: 'Guided Reflection',
+    storagePath: 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4',
+    description: 'A guided meditation for quiet reflection.'
   }
 ];
 

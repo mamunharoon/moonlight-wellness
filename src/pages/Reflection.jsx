@@ -20,6 +20,23 @@ const REFLECTION_VIDEOS = [
   { id: 'E25', blurb: 'A guided video for hope and healing.' }
 ];
 
+// M01-M05: a distinct "Meditation Sessions" collection, kept in its own
+// array/section (with its own heading) rather than merged into
+// REFLECTION_VIDEOS above, matching the pattern already established for
+// the A-series "Affirmation Sessions", B-series "Breathing Sessions" and
+// G-series "Grounding Sessions" sections. No dedicated Meditation page
+// exists in the app, so this page - the evening wind-down's own
+// reflection step - is the closest existing contextual home for
+// mindfulness/body-scan/loving-kindness/gratitude/guided-reflection
+// content.
+const MEDITATION_SESSION_VIDEOS = [
+  { id: 'M01', blurb: 'A guided mindfulness meditation.' },
+  { id: 'M02', blurb: 'A guided body scan meditation.' },
+  { id: 'M03', blurb: 'A guided loving kindness meditation.' },
+  { id: 'M04', blurb: 'A guided meditation for gratitude.' },
+  { id: 'M05', blurb: 'A guided meditation for quiet reflection.' }
+];
+
 /*
  * Stage 4 Batch F4 (+ Completion Pass) — Reflection
  *
@@ -99,6 +116,24 @@ export const Reflection = () => {
             />
           );
         })}
+
+        {!isGuest && (
+          <div className="space-y-3">
+            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Meditation Sessions</h3>
+            {MEDITATION_SESSION_VIDEOS.map(({ id, blurb }) => {
+              const entry = getBetaVideoById(id);
+              if (!entry) return null;
+              return (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  onClick={() => setOpenVideoId(id)}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Closing this leaves the user right here on Reflection - no
