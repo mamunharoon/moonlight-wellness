@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because fifty-two beta exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M05) are live in Storage today and need a
-// minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because fifty-seven beta exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, M01-M05, S01-S05) are live in Storage today and need
+// a minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -343,6 +343,36 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Guided Reflection',
     storagePath: 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4',
     description: 'A guided meditation for quiet reflection.'
+  },
+  {
+    id: 'S01',
+    title: 'Neck Release',
+    storagePath: 'exercises/WW_S01_NeckRelease_v1.mp4.mp4',
+    description: 'A guided video to release tension in your neck.'
+  },
+  {
+    id: 'S02',
+    title: 'Shoulder Release',
+    storagePath: 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4',
+    description: 'A guided video to release tension in your shoulders.'
+  },
+  {
+    id: 'S03',
+    title: 'Upper-Back Stretch',
+    storagePath: 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4',
+    description: 'A guided video to stretch your upper back.'
+  },
+  {
+    id: 'S04',
+    title: 'Morning Flow',
+    storagePath: 'exercises/WW_S04_MorningFlow_v1.mp4.mp4',
+    description: 'A guided morning stretching flow.'
+  },
+  {
+    id: 'S05',
+    title: 'Evening Flow',
+    storagePath: 'exercises/WW_S05_EveningFlow_v1.mp4.mp4',
+    description: 'A guided evening stretching flow.'
   }
 ];
 

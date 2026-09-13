@@ -105,19 +105,19 @@ export const Beta = () => {
 
       {/* Beta Video Preview: this is the admin/QA catalogue for every beta
           exercise video (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04,
-          M01-M05), gated the same way as the rest of this page
+          M01-M05, S01-S05), gated the same way as the rest of this page
           (profiles.beta_access) since this is beta-tester content, not
           Plus-subscriber content — a different entitlement than
           AudioDetails.jsx's Plus gate. Cards request a signed URL only
           when opened (BetaVideoModal), never eagerly for all of them on
-          page load. E06-E30, A01-A06, B01-B05, F01-F03, G01-G04 and
-          M01-M05 also each have their own contextual entry point in the
-          real Morning/Support/Evening journeys (see MorningStart.jsx,
+          page load. E06-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05
+          and S01-S05 also each have their own contextual entry point in
+          the real Morning/Support/Evening journeys (see MorningStart.jsx,
           Affirmation.jsx, Breathe.jsx, Grounding.jsx, Reflection.jsx,
-          PrepareForRest.jsx, IntentionSetup.jsx) — this list stays the
-          single place to test every video centrally, per this batch's
-          explicit instruction to keep it as a QA catalogue until the
-          integrated flows are approved. */}
+          PrepareForRest.jsx, IntentionSetup.jsx, MorningFlow.jsx) — this
+          list stays the single place to test every video centrally, per
+          this batch's explicit instruction to keep it as a QA catalogue
+          until the integrated flows are approved. */}
       {betaAccess && (
         <section className="space-y-2">
           <div className="flex items-center gap-2 px-1">

@@ -11,7 +11,7 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
-// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04 and M01-M05 no longer require profiles.beta_access: any authenticated,
+// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05 and S01-S05 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
@@ -91,7 +91,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['M02', 'exercises/WW_M02_BodyScan_v1.mp4.mp4'],
   ['M03', 'exercises/WW_M03_LovingKindness_v1.mp4.mp4'],
   ['M04', 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4'],
-  ['M05', 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4']
+  ['M05', 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4'],
+  ['S01', 'exercises/WW_S01_NeckRelease_v1.mp4.mp4'],
+  ['S02', 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4'],
+  ['S03', 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4'],
+  ['S04', 'exercises/WW_S04_MorningFlow_v1.mp4.mp4'],
+  ['S05', 'exercises/WW_S05_EveningFlow_v1.mp4.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

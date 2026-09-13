@@ -3,6 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { useAuth } from '../context/AuthContext';
+import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
+
+// S01-S05: a "Stretching Sessions" collection, matching the pattern
+// already established for the A-, B-, G- and M-series sections. Shown to
+// any signed-in user (guests excluded); the existing steps/timer/
+// Next-Step/Skip Stretching logic below is entirely unaffected by
+// whether a row is shown or watched.
+const STRETCHING_SESSION_VIDEOS = [
+  { id: 'S01', blurb: 'A guided video to release tension in your neck.' },
+  { id: 'S02', blurb: 'A guided video to release tension in your shoulders.' },
+  { id: 'S03', blurb: 'A guided video to stretch your upper back.' },
+  { id: 'S04', blurb: 'A guided morning stretching flow.' },
+  { id: 'S05', blurb: 'A guided evening stretching flow.' }
+];
 
 export const MorningFlow = () => {
   const navigate = useNavigate();
@@ -13,8 +30,11 @@ export const MorningFlow = () => {
   // Stretching). See mirrorStretchExitRef below.
   const { state, currentStep, advanceStep } = useSession();
   const [activeStep, setActiveStep] = useState(0);
+  const { isGuest } = useAuth();
+  const [openVideoId, setOpenVideoId] = useState(null);
+  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
-  if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
+  if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
@@ -162,21 +182,49 @@ export const MorningFlow = () => {
         })}
       </div>
 
+      {!isGuest && (
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
+          {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => setOpenVideoId(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+
       <div className="space-y-3 w-full">
-        <button 
+        <button
           onClick={handleNextStep}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
           <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
-        <button 
+        <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
           Skip Stretching
         </button>
       </div>
+
+      {/* Closing this leaves the user right here on the stretching screen
+          - no navigation needed for a return path. The steps/timer/
+          Next-Step/Skip Stretching above are entirely unaffected by
+          whether this is open (the countdown keeps running in the
+          background, exactly as it already does behind any other
+          interruption on this screen). */}
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+      )}
     </div>
   );
 };
