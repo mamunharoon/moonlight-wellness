@@ -16,6 +16,18 @@ const GROUNDING_VIDEOS = [
   { id: 'E29', blurb: 'A guided video to help you find patience.' }
 ];
 
+// G01-G04: a distinct "Grounding Sessions" collection, kept in its own
+// array/section (with its own heading) rather than merged into
+// GROUNDING_VIDEOS above, matching the pattern already established for
+// the A-series "Affirmation Sessions" and B-series "Breathing Sessions"
+// sections.
+const GROUNDING_SESSION_VIDEOS = [
+  { id: 'G01', blurb: 'A guided video to ground yourself through your five senses.' },
+  { id: 'G02', blurb: 'A guided video for progressive muscle relaxation.' },
+  { id: 'G03', blurb: 'A guided video to help you reconnect with your body.' },
+  { id: 'G04', blurb: 'A guided video for a quick sensory reset.' }
+];
+
 /*
  * Solas — Support & Calm, Sprint 1 Phase 1: Grounding (5-4-3-2-1)
  *
@@ -117,6 +129,24 @@ export const Grounding = () => {
             />
           );
         })}
+
+        {!isGuest && (
+          <div className="space-y-3">
+            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Grounding Sessions</h3>
+            {GROUNDING_SESSION_VIDEOS.map(({ id, blurb }) => {
+              const entry = getBetaVideoById(id);
+              if (!entry) return null;
+              return (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  onClick={() => setOpenVideoId(id)}
+                />
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex gap-3">
           {!isFirst && (

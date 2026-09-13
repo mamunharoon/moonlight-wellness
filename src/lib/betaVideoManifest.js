@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because forty-three beta exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03) are live in Storage today and need a minimal, typed, isolated
-// place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because forty-seven beta exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04) are live in Storage today and need a minimal, typed,
+// isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -19,7 +19,7 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -289,6 +289,30 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Concentration',
     storagePath: 'exercises/WW_F03_Concentration_v1.mp4.mp4',
     description: 'A guided video to help you sharpen your concentration.'
+  },
+  {
+    id: 'G01',
+    title: 'Five Senses',
+    storagePath: 'exercises/WW_G01_FiveSenses_v1.mp4.mp4',
+    description: 'A guided video to ground yourself through your five senses.'
+  },
+  {
+    id: 'G02',
+    title: 'Muscle Relaxation',
+    storagePath: 'exercises/WW_G02_MuscleRelaxation_v1.mp4.mp4',
+    description: 'A guided video for progressive muscle relaxation.'
+  },
+  {
+    id: 'G03',
+    title: 'Body Awareness',
+    storagePath: 'exercises/WW_G03_BodyAwareness_v1.mp4.mp4',
+    description: 'A guided video to help you reconnect with your body.'
+  },
+  {
+    id: 'G04',
+    title: 'Sensory Reset',
+    storagePath: 'exercises/WW_G04_SensoryReset_v1.mp4.mp4',
+    description: 'A guided video for a quick sensory reset.'
   }
 ];
 

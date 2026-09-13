@@ -11,7 +11,7 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
-// E02-E30, A01-A06, B01-B05 and F01-F03 no longer require profiles.beta_access: any authenticated,
+// E02-E30, A01-A06, B01-B05, F01-F03 and G01-G04 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
@@ -82,7 +82,11 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['B05', 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4'],
   ['F01', 'exercises/WW_F01_DeepWork_v1.mp4.mp4'],
   ['F02', 'exercises/WW_F02_Study.mp4.mp4'],
-  ['F03', 'exercises/WW_F03_Concentration_v1.mp4.mp4']
+  ['F03', 'exercises/WW_F03_Concentration_v1.mp4.mp4'],
+  ['G01', 'exercises/WW_G01_FiveSenses_v1.mp4.mp4'],
+  ['G02', 'exercises/WW_G02_MuscleRelaxation_v1.mp4.mp4'],
+  ['G03', 'exercises/WW_G03_BodyAwareness_v1.mp4.mp4'],
+  ['G04', 'exercises/WW_G04_SensoryReset_v1.mp4.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS
