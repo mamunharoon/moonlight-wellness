@@ -153,9 +153,66 @@ const METADATA = {
 
 const DEFAULT_METADATA = { category: 'Calm & Support', timeOfDay: 'any', page: null };
 
+// ============================================================================
+// Meditation experience — additive metadata, reusing the exact same 65-id
+// catalogue and Storage objects above. No new manifest, no new media, no
+// change to any existing category/page/feelings field for these ids — an
+// item keeps every placement it already has (e.g. M01 stays on /reflection
+// AND becomes eligible for /meditate).
+//
+// Durations are real, independently verified by playback this batch (open
+// each item, read the video element's own reported duration) — never
+// estimated from filename or Storage object size (an earlier size-based
+// estimate for a different item was tested and was off by 3x, so that
+// approach was discarded entirely; see the Meditation Coverage Audit).
+//
+// MAPPING CONFLICT FOUND AND RESOLVED (reported, not silently guessed):
+// E27's verified duration is 2:35 (155s) — 25s short of the Short group's
+// own 3:00 floor, so it doesn't cleanly satisfy "3-5 min" the way every
+// other Short-tagged item does. The approved suggested mapping still
+// places it in Short; it's tagged that way here, but `exactGroupFit:
+// false` marks the shortfall so the recommendation engine always surfaces
+// it labelled "Closest match" rather than silently presenting 2:35 as an
+// exact 3-5 minute session.
+// ============================================================================
+
+export const MEDITATION_NEEDS = [
+  { id: 'calm', label: 'Calm' },
+  { id: 'focus', label: 'Focus' },
+  { id: 'mindfulness', label: 'Mindfulness' },
+  { id: 'stress-relief', label: 'Stress relief' },
+  { id: 'body-awareness', label: 'Body awareness' },
+  { id: 'gratitude', label: 'Gratitude' },
+  { id: 'self-compassion', label: 'Self-compassion' },
+  { id: 'deep-relaxation', label: 'Deep relaxation' }
+];
+
+// Only two concrete groups are offered in the time-selection step (plus
+// "Any duration") — 10/15-minute groups are deliberately not offered here
+// since no existing content reaches them (see the coverage audit).
+export const MEDITATION_DURATION_GROUPS = [
+  { id: 'quick', label: 'Quick', description: '1–2 min', minSeconds: 60, maxSeconds: 120 },
+  { id: 'short', label: 'Short', description: '3–5 min', minSeconds: 180, maxSeconds: 300 },
+  { id: 'any', label: 'Any duration', description: null, minSeconds: 0, maxSeconds: Infinity }
+];
+
+const MEDITATION_METADATA = {
+  E03: { meditationEligible: true, needs: ['calm'], durationSeconds: 100, durationGroup: 'quick', reason: 'Matches your need for calm and fits your quick 1–2 minute window.' },
+  E04: { meditationEligible: true, needs: ['stress-relief'], durationSeconds: 110, durationGroup: 'quick', reason: 'Matches your need for stress relief and fits your quick 1–2 minute window.' },
+  E08: { meditationEligible: true, needs: ['calm', 'body-awareness'], durationSeconds: 120, durationGroup: 'quick', reason: 'Matches your need for calm and body awareness, and fits your quick 1–2 minute window.' },
+  B02: { meditationEligible: true, needs: ['focus', 'calm'], durationSeconds: 180, durationGroup: 'short', reason: 'Matches your need for focus and calm, and fits your short 3–5 minute window.' },
+  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 215, durationGroup: 'short', reason: 'Matches your need for mindfulness and fits your short 3–5 minute window.' },
+  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 227, durationGroup: 'short', reason: 'Matches your need for body awareness and deep relaxation, and fits your short 3–5 minute window.' },
+  E27: { meditationEligible: true, needs: ['deep-relaxation', 'calm'], durationSeconds: 155, durationGroup: 'short', exactGroupFit: false, reason: 'Matches your need for deep relaxation and calm — at 2:35, the closest available match to your short 3–5 minute window.' },
+  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 204, durationGroup: 'short', reason: 'Matches your need for self-compassion and fits your short 3–5 minute window.' },
+  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 216, durationGroup: 'short', reason: 'Matches your need for gratitude and fits your short 3–5 minute window.' },
+  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 212, durationGroup: 'short', reason: 'Matches your need for mindfulness and calm, and fits your short 3–5 minute window.' }
+};
+
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.map((entry) => ({
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
+  meditation: MEDITATION_METADATA[entry.id] || null,
   active: true
 }));
 
@@ -166,6 +223,11 @@ export const getCatalogEntriesByCategory = (category) =>
 
 export const getCatalogEntriesByFeeling = (feeling) =>
   MEDIA_CATALOG.filter((entry) => entry.feelings?.includes(feeling));
+
+// Every meditation-eligible entry — the single source /meditate and the
+// Library's Meditation filter both read from, so the two surfaces can
+// never drift out of sync about which ids qualify.
+export const getMeditationCatalog = () => MEDIA_CATALOG.filter((entry) => entry.meditation?.meditationEligible);
 
 // Re-exported so existing callers (BetaVideoModal.jsx, PrepareForRest.jsx,
 // etc.) can migrate to this file without a second import statement.

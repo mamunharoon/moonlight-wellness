@@ -2,13 +2,23 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon } from '../lib/mediaCatalog';
+import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getMeditationCatalog } from '../lib/mediaCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+// Meditation experience: a UI-only pseudo-category, deliberately not part
+// of CATALOG_CATEGORIES (that list still means "this item's one primary
+// category" for every other consumer of mediaCatalog.js). An item's real
+// category is never reassigned to select it into this filter — the chip
+// below reads getMeditationCatalog() instead of grouping by `category`,
+// so e.g. M01 keeps appearing under "Evening Wind-Down" AND under this
+// filter, exactly the "same id, no duplicated placement" rule this
+// feature is built on.
+const MEDITATION_FILTER = 'Meditation';
 
 /*
  * Daily Journey & Content Architecture — Library
@@ -32,7 +42,8 @@ const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a
 export const Library = () => {
   const { isGuest } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialCategory = CATALOG_CATEGORIES.find((c) => slugify(c) === searchParams.get('category')) || null;
+  const initialCategory =
+    [...CATALOG_CATEGORIES, MEDITATION_FILTER].find((c) => slugify(c) === searchParams.get('category')) || null;
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [query, setQuery] = useState('');
   const {
@@ -49,13 +60,18 @@ export const Library = () => {
     const grouped = {};
     for (const category of CATALOG_CATEGORIES) grouped[category] = [];
     const trimmedQuery = query.trim().toLowerCase();
+    const matchesQuery = (entry) => {
+      if (!trimmedQuery) return true;
+      return `${entry.title} ${entry.description}`.toLowerCase().includes(trimmedQuery);
+    };
     for (const entry of MEDIA_CATALOG) {
-      if (trimmedQuery) {
-        const haystack = `${entry.title} ${entry.description}`.toLowerCase();
-        if (!haystack.includes(trimmedQuery)) continue;
-      }
+      if (!matchesQuery(entry)) continue;
       grouped[entry.category].push(entry);
     }
+    // Meditation is a second, independent view of the same catalogue —
+    // filtered by meditation eligibility, not by primary category, so it
+    // never removes an item from the group loop above.
+    grouped[MEDITATION_FILTER] = getMeditationCatalog().filter(matchesQuery);
     return grouped;
   }, [query]);
 
@@ -128,6 +144,15 @@ export const Library = () => {
             {category}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => handleSelectCategory(MEDITATION_FILTER)}
+          className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+            activeCategory === MEDITATION_FILTER ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+          }`}
+        >
+          {MEDITATION_FILTER}
+        </button>
       </div>
 
       {/* Content sections */}
@@ -146,7 +171,9 @@ export const Library = () => {
             return (
               <div key={category} className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
-                  <span className="material-symbols-outlined text-primary text-lg">{getCategoryIcon(category)}</span>
+                  <span className="material-symbols-outlined text-primary text-lg">
+                    {category === MEDITATION_FILTER ? 'spa' : getCategoryIcon(category)}
+                  </span>
                   <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">{category}</h3>
                 </div>
                 <div className="space-y-3">

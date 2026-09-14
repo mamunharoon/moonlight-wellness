@@ -54,6 +54,8 @@ const EveningBreathing = lazy(() => import('./pages/EveningBreathing').then((m) 
 const PrepareForRest = lazy(() => import('./pages/PrepareForRest').then((m) => ({ default: m.PrepareForRest })));
 const Support = lazy(() => import('./pages/Support').then((m) => ({ default: m.Support })));
 const PanicMode = lazy(() => import('./pages/PanicMode').then((m) => ({ default: m.PanicMode })));
+const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m.Meditate })));
+const MeditationComplete = lazy(() => import('./pages/MeditationComplete').then((m) => ({ default: m.MeditationComplete })));
 const Grounding = lazy(() => import('./pages/Grounding').then((m) => ({ default: m.Grounding })));
 const SupportComplete = lazy(() => import('./pages/SupportComplete').then((m) => ({ default: m.SupportComplete })));
 const StressRelease = lazy(() => import('./pages/StressRelease').then((m) => ({ default: m.StressRelease })));
@@ -166,6 +168,14 @@ function App() {
                 <Route path="stress-release" element={withFallback(<StressRelease />)} />
                 <Route path="quiet-breathing" element={withFallback(<QuietBreathing />)} />
                 <Route path="support-complete" element={withFallback(<SupportComplete />)} />
+
+                {/* Meditation experience: Today's "Meditate" quick action
+                    and the Library's Meditation filter both route here.
+                    Reuses the existing media catalogue/player/guest-access
+                    infrastructure entirely - see Meditate.jsx's own doc
+                    comment. */}
+                <Route path="meditate" element={withFallback(<Meditate />)} />
+                <Route path="meditation-complete" element={withFallback(<MeditationComplete />)} />
 
                 {/* MLT-3A-16: Stage 3 internal preview — not linked from any
                     nav, not part of any Stage 2 flow. Renders outside

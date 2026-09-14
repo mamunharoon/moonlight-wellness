@@ -23,6 +23,7 @@ const SESSION_LABELS = {
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
+const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -40,6 +41,12 @@ export const Home = () => {
   const today = zoned.dateKey;
   const isMorningDone = localStorage.getItem(MORNING_DONE_KEY) === today;
   const isEveningDone = localStorage.getItem(EVENING_DONE_KEY) === today;
+  // Meditation experience: mirrors the morning/evening pattern exactly -
+  // a local-date-keyed flag using the same timezone-correct dateKey, so
+  // it resets at the user's own local midnight, never Sydney server time
+  // or UTC. Only ever shown once earned (see the pill below), not as a
+  // persistent unchecked placeholder like Morning/Evening.
+  const isMeditatedToday = localStorage.getItem(MEDITATION_DONE_KEY) === today;
 
   const isMorningActive = state.sessionId === 'morning-routine' && (state.status === 'playing' || state.status === 'interrupted');
   const isEveningActive = state.sessionId === 'evening-wind-down' && (state.status === 'playing' || state.status === 'interrupted');
@@ -112,6 +119,11 @@ export const Home = () => {
         <span className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full ${isEveningDone ? 'bg-secondary/15 text-secondary' : 'glass-panel text-on-surface-variant/60'}`}>
           {isEveningDone ? '✓ Evening' : 'Evening'}
         </span>
+        {isMeditatedToday && (
+          <span className="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full bg-tertiary/15 text-tertiary">
+            ✓ Meditated today
+          </span>
+        )}
       </div>
 
       {/* Continue an in-progress routine (morning OR evening) — the
@@ -149,13 +161,23 @@ export const Home = () => {
             "{primaryIntention}"
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2.5">
           <Link
             to="/support"
             className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
           >
             <span className="material-symbols-outlined text-primary text-xl">self_improvement</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Need a moment?</span>
+          </Link>
+          {/* Meditation experience: quick action, not a fifth bottom-nav
+              tab. Routes to /meditate — see Meditate.jsx's own doc
+              comment for the full journey it owns from here. */}
+          <Link
+            to="/meditate"
+            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-primary text-xl">spa</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Meditate</span>
           </Link>
           <Link
             to="/library"
