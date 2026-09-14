@@ -10,6 +10,13 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
  * Session Engine, no Supabase, no localStorage. This is not a "session"
  * in that system's sense, and this batch's explicit exclusions rule out
  * any database change or analytics event on arrival here.
+ *
+ * Mobile navigation repair, Phase 3: added "Choose Another" alongside
+ * Return Home, per the required Need-a-moment journey ("Completion ->
+ * Return Home or Choose Another"). Distinct from the recommendation
+ * screen's own "Choose Another" (which cycles between a mood's two
+ * options without leaving Support.jsx) — this one returns to feeling
+ * selection so the user can pick a different feeling entirely.
  */
 export const SupportComplete = () => {
   const navigate = useNavigate();
@@ -26,13 +33,21 @@ export const SupportComplete = () => {
         </p>
       </div>
 
-      <button
-        onClick={() => navigate('/')}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-      >
-        <span>Return Home</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
+      <div className="space-y-3">
+        <button
+          onClick={() => navigate('/')}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        >
+          <span>Return Home</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+        <button
+          onClick={() => navigate('/support')}
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Choose Another
+        </button>
+      </div>
     </EveningSceneShell>
   );
 };

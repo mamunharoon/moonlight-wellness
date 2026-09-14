@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
+import { cacheDurationSeconds } from '../lib/durationCache';
 
 /*
  * WakeWise — Beta Video Preview — playback modal.
@@ -189,6 +190,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                 preload="metadata"
                 onError={handleVideoError}
                 onPlay={() => setHasStarted(true)}
+                onLoadedMetadata={(e) => cacheDurationSeconds(entry.id, e.currentTarget.duration)}
                 className="w-full h-full object-contain bg-black"
               >
                 Your browser doesn&apos;t support embedded video.

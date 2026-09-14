@@ -1,4 +1,4 @@
-﻿/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars */
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
@@ -9,66 +9,84 @@ import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { SessionProvider } from './context/SessionContext';
 import { Layout } from './components/Layout';
-import { Home } from './pages/Home';
-import { Breathe } from './pages/Breathe';
-import { Journal } from './pages/Journal';
-import { Onboarding } from './pages/Onboarding';
-import { AlarmActive } from './pages/AlarmActive';
-import { MorningFlow } from './pages/MorningFlow';
-import { Profile } from './pages/Profile';
-import { Routines } from './pages/Routines';
-import { Journey } from './pages/Journey';
-import { SessionComplete } from './pages/SessionComplete';
-import { IntentionSetup } from './pages/IntentionSetup';
-import { MorningStart } from './pages/MorningStart';
-import { Affirmation } from './pages/Affirmation';
-import { Auth } from './pages/Auth';
-import { ResetPassword } from './pages/ResetPassword';
-import { Stage3Preview } from './pages/Stage3Preview';
-import { SessionRegistryPreview } from './pages/SessionRegistryPreview';
-import { SessionEnginePreview } from './pages/SessionEnginePreview';
-import { EveningWindDown } from './pages/EveningWindDown';
-import { EveningComplete } from './pages/EveningComplete';
-import { Reflection } from './pages/Reflection';
-import { Gratitude } from './pages/Gratitude';
-import { EveningBreathing } from './pages/EveningBreathing';
-import { PrepareForRest } from './pages/PrepareForRest';
-import { Support } from './pages/Support';
-import { PanicMode } from './pages/PanicMode';
-import { Grounding } from './pages/Grounding';
-import { SupportComplete } from './pages/SupportComplete';
-import { StressRelease } from './pages/StressRelease';
-import { QuietBreathing } from './pages/QuietBreathing';
-import { Settings } from './pages/Settings';
-import { SettingsInfo } from './pages/SettingsInfo';
-import { Subscription } from './pages/Subscription';
-import { Beta } from './pages/Beta';
-import { Feedback } from './pages/Feedback';
-import { ReleaseNotes } from './pages/ReleaseNotes';
-import { NotificationSettings } from './pages/NotificationSettings';
 import { AdminRoute } from './components/AdminRoute';
-import { AdminHome } from './pages/AdminHome';
-import { AdminUsers } from './pages/AdminUsers';
-import { AdminSubscriptions } from './pages/AdminSubscriptions';
 
-// Audio Architecture, Phase C1 (optimisation pass): the only three
-// lazy-loaded routes in the app. Named exports (not default), so each
-// dynamic import resolves to `{ default: <the named export> }` — same
-// shape React.lazy requires. Everything else in this file stays a
-// regular static import; this optimisation is scoped to these three
-// pages only, not the rest of the bundle.
+// Mobile navigation repair, Phase 4 (performance): route-level code
+// splitting. The audit found a single ~670KB (170KB gzip) JS chunk
+// containing nearly the whole app — only the three Audio* pages were
+// ever lazy-loaded (`vite.config.js` has no manualChunks, and every
+// other ~45 page components were static top-level imports here). That
+// one chunk has to be downloaded, parsed and executed before the app is
+// interactive at all, which the audit flagged as a real, concrete
+// contributor to "taps feel slow" on a real mobile device/network,
+// especially on first load. Every page below is now lazy-loaded the same
+// way the three Audio* pages already were (named export ->
+// `{ default: m.TheExport }`, same shape React.lazy requires) — Layout
+// and AdminRoute stay static imports since they're structural wrappers
+// needed on essentially every route, not page content themselves.
+const Home = lazy(() => import('./pages/Home').then((m) => ({ default: m.Home })));
+const Breathe = lazy(() => import('./pages/Breathe').then((m) => ({ default: m.Breathe })));
+const Journal = lazy(() => import('./pages/Journal').then((m) => ({ default: m.Journal })));
+const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding })));
+const AlarmActive = lazy(() => import('./pages/AlarmActive').then((m) => ({ default: m.AlarmActive })));
+const MorningFlow = lazy(() => import('./pages/MorningFlow').then((m) => ({ default: m.MorningFlow })));
+const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const Routines = lazy(() => import('./pages/Routines').then((m) => ({ default: m.Routines })));
+const RoutineDetail = lazy(() => import('./pages/RoutineDetail').then((m) => ({ default: m.RoutineDetail })));
+const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
+const Journey = lazy(() => import('./pages/Journey').then((m) => ({ default: m.Journey })));
+const SessionComplete = lazy(() => import('./pages/SessionComplete').then((m) => ({ default: m.SessionComplete })));
+const IntentionSetup = lazy(() => import('./pages/IntentionSetup').then((m) => ({ default: m.IntentionSetup })));
+const MorningStart = lazy(() => import('./pages/MorningStart').then((m) => ({ default: m.MorningStart })));
+const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ default: m.Affirmation })));
+const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
+const Stage3Preview = lazy(() => import('./pages/Stage3Preview').then((m) => ({ default: m.Stage3Preview })));
+const SessionRegistryPreview = lazy(() => import('./pages/SessionRegistryPreview').then((m) => ({ default: m.SessionRegistryPreview })));
+const SessionEnginePreview = lazy(() => import('./pages/SessionEnginePreview').then((m) => ({ default: m.SessionEnginePreview })));
+const EveningWindDown = lazy(() => import('./pages/EveningWindDown').then((m) => ({ default: m.EveningWindDown })));
+const EveningComplete = lazy(() => import('./pages/EveningComplete').then((m) => ({ default: m.EveningComplete })));
+const Reflection = lazy(() => import('./pages/Reflection').then((m) => ({ default: m.Reflection })));
+const Gratitude = lazy(() => import('./pages/Gratitude').then((m) => ({ default: m.Gratitude })));
+const EveningBreathing = lazy(() => import('./pages/EveningBreathing').then((m) => ({ default: m.EveningBreathing })));
+const PrepareForRest = lazy(() => import('./pages/PrepareForRest').then((m) => ({ default: m.PrepareForRest })));
+const Support = lazy(() => import('./pages/Support').then((m) => ({ default: m.Support })));
+const PanicMode = lazy(() => import('./pages/PanicMode').then((m) => ({ default: m.PanicMode })));
+const Grounding = lazy(() => import('./pages/Grounding').then((m) => ({ default: m.Grounding })));
+const SupportComplete = lazy(() => import('./pages/SupportComplete').then((m) => ({ default: m.SupportComplete })));
+const StressRelease = lazy(() => import('./pages/StressRelease').then((m) => ({ default: m.StressRelease })));
+const QuietBreathing = lazy(() => import('./pages/QuietBreathing').then((m) => ({ default: m.QuietBreathing })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const SettingsInfo = lazy(() => import('./pages/SettingsInfo').then((m) => ({ default: m.SettingsInfo })));
+const Subscription = lazy(() => import('./pages/Subscription').then((m) => ({ default: m.Subscription })));
+const Beta = lazy(() => import('./pages/Beta').then((m) => ({ default: m.Beta })));
+const Feedback = lazy(() => import('./pages/Feedback').then((m) => ({ default: m.Feedback })));
+const ReleaseNotes = lazy(() => import('./pages/ReleaseNotes').then((m) => ({ default: m.ReleaseNotes })));
+const NotificationSettings = lazy(() => import('./pages/NotificationSettings').then((m) => ({ default: m.NotificationSettings })));
+const AdminHome = lazy(() => import('./pages/AdminHome').then((m) => ({ default: m.AdminHome })));
+const AdminUsers = lazy(() => import('./pages/AdminUsers').then((m) => ({ default: m.AdminUsers })));
+const AdminSubscriptions = lazy(() => import('./pages/AdminSubscriptions').then((m) => ({ default: m.AdminSubscriptions })));
 const AudioLibrary = lazy(() => import('./pages/AudioLibrary').then((m) => ({ default: m.AudioLibrary })));
 const AudioCategory = lazy(() => import('./pages/AudioCategory').then((m) => ({ default: m.AudioCategory })));
 const AudioDetails = lazy(() => import('./pages/AudioDetails').then((m) => ({ default: m.AudioDetails })));
 
 // Matches AdminRoute.jsx's existing "Checking access…" loading screen
 // exactly (same container classes) — the app's one established
-// full-screen loading pattern, reused rather than inventing a new one.
-const AudioRouteFallback = () => (
+// full-screen loading pattern, reused for every lazy route rather than
+// inventing a new one. This is a route-chunk loading state (the page's
+// JS hasn't arrived yet), not a data-loading state — each page still
+// owns its own in-page loading UI for its own Supabase/media requests,
+// exactly as before.
+const RouteFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-background text-on-surface-variant text-sm">
     Loading…
   </div>
 );
+
+// Wraps one lazy element in the shared Suspense fallback — every <Route
+// element={...}> below uses this instead of repeating the same
+// <Suspense fallback={<RouteFallback />}> boilerplate ~45 times.
+const withFallback = (element) => <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
 
 function App() {
   return (
@@ -101,25 +119,25 @@ function App() {
               <Router>
                 <Routes>
                 {/* Full-Screen flows */}
-                <Route path="alarm-trigger" element={<AlarmActive />} />
-                <Route path="onboarding" element={<Onboarding />} />
-                <Route path="session-complete" element={<SessionComplete />} />
-                <Route path="morning-start" element={<MorningStart />} />
-                <Route path="affirmation" element={<Affirmation />} />
-                <Route path="intention-setup" element={<IntentionSetup />} />
-                <Route path="auth" element={<Auth />} />
-                <Route path="reset-password" element={<ResetPassword />} />
+                <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
+                <Route path="onboarding" element={withFallback(<Onboarding />)} />
+                <Route path="session-complete" element={withFallback(<SessionComplete />)} />
+                <Route path="morning-start" element={withFallback(<MorningStart />)} />
+                <Route path="affirmation" element={withFallback(<Affirmation />)} />
+                <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
+                <Route path="auth" element={withFallback(<Auth />)} />
+                <Route path="reset-password" element={withFallback(<ResetPassword />)} />
 
                 {/* Stage 4 Batch F3/F4/F6: evening-wind-down session steps. Full-bleed
                     (fixed inset-0 z-[100], via EveningSceneShell) same as
                     AlarmActive.jsx above, so placed outside <Layout> for the same
                     reason. */}
-                <Route path="evening-wind-down" element={<EveningWindDown />} />
-                <Route path="reflection" element={<Reflection />} />
-                <Route path="gratitude" element={<Gratitude />} />
-                <Route path="evening-breathing" element={<EveningBreathing />} />
-                <Route path="prepare-for-rest" element={<PrepareForRest />} />
-                <Route path="evening-complete" element={<EveningComplete />} />
+                <Route path="evening-wind-down" element={withFallback(<EveningWindDown />)} />
+                <Route path="reflection" element={withFallback(<Reflection />)} />
+                <Route path="gratitude" element={withFallback(<Gratitude />)} />
+                <Route path="evening-breathing" element={withFallback(<EveningBreathing />)} />
+                <Route path="prepare-for-rest" element={withFallback(<PrepareForRest />)} />
+                <Route path="evening-complete" element={withFallback(<EveningComplete />)} />
 
                 {/* Support & Calm, Sprint 1: lightweight grounding/panic/
                     stress/breathing support flow. Full-bleed (same
@@ -128,25 +146,28 @@ function App() {
                     nav chrome during a moment of acute stress. Not a
                     Session Engine session: this is a standalone comfort
                     flow, not a scheduled morning/evening routine, so it
-                    uses plain react-router navigation only. Phase 2 adds
-                    Stress Release and Quiet Breathing alongside Phase 1's
-                    Support Hub, Panic Mode, Grounding, and Completion. */}
-                <Route path="support" element={<Support />} />
-                <Route path="panic" element={<PanicMode />} />
-                <Route path="grounding" element={<Grounding />} />
-                <Route path="stress-release" element={<StressRelease />} />
-                <Route path="quiet-breathing" element={<QuietBreathing />} />
-                <Route path="support-complete" element={<SupportComplete />} />
+                    uses plain react-router navigation only. Support.jsx's
+                    own "How are you feeling?" flow (mobile navigation
+                    repair, Phase 3) is the primary path into a
+                    recommended exercise now; /panic and /stress-release
+                    stay live routes (direct link only) rather than being
+                    deleted. */}
+                <Route path="support" element={withFallback(<Support />)} />
+                <Route path="panic" element={withFallback(<PanicMode />)} />
+                <Route path="grounding" element={withFallback(<Grounding />)} />
+                <Route path="stress-release" element={withFallback(<StressRelease />)} />
+                <Route path="quiet-breathing" element={withFallback(<QuietBreathing />)} />
+                <Route path="support-complete" element={withFallback(<SupportComplete />)} />
 
                 {/* MLT-3A-16: Stage 3 internal preview — not linked from any
                     nav, not part of any Stage 2 flow. Renders outside
                     <Layout /> so it never touches existing navigation chrome. */}
-                <Route path="stage3-preview" element={<Stage3Preview />} />
+                <Route path="stage3-preview" element={withFallback(<Stage3Preview />)} />
 
                 {/* Stage 3C Ticket Group 1: read-only Session Engine registry
                     inspection — same unlinked-route pattern as stage3-preview
                     above. Renders outside <Layout />; displays data only. */}
-                <Route path="session-registry-preview" element={<SessionRegistryPreview />} />
+                <Route path="session-registry-preview" element={withFallback(<SessionRegistryPreview />)} />
 
                 {/* Stage 3C Ticket Group 2: Session Engine core preview.
                     <SessionProvider> is ALSO mounted locally inside this page
@@ -154,7 +175,7 @@ function App() {
                     the production one above for this route only, so the preview
                     keeps its own isolated, independently-resettable state and
                     never reads or writes real production session state. */}
-                <Route path="session-engine-preview" element={<SessionEnginePreview />} />
+                <Route path="session-engine-preview" element={withFallback(<SessionEnginePreview />)} />
 
                 {/* Subscription Model, Sprint 2 Stage 2: administration
                     foundation. AdminRoute gates every nested route on
@@ -165,23 +186,33 @@ function App() {
                     full-bleed routes above: this isn't part of the
                     tabbed app frame and has no use for the bottom nav. */}
                 <Route path="admin" element={<AdminRoute />}>
-                  <Route index element={<AdminHome />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="subscriptions" element={<AdminSubscriptions />} />
+                  <Route index element={withFallback(<AdminHome />)} />
+                  <Route path="users" element={withFallback(<AdminUsers />)} />
+                  <Route path="subscriptions" element={withFallback(<AdminSubscriptions />)} />
                 </Route>
 
                 {/* Main Tabbed Frame */}
                 <Route path="/" element={<Layout />}>
-                  <Route index element={<Home />} />
+                  <Route index element={withFallback(<Home />)} />
                   <Route path="today" element={<Navigate to="/" replace />} />
-                  <Route path="routines" element={<Routines />} />
-                  <Route path="journey" element={<Journey />} />
-                  <Route path="profile" element={<Profile />} />
+                  <Route path="routines" element={withFallback(<Routines />)} />
+                  {/* Mobile navigation repair, Phase 3: routine detail
+                      screen, reached by tapping a Routines Hub card
+                      (previously inert). */}
+                  <Route path="routines/:routineId" element={withFallback(<RoutineDetail />)} />
+                  {/* Mobile navigation repair, Phase 3: the fourth bottom-nav
+                      destination — every video/sleep-sound id already in
+                      BETA_VIDEO_MANIFEST, browsable and filterable, no beta
+                      framing. Replaces "Journey" as a bottom-nav tab (moved
+                      to a Profile row instead — see Profile.jsx). */}
+                  <Route path="library" element={withFallback(<Library />)} />
+                  <Route path="journey" element={withFallback(<Journey />)} />
+                  <Route path="profile" element={withFallback(<Profile />)} />
 
                   {/* Secondary pages */}
-                  <Route path="breathe" element={<Breathe />} />
-                  <Route path="journal" element={<Journal />} />
-                  <Route path="morning-flow" element={<MorningFlow />} />
+                  <Route path="breathe" element={withFallback(<Breathe />)} />
+                  <Route path="journal" element={withFallback(<Journal />)} />
+                  <Route path="morning-flow" element={withFallback(<MorningFlow />)} />
 
                   {/* Subscription Model, Stage 1A: /premium retired. It was
                       an orphaned, unwired mock page (fabricated price, dead
@@ -198,36 +229,33 @@ function App() {
                       Profile's gear icon, not a bottom-nav tab — same
                       "secondary page" placement as breathe/journal above,
                       inside <Layout> for the same header/nav chrome. */}
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="settings/:slug" element={<SettingsInfo />} />
+                  <Route path="settings" element={withFallback(<Settings />)} />
+                  <Route path="settings/:slug" element={withFallback(<SettingsInfo />)} />
 
                   {/* Notifications & Reminders, Phase B: reached from
                       Settings' "Notification preferences" row, same
                       "secondary page" placement as settings/:slug above. */}
-                  <Route path="settings/notifications" element={<NotificationSettings />} />
+                  <Route path="settings/notifications" element={withFallback(<NotificationSettings />)} />
 
                   {/* Subscription Model, Sprint 2 Stage 1: reached from
                       Settings, same "secondary page" placement as
                       settings/:slug above. */}
-                  <Route path="subscription" element={<Subscription />} />
+                  <Route path="subscription" element={withFallback(<Subscription />)} />
 
                   {/* Closed Beta Preparation, Phase A: reached from
                       Settings' "Beta Program" section, same "secondary
                       page" placement as settings/:slug above. */}
-                  <Route path="beta" element={<Beta />} />
-                  <Route path="feedback" element={<Feedback />} />
-                  <Route path="release-notes" element={<ReleaseNotes />} />
+                  <Route path="beta" element={withFallback(<Beta />)} />
+                  <Route path="feedback" element={withFallback(<Feedback />)} />
+                  <Route path="release-notes" element={withFallback(<ReleaseNotes />)} />
 
                   {/* Audio Architecture, Phase C1: reached from Settings'
                       "Audio Library" row, same "secondary page"
                       placement as settings/:slug above. No audio plays
-                      yet — see AudioPlayerPlaceholder.jsx. Lazy-loaded
-                      (see AudioRouteFallback above) — the only routes
-                      in this file that are; every other route above
-                      stays a regular static import. */}
-                  <Route path="audio" element={<Suspense fallback={<AudioRouteFallback />}><AudioLibrary /></Suspense>} />
-                  <Route path="audio/:categoryId" element={<Suspense fallback={<AudioRouteFallback />}><AudioCategory /></Suspense>} />
-                  <Route path="audio/:categoryId/:entryId" element={<Suspense fallback={<AudioRouteFallback />}><AudioDetails /></Suspense>} />
+                      yet — see AudioPlayerPlaceholder.jsx. */}
+                  <Route path="audio" element={withFallback(<AudioLibrary />)} />
+                  <Route path="audio/:categoryId" element={withFallback(<AudioCategory />)} />
+                  <Route path="audio/:categoryId/:entryId" element={withFallback(<AudioDetails />)} />
                 </Route>
 
                 {/* Fallback to Today */}

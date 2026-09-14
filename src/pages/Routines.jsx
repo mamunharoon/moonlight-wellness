@@ -1,4 +1,14 @@
-﻿export const Routines = () => {
+/* eslint-disable no-unused-vars */
+import { Link } from 'react-router-dom';
+import { ROUTINES } from '../lib/routinesCatalog';
+
+// Mobile navigation repair, Phase 3: each card used to be a plain,
+// non-interactive <div> — zero onClick, zero <Link>, zero navigation of
+// any kind (confirmed by audit before this fix). ROUTINES (in
+// lib/routinesCatalog.js) holds the data each card displays plus the
+// routineId RoutineDetail.jsx needs to find its own step list, so this
+// file and RoutineDetail.jsx share one source of truth.
+export const Routines = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
@@ -9,49 +19,29 @@
       </div>
 
       <div className="space-y-6">
-        {/* Morning Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-primary shadow-[0_8px_30px_rgba(0,0,0,0.03)] bg-gradient-to-br from-[#ffffff]/5 to-transparent">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Morning Awakening</span>
-              <h3 className="text-lg font-bold text-on-surface mt-0.5">Rise & Reset</h3>
+        {ROUTINES.map((routine) => (
+          <Link
+            key={routine.id}
+            to={`/routines/${routine.id}`}
+            className={`block glass-panel p-6 rounded-3xl space-y-4 border-l-4 ${routine.accent} shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary`}
+          >
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <span className="text-[10px] text-primary uppercase font-bold tracking-wider">{routine.category}</span>
+                <h3 className="text-lg font-bold text-on-surface mt-0.5">{routine.title}</h3>
+              </div>
+              <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded shrink-0">{routine.duration}</span>
             </div>
-            <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">5 min</span>
-          </div>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
-            Curated sequence featuring a gentle morning affirmation, light muscle stretching, and grounding breath.
-          </p>
-        </div>
-
-        {/* Midday Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-secondary shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[10px] text-secondary uppercase font-bold tracking-wider">Midday Anchors</span>
-              <h3 className="text-lg font-bold text-on-surface mt-0.5">Gentle Reset</h3>
-            </div>
-            <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">1 min</span>
-          </div>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
-            Quick, on-the-spot breathing visualizer to lower heart rate and restore mental clarity during active work.
-          </p>
-        </div>
-
-        {/* Evening Section */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border-l-4 border-l-tertiary shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[10px] text-tertiary uppercase font-bold tracking-wider">Nightrest</span>
-              <h3 className="text-lg font-bold text-on-surface mt-0.5">Begin Wind-Down</h3>
-            </div>
-            <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">10 min</span>
-          </div>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
-            Wind down with brief, personal gratitude journal logging, calming breathing loops, and sleep soundscapes.
-          </p>
-        </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              {routine.description}
+            </p>
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">
+              View routine
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );
 };
-

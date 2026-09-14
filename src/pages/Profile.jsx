@@ -158,6 +158,22 @@ export const Profile = () => {
           <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
         </Link>
 
+        {/* Mobile navigation repair, Phase 1: the bottom nav now uses its
+            four required slots for Home/Routines/Library/Profile, so
+            "Journey" (intentions + reflections) moved here rather than
+            being dropped — same "secondary page" placement pattern
+            already used by every other Profile/Settings row. */}
+        <Link
+          to="/journey"
+          className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        >
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">analytics</span>
+            Your Journey
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
+
         {!isGuest && (
           <>
             <button

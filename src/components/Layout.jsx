@@ -1,5 +1,5 @@
 ﻿/* eslint-disable no-unused-vars */
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
 import { useAlarm } from '../context/AlarmContext';
@@ -15,7 +15,31 @@ export const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Programmatic Interruption & Resume Observer
+  // Mobile navigation repair, Phase 1: this effect used to re-run on every
+  // location.pathname change and unconditionally shove the user back to
+  // currentStep.route whenever a session was 'playing' — including right
+  // after a deliberate bottom-nav tap to Home/Routines/Library/Profile,
+  // since that tap itself changes location.pathname and re-triggered the
+  // effect. A morning-routine or evening-wind-down session can stay
+  // 'playing' in localStorage for up to 12 hours after the user last
+  // touched it (see session/sessionPersistence.js's SESSION_STALE_AFTER_MS)
+  // and both sessions start automatically (AlarmContext.jsx on alarm ring,
+  // EveningWindDown.jsx on Begin) — so this was not a rare edge case, it
+  // fired for any user who started a routine and stepped away before
+  // finishing it. That is the root cause behind "navigation feels
+  // unresponsive"/"the journey feels circular": the tap DID navigate: this
+  // effect silently reverted it on the very next render.
+  //
+  // Fix: only force a redirect once per distinct target path (tracked in
+  // lastForcedPathRef), not once per pathname change. This still restores
+  // the user into their in-progress step on first load / refresh / right
+  // when a session starts or advances (activePath actually changes), but
+  // it no longer fights a deliberate navigation away from that step — the
+  // ref simply won't re-trigger for the same activePath twice in a row.
+  // Home now offers an explicit "Continue" card instead (see Home.jsx) —
+  // resuming an interrupted routine is the user's choice, not something
+  // forced on every render.
+  const lastForcedPathRef = useRef(null);
   useEffect(() => {
     if (isRinging) {
       navigate('/alarm-trigger');
@@ -46,31 +70,46 @@ export const Layout = () => {
     const legacyRoute = journeyStep ? stepPaths[journeyStep] ?? null : null;
     const activePath = sessionRoute ?? legacyRoute;
 
-    if (activePath && location.pathname !== activePath) {
-      navigate(activePath);
+    if (activePath && lastForcedPathRef.current !== activePath) {
+      lastForcedPathRef.current = activePath;
+      if (location.pathname !== activePath) {
+        navigate(activePath);
+      }
     }
-  }, [isRinging, journeyStep, state.status, currentStep, location.pathname, navigate]);
+  }, [isRinging, journeyStep, state.status, currentStep, navigate]);
 
   const navItems = [
-    { label: 'Today', path: '/', icon: 'home_health' },
+    { label: 'Home', path: '/', icon: 'home_health' },
     { label: 'Routines', path: '/routines', icon: 'schedule' },
-    { label: 'Journey', path: '/journey', icon: 'analytics' },
+    { label: 'Library', path: '/library', icon: 'video_library' },
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];
 
   const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup', '/morning-flow', '/breathe', '/evening-wind-down', '/reflection', '/gratitude', '/evening-breathing', '/prepare-for-rest', '/evening-complete'].includes(location.pathname);
 
   return (
-    <div className="min-h-screen bg-background text-on-surface flex flex-col transition-colors duration-300">
-      
+    <div className="h-dvh bg-background text-on-surface flex flex-col transition-colors duration-300">
+
       {/* Immersive background layer */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
         <div className="absolute top-[10%] left-1/4 w-[350px] h-[350px] bg-primary/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[20%] right-1/4 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* Main Responsive Container */}
-      <div className="relative flex-1 flex flex-col max-w-md w-full mx-auto z-10">
+      {/* Main Responsive Container. Mobile navigation repair, Phase 4:
+          root changed from min-h-screen (a lower bound only — nothing
+          actually constrained the page to viewport height) to h-dvh (a
+          real, dynamic-viewport-aware bound, correct for iOS Safari's
+          collapsing address bar) with min-h-0 here and on the scrollable
+          content div below. Without a real bound + min-h-0, a flex-1
+          child with overflow-y-auto can't actually engage its own
+          scrolling — its content just grows the whole page instead
+          (confirmed live: Library's "All" filter, long enough to be the
+          first page ever this long, grew the page to 7000+px instead of
+          scrolling internally, taking the fixed header and bottom nav
+          along with it). Every shorter existing page happened to never
+          have enough content to expose this. */}
+      <div className="relative flex-1 min-h-0 flex flex-col max-w-md w-full mx-auto z-10">
         
         {/* Global Page Header */}
         {!hideNavigation && (
@@ -84,14 +123,17 @@ export const Layout = () => {
           </header>
         )}
 
-        {/* Dynamic Route Content */}
-        <div className="flex-1 overflow-y-auto scroll-hide pb-28 pt-4 px-4">
+        {/* Dynamic Route Content. Bottom padding clears the taller
+            (72px) nav bar plus the iOS home-indicator safe area, so the
+            last card/button on any page is never hidden behind either —
+            see index.html's viewport-fit=cover, added alongside this. */}
+        <div className="flex-1 min-h-0 overflow-y-auto scroll-hide pt-4 px-4" style={{ paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))' }}>
           <Outlet />
         </div>
 
         {/* Global Persistent Audio Player */}
         {currentTrack && !hideNavigation && (
-          <div className="absolute bottom-20 left-4 right-4 z-40 glass-panel rounded-2xl p-3 flex items-center justify-between shadow-2xl border-white/10 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="absolute left-4 right-4 z-40 glass-panel rounded-2xl p-3 flex items-center justify-between shadow-2xl border-white/10 animate-in slide-in-from-bottom-5 duration-300" style={{ bottom: 'calc(92px + env(safe-area-inset-bottom))' }}>
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
                 <img className="w-full h-full object-cover" src={currentTrack.image} alt={currentTrack.title} />
@@ -109,24 +151,45 @@ export const Layout = () => {
           </div>
         )}
 
-        {/* Flat Bottom Navigation bar */}
+        {/* Flat Bottom Navigation bar. Mobile navigation repair, Phase 1:
+            every item (not just the active one) now gets a real ~44x44px
+            touch target (min-w-[44px] min-h-[44px], flex-1 so all four
+            share the bar evenly) plus a text label under the icon — the
+            audit found the previous inactive-tab className had *no*
+            padding at all, so its hit area was just the bare icon glyph
+            (~24px), well under a usable mobile tap target: a near-miss
+            tap reads to the user as "the icon didn't respond" and needs a
+            retry, which presents exactly as slow/unresponsive navigation
+            even though nothing in the click handler itself was slow.
+            active:scale-90 now applies to every item on :active (a CSS
+            pseudo-class — fires on touch-down, not gated behind any JS),
+            so every tap gets immediate visual feedback, not just the
+            already-active tab. */}
         {!hideNavigation && (
-          <nav className="absolute bottom-4 left-4 right-4 z-40 glass-panel rounded-full h-16 shadow-[0_10px_20px_rgba(149,72,53,0.15)] border border-white/10 flex justify-around items-center px-4">
+          <nav className="absolute left-4 right-4 z-40 glass-panel rounded-full h-[72px] shadow-[0_10px_20px_rgba(149,72,53,0.15)] border border-white/10 flex items-stretch px-2" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '/today');
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex flex-col items-center justify-center rounded-full transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-primary-container/80 text-on-primary-container px-6 py-2 active:scale-90 scale-105 shadow-md shadow-primary/10' 
-                      : 'text-on-surface-variant/70 hover:text-on-surface'
+                  // Same-tab taps are already idempotent (react-router
+                  // doesn't push a duplicate history entry for the current
+                  // location), but this avoids even attempting a
+                  // navigation when the user is already there — belt and
+                  // suspenders against rapid repeated taps.
+                  onClick={(e) => { if (isActive) e.preventDefault(); }}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex-1 min-w-[44px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-150 active:scale-90 ${
+                    isActive
+                      ? 'bg-primary-container/80 text-on-primary-container shadow-md shadow-primary/10'
+                      : 'text-on-surface-variant/70 hover:text-on-surface active:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
+                  <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
                     {item.icon}
                   </span>
+                  <span className="text-[10px] font-bold leading-none">{item.label}</span>
                 </Link>
               );
             })}

@@ -1,9 +1,23 @@
 ﻿/* eslint-disable no-unused-vars */
 import { Link } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useSession } from '../context/SessionContext';
+
+// Mobile navigation repair, Phase 2: friendly title/route for the
+// Session Engine's two sessions, so an in-progress routine can be
+// resumed from a single explicit Home card instead of Layout.jsx
+// silently forcing the user back into it on every render (see
+// Layout.jsx's own comment on that fix). Deliberately not imported from
+// sessionRegistry: this is just display copy for the two sessions that
+// exist today, not a general-purpose session lookup.
+const SESSION_LABELS = {
+  'morning-routine': 'Morning Awakening',
+  'evening-wind-down': 'Evening Wind-down'
+};
 
 export const Home = () => {
     const { alarmTime, intentions } = useAlarm();
+    const { state, currentStep } = useSession();
 
   // Retrieve real completion data from local storage
   const isMorningDone = localStorage.getItem('moonlight_morning_completed_date') === new Date().toDateString();
@@ -25,7 +39,73 @@ export const Home = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      
+
+      {/* Mobile navigation repair, Phase 2: explicit "Continue" card,
+          shown only while a session is genuinely 'playing' (never for
+          'completed'/'skipped'/'idle' — same rule Layout.jsx's own
+          redirect effect uses). This is the user-initiated replacement
+          for the forced-redirect that used to fire on every render: the
+          routine is still easy to resume, but resuming is now a tap the
+          user chooses, not something imposed on every navigation. */}
+      {state.status === 'playing' && currentStep?.route && (
+        <Link
+          to={currentStep.route}
+          className="block glass-panel p-5 rounded-3xl border-l-4 border-l-primary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Continue where you left off</span>
+              <h3 className="text-base font-bold text-on-surface mt-0.5 truncate">
+                {SESSION_LABELS[state.sessionId] || 'Your routine'}
+              </h3>
+            </div>
+            <span className="material-symbols-outlined text-primary text-2xl shrink-0">play_circle</span>
+          </div>
+        </Link>
+      )}
+
+      {/* Mobile navigation repair, Phase 2: the four required Home
+          affordances (Continue routine above; Need a moment, Browse
+          exercises, Sleep sounds below) so a signed-in user can reach
+          any of them in one tap, from Home, regardless of time of day —
+          none of this requires intention setup first, since nothing in
+          the app gates exercises or sleep sounds on having set an
+          intention. Current intention is shown here unconditionally too
+          (previously only visible in the morning-post/daytime branches
+          below) since it's one of the required "obvious" Home actions. */}
+      <div className="space-y-3">
+        <div className="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3">
+          <span className="material-symbols-outlined text-tertiary text-lg shrink-0">spa</span>
+          <p className="text-xs text-on-surface-variant min-w-0 truncate">
+            <span className="font-bold uppercase tracking-wider text-[10px] text-tertiary mr-1.5">Intention</span>
+            "{primaryIntention}"
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Link
+            to="/support"
+            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-primary text-xl">self_improvement</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Need a moment?</span>
+          </Link>
+          <Link
+            to="/library"
+            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-primary text-xl">video_library</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Browse exercises</span>
+          </Link>
+          <Link
+            to="/library?category=sleep-soundscapes"
+            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-primary text-xl">bedtime</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
+          </Link>
+        </div>
+      </div>
+
       {/* MORNING - BEFORE COMPLETION (Peach & Cream theme-aware background container) */}
       {timeState === 'morning-pre' && (
         <div className="space-y-8">
@@ -127,23 +207,6 @@ export const Home = () => {
         </div>
       )}
 
-      {/* Solas — Support & Calm, Sprint 1 Phase 2: Home entry point.
-          Deliberately outside every timeState branch above (not
-          duplicated per-branch) so it's present regardless of time of
-          day — a moment of stress isn't scheduled to the same daypart
-          logic as the rest of this page. "Small, unobtrusive": a plain
-          text link, not a glass-panel card like the primary time-based
-          CTAs above — it should read as quietly available, not compete
-          with them for attention. */}
-      <div className="text-center">
-        <Link
-          to="/support"
-          className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant/70 font-medium hover:text-on-surface-variant transition-colors"
-        >
-          <span className="material-symbols-outlined text-sm">self_improvement</span>
-          <span>Need a moment?</span>
-        </Link>
-      </div>
     </div>
   );
 };
