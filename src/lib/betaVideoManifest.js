@@ -3,11 +3,24 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because fifty-seven beta exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M05, S01-S05) are live in Storage today and need
-// a minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because sixty-five videos (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04,
+// M01-M05, S01-S05, SL01-SL08) are live in Storage today and need a
+// minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
+//
+// SL01-SL08 (Sleep Sounds) are the one series here that was never "beta"
+// content at all - they ship straight into the real Prepare for Rest
+// step of the evening-wind-down journey, presented as an ordinary
+// WakeWise feature (no "Watch:"-adjacent beta framing beyond the row
+// component itself, no beta badge). They live in this same manifest and
+// go through this same signed-URL Edge Function purely for
+// infrastructure reuse: get-beta-video-url has never actually checked
+// profiles.beta_access (that check was removed from every id here long
+// before SL01-SL08 existed - see that function's own header comment) so
+// reusing it introduces no new exposure. A separate endpoint would
+// duplicate the identical JWT-verification + signing logic for no
+// behavioural difference.
 //
 // `storagePath` is an object path inside the private `wellness-videos`
 // bucket (bucket root, includes the `exercises/` folder) — never a
@@ -19,13 +32,15 @@
 // included.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
 //                                     label stays as-is; this is the exercise's own title.
 // @property {string} storagePath   - object path within the private `wellness-videos` bucket
 // @property {string} description   - short, non-clinical one-liner for the beta card
+// @property {string} [durationLabel] - optional short duration badge (e.g. "5 min"), shown by
+//                                       BetaVideoRow only when provided; only SL01-SL08 set this
 
 /** @type {BetaVideoEntry[]} */
 export const BETA_VIDEO_MANIFEST = [
@@ -373,6 +388,64 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Evening Flow',
     storagePath: 'exercises/WW_S05_EveningFlow_v1.mp4.mp4',
     description: 'A guided evening stretching flow.'
+  },
+  {
+    id: 'SL01',
+    title: 'Rain',
+    storagePath: 'exercises/WW_SL01_Rain_v1.mp4',
+    description: 'Settle into the steady rhythm of gentle rain.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL02',
+    title: 'Ocean Waves',
+    storagePath: 'exercises/WW_SL02_OceanWaves_Preview_v1.mp4',
+    description: 'Rest with slow waves meeting a quiet shore.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL03',
+    title: 'Forest Ambience',
+    storagePath: 'exercises/WW_SL03_ForestAmbience_v1.mp4',
+    description: 'Unwind among soft woodland sounds.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL04',
+    title: 'Fireplace',
+    storagePath: 'exercises/WW_SL04_Fireplace_v1.mp4',
+    description: 'Relax beside the warmth of a gently crackling fire.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL05',
+    title: 'Gentle Wind',
+    // Storage object name has a doubled extension (".mp4.mp4", as
+    // uploaded) - preserved exactly.
+    storagePath: 'exercises/WW_SL05_Wind_v1.mp4.mp4',
+    description: 'Drift off with a soft breeze across an open meadow.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL06',
+    title: 'White Noise',
+    storagePath: 'exercises/WW_SL06_WhiteNoise_v1.mp4.mp4',
+    description: 'A steady sound to soften surrounding distractions.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL07',
+    title: 'Pink Noise',
+    storagePath: 'exercises/WW_SL07_PinkNoise_v1.mp4.mp4',
+    description: 'A balanced, gentle sound for restful sleep.',
+    durationLabel: '5 min'
+  },
+  {
+    id: 'SL08',
+    title: 'Brown Noise',
+    storagePath: 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4',
+    description: 'A deeper, softer sound for calm and focus.',
+    durationLabel: '5 min'
   }
 ];
 

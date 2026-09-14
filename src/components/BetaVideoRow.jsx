@@ -12,8 +12,13 @@
  * before. Title/description are passed explicitly rather than a whole
  * manifest entry, since several pages write their own short, contextual
  * blurb distinct from the manifest's generic description.
+ *
+ * `duration` is optional (added for the Sleep Sounds section on
+ * PrepareForRest.jsx) - every other existing caller omits it and renders
+ * exactly as before; when provided it shows as a small badge next to the
+ * chevron instead of changing the title/description layout above.
  */
-export const BetaVideoRow = ({ title, description, onClick }) => (
+export const BetaVideoRow = ({ title, description, duration, onClick }) => (
   <button
     type="button"
     onClick={onClick}
@@ -26,6 +31,9 @@ export const BetaVideoRow = ({ title, description, onClick }) => (
       <span className="block text-sm font-semibold text-on-surface">Watch: {title}</span>
       <span className="block text-xs text-on-surface-variant">{description}</span>
     </span>
+    {duration && (
+      <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0">{duration}</span>
+    )}
     <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
   </button>
 );

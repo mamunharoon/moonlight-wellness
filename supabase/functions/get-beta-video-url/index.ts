@@ -11,12 +11,18 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
-// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05 and S01-S05 no longer require profiles.beta_access: any authenticated,
+// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05 and
+// SL01-SL08 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
 // function simply no longer checks it, now that these videos are
-// approved for general availability in this environment. A future
+// approved for general availability in this environment. SL01-SL08
+// (Sleep Sounds) were never beta content to begin with - they ship
+// straight into the real Prepare for Rest step - and are mapped here
+// purely to reuse this same JWT-verification + signing logic rather
+// than duplicating it in a second function for no behavioural
+// difference. A future
 // exercise that should stay beta-only would need its own check here;
 // nothing currently in EXERCISE_PATHS does.
 //
@@ -96,7 +102,15 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['S02', 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4'],
   ['S03', 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4'],
   ['S04', 'exercises/WW_S04_MorningFlow_v1.mp4.mp4'],
-  ['S05', 'exercises/WW_S05_EveningFlow_v1.mp4.mp4']
+  ['S05', 'exercises/WW_S05_EveningFlow_v1.mp4.mp4'],
+  ['SL01', 'exercises/WW_SL01_Rain_v1.mp4'],
+  ['SL02', 'exercises/WW_SL02_OceanWaves_Preview_v1.mp4'],
+  ['SL03', 'exercises/WW_SL03_ForestAmbience_v1.mp4'],
+  ['SL04', 'exercises/WW_SL04_Fireplace_v1.mp4'],
+  ['SL05', 'exercises/WW_SL05_Wind_v1.mp4.mp4'],
+  ['SL06', 'exercises/WW_SL06_WhiteNoise_v1.mp4.mp4'],
+  ['SL07', 'exercises/WW_SL07_PinkNoise_v1.mp4.mp4'],
+  ['SL08', 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

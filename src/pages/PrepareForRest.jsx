@@ -19,6 +19,21 @@ const PREPARE_FOR_REST_VIDEOS = [
   { id: 'E30', blurb: 'A guided video to ease you into peaceful sleep.' }
 ];
 
+// Sleep Sounds: an ordinary WakeWise feature, not beta content - shown
+// with the same row/modal as everything else on this page, just without
+// any "beta" framing. Presented as its own labelled section so it reads
+// as a distinct sound library rather than more guided-exercise rows.
+const SLEEP_SOUND_VIDEOS = [
+  { id: 'SL01', blurb: 'Settle into the steady rhythm of gentle rain.' },
+  { id: 'SL02', blurb: 'Rest with slow waves meeting a quiet shore.' },
+  { id: 'SL03', blurb: 'Unwind among soft woodland sounds.' },
+  { id: 'SL04', blurb: 'Relax beside the warmth of a gently crackling fire.' },
+  { id: 'SL05', blurb: 'Drift off with a soft breeze across an open meadow.' },
+  { id: 'SL06', blurb: 'A steady sound to soften surrounding distractions.' },
+  { id: 'SL07', blurb: 'A balanced, gentle sound for restful sleep.' },
+  { id: 'SL08', blurb: 'A deeper, softer sound for calm and focus.' }
+];
+
 /*
  * Stage 4 Batch F6 — PrepareForRest
  *
@@ -44,6 +59,13 @@ const PREPARE_FOR_REST_VIDEOS = [
  * step) or Reflection.jsx. Access was originally gated on
  * profiles.beta_access; that gate was removed once these videos were
  * approved for general availability in this environment.
+ *
+ * Sleep Sounds (SL01-SL08): a separate, clearly labelled section below
+ * the exercise rows — this is WakeWise's real Sleep Sounds library
+ * (Evening Wind-Down → Prepare for Rest → Sleep Sounds → choose sound →
+ * play), not beta content, so it carries no "beta" framing beyond
+ * reusing the same row/modal components. Same isGuest gate, same single-
+ * modal-at-a-time state (openVideoId) as everything else on this page.
  */
 const REST_ITEMS = [
   { icon: 'smartphone', text: 'Put your phone down soon.' },
@@ -96,6 +118,27 @@ export const PrepareForRest = () => {
             );
           })}
         </div>
+
+        {!isGuest && (
+          <div className="space-y-4">
+            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
+            <div className="space-y-4">
+              {SLEEP_SOUND_VIDEOS.map(({ id, blurb }) => {
+                const entry = getBetaVideoById(id);
+                if (!entry) return null;
+                return (
+                  <BetaVideoRow
+                    key={id}
+                    title={entry.title}
+                    description={blurb}
+                    duration={entry.durationLabel}
+                    onClick={() => setOpenVideoId(id)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <button
