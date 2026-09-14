@@ -6,6 +6,7 @@
 // closed. That's a real limitation of "architecture only, no backend",
 // called out in the final report rather than presented as OS-level push.
 import { trackEvent } from './analyticsEvents';
+import { getCachedTimezone, getZonedParts } from './timezone';
 
 export const isNotificationSupported = () =>
   typeof window !== 'undefined' && 'Notification' in window;
@@ -35,9 +36,16 @@ export const showNotification = (title, options = {}) => {
   }
 };
 
-export const isWithinQuietHours = (quietHours, now = new Date()) => {
+// Global timezone correctness: `zoned` is a src/lib/timezone.js
+// getZonedParts() result - the user's own local wall-clock components in
+// their confirmed (or device-detected, while unconfirmed) timezone -
+// never a raw Date read against the device's live clock. Defaults to
+// "right now, in the cached effective timezone" so any existing caller
+// that doesn't pass one explicitly still gets timezone-correct behaviour
+// rather than silently falling back to UTC or device-local.
+export const isWithinQuietHours = (quietHours, zoned = getZonedParts(getCachedTimezone())) => {
   if (!quietHours?.enabled) return false;
-  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  const minutesNow = zoned.minutesSinceMidnight;
   const [startH, startM] = quietHours.start.split(':').map(Number);
   const [endH, endM] = quietHours.end.split(':').map(Number);
   const start = startH * 60 + startM;
@@ -46,8 +54,8 @@ export const isWithinQuietHours = (quietHours, now = new Date()) => {
   return start > end ? minutesNow >= start || minutesNow < end : minutesNow >= start && minutesNow < end;
 };
 
-export const isWeekdayAllowed = (weekdays, now = new Date()) =>
-  Array.isArray(weekdays) && weekdays.includes(now.getDay());
+export const isWeekdayAllowed = (weekdays, zoned = getZonedParts(getCachedTimezone())) =>
+  Array.isArray(weekdays) && weekdays.includes(zoned.weekday);
 
 // Lets a user confirm reminders actually show up, independent of any
 // scheduled category time — used by the "Send test notification" button.

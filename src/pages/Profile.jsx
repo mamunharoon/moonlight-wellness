@@ -33,7 +33,7 @@ const DURATION_OPTIONS = [
 
 export const Profile = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, routineDuration, setRoutineDuration } = useAlarm();
+  const { alarmTime, bedTime, routineDuration, setRoutineDuration, effectiveTimezone } = useAlarm();
   const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
@@ -137,6 +137,17 @@ export const Profile = () => {
           </span>
           <span className="flex items-center gap-1 text-xs text-on-surface-variant">
             {bedTime}
+            <span className="material-symbols-outlined text-sm">chevron_right</span>
+          </span>
+        </Link>
+
+        <Link to="/settings/timezone" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">public</span>
+            Timezone
+          </span>
+          <span className="flex items-center gap-1 text-xs text-on-surface-variant">
+            {effectiveTimezone}
             <span className="material-symbols-outlined text-sm">chevron_right</span>
           </span>
         </Link>

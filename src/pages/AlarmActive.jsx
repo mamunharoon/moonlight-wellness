@@ -4,9 +4,11 @@ import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { getStepIndex } from '../session/sessionRegistry';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
+import { now as devNow } from '../lib/devClock';
+import { getZonedParts } from '../lib/timezone';
 
 export const AlarmActive = () => {
-  const { snooze, dismissAlarm, alarmTime, setJourneyStep } = useAlarm();
+  const { snooze, dismissAlarm, alarmTime, setJourneyStep, effectiveTimezone } = useAlarm();
   // Close Remaining Daily-Journey Limitations: the alarm/reminder firing
   // (AlarmContext.jsx's checkTime()) never creates or starts a session
   // itself anymore - this screen's three choices are the only places a
@@ -30,21 +32,26 @@ export const AlarmActive = () => {
   // outside this guard.
   const hasMirroredUnlockRef = useRef(false);
 
-  // Tick the clock dynamically every second
+  // Tick the clock dynamically every second. Global timezone correctness:
+  // shows the alarm's own effectiveTimezone wall-clock, not the device's
+  // raw local time - the alarm just fired because THAT zone's clock hit
+  // alarmTime, so showing anything else here (e.g. a traveller who kept
+  // their saved zone, now sitting in a very different device-local time)
+  // would read as "why did my alarm go off at the wrong time?" even
+  // though the fire itself was correct.
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      const hr = now.getHours();
-      const mins = now.getMinutes().toString().padStart(2, '0');
-      const displayHr = hr % 12 || 12;
-      const ampm = hr >= 12 ? 'PM' : 'AM';
+      const { hour, minute } = getZonedParts(effectiveTimezone, devNow());
+      const displayHr = hour % 12 || 12;
+      const mins = minute.toString().padStart(2, '0');
+      const ampm = hour >= 12 ? 'PM' : 'AM';
       setCurrentTimeDisplay(`${displayHr}:${mins} ${ampm}`);
     };
 
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [effectiveTimezone]);
 
   const handleUnlock = useCallback(() => {
     isDragging.current = false;
@@ -158,10 +165,11 @@ export const AlarmActive = () => {
   return 'A new day has begun.';
 };
 
-  // Render actual, current local date dynamically
+  // Render actual, current local date dynamically - in effectiveTimezone,
+  // same reasoning as the clock tick above.
   const getDisplayDate = () => {
-    const options = { weekday: 'long', month: 'short', day: 'numeric' };
-    return new Date().toLocaleDateString('en-US', options);
+    const options = { weekday: 'long', month: 'short', day: 'numeric', timeZone: effectiveTimezone };
+    return devNow().toLocaleDateString('en-US', options);
   };
 
   return (

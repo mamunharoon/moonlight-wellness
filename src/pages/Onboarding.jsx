@@ -1,13 +1,22 @@
 ﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { COMMON_TIMEZONES, detectDeviceTimezone, isValidTimezone } from '../lib/timezone';
 
 export const Onboarding = () => {
   const navigate = useNavigate();
-  const { intentions, setIntentions, updateRhythm } = useAlarm();
+  const { intentions, setIntentions, updateRhythm, effectiveTimezone } = useAlarm();
   const [step, setStep] = useState(1);
   const [localAlarm, setLocalAlarm] = useState('07:30');
   const [localBed, setLocalBed] = useState('22:00');
+  // Global timezone correctness: detected once via Intl (no GPS
+  // permission), shown for explicit accept/correction - defaults to the
+  // user's already-effective timezone if this is a re-run of onboarding
+  // (e.g. from Profile), so re-onboarding never silently resets an
+  // already-confirmed choice.
+  const [localTimezone, setLocalTimezone] = useState(effectiveTimezone || detectDeviceTimezone);
+  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
+  const detectedTimezone = detectDeviceTimezone();
 
   const intentOptions = [
     { id: 'Anxiety', label: 'Reduce Anxiety', desc: 'Calm your nervous system with rhythmic patterns.', icon: 'air' },
@@ -24,10 +33,11 @@ export const Onboarding = () => {
   };
 
   const handleNext = () => {
+    if (step === 3 && !isValidTimezone(localTimezone)) return;
     if (step < 4) {
       setStep(step + 1);
     } else {
-      updateRhythm(localAlarm, localBed);
+      updateRhythm(localAlarm, localBed, localTimezone);
       navigate('/');
     }
   };
@@ -124,12 +134,60 @@ export const Onboarding = () => {
                   <p className="text-[10px] text-on-surface-variant font-semibold">Target bedtime goal</p>
                 </div>
               </div>
-              <input 
-                type="time" 
+              <input
+                type="time"
                 value={localBed}
                 onChange={(e) => setLocalBed(e.target.value)}
                 className="bg-white/5 border border-white/10 rounded-xl p-2 text-sm text-white focus:ring-1 focus:ring-primary focus:border-transparent outline-none"
               />
+            </div>
+
+            {/* Global timezone correctness: detected via Intl (no GPS
+                permission), shown for explicit accept/correction - this
+                is what turns the wall-clock times above into an actual
+                moment WakeWise can schedule against. */}
+            <div className="glass-panel p-5 rounded-2xl space-y-3">
+              <div className="flex gap-4 items-center">
+                <span className="material-symbols-outlined text-tertiary text-3xl">public</span>
+                <div>
+                  <h4 className="font-label-md text-sm text-on-surface font-bold">Timezone</h4>
+                  <p className="text-[10px] text-on-surface-variant font-semibold">
+                    Detected as {detectedTimezone}
+                  </p>
+                </div>
+              </div>
+              {!showTimezonePicker ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface">{localTimezone}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTimezonePicker(true)}
+                    className="text-xs font-bold uppercase tracking-wider text-primary hover:opacity-80 active:scale-95 transition-all"
+                  >
+                    Not right? Change
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <select
+                    value={COMMON_TIMEZONES.some((tz) => tz.id === localTimezone) ? localTimezone : ''}
+                    onChange={(e) => e.target.value && setLocalTimezone(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:ring-1 focus:ring-primary focus:border-transparent outline-none"
+                  >
+                    <option value="" disabled>Choose a timezone...</option>
+                    {COMMON_TIMEZONES.map((tz) => (
+                      <option key={tz.id} value={tz.id}>{tz.label} — {tz.id}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={isValidTimezone(localTimezone) && !COMMON_TIMEZONES.some((tz) => tz.id === localTimezone) ? localTimezone : ''}
+                    onChange={(e) => e.target.value && setLocalTimezone(e.target.value)}
+                    placeholder="Or type an exact IANA name (Region/City)"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:ring-1 focus:ring-primary focus:border-transparent outline-none placeholder:text-on-surface-variant/40"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -148,6 +206,10 @@ export const Onboarding = () => {
             <div className="flex items-center gap-3 text-xs text-on-surface">
               <span className="material-symbols-outlined text-primary text-sm">alarm</span>
               <span>First Wake-up scheduled for {localAlarm}</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-on-surface">
+              <span className="material-symbols-outlined text-tertiary text-sm">public</span>
+              <span>Timezone: {localTimezone}</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-on-surface">
               <span className="material-symbols-outlined text-secondary text-sm">spa</span>

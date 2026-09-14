@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -20,6 +23,7 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 export const EveningComplete = () => {
   const navigate = useNavigate();
   const { state, currentStep, completeSession, resetSession } = useSession();
+  const { effectiveTimezone } = useAlarm();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
@@ -34,7 +38,12 @@ export const EveningComplete = () => {
     // own moonlight_morning_completed_date write — Today's "simple daily
     // completion status" (Home.jsx) needs an equivalent evening marker,
     // which never existed before this batch.
-    localStorage.setItem('moonlight_evening_completed_date', new Date().toDateString());
+    //
+    // Global timezone correctness: same YYYY-MM-DD local-day key as the
+    // morning write above, not device toDateString() - see that file's
+    // comment for why (local-midnight-spanning routines, format parity
+    // with what Home.jsx reads back).
+    localStorage.setItem('moonlight_evening_completed_date', getZonedParts(effectiveTimezone, devNow()).dateKey);
     navigate('/');
     resetSession();
   };

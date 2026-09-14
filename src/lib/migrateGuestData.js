@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { isValidTimezone } from './timezone';
 
 // Stage 2B Group 5.2: guest-to-account migration service.
 //
@@ -21,14 +22,21 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const isValidTimeString = (value) => typeof value === 'string' && TIME_PATTERN.test(value);
 
+const TIMEZONE_KEY = 'moonlight_timezone';
+
 // Reads and validates the guest's wake/bed time. Both must be present and
 // valid - this never fabricates one from a default just to complete a row.
+// timezone is read too but never required - an unconfirmed guest timezone
+// (null) migrates as null, exactly as a fresh registered row would start,
+// rather than blocking the whole rhythm migration.
 const readGuestRhythm = () => {
   try {
     const wakeUpTime = localStorage.getItem(WAKE_KEY);
     const bedtime = localStorage.getItem(BED_KEY);
     if (!isValidTimeString(wakeUpTime) || !isValidTimeString(bedtime)) return null;
-    return { wakeUpTime, bedtime };
+    const storedTimezone = localStorage.getItem(TIMEZONE_KEY);
+    const timezone = isValidTimezone(storedTimezone) ? storedTimezone : null;
+    return { wakeUpTime, bedtime, timezone };
   } catch {
     return null;
   }
@@ -112,6 +120,7 @@ const migrateRhythm = async (userId) => {
           user_id: userId,
           wake_up_time: guestRhythm.wakeUpTime,
           bedtime: guestRhythm.bedtime,
+          timezone: guestRhythm.timezone,
           updated_at: new Date().toISOString()
         },
         { onConflict: 'user_id' }

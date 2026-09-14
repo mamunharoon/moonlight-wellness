@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
-  const { intentions, setJourneyStep } = useAlarm();
+  const { intentions, setJourneyStep, effectiveTimezone } = useAlarm();
   // Stage 3C Group 3D Batch C: mirrors the final intention -> complete
   // completion into the Session Engine on mount, and resets the mirror on
   // Return Home. COMPLETE_SESSION is idempotent in the reducer itself (a
@@ -24,7 +26,12 @@ export const SessionComplete = () => {
   }, [state.status, currentStep, completeSession]);
 
   const handleReturnHome = () => {
-    localStorage.setItem('moonlight_morning_completed_date', new Date().toDateString());
+    // Global timezone correctness: "today" for completion tracking is the
+    // user's own local calendar day (getZonedParts' dateKey), not the
+    // device's toDateString() rendering - matters for a routine spanning
+    // a local midnight (started before, completed after), and keeps this
+    // write in the same YYYY-MM-DD format Home.jsx now reads it back in.
+    localStorage.setItem('moonlight_morning_completed_date', getZonedParts(effectiveTimezone, devNow()).dateKey);
     setJourneyStep('');
     navigate('/');
     resetSession();

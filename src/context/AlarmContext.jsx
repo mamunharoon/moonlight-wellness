@@ -4,6 +4,15 @@ import { useAudio } from './AudioContext';
 import { useAuth } from './AuthContext';
 import { useSession } from './SessionContext';
 import { supabase } from '../lib/supabaseClient';
+import {
+  detectDeviceTimezone,
+  isValidTimezone,
+  getZonedParts,
+  setCachedTimezone,
+  getDismissedMismatchTimezone,
+  setDismissedMismatchTimezone
+} from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 
 const AlarmContext = createContext();
 
@@ -67,6 +76,42 @@ export const AlarmProvider = ({ children }) => {
   const [bedTime, setBedTime] = useState(() => {
     return localStorage.getItem('moonlight_bedtime') || '22:00';
   }); // HH:MM
+  // Global timezone correctness: the user's confirmed IANA timezone
+  // (mirrors alarmTime/bedTime's own guest-localStorage/registered-
+  // Supabase split below). null means "not yet confirmed" - every
+  // day/reminder calculation in this app falls back to deviceTimezone
+  // while it's null, so nothing is ever left uncomputable, but the app
+  // still shows a one-time confirmation banner until the user (or
+  // onboarding) explicitly sets it. Never guessed/defaulted to a fixed
+  // zone like Melbourne - see the migration's own doc comment.
+  const [timezone, setTimezoneState] = useState(() => {
+    const stored = localStorage.getItem('moonlight_timezone');
+    return isValidTimezone(stored) ? stored : null;
+  });
+  // Live device zone, re-read on mount only - if it changes mid-session
+  // (rare; usually requires an OS timezone change or a page reload after
+  // landing in a new zone) the mismatch check below re-evaluates on the
+  // next full load, which is when it actually matters in practice.
+  const [deviceTimezone] = useState(detectDeviceTimezone);
+  const effectiveTimezone = timezone || deviceTimezone;
+  // "Ask me later" - deliberately in-memory/session-only (never
+  // localStorage), so the banner reliably reappears on the next full
+  // load rather than being silently suppressed forever like a persisted
+  // dismissal would be. Distinct from keepSavedTimezone's persisted,
+  // value-specific dismissal below.
+  const [mismatchSnoozedThisSession, setMismatchSnoozedThisSession] = useState(false);
+  const timezoneMismatch = Boolean(
+    timezone &&
+    timezone !== deviceTimezone &&
+    !mismatchSnoozedThisSession &&
+    getDismissedMismatchTimezone() !== deviceTimezone
+  );
+  // First-time confirmation case: a real user (not still resolving auth)
+  // with no confirmed timezone at all yet - distinct copy/actions from
+  // the ongoing mismatch banner (see AlarmActive-style banners wherever
+  // this is consumed).
+  const timezoneUnconfirmed = Boolean(!authLoading && timezone === null && !mismatchSnoozedThisSession);
+  const askTimezoneLater = () => setMismatchSnoozedThisSession(true);
   const [isAlarmSet, setIsAlarmSet] = useState(true);
   const [isRinging, setIsRinging] = useState(false);
   const [intentions, setIntentions] = useState(getInitialIntentions);
@@ -109,6 +154,22 @@ export const AlarmProvider = ({ children }) => {
     localStorage.setItem('moonlight_bedtime', bedTime);
   }, [bedTime, authLoading, isGuest, userId]);
 
+  useEffect(() => {
+    if (authLoading || !isGuest) return;
+    if (settledRhythmUserIdRef.current !== userId) return;
+    if (timezone) localStorage.setItem('moonlight_timezone', timezone);
+    else localStorage.removeItem('moonlight_timezone');
+  }, [timezone, authLoading, isGuest, userId]);
+
+  // Synchronous cache mirror for plain-JS modules outside React (see
+  // src/lib/timezone.js's file header) - kept in sync for BOTH guests and
+  // registered users, unlike the guest-only persistence effect above.
+  // Mirrors effectiveTimezone (falls back to the live device zone while
+  // unconfirmed) so a reminder never has no zone to compute against.
+  useEffect(() => {
+    setCachedTimezone(effectiveTimezone);
+  }, [effectiveTimezone]);
+
   // Tracks the userId that `intentions` state currently reflects. On the
   // render where an authenticated user signs out, `intentions` still briefly
   // holds their cloud value before the identity-sync effect below corrects
@@ -127,7 +188,7 @@ export const AlarmProvider = ({ children }) => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('rhythms')
-      .select('wake_up_time, bedtime')
+      .select('wake_up_time, bedtime, timezone')
       .eq('user_id', uid)
       .maybeSingle();
 
@@ -139,6 +200,7 @@ export const AlarmProvider = ({ children }) => {
     if (data) {
       setAlarmTime(data.wake_up_time);
       setBedTime(data.bedtime);
+      setTimezoneState(isValidTimezone(data.timezone) ? data.timezone : null);
     }
   };
 
@@ -153,8 +215,10 @@ export const AlarmProvider = ({ children }) => {
       if (!userId) {
         const guestAlarm = localStorage.getItem('moonlight_wake_up_time') || '07:30';
         const guestBed = localStorage.getItem('moonlight_bedtime') || '22:00';
+        const guestTimezone = localStorage.getItem('moonlight_timezone');
         setAlarmTime(guestAlarm);
         setBedTime(guestBed);
+        setTimezoneState(isValidTimezone(guestTimezone) ? guestTimezone : null);
         // Only mark this identity settled once the guest values are in
         // place, so the persist-write effects above never fire in between.
         settledRhythmUserIdRef.current = userId;
@@ -163,6 +227,7 @@ export const AlarmProvider = ({ children }) => {
 
       setAlarmTime('07:30');
       setBedTime('22:00');
+      setTimezoneState(null);
       await fetchRhythm(userId);
       // Only mark this identity settled once the fetch has resolved, so the
       // transition into this account's rhythm is fully established first.
@@ -224,7 +289,23 @@ export const AlarmProvider = ({ children }) => {
     // reasoning applies to a migrated intention row.
   }, [userId, migrationRevision]);
 
+  // Same-minute re-fire guard for the Background Clock Observer below -
+  // see its own doc comment.
+  const lastFiredKeyRef = useRef(null);
+
   // Background Clock Observer
+  //
+  // Global timezone correctness: compares against the user's own
+  // EFFECTIVE timezone's wall-clock time (getZonedParts), never the raw
+  // device clock's getHours()/getMinutes(). This is the actual fix for
+  // "two users with the same 6:30 AM wake time must both fire at 6:30 AM
+  // their own local time" - effectiveTimezone falls back to the live
+  // device zone only until the user has a confirmed timezone, and stays
+  // pinned to their last-confirmed zone across travel until they
+  // explicitly choose "Use current timezone" on the mismatch banner
+  // (see timezoneMismatch/useCurrentTimezone below) - so a saved-zone
+  // alarm keeps firing at the SAVED zone's 6:30 AM even mid-flight,
+  // exactly as required, not wherever the device clock currently reads.
   useEffect(() => {
     const checkTime = () => {
       // Stage 3C Group 3D Batch E: re-fire guard now reads the Session
@@ -238,12 +319,26 @@ export const AlarmProvider = ({ children }) => {
       // not permanently block the next alarm. 'idle' obviously allows it.
       if (!isAlarmSet || isRinging || sessionState.status === 'playing' || sessionState.status === 'completed') return;
 
-      const now = new Date();
-      const currentHours = now.getHours().toString().padStart(2, '0');
-      const currentMinutes = now.getMinutes().toString().padStart(2, '0');
-      const currentTimeString = `${currentHours}:${currentMinutes}`;
+      const zoned = getZonedParts(effectiveTimezone, devNow());
+      const currentTimeString = zoned.hm;
+
+      // Global timezone correctness fix-along: dismissing the alarm
+      // (Begin/Snooze/Skip, all three clear isRinging) within the same
+      // clock-minute it fired used to let the very next 1-second tick
+      // immediately re-fire it, since isAlarmSet/isRinging/session-status
+      // were all clear again and currentTimeString still equalled
+      // alarmTime for the rest of that real minute - a real repeating-
+      // alarm bug, not just a testing artifact (reproduced directly while
+      // verifying alarm firing across timezones with a held clock).
+      // firedKey (day + minute, in the user's own zone) makes a fire a
+      // once-per-minute-per-day event: dismissing no longer risks an
+      // immediate re-fire, and a genuinely new minute (or a new alarmTime
+      // from Snooze) always clears it naturally since the key changes.
+      const firedKey = `${zoned.dateKey}T${currentTimeString}`;
+      if (lastFiredKeyRef.current === firedKey) return;
 
       if (currentTimeString === alarmTime) {
+        lastFiredKeyRef.current = firedKey;
         setIsRinging(true);
         setJourneyStep('alarm');
         playTrack({
@@ -265,7 +360,7 @@ export const AlarmProvider = ({ children }) => {
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status]);
+  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, effectiveTimezone]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
@@ -302,7 +397,10 @@ export const AlarmProvider = ({ children }) => {
 
   // Explicit save for registered users only - a true upsert on the
   // rhythms_user_id_key unique constraint. No select-before-write.
-  const saveRhythm = async (newAlarm, newBed) => {
+  // newTimezone is nullable (still unconfirmed) - explicitly upserted as
+  // such rather than omitted, so a real "not yet set" is never confused
+  // with "leave whatever is already in the row alone".
+  const saveRhythm = async (newAlarm, newBed, newTimezone) => {
     if (!supabase || !userId) return;
 
     const { error } = await supabase
@@ -312,6 +410,7 @@ export const AlarmProvider = ({ children }) => {
           user_id: userId,
           wake_up_time: newAlarm,
           bedtime: newBed,
+          timezone: newTimezone ?? null,
           updated_at: new Date().toISOString()
         },
         { onConflict: 'user_id' }
@@ -323,17 +422,42 @@ export const AlarmProvider = ({ children }) => {
   };
 
   // Single explicit entry point for pages to commit a configured wake/bed
-  // time change. Always updates local state (which guests already persist
-  // to localStorage via the effect above); additionally persists to
-  // Supabase for registered users only. Callers do not need to know
-  // whether the current user is a guest or registered.
-  const updateRhythm = (newAlarm, newBed) => {
+  // (and, since global timezone correctness, timezone) change. Always
+  // updates local state (which guests already persist to localStorage via
+  // the effect above); additionally persists to Supabase for registered
+  // users only. Callers do not need to know whether the current user is a
+  // guest or registered. newTimezone is optional - omitted (undefined)
+  // means "don't change the currently-held timezone", so existing
+  // wake/bed-only call sites can't accidentally clear an already-
+  // confirmed timezone.
+  const updateRhythm = (newAlarm, newBed, newTimezone) => {
     setAlarmTime(newAlarm);
     setBedTime(newBed);
+    const resolvedTimezone = newTimezone !== undefined ? newTimezone : timezone;
+    if (newTimezone !== undefined) setTimezoneState(newTimezone);
 
     if (!authLoading && !isGuest && userId) {
-      saveRhythm(newAlarm, newBed);
+      saveRhythm(newAlarm, newBed, resolvedTimezone);
     }
+  };
+
+  // Global timezone correctness: resolves the "Your timezone appears to
+  // have changed" banner (and the equivalent first-time confirmation when
+  // timezone is still null) by adopting the live device zone as the
+  // user's confirmed timezone.
+  const useCurrentTimezone = () => {
+    setTimezoneState(deviceTimezone);
+    if (!authLoading && !isGuest && userId) {
+      saveRhythm(alarmTime, bedTime, deviceTimezone);
+    }
+  };
+
+  // Keeps the already-saved timezone, but remembers this specific device
+  // zone so the banner doesn't re-nag on every subsequent app open while
+  // still travelling in the same foreign zone - it reappears only if the
+  // device zone changes again to something else.
+  const keepSavedTimezone = () => {
+    setDismissedMismatchTimezone(deviceTimezone);
   };
 
   return (
@@ -356,7 +480,15 @@ export const AlarmProvider = ({ children }) => {
       routineDuration,
       setRoutineDuration,
       journeyStep,
-      setJourneyStep
+      setJourneyStep,
+      timezone,
+      deviceTimezone,
+      effectiveTimezone,
+      timezoneMismatch,
+      timezoneUnconfirmed,
+      useCurrentTimezone,
+      keepSavedTimezone,
+      askTimezoneLater
     }}>
       {children}
     </AlarmContext.Provider>

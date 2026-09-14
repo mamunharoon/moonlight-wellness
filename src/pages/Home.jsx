@@ -6,6 +6,8 @@ import { MORNING_DISPLAY_STEP_NUMBERS, MORNING_DISPLAY_STEP_COUNT } from '../ses
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { getStepIndex } from '../session/sessionRegistry';
 import { now as devNow } from '../lib/devClock';
+import { getZonedParts } from '../lib/timezone';
+import { TimezoneBanner } from '../components/TimezoneBanner';
 
 // Daily Journey & Content Architecture: friendly title/route for the
 // Session Engine's two sessions, so an in-progress routine can be
@@ -24,10 +26,18 @@ const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
 
 export const Home = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, intentions } = useAlarm();
+  const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
   const { state, currentStep, resumeSession, startSession, resetSession } = useSession();
 
-  const today = devNow().toDateString();
+  // Global timezone correctness: every "what day/time is it for this
+  // user" question below goes through getZonedParts(effectiveTimezone),
+  // never new Date()'s raw local getters or toDateString()/toISOString().
+  // devNow() layers in on top purely for the DEV-only clock-injection
+  // test seam (see lib/devClock.js) - it still resolves to the real
+  // instant in production, so this is exactly "the real current instant,
+  // interpreted in the user's own timezone" in a shipped build.
+  const zoned = getZonedParts(effectiveTimezone, devNow());
+  const today = zoned.dateKey;
   const isMorningDone = localStorage.getItem(MORNING_DONE_KEY) === today;
   const isEveningDone = localStorage.getItem(EVENING_DONE_KEY) === today;
 
@@ -38,11 +48,10 @@ export const Home = () => {
   // configured alarmTime (not a fixed clock band) per the required Today
   // experience — every other band stays the same fixed daypart split
   // this page already used.
-  const now = devNow();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowMinutes = zoned.minutesSinceMidnight;
   const [alarmH, alarmM] = (alarmTime || '07:30').split(':').map(Number);
   const alarmMinutes = (alarmH || 0) * 60 + (alarmM || 0);
-  const hours = now.getHours();
+  const hours = zoned.hour;
 
   let timeState;
   if (nowMinutes < alarmMinutes) {
@@ -92,6 +101,8 @@ export const Home = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+
+      <TimezoneBanner />
 
       {/* Simple daily completion status */}
       <div className="flex gap-2">

@@ -65,6 +65,7 @@ const Beta = lazy(() => import('./pages/Beta').then((m) => ({ default: m.Beta })
 const Feedback = lazy(() => import('./pages/Feedback').then((m) => ({ default: m.Feedback })));
 const ReleaseNotes = lazy(() => import('./pages/ReleaseNotes').then((m) => ({ default: m.ReleaseNotes })));
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings').then((m) => ({ default: m.NotificationSettings })));
+const TimezoneSettings = lazy(() => import('./pages/TimezoneSettings').then((m) => ({ default: m.TimezoneSettings })));
 const AdminHome = lazy(() => import('./pages/AdminHome').then((m) => ({ default: m.AdminHome })));
 const AdminUsers = lazy(() => import('./pages/AdminUsers').then((m) => ({ default: m.AdminUsers })));
 const AdminSubscriptions = lazy(() => import('./pages/AdminSubscriptions').then((m) => ({ default: m.AdminSubscriptions })));
@@ -244,6 +245,12 @@ function App() {
                       Settings' "Notification preferences" row, same
                       "secondary page" placement as settings/:slug above. */}
                   <Route path="settings/notifications" element={withFallback(<NotificationSettings />)} />
+
+                  {/* Global timezone correctness: reached from Profile's
+                      "Timezone" row (Daily Rhythm area, alongside Wake
+                      time/Bedtime), same "secondary page" placement as
+                      settings/notifications above. */}
+                  <Route path="settings/timezone" element={withFallback(<TimezoneSettings />)} />
 
                   {/* Subscription Model, Sprint 2 Stage 1: reached from
                       Settings, same "secondary page" placement as

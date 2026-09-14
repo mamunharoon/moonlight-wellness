@@ -8,6 +8,7 @@
 import { getNotificationPreferences } from './notificationPreferences';
 import { showNotification, isWithinQuietHours, isWeekdayAllowed } from './notificationService';
 import { playReminderSound } from './audioEngine';
+import { getCachedTimezone, getZonedParts } from './timezone';
 
 const FIRED_LOG_KEY = 'wakewise_notification_fired_log_v1';
 const TICK_MS = 30 * 1000;
@@ -47,28 +48,39 @@ const alreadyFiredThisMinute = (categoryId, dateKey, minuteKey) =>
 const tick = () => {
   const prefs = getNotificationPreferences();
   if (!prefs.enabled) return;
-  if (isWithinQuietHours(prefs.quietHours)) return;
 
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const minuteKey = `${hh}:${mm}`;
-  const dateKey = now.toISOString().slice(0, 10);
+  // Global timezone correctness: every "what's today/what time is it"
+  // question below is answered in the user's own confirmed timezone
+  // (falling back to the live device zone only while unconfirmed - see
+  // src/lib/timezone.js), never the raw device clock or, worse, UTC.
+  // dateKey in particular used to be `now.toISOString().slice(0, 10)` -
+  // a UTC calendar date. For a user well ahead of UTC (e.g. Melbourne,
+  // UTC+10/11) that date flips over at 10-11am local, not midnight; for a
+  // user well behind UTC (e.g. Los Angeles) it flips late morning too -
+  // both directions meant the fired-log dedup key could silently roll
+  // over mid-day rather than at the user's own local midnight, exactly
+  // the class of bug this feature exists to eliminate.
+  const zoned = getZonedParts(getCachedTimezone());
+  if (isWithinQuietHours(prefs.quietHours, zoned)) return;
+
+  const minuteKey = zoned.hm;
+  const dateKey = zoned.dateKey;
+  const nowMs = Date.now();
 
   Object.entries(prefs.categories).forEach(([categoryId, category]) => {
     if (!category.enabled) return;
 
     const snoozeTarget = snoozedUntil.get(categoryId);
     if (snoozeTarget) {
-      if (now.getTime() < snoozeTarget) return;
+      if (nowMs < snoozeTarget) return;
       snoozedUntil.delete(categoryId);
       fire(categoryId, dateKey, minuteKey);
       return;
     }
 
     if (category.time !== minuteKey) return;
-    if (category.frequency === 'weekdays' && !isWeekdayAllowed([1, 2, 3, 4, 5], now)) return;
-    if (category.frequency === 'custom' && !isWeekdayAllowed(category.weekdays, now)) return;
+    if (category.frequency === 'weekdays' && !isWeekdayAllowed([1, 2, 3, 4, 5], zoned)) return;
+    if (category.frequency === 'custom' && !isWeekdayAllowed(category.weekdays, zoned)) return;
     if (alreadyFiredThisMinute(categoryId, dateKey, minuteKey)) return;
 
     fire(categoryId, dateKey, minuteKey);
