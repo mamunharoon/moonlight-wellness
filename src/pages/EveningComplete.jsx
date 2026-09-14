@@ -30,6 +30,11 @@ export const EveningComplete = () => {
   }, [state.status, currentStep, completeSession]);
 
   const handleReturnHome = () => {
+    // Daily Journey & Content Architecture: mirrors SessionComplete.jsx's
+    // own moonlight_morning_completed_date write — Today's "simple daily
+    // completion status" (Home.jsx) needs an equivalent evening marker,
+    // which never existed before this batch.
+    localStorage.setItem('moonlight_evening_completed_date', new Date().toDateString());
     navigate('/');
     resetSession();
   };
@@ -38,6 +43,7 @@ export const EveningComplete = () => {
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">bedtime</span>
+        <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 6 of 6</span>
         <h1 className="font-serif italic text-3xl text-on-surface">You have done enough for today.</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           Allow yourself to rest.

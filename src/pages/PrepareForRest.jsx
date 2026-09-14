@@ -100,6 +100,7 @@ export const PrepareForRest = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing">
       <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" />
+      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 5 of 6</span>
 
       <div className="flex-1 flex flex-col justify-center space-y-8">
         <h1 className="font-serif italic text-3xl text-on-surface text-center">Prepare for Rest</h1>

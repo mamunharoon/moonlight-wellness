@@ -31,6 +31,39 @@ export const MORNING_STEP_IDS = Object.freeze({
   COMPLETE: 'complete',
 });
 
+// Daily Journey & Content Architecture: the user-facing "Step X of 5"
+// numbering for Rise & Reset (MorningStart.jsx already shows "Step 1 of
+// 5", Affirmation.jsx "Step 2 of 5", etc.) — deliberately excludes
+// 'alarm' (the ringing-alarm screen, not a routine step the user
+// experiences as "Step 0") and 'complete' (its own terminal screen, not
+// counted). Exported here, the same registry-adjacent module every step
+// page and Home.jsx already imports from, so "Step X of 5" can never
+// silently drift between the two.
+export const MORNING_DISPLAY_STEP_NUMBERS = Object.freeze({
+  start: 1,
+  affirmation: 2,
+  stretch: 3,
+  breathe: 4,
+  intention: 5,
+});
+export const MORNING_DISPLAY_STEP_COUNT = 5;
+
+// Same role as MORNING_DISPLAY_STEP_NUMBERS above, for the evening-wind-
+// down session — includes 'completion' (unlike morning's 'complete',
+// which is excluded) since the required evening sequence explicitly
+// numbers it as its own step ("6. Morning Complete" is morning's own
+// terminal screen in that same numbered list; evening's own sequence
+// numbers Wind-Down through Wind-Down Complete as one continuous 1-6).
+export const EVENING_DISPLAY_STEP_NUMBERS = Object.freeze({
+  windDown: 1,
+  reflection: 2,
+  gratitude: 3,
+  breathing: 4,
+  sleepPreparation: 5,
+  completion: 6,
+});
+export const EVENING_DISPLAY_STEP_COUNT = 6;
+
 // Stage 4 Batch F1 — same role as MORNING_STEP_IDS above, for the
 // approved single-continuous-session evening flow (Home -> Evening
 // Wind-down -> Reflection -> Gratitude -> Evening Breathing -> Prepare

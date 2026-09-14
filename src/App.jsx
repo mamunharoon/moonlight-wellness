@@ -32,6 +32,7 @@ const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ defaul
 const AlarmActive = lazy(() => import('./pages/AlarmActive').then((m) => ({ default: m.AlarmActive })));
 const MorningFlow = lazy(() => import('./pages/MorningFlow').then((m) => ({ default: m.MorningFlow })));
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const PrivacyAndAccount = lazy(() => import('./pages/PrivacyAndAccount').then((m) => ({ default: m.PrivacyAndAccount })));
 const Routines = lazy(() => import('./pages/Routines').then((m) => ({ default: m.Routines })));
 const RoutineDetail = lazy(() => import('./pages/RoutineDetail').then((m) => ({ default: m.RoutineDetail })));
 const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
@@ -214,6 +215,7 @@ function App() {
                   <Route path="library" element={withFallback(<Library />)} />
                   <Route path="journey" element={withFallback(<Journey />)} />
                   <Route path="profile" element={withFallback(<Profile />)} />
+                  <Route path="profile/privacy-account" element={withFallback(<PrivacyAndAccount />)} />
 
                   {/* Secondary pages */}
                   <Route path="breathe" element={withFallback(<Breathe />)} />

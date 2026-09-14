@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { getCatalogEntryById } from '../lib/mediaCatalog';
 import { setPendingContent } from '../lib/pendingContent';
 
 /*
@@ -43,7 +43,7 @@ export const useProtectedVideo = (returnPathOverride) => {
   // settled to false, so there's no race with auth still resolving.
   const [openVideoId, setOpenVideoId] = useState(() => {
     const openId = searchParams.get('openId');
-    return openId && !isGuest && getBetaVideoById(openId) ? openId : null;
+    return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
 
   // Strips the now-consumed openId param so it can't re-trigger on a
@@ -81,7 +81,7 @@ export const useProtectedVideo = (returnPathOverride) => {
   };
 
   return {
-    openVideo: openVideoId ? getBetaVideoById(openVideoId) : null,
+    openVideo: openVideoId ? getCatalogEntryById(openVideoId) : null,
     handleSelect,
     closeVideo,
     promptOpen: !!promptId,

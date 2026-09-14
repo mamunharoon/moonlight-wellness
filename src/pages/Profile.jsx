@@ -6,40 +6,43 @@ import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 /*
- * Settings & Profile Polish, Sprint 1 — Profile screen
+ * Daily Journey & Content Architecture — Profile screen
  *
- * Redesigned per the approved spec: a read-only info card (photo
- * placeholder, display name, email, wake time, bedtime, primary
- * intention) followed by one action per row (Edit profile, Adjust
- * rhythm, Sign out, Delete account) instead of the previous version's
- * inline sign-out button and individually-clickable wake/bed rows.
+ * Reorganised into the exact required row order: Wake time, Bedtime,
+ * Morning routine duration, Reminder preferences, Manage Subscription,
+ * Journey and progress, Privacy and Account, Help and Support, Sign
+ * out. Account deletion moved out to Privacy and Account (see
+ * PrivacyAndAccount.jsx) — no longer prominent on this main screen.
+ * "Edit profile" (a placeholder dialog that never did anything real)
+ * is removed rather than kept as unrequested clutter.
  *
- * "Adjust rhythm" reuses the existing /onboarding flow — the same
- * destination the previous version's wake/bed rows already linked to.
- * Not swapped for a dedicated rhythm-only editor: none exists, and
- * building one is real new functionality, not the "lightweight polish"
- * this sprint scopes.
- *
- * Edit profile / Delete account have no real destination this sprint —
- * no profile-editing form exists (would need avatar upload, name
- * fields, Supabase writes: real complexity, not polish) and account
- * deletion is explicitly out of scope. Both open the same acknowledge-
- * only ConfirmDialog used by Delete account elsewhere in Settings,
- * rather than being dead buttons or silently doing nothing.
- *
- * Sign out / Delete account / Edit profile are guest-guarded (isGuest):
- * a guest has no account row to edit, sign out of, or delete. Adjust
- * rhythm remains available to guests — their rhythm is real, local data.
+ * Wake time / Bedtime still open /onboarding to actually change the
+ * value (no dedicated single-field editor exists, and building one is
+ * real new functionality — reusing the existing, working flow instead
+ * of rebuilding it). Morning routine duration is a genuine gap this
+ * batch found: routineDuration/setRoutineDuration have existed in
+ * AlarmContext since the original morning-flow batches, but no UI
+ * anywhere ever let a user change it — this row is a small, self
+ * contained three-way toggle, not a rebuild of anything.
  */
+const DURATION_OPTIONS = [
+  { id: 'quick', label: 'Quick' },
+  { id: 'standard', label: 'Standard' },
+  { id: 'extended', label: 'Extended' }
+];
+
 export const Profile = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, intentions } = useAlarm();
+  const { alarmTime, bedTime, routineDuration, setRoutineDuration } = useAlarm();
   const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
-  const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | 'delete-account' | 'edit-profile' | null
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
-  if (ConfirmDialog) { /* no-op to satisfy blind linter */ }
+  const handleSignOut = async () => {
+    setConfirmSignOut(false);
+    await signOut();
+    navigate('/');
+  };
 
-  // Fallback order: loaded profile row -> auth metadata -> email -> generic label.
   const profileFullName = profile
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
     : '';
@@ -47,12 +50,8 @@ export const Profile = () => {
     .filter(Boolean)
     .join(' ');
   const displayName = profileFullName || metadataFullName || user?.email || 'WakeWise User';
-  const primaryIntention = intentions[0] || 'Stay calm';
 
-  const handleSignOut = async () => {
-    setActiveDialog(null);
-    await signOut();
-  };
+  const rowClass = 'w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset';
 
   return (
     <div className="space-y-6">
@@ -115,115 +114,115 @@ export const Profile = () => {
         )}
       </div>
 
-      {/* Daily Rhythm — read-only display per spec */}
-      <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-        <h4 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Daily Rhythm</h4>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-          <span className="material-symbols-outlined text-primary text-xl">wb_sunny</span>
-          <span className="text-sm font-semibold">Wake time: {alarmTime}</span>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-          <span className="material-symbols-outlined text-secondary text-xl">bedtime</span>
-          <span className="text-sm font-semibold">Bedtime: {bedTime}</span>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-          <span className="material-symbols-outlined text-tertiary text-xl">spa</span>
-          <span className="text-sm font-semibold">Intention: "{primaryIntention}"</span>
-        </div>
-      </div>
-
-      {/* Actions — one per row, large touch targets */}
+      {/* Required row order: Wake time, Bedtime, Morning routine
+          duration, Reminder preferences, Manage Subscription, Journey
+          and progress, Privacy and Account, Help and Support. Sign out
+          stays its own separate row below, per spec. */}
       <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-        {!isGuest && (
-          <button
-            onClick={() => setActiveDialog('edit-profile')}
-            className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">edit</span>
-              Edit profile
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-          </button>
-        )}
-
-        <Link
-          to="/onboarding"
-          className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        >
+        <Link to="/onboarding" className={rowClass}>
           <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-            <span className="material-symbols-outlined text-on-surface-variant text-xl">tune</span>
-            Adjust rhythm
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">wb_sunny</span>
+            Wake time
+          </span>
+          <span className="flex items-center gap-1 text-xs text-on-surface-variant">
+            {alarmTime}
+            <span className="material-symbols-outlined text-sm">chevron_right</span>
+          </span>
+        </Link>
+
+        <Link to="/onboarding" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">bedtime</span>
+            Bedtime
+          </span>
+          <span className="flex items-center gap-1 text-xs text-on-surface-variant">
+            {bedTime}
+            <span className="material-symbols-outlined text-sm">chevron_right</span>
+          </span>
+        </Link>
+
+        <div className={`${rowClass} cursor-default flex-wrap gap-2`}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">schedule</span>
+            Morning routine duration
+          </span>
+          <span className="flex gap-1">
+            {DURATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setRoutineDuration(opt.id)}
+                className={`px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all min-h-[32px] ${
+                  routineDuration === opt.id ? 'bg-primary text-on-primary' : 'bg-white/5 text-on-surface-variant hover:bg-white/10'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </span>
+        </div>
+
+        <Link to="/settings/notifications" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">notifications</span>
+            Reminder preferences
           </span>
           <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
         </Link>
 
-        {/* Mobile navigation repair, Phase 1: the bottom nav now uses its
-            four required slots for Home/Routines/Library/Profile, so
-            "Journey" (intentions + reflections) moved here rather than
-            being dropped — same "secondary page" placement pattern
-            already used by every other Profile/Settings row. */}
-        <Link
-          to="/journey"
-          className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        >
+        <Link to="/subscription" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">workspace_premium</span>
+            Manage Subscription
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
+
+        <Link to="/journey" className={rowClass}>
           <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
             <span className="material-symbols-outlined text-on-surface-variant text-xl">analytics</span>
-            Your Journey
+            Journey and progress
           </span>
           <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
         </Link>
 
-        {!isGuest && (
-          <>
-            <button
-              onClick={() => setActiveDialog('sign-out')}
-              className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-            >
-              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-                <span className="material-symbols-outlined text-on-surface-variant text-xl">logout</span>
-                Sign out
-              </span>
-            </button>
+        <Link to="/profile/privacy-account" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">shield_person</span>
+            Privacy and Account
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
 
-            <button
-              onClick={() => setActiveDialog('delete-account')}
-              className="w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-            >
-              <span className="flex items-center gap-3 text-sm font-semibold text-red-400">
-                <span className="material-symbols-outlined text-red-400 text-xl">delete_forever</span>
-                Delete account
-              </span>
-            </button>
-          </>
-        )}
+        <Link to="/settings" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">support_agent</span>
+            Help and Support
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
       </div>
 
+      {!isGuest && (
+        <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+          <button onClick={() => setConfirmSignOut(true)} className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">logout</span>
+              Sign out
+            </span>
+          </button>
+        </div>
+      )}
+
       <ConfirmDialog
-        open={activeDialog === 'sign-out'}
+        open={confirmSignOut}
         title="Sign out?"
         message="You can always sign back in later."
         confirmLabel="Sign out"
         cancelLabel="Cancel"
         destructive
         onConfirm={handleSignOut}
-        onDismiss={() => setActiveDialog(null)}
-      />
-
-      <ConfirmDialog
-        open={activeDialog === 'delete-account'}
-        title="Delete account"
-        message="Account deletion will be available soon."
-        cancelLabel="Got it"
-        onDismiss={() => setActiveDialog(null)}
-      />
-
-      <ConfirmDialog
-        open={activeDialog === 'edit-profile'}
-        title="Edit profile"
-        message="Profile editing will be available soon."
-        cancelLabel="Got it"
-        onDismiss={() => setActiveDialog(null)}
+        onDismiss={() => setConfirmSignOut(false)}
       />
     </div>
   );

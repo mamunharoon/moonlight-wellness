@@ -54,6 +54,7 @@ export const EveningWindDown = () => {
     <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>
+        <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 6</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-down</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           The day is done. Let's ease gently into the evening, together.

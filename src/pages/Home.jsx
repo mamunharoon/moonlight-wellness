@@ -1,9 +1,10 @@
-﻿/* eslint-disable no-unused-vars */
-import { Link } from 'react-router-dom';
+/* eslint-disable no-unused-vars */
+import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
+import { MORNING_DISPLAY_STEP_NUMBERS, MORNING_DISPLAY_STEP_COUNT } from '../session/sessionConstants';
 
-// Mobile navigation repair, Phase 2: friendly title/route for the
+// Daily Journey & Content Architecture: friendly title/route for the
 // Session Engine's two sessions, so an in-progress routine can be
 // resumed from a single explicit Home card instead of Layout.jsx
 // silently forcing the user back into it on every render (see
@@ -15,21 +16,39 @@ const SESSION_LABELS = {
   'evening-wind-down': 'Begin Wind-Down'
 };
 
+const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
+const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
+
 export const Home = () => {
-    const { alarmTime, intentions } = useAlarm();
-    const { state, currentStep } = useSession();
+  const navigate = useNavigate();
+  const { alarmTime, bedTime, intentions } = useAlarm();
+  const { state, currentStep, resumeSession } = useSession();
 
-  // Retrieve real completion data from local storage
-  const isMorningDone = localStorage.getItem('moonlight_morning_completed_date') === new Date().toDateString();
+  const today = new Date().toDateString();
+  const isMorningDone = localStorage.getItem(MORNING_DONE_KEY) === today;
+  const isEveningDone = localStorage.getItem(EVENING_DONE_KEY) === today;
 
-  // Derived timeState logic (0% chance of set-state-in-effect errors)
-  const hours = new Date().getHours();
-  let timeState = 'daytime';
-  if (hours >= 5 && hours < 12) {
-    timeState = isMorningDone ? 'morning-post' : 'morning-pre';
-  } else if (hours >= 12 && hours < 18) {
+  const isMorningActive = state.sessionId === 'morning-routine' && (state.status === 'playing' || state.status === 'interrupted');
+  const isEveningActive = state.sessionId === 'evening-wind-down' && (state.status === 'playing' || state.status === 'interrupted');
+
+  // Derived timeState. "Before wake" is compared against the user's own
+  // configured alarmTime (not a fixed clock band) per the required Today
+  // experience — every other band stays the same fixed daypart split
+  // this page already used.
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [alarmH, alarmM] = (alarmTime || '07:30').split(':').map(Number);
+  const alarmMinutes = (alarmH || 0) * 60 + (alarmM || 0);
+  const hours = now.getHours();
+
+  let timeState;
+  if (nowMinutes < alarmMinutes) {
+    timeState = 'before-wake';
+  } else if (hours < 12) {
+    timeState = 'daytime-morning';
+  } else if (hours < 18) {
     timeState = 'daytime';
-  } else if (hours >= 18 && hours < 22) {
+  } else if (hours < 22) {
     timeState = 'evening';
   } else {
     timeState = 'night';
@@ -37,42 +56,59 @@ export const Home = () => {
 
   const primaryIntention = intentions[0] || 'Stay calm';
 
+  // Resuming an 'interrupted' routine must flip it back to 'playing'
+  // first — every step page's own Continue/Skip guards only advance the
+  // Session Engine when status is genuinely 'playing' (see
+  // MorningStart.jsx etc.), so navigating straight to currentStep.route
+  // while still 'interrupted' would silently strand the user on that
+  // step with a Continue button that does nothing.
+  const handleContinueSession = () => {
+    if (state.status === 'interrupted') resumeSession();
+    navigate(currentStep.route);
+  };
+
+  const morningStepNumber = isMorningActive ? MORNING_DISPLAY_STEP_NUMBERS[currentStep?.id] : null;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
 
-      {/* Mobile navigation repair, Phase 2: explicit "Continue" card,
-          shown only while a session is genuinely 'playing' (never for
-          'completed'/'skipped'/'idle' — same rule Layout.jsx's own
-          redirect effect uses). This is the user-initiated replacement
-          for the forced-redirect that used to fire on every render: the
-          routine is still easy to resume, but resuming is now a tap the
-          user chooses, not something imposed on every navigation. */}
-      {state.status === 'playing' && currentStep?.route && (
-        <Link
-          to={currentStep.route}
-          className="block glass-panel p-5 rounded-3xl border-l-4 border-l-primary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
+      {/* Simple daily completion status */}
+      <div className="flex gap-2">
+        <span className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full ${isMorningDone ? 'bg-primary/15 text-primary' : 'glass-panel text-on-surface-variant/60'}`}>
+          {isMorningDone ? '✓ Morning' : 'Morning'}
+        </span>
+        <span className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full ${isEveningDone ? 'bg-secondary/15 text-secondary' : 'glass-panel text-on-surface-variant/60'}`}>
+          {isEveningDone ? '✓ Evening' : 'Evening'}
+        </span>
+      </div>
+
+      {/* Continue an in-progress routine (morning OR evening) — the
+          user-initiated replacement for the forced-redirect Layout.jsx
+          used to apply on every render. Resuming is a tap the user
+          chooses, never something imposed. */}
+      {(isMorningActive || isEveningActive) && currentStep?.route && (
+        <button
+          type="button"
+          onClick={handleContinueSession}
+          className="block w-full text-left glass-panel p-5 rounded-3xl border-l-4 border-l-primary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="text-[10px] text-primary uppercase font-bold tracking-wider">Continue where you left off</span>
+              <span className="text-[10px] text-primary uppercase font-bold tracking-wider">
+                {state.status === 'interrupted' ? 'Paused — resume' : 'Continue where you left off'}
+              </span>
               <h3 className="text-base font-bold text-on-surface mt-0.5 truncate">
                 {SESSION_LABELS[state.sessionId] || 'Your routine'}
+                {morningStepNumber ? ` — Step ${morningStepNumber} of ${MORNING_DISPLAY_STEP_COUNT}` : ''}
               </h3>
             </div>
             <span className="material-symbols-outlined text-primary text-2xl shrink-0">play_circle</span>
           </div>
-        </Link>
+        </button>
       )}
 
-      {/* Mobile navigation repair, Phase 2: the four required Home
-          affordances (Continue routine above; Need a moment, Browse
-          exercises, Sleep sounds below) so a signed-in user can reach
-          any of them in one tap, from Home, regardless of time of day —
-          none of this requires intention setup first, since nothing in
-          the app gates exercises or sleep sounds on having set an
-          intention. Current intention is shown here unconditionally too
-          (previously only visible in the morning-post/daytime branches
-          below) since it's one of the required "obvious" Home actions. */}
+      {/* Persistent, always-reachable actions — never gated on having
+          set an intention, regardless of time of day. */}
       <div className="space-y-3">
         <div className="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3">
           <span className="material-symbols-outlined text-tertiary text-lg shrink-0">spa</span>
@@ -106,8 +142,23 @@ export const Home = () => {
         </div>
       </div>
 
-      {/* MORNING - BEFORE COMPLETION (Peach & Cream theme-aware background container) */}
-      {timeState === 'morning-pre' && (
+      {/* BEFORE WAKE TIME */}
+      {timeState === 'before-wake' && (
+        <div className="space-y-8 text-center py-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-secondary text-3xl">bedtime</span>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-on-surface">Still resting</h2>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
+              Next wake reminder at {alarmTime}. Bedtime was set for {bedTime}.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* MORNING WINDOW — not started */}
+      {timeState === 'daytime-morning' && !isMorningActive && !isMorningDone && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Good morning, Sun</h2>
@@ -115,25 +166,24 @@ export const Home = () => {
           </div>
           <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
             <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
-              Morning Awakening
+              Rise &amp; Reset
             </span>
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold leading-tight text-on-surface">Waking Goal</h3>
-              <p className="text-sm text-on-surface-variant font-medium">Scheduled for {alarmTime} with 'Gentle Breeze'</p>
+              <h3 className="text-2xl font-bold leading-tight text-on-surface">Ready when you are</h3>
+              <p className="text-sm text-on-surface-variant font-medium">A short 5-step sequence to start your day grounded.</p>
             </div>
-            {/* Navigates directly to the beginning of your morning flow */}
             <Link to="/morning-start" className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10">
-              Begin Your Morning
+              Begin Rise &amp; Reset
             </Link>
           </div>
         </div>
       )}
 
-      {/* MORNING - AFTER COMPLETION */}
-      {timeState === 'morning-post' && (
+      {/* MORNING WINDOW — complete */}
+      {timeState === 'daytime-morning' && isMorningDone && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Morning Awakening</h2>
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Rise &amp; Reset complete</h2>
             <p className="text-xs text-on-surface-variant font-medium">You started today with intention.</p>
           </div>
           <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-sm">
@@ -168,27 +218,26 @@ export const Home = () => {
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">Begin Wind-Down</h2>
-            <p className="text-xs text-on-surface-variant font-medium">You've done enough for today. Let's prepare for tomorrow.</p>
+            <p className="text-xs text-on-surface-variant font-medium">
+              {isEveningDone ? 'Tonight\'s wind-down is complete. Rest well.' : 'You\'ve done enough for today. Let\'s prepare for tomorrow.'}
+            </p>
           </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
-            <div className="space-y-1">
-              <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
-              <h3 className="text-xl font-bold text-on-surface">What are you grateful for today?</h3>
+          {!isEveningDone && (
+            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+              <div className="space-y-1">
+                <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
+                <h3 className="text-xl font-bold text-on-surface">
+                  {isEveningActive ? 'Continue your wind-down' : 'What are you grateful for today?'}
+                </h3>
+              </div>
+              <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
+                {isEveningActive ? 'Continue Wind-Down' : 'Begin Wind-Down'}
+              </Link>
+              <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
+                Sleep Soundscapes
+              </Link>
             </div>
-            <p className="text-xs text-on-surface-variant">Log your daily gratitude entry before starting your wind-down.</p>
-            <Link to="/journal" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
-              Log Gratitude
-            </Link>
-            {/* Stage 4 Batch F3: entry point into the evening-wind-down
-                Session Engine flow, distinct from the Log Gratitude journal
-                feature above. A plain navigation link, no session-engine
-                calls here — EveningWindDown.jsx's own Begin button starts
-                the session, mirroring how Home never starts the morning
-                session either (checkTime() in AlarmContext.jsx does). */}
-            <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
-              Begin Evening Wind-down
-            </Link>
-          </div>
+          )}
         </div>
       )}
 
@@ -201,9 +250,12 @@ export const Home = () => {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-on-surface">Rest Well</h2>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              circadian rhythms are settling. Tomorrow's RISE alarm is set for {alarmTime}. Sleep soundly.
+              Circadian rhythms are settling. Tomorrow's wake reminder is set for {alarmTime}. Sleep soundly.
             </p>
           </div>
+          <Link to="/library?category=sleep-soundscapes" className="inline-block px-6 py-3 rounded-full glass-panel text-on-surface-variant text-sm font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
+            Sleep Soundscapes
+          </Link>
         </div>
       )}
 

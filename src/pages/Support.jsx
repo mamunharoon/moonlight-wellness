@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
-import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { getCatalogEntryById } from '../lib/mediaCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
@@ -70,7 +70,9 @@ const CARDS = [
   { id: 'anxious', icon: 'air', title: 'I feel anxious', description: 'A racing mind or a tight chest. Let’s slow it down together.' },
   { id: 'overwhelmed', icon: 'waves', title: 'I feel overwhelmed', description: 'Too much at once. Nothing needs solving right now.' },
   { id: 'stressed', icon: 'bolt', title: 'I feel stressed', description: 'Tension you’re carrying. Let’s set some of it down.' },
-  { id: 'calm', icon: 'spa', title: 'I need a moment of calm', description: 'No reason needed. Just a quiet breath together.' }
+  { id: 'calm', icon: 'spa', title: 'I need a moment of calm', description: 'No reason needed. Just a quiet breath together.' },
+  { id: 'confidence', icon: 'military_tech', title: 'I could use some confidence', description: 'A steady lift when you need to feel capable and ready.' },
+  { id: 'low-energy', icon: 'battery_low', title: 'I’m running low on energy', description: 'A gentle boost to help you find your spark again.' }
 ];
 
 const MOOD_RECOMMENDATIONS = {
@@ -116,6 +118,16 @@ const MOOD_RECOMMENDATIONS = {
         duration: '~1 min'
       }
     ]
+  },
+  confidence: {
+    heading: 'You are capable and ready.',
+    body: 'A steady, grounded confidence — no need to force it.',
+    options: [{ kind: 'video', id: 'E12' }]
+  },
+  'low-energy': {
+    heading: "Let's find a little spark.",
+    body: 'A gentle lift, at your own pace.',
+    options: [{ kind: 'video', id: 'E11' }]
   }
 };
 
@@ -139,7 +151,7 @@ export const Support = () => {
   // Exercise tap inside the modal).
   const [openVideoId, setOpenVideoId] = useState(() => {
     const openId = searchParams.get('openId');
-    return openId && !isGuest && getBetaVideoById(openId) ? openId : null;
+    return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
@@ -157,7 +169,7 @@ export const Support = () => {
 
   const mapping = activeMoodId ? MOOD_RECOMMENDATIONS[activeMoodId] : null;
   const option = mapping ? mapping.options[optionIndex % mapping.options.length] : null;
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const openVideo = openVideoId ? getCatalogEntryById(openVideoId) : null;
 
   const handleSelectFeeling = (card) => {
     setActiveMoodId(card.id);
@@ -207,7 +219,7 @@ export const Support = () => {
     navigate('/support-complete');
   };
 
-  const videoEntry = option?.kind === 'video' ? getBetaVideoById(option.id) : null;
+  const videoEntry = option?.kind === 'video' ? getCatalogEntryById(option.id) : null;
   const cachedMinutes = videoEntry ? getCachedDurationMinutes(videoEntry.id) : null;
   const optionTitle = option?.kind === 'video' ? videoEntry?.title : option?.title;
   const optionDescription = option?.kind === 'video' ? videoEntry?.description : option?.description;

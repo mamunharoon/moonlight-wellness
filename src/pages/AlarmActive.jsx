@@ -9,7 +9,7 @@ export const AlarmActive = () => {
   // successful-unlock transition into the Session Engine. See handleUnlock
   // below for the only place any of this is used; snooze/dismissAlarm are
   // untouched and never consume this.
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
   const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00 AM');
@@ -77,6 +77,26 @@ export const AlarmActive = () => {
       handleUnlock();
     }
   }, [handleUnlock]);
+
+  // Alarm & wake-reminder foundation: the third of the three required
+  // choices (Begin Rise & Reset via slide-to-unlock above, Remind me
+  // shortly via snooze below, Skip this morning here) — previously only
+  // two existed. Dismisses the ringing state and abandons the
+  // auto-started Session Engine mirror (checkTime() in AlarmContext.jsx
+  // starts it the instant the alarm fires, before any of these three
+  // choices are made — see that file's own doc comment) so the day's
+  // routine cleanly reads as skipped rather than left dangling
+  // 'playing'/'interrupted', which would otherwise block a later
+  // Routines Hub "Start Routine" tap for either routine (see the
+  // START_SESSION guard in session/sessionReducer.js).
+  const handleSkipMorning = () => {
+    dismissAlarm();
+    setJourneyStep('');
+    if (state.status === 'playing' && currentStep?.id === 'alarm') {
+      abandonSession();
+    }
+    navigate('/');
+  };
 
   const handleEnd = useCallback(() => {
     if (!isDragging.current) return;
@@ -181,11 +201,17 @@ export const AlarmActive = () => {
           </span>
         </div>
 
-        <button 
+        <button
           onClick={snooze}
           className="text-[10px] text-[#5c3d2e]/70 font-semibold uppercase tracking-wider flex items-center gap-2 mx-auto hover:text-[#954835] active:scale-95 transition-all"
         >
-          <span className="material-symbols-outlined text-sm">bedtime</span> Rest for 5 more minutes
+          <span className="material-symbols-outlined text-sm">bedtime</span> Remind me shortly
+        </button>
+        <button
+          onClick={handleSkipMorning}
+          className="text-[10px] text-[#5c3d2e]/50 font-semibold uppercase tracking-wider flex items-center gap-2 mx-auto hover:text-[#954835] active:scale-95 transition-all"
+        >
+          Skip this morning
         </button>
       </div>
 

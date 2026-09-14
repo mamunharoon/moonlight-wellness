@@ -42,6 +42,7 @@ export const Gratitude = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/reflection">
       <ProgressIndicator activeStep="gratitude" sessionId="evening-wind-down" />
+      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 3 of 6</span>
       <div className="flex-1 flex flex-col justify-center">
         <div className="glass-panel rounded-3xl p-6">
           <PromptStepper prompts={GRATITUDE_PROMPTS} onComplete={handleComplete} />

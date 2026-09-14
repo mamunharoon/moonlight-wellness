@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
-import { cacheDurationSeconds } from '../lib/durationCache';
+import { cacheDurationSeconds, getCachedDurationMinutes } from '../lib/durationCache';
+
+// Daily Journey & Content Architecture: Sleep Soundscapes timer options.
+// 'continuous' means no auto-stop — the source loops (see the `loop`
+// attribute below) until the user presses Stop or closes the modal.
+const SLEEP_TIMER_OPTIONS = [
+  { id: 15, label: '15 min' },
+  { id: 30, label: '30 min' },
+  { id: 60, label: '60 min' },
+  { id: 'continuous', label: 'Continuous' }
+];
 
 /*
  * WakeWise — Beta Video Preview — playback modal.
@@ -32,6 +42,7 @@ import { cacheDurationSeconds } from '../lib/durationCache';
  * keep the label on its own standalone admin/QA catalogue.
  */
 export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
+  const isSleepSound = entry.category === 'Sleep Soundscapes';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -47,8 +58,13 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   // to true on load: this is what keeps autoplay off even though the
   // signed URL is fetched as soon as the modal opens.
   const [hasStarted, setHasStarted] = useState(false);
+  // Sleep Soundscapes only: selected auto-stop duration (minutes, or
+  // 'continuous' for none) and whether that timer has since elapsed.
+  const [sleepTimer, setSleepTimer] = useState('continuous');
+  const [timerEnded, setTimerEnded] = useState(false);
   const expiresAtRef = useRef(null);
   const videoRef = useRef(null);
+  const timerRef = useRef(null);
 
   // Fetches the signed URL. Deps are entry.id/retryToken only - no ref
   // involved here, since the <video> element (and therefore videoRef)
@@ -104,6 +120,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  // Sleep Soundscapes auto-stop timer. Only ever starts once playback has
+  // genuinely begun (hasStarted) — picking a timer before pressing Begin
+  // just records the choice, it doesn't start any countdown early.
+  // 'continuous' never sets a timer at all — the source keeps looping
+  // (see the <video loop> attribute below) until Stop or Close.
+  useEffect(() => {
+    if (!isSleepSound || !hasStarted || sleepTimer === 'continuous') return;
+    timerRef.current = setTimeout(() => {
+      videoRef.current?.pause();
+      setTimerEnded(true);
+    }, sleepTimer * 60 * 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [isSleepSound, hasStarted, sleepTimer]);
+
   const handleVideoError = () => {
     // A playback error once a URL is already loaded most likely means the
     // short-lived signed URL expired mid-visit — surfaced as its own
@@ -118,7 +148,25 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
 
   const handleClose = () => {
     videoRef.current?.pause();
+    clearTimeout(timerRef.current);
     onClose();
+  };
+
+  // Sleep Soundscapes only: explicit "Stop" distinct from Close — pauses
+  // and resets to the Begin overlay (so resuming starts from a clean
+  // state rather than mid-loop) without leaving the modal, and cancels
+  // any pending auto-stop timer, "do not create multiple simultaneous
+  // audio instances" is already structural (one <video> element, one
+  // BetaVideoModal instance ever mounted) — this just stops the one.
+  const handleStop = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+    clearTimeout(timerRef.current);
+    setTimerEnded(false);
+    setHasStarted(false);
   };
 
   // The ONLY place playback is ever started. Called directly from the
@@ -187,9 +235,10 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                 src={videoUrl}
                 controls
                 playsInline
+                loop={isSleepSound}
                 preload="metadata"
                 onError={handleVideoError}
-                onPlay={() => setHasStarted(true)}
+                onPlay={() => { setHasStarted(true); setTimerEnded(false); }}
                 onLoadedMetadata={(e) => cacheDurationSeconds(entry.id, e.currentTarget.duration)}
                 className="w-full h-full object-contain bg-black"
               >
@@ -201,7 +250,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                   soon as the modal opens, but sound only ever starts from
                   handleBegin, which this button calls directly inside its
                   own click handler (a real user gesture). */}
-              {!hasStarted && (
+              {!hasStarted && !timerEnded && (
                 <button
                   type="button"
                   onClick={handleBegin}
@@ -212,14 +261,66 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                     <span className="material-symbols-outlined text-3xl">play_arrow</span>
                   </span>
                   <span className="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-bold uppercase tracking-wide">
-                    Begin Exercise
+                    {isSleepSound ? 'Play' : 'Begin Exercise'}
                   </span>
                   <span className="text-[11px] text-white/70">Tap to begin with sound</span>
                 </button>
               )}
+
+              {/* Sleep Soundscapes only: the selected timer elapsed. */}
+              {timerEnded && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm text-center px-6">
+                  <span className="material-symbols-outlined text-3xl text-white/80">bedtime</span>
+                  <p className="text-sm text-white font-semibold">Timer ended</p>
+                  <button
+                    type="button"
+                    onClick={handleBegin}
+                    className="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-bold uppercase tracking-wide"
+                  >
+                    Play again
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
+
+        {/* Sleep Soundscapes only: timer picker + source duration + Stop.
+            The source file loops seamlessly (native <video loop>) rather
+            than requiring separately-uploaded 30/60-minute files. */}
+        {isSleepSound && status === 'ready' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Timer</span>
+              <span className="text-[10px] text-on-surface-variant/70">
+                Source: {getCachedDurationMinutes(entry.id) ? `~${getCachedDurationMinutes(entry.id)} min, loops` : 'loops automatically'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {SLEEP_TIMER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSleepTimer(opt.id)}
+                  className={`flex-1 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px] ${
+                    sleepTimer === opt.id ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {hasStarted && (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="w-full py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10"
+              >
+                Stop
+              </button>
+            )}
+          </div>
+        )}
 
         {showBetaBadge && (
           <span className="inline-block text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 bg-white/5 px-2 py-1 rounded-full">
