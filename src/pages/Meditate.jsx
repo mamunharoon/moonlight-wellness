@@ -233,7 +233,7 @@ export const Meditate = () => {
               {recommendation.matchQuality === 'closest' && (
                 <p className="text-[11px] text-secondary font-semibold uppercase tracking-wider">Closest match</p>
               )}
-              <p className="text-xs text-on-surface-variant/80 italic">Why this: {current.meditation.reason}</p>
+              <p className="text-xs text-on-surface-variant/80 italic">Why this: {current.matchReason}</p>
 
               <button
                 type="button"

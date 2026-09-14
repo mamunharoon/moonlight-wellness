@@ -196,17 +196,22 @@ export const MEDITATION_DURATION_GROUPS = [
   { id: 'any', label: 'Any duration', description: null, minSeconds: 0, maxSeconds: Infinity }
 ];
 
+// `reason` deliberately isn't stored here — meditationRecommendations.js
+// builds the "Why this" copy at match time, from the selection the user
+// actually made (need + duration group), so it can never narrate a
+// duration window ("fits your short 3-5 minute window") the user didn't
+// choose, e.g. when they picked "Any duration" instead.
 const MEDITATION_METADATA = {
-  E03: { meditationEligible: true, needs: ['calm'], durationSeconds: 100, durationGroup: 'quick', reason: 'Matches your need for calm and fits your quick 1–2 minute window.' },
-  E04: { meditationEligible: true, needs: ['stress-relief'], durationSeconds: 110, durationGroup: 'quick', reason: 'Matches your need for stress relief and fits your quick 1–2 minute window.' },
-  E08: { meditationEligible: true, needs: ['calm', 'body-awareness'], durationSeconds: 120, durationGroup: 'quick', reason: 'Matches your need for calm and body awareness, and fits your quick 1–2 minute window.' },
-  B02: { meditationEligible: true, needs: ['focus', 'calm'], durationSeconds: 180, durationGroup: 'short', reason: 'Matches your need for focus and calm, and fits your short 3–5 minute window.' },
-  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 215, durationGroup: 'short', reason: 'Matches your need for mindfulness and fits your short 3–5 minute window.' },
-  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 227, durationGroup: 'short', reason: 'Matches your need for body awareness and deep relaxation, and fits your short 3–5 minute window.' },
-  E27: { meditationEligible: true, needs: ['deep-relaxation', 'calm'], durationSeconds: 155, durationGroup: 'short', exactGroupFit: false, reason: 'Matches your need for deep relaxation and calm — at 2:35, the closest available match to your short 3–5 minute window.' },
-  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 204, durationGroup: 'short', reason: 'Matches your need for self-compassion and fits your short 3–5 minute window.' },
-  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 216, durationGroup: 'short', reason: 'Matches your need for gratitude and fits your short 3–5 minute window.' },
-  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 212, durationGroup: 'short', reason: 'Matches your need for mindfulness and calm, and fits your short 3–5 minute window.' }
+  E03: { meditationEligible: true, needs: ['calm'], durationSeconds: 100, durationGroup: 'quick' },
+  E04: { meditationEligible: true, needs: ['stress-relief'], durationSeconds: 110, durationGroup: 'quick' },
+  E08: { meditationEligible: true, needs: ['calm', 'body-awareness'], durationSeconds: 120, durationGroup: 'quick' },
+  B02: { meditationEligible: true, needs: ['focus', 'calm'], durationSeconds: 180, durationGroup: 'short' },
+  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 215, durationGroup: 'short' },
+  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 227, durationGroup: 'short' },
+  E27: { meditationEligible: true, needs: ['deep-relaxation', 'calm'], durationSeconds: 155, durationGroup: 'short', exactGroupFit: false },
+  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 204, durationGroup: 'short' },
+  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 216, durationGroup: 'short' },
+  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 212, durationGroup: 'short' }
 };
 
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.map((entry) => ({
