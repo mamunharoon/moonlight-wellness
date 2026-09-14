@@ -1,47 +1,75 @@
 /* eslint-disable no-unused-vars */
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ROUTINES } from '../lib/routinesCatalog';
+import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
+import { getStepIndex } from '../session/sessionRegistry';
+import { MORNING_STEP_IDS } from '../session/sessionConstants';
+import { setPendingContent } from '../lib/pendingContent';
+import { BackButton } from '../components/BackButton';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { useState } from 'react';
 
 /*
  * Mobile navigation repair, Phase 3 — Routine detail screen
+ * Rise & Reset double-start repair — see this file's own inline notes
+ * below for what changed and why.
  *
  * Reached by tapping a Routines Hub card (previously inert <div>s with no
  * navigation at all). Shows title/purpose/duration/ordered steps plus a
- * Start Routine button, per the required experience.
+ * Start Routine button.
  *
- * Start Routine deliberately does NOT call the Session Engine's
- * startSession() directly for any of the three routines — it navigates
- * to the exact same entry route Home's own existing CTAs already use
- * (e.g. "Begin Your Morning" -> /morning-start, "Begin Evening Wind-down"
- * -> /evening-wind-down, "60-Second Reset" -> /quiet-breathing). Those
- * entry pages own starting/continuing the routine themselves (Evening
- * Wind-down's Begin button already calls startSession('evening-wind-down')
- * — see EveningWindDown.jsx; the morning routine's Session Engine session
- * is only ever started by a real alarm ring, exactly as it already works
- * today, and Home's "Begin Your Morning" link has always relied on the
- * same legacy journeyStep-driven progression rather than starting the
- * Session Engine manually). Reusing those exact entry points means every
- * existing control, timer, and completion-tracking mechanism for these
- * three routines keeps working completely unchanged — this screen adds a
- * path into them, it does not re-implement them.
+ * Rise & Reset ('rise-reset') is the one routine whose Start Routine
+ * button does more than a plain link: it starts the Session Engine
+ * itself (startSession('morning-routine', { startIndex: <the 'start'
+ * step> })) before navigating, so MorningStart.jsx opens directly as a
+ * real, tracked "Step 1 of 5" — not a second, separate "Begin your
+ * morning" decision screen the way it did before (MorningStart.jsx used
+ * to own its own duration/steps summary and its own Begin button,
+ * duplicating exactly what this screen already shows, which read as
+ * "Start Routine did nothing"). Session Engine tracking is what lets
+ * Home's "Continue Rise & Reset" card, per-step Back/Skip/Exit, and
+ * accurate step numbering all work consistently — see MorningStart.jsx,
+ * Affirmation.jsx, MorningFlow.jsx, Breathe.jsx, IntentionSetup.jsx.
+ *
+ * Gentle Reset and Wind-Down are audited and do NOT have this bug:
+ * Gentle Reset's Start Routine already goes straight to the one real
+ * screen (/quiet-breathing, no separate intro); Wind-Down's Start
+ * Routine already goes straight to EveningWindDown.jsx, which IS step 1
+ * itself (its own Begin button starts the session and advances in one
+ * motion) — neither needs the startSession-before-navigate treatment
+ * Rise & Reset now gets.
+ *
+ * Guest gate: Rise & Reset's steps include gated exercise content
+ * (Affirmation.jsx's videos, etc.), so a signed-out Start Routine tap
+ * shows the standard SignInPromptDialog instead of starting anything —
+ * "Sign in"/"Create account" stash this exact URL as the return route
+ * (lib/pendingContent.js, id: null since there's no specific item to
+ * reopen) so the user lands back on THIS routine detail screen after
+ * authenticating, per spec, rather than being dropped into the routine
+ * itself or losing their place. Gentle Reset and Wind-Down are not
+ * gated — neither one requires an account to use today.
  */
 const ROUTINE_DETAILS = {
   'rise-reset': {
     purpose: 'A short morning sequence to help you start the day grounded and clear-headed.',
     startRoute: '/morning-start',
     startLabel: 'Start Routine',
+    requiresAuth: true,
     steps: [
-      { title: 'Morning Start', description: 'A short guided welcome into your morning.' },
-      { title: 'Affirmation', description: 'A guided affirmation video to set your tone for the day.' },
+      { title: 'Gentle Awakening / Morning Start', description: 'A short guided welcome into your morning.' },
+      { title: 'Morning Affirmation', description: 'A guided affirmation video to set your tone for the day.' },
       { title: 'Stretching', description: 'A brief, gentle stretching sequence.' },
-      { title: 'Breathing', description: 'A one-minute guided breathing exercise.' },
-      { title: 'Set Intention', description: 'Choose the intention you want to carry through today.' }
+      { title: 'Deep Breathing', description: 'A one-minute guided breathing exercise.' },
+      { title: 'Set Intention', description: 'Choose the intention you want to carry through today.' },
+      { title: 'Completion', description: 'Your morning routine is complete.' }
     ]
   },
   'gentle-reset': {
     purpose: 'A quick, on-the-spot breathing reset for whenever you need to lower your heart rate and refocus.',
     startRoute: '/quiet-breathing',
     startLabel: 'Start Routine',
+    requiresAuth: false,
     steps: [
       { title: '60-Second Reset', description: 'A short guided breathing visualizer — inhale, hold, exhale.' }
     ]
@@ -50,6 +78,7 @@ const ROUTINE_DETAILS = {
     purpose: 'A calming end-of-day sequence to help you unwind and prepare for restful sleep.',
     startRoute: '/evening-wind-down',
     startLabel: 'Start Routine',
+    requiresAuth: false,
     steps: [
       { title: 'Wind Down', description: 'Settle in and shift out of your day.' },
       { title: 'Reflection', description: 'A few short prompts to reflect on your day.' },
@@ -63,6 +92,9 @@ const ROUTINE_DETAILS = {
 export const RoutineDetail = () => {
   const { routineId } = useParams();
   const navigate = useNavigate();
+  const { isGuest } = useAuth();
+  const { state, startSession, resetSession } = useSession();
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   const routine = ROUTINES.find((r) => r.id === routineId);
   const detail = ROUTINE_DETAILS[routineId];
@@ -76,16 +108,47 @@ export const RoutineDetail = () => {
     );
   }
 
+  const beginRiseAndReset = () => {
+    // The Session Engine's START_SESSION rejects outright if a session is
+    // already 'playing' or 'interrupted' — regardless of which routine it
+    // belongs to (see session/sessionReducer.js). "Start Routine" here
+    // always means "begin fresh," never "resume," so any leftover state
+    // (including an 'interrupted' routine left via the Leave-routine
+    // confirmation elsewhere) is reset first — same guard AlarmContext.jsx
+    // already uses before its own startSession('morning-routine') call.
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
+    }
+    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
+    navigate(detail.startRoute);
+  };
+
+  const handleStart = (e) => {
+    if (!detail.requiresAuth) return; // plain <Link>, nothing to intercept
+    e.preventDefault();
+    if (isGuest) {
+      setShowSignInPrompt(true);
+      return;
+    }
+    beginRiseAndReset();
+  };
+
+  const handleSignIn = () => {
+    setPendingContent({ returnPath: `/routines/${routineId}` });
+    setShowSignInPrompt(false);
+    navigate('/auth');
+  };
+
+  const handleCreateAccount = () => {
+    setPendingContent({ returnPath: `/routines/${routineId}` });
+    setShowSignInPrompt(false);
+    navigate('/auth?tab=signup');
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/routines')}
-          aria-label="Back to Routines"
-          className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/routines" />
         <div className="min-w-0">
           <span className="text-[10px] text-primary uppercase font-bold tracking-wider">{routine.category}</span>
           <h2 className="font-headline-lg text-xl text-on-surface font-bold tracking-tight truncate">{routine.title}</h2>
@@ -118,12 +181,20 @@ export const RoutineDetail = () => {
       </div>
 
       <Link
-        to={detail.startRoute}
+        to={detail.requiresAuth ? '#' : detail.startRoute}
+        onClick={handleStart}
         className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
       >
         <span>{detail.startLabel}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>
       </Link>
+
+      <SignInPromptDialog
+        open={showSignInPrompt}
+        onSignIn={handleSignIn}
+        onCreateAccount={handleCreateAccount}
+        onDismiss={() => setShowSignInPrompt(false)}
+      />
     </div>
   );
 };

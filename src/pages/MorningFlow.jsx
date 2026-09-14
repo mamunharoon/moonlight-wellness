@@ -1,12 +1,15 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 
 // S01-S05: a "Stretching Sessions" collection, matching the pattern
 // already established for the A-, B-, G- and M-series sections. Shown to
@@ -28,11 +31,17 @@ export const MorningFlow = () => {
   // into the Session Engine from all three genuine exits (timer
   // auto-advance, manual Next/Continue on the final exercise, Skip
   // Stretching). See mirrorStretchExitRef below.
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
   const [activeStep, setActiveStep] = useState(0);
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -117,8 +126,17 @@ export const MorningFlow = () => {
     mirrorStretchExitRef.current();
   };
 
+  const handleExitRoutine = () => {
+    setJourneyStep('');
+    navigate('/');
+    if (state.status === 'playing' && currentStep?.id === 'stretch') abandonSession();
+  };
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/affirmation" />
+      </div>
       <ProgressIndicator activeStep="stretch" />
 
       <div className="text-center space-y-2">
@@ -182,23 +200,21 @@ export const MorningFlow = () => {
         })}
       </div>
 
-      {!isGuest && (
-        <div className="space-y-3">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
-          {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => setOpenVideoId(id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-3">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
+        {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => handleSelect(id)}
+            />
+          );
+        })}
+      </div>
 
       <div className="space-y-3 w-full">
         <button
@@ -212,19 +228,30 @@ export const MorningFlow = () => {
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
-          Skip Stretching
+          Skip this step
+        </button>
+        <button
+          onClick={handleExitRoutine}
+          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+        >
+          Exit routine
         </button>
       </div>
 
       {/* Closing this leaves the user right here on the stretching screen
           - no navigation needed for a return path. The steps/timer/
-          Next-Step/Skip Stretching above are entirely unaffected by
-          whether this is open (the countdown keeps running in the
-          background, exactly as it already does behind any other
-          interruption on this screen). */}
+          Next-Step/Skip above are entirely unaffected by whether this is
+          open (the countdown keeps running in the background, exactly as
+          it already does behind any other interruption on this screen). */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

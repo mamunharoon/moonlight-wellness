@@ -1,12 +1,14 @@
-﻿import { useState } from 'react';
+﻿/* eslint-disable no-unused-vars */
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E07
@@ -51,10 +53,16 @@ export const Affirmation = () => {
   // Stage 3C Group 3D Batch A: mirrors the affirmation -> stretch (standard
   // and gentle) or affirmation -> breathe (quick, an atomic forward jump)
   // transition into the Session Engine. See handleNext/handleSkip below.
-  const { state, currentStep, advanceStep, advanceToStep } = useSession();
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const { state, currentStep, advanceStep, advanceToStep, abandonSession } = useSession();
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -92,8 +100,17 @@ export const Affirmation = () => {
     mirrorTransition();
   };
 
+  const handleExitRoutine = () => {
+    setJourneyStep('');
+    navigate('/');
+    if (state.status === 'playing' && currentStep?.id === 'affirmation') abandonSession();
+  };
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/morning-start" />
+      </div>
       <ProgressIndicator activeStep="affirmation" />
 
       <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] border border-primary/10 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
@@ -112,40 +129,36 @@ export const Affirmation = () => {
         </div>
       </div>
 
-      {!isGuest && (
-        <div className="space-y-3">
-          {AFFIRMATION_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => setOpenVideoId(id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-3">
+        {AFFIRMATION_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => handleSelect(id)}
+            />
+          );
+        })}
+      </div>
 
-      {!isGuest && (
-        <div className="space-y-3">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Affirmation Sessions</h3>
-          {AFFIRMATION_SERIES_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => setOpenVideoId(id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-3">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Affirmation Sessions</h3>
+        {AFFIRMATION_SERIES_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => handleSelect(id)}
+            />
+          );
+        })}
+      </div>
 
       <div className="space-y-3 w-full">
         <button
@@ -159,7 +172,13 @@ export const Affirmation = () => {
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
-          Skip
+          Skip this step
+        </button>
+        <button
+          onClick={handleExitRoutine}
+          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+        >
+          Exit routine
         </button>
       </div>
 
@@ -167,8 +186,14 @@ export const Affirmation = () => {
           - no navigation needed for a return path. Continue/Skip above are
           entirely unaffected by whether this is open. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

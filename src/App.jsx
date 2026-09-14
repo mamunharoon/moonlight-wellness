@@ -8,6 +8,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { SessionProvider } from './context/SessionContext';
+import { NavigationHistoryProvider } from './context/NavigationHistoryContext';
 import { Layout } from './components/Layout';
 import { AdminRoute } from './components/AdminRoute';
 
@@ -117,6 +118,11 @@ function App() {
           <SessionProvider>
             <AlarmProvider>
               <Router>
+                {/* Back-navigation repair: must be inside <Router> (needs
+                    useLocation/useNavigate) and wrap every <Routes> below,
+                    since BackButton — used by routes on both sides of the
+                    <Layout> split — reads this context. */}
+                <NavigationHistoryProvider>
                 <Routes>
                 {/* Full-Screen flows */}
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
@@ -261,6 +267,7 @@ function App() {
                 {/* Fallback to Today */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </NavigationHistoryProvider>
               </Router>
             </AlarmProvider>
           </SessionProvider>

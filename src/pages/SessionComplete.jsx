@@ -1,7 +1,9 @@
-﻿import { useEffect } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
+import { BackButton } from '../components/BackButton';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
@@ -32,7 +34,10 @@ export const SessionComplete = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">
-      
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/" />
+      </div>
+
       {/* Circular Gauge */}
       <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-6">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">

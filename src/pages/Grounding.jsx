@@ -1,10 +1,12 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E09
@@ -66,9 +68,15 @@ const PROMPTS = [
 export const Grounding = () => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (EveningSceneShell && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -99,7 +107,7 @@ export const Grounding = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
         <div
           key={active.id}
@@ -117,7 +125,7 @@ export const Grounding = () => {
       </div>
 
       <div className="space-y-3">
-        {!isGuest && GROUNDING_VIDEOS.map(({ id, blurb }) => {
+        {GROUNDING_VIDEOS.map(({ id, blurb }) => {
           const entry = getBetaVideoById(id);
           if (!entry) return null;
           return (
@@ -125,28 +133,26 @@ export const Grounding = () => {
               key={id}
               title={entry.title}
               description={blurb}
-              onClick={() => setOpenVideoId(id)}
+              onClick={() => handleSelect(id)}
             />
           );
         })}
 
-        {!isGuest && (
-          <div className="space-y-3">
-            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Grounding Sessions</h3>
-            {GROUNDING_SESSION_VIDEOS.map(({ id, blurb }) => {
-              const entry = getBetaVideoById(id);
-              if (!entry) return null;
-              return (
-                <BetaVideoRow
-                  key={id}
-                  title={entry.title}
-                  description={blurb}
-                  onClick={() => setOpenVideoId(id)}
-                />
-              );
-            })}
-          </div>
-        )}
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Grounding Sessions</h3>
+          {GROUNDING_SESSION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => handleSelect(id)}
+              />
+            );
+          })}
+        </div>
 
         <div className="flex gap-3">
           {!isFirst && (
@@ -178,8 +184,14 @@ export const Grounding = () => {
           navigation needed for a return path. The 5-4-3-2-1 stepper and
           Previous/Next/Skip above are entirely unaffected. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </EveningSceneShell>
   );
 };

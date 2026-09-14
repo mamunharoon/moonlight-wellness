@@ -73,6 +73,7 @@ const EVENING_SESSION_ID = 'evening-wind-down';
 const STEP_LABELS = {
   // morning-routine
   alarm: 'Alarm',
+  start: 'Start',
   affirmation: 'Affirm',
   stretch: 'Stretch',
   breathe: 'Breathe',
@@ -87,13 +88,17 @@ const STEP_LABELS = {
   completion: 'Done',
 };
 
+// Back-navigation repair (Rise & Reset double-start fix): 'start' is now
+// included — MorningStart.jsx has moved from being a separate, untracked
+// pre-start decision screen to being the real, numbered "Step 1 of 5" of
+// the routine, so it needs to show progress like every other step.
 const VISIBLE_STEP_IDS_BY_SESSION = {
-  [MORNING_SESSION_ID]: new Set(['alarm', 'affirmation', 'stretch', 'breathe', 'intention', 'complete']),
+  [MORNING_SESSION_ID]: new Set(['start', 'affirmation', 'stretch', 'breathe', 'intention', 'complete']),
   [EVENING_SESSION_ID]: new Set(['windDown', 'reflection', 'gratitude', 'breathing', 'sleepPreparation', 'completion']),
 };
 
 const FALLBACK_STEP_IDS_BY_SESSION = {
-  [MORNING_SESSION_ID]: ['alarm', 'affirmation', 'stretch', 'breathe', 'intention', 'complete'],
+  [MORNING_SESSION_ID]: ['start', 'affirmation', 'stretch', 'breathe', 'intention', 'complete'],
   [EVENING_SESSION_ID]: ['windDown', 'reflection', 'gratitude', 'breathing', 'sleepPreparation', 'completion'],
 };
 

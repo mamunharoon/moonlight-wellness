@@ -1,4 +1,6 @@
+/* eslint-disable no-unused-vars */
 import { AtmosphereManager } from '../stage3/AtmosphereManager';
+import { BackButton } from '../BackButton';
 
 /*
  * Stage 4 Batch F2 — EveningSceneShell
@@ -38,7 +40,16 @@ import { AtmosphereManager } from '../stage3/AtmosphereManager';
  *   surface over the atmosphere (e.g. a text prompt), without forcing
  *   every screen that uses this shell to have one.
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', children }) => {
+/*
+ * Back-navigation repair: optional `showBack`/`backFallback` props render
+ * a standardized BackButton absolutely positioned top-left, safe-area
+ * aware (this shell is `fixed inset-0`, so unlike normal document-flow
+ * pages it genuinely can render under an iPhone's notch/dynamic island
+ * without explicit inset handling). Opt-in (default false) since a few
+ * callers (Support.jsx) manage their own back control inline instead —
+ * see each page's own comments for why.
+ */
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
@@ -51,6 +62,15 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
       {...atmosphere}
       className={`fixed inset-0 z-[100] flex flex-col overflow-y-auto ${className}`.trim()}
     >
+      {showBack && (
+        <div
+          className="absolute left-6 z-20"
+          style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
+        >
+          <BackButton fallback={backFallback} />
+        </div>
+      )}
+
       {/* Stage 4 Batch F3 fix: min-h-screen is required here, not decorative.
           Gradient.jsx wraps its children in a plain (non-flex) `relative`
           div with no defined height, so without an explicit height on this

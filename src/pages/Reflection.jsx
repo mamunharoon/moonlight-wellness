@@ -1,13 +1,14 @@
-import { useState } from 'react';
+/* eslint-disable no-unused-vars */
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { PromptStepper } from '../components/evening/PromptStepper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E10
@@ -83,9 +84,15 @@ const REFLECTION_PROMPTS = [
 export const Reflection = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -97,14 +104,14 @@ export const Reflection = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'dusk' }}>
+    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/evening-wind-down">
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" />
       <div className="flex-1 flex flex-col justify-center space-y-4">
         <div className="glass-panel rounded-3xl p-6">
           <PromptStepper prompts={REFLECTION_PROMPTS} onComplete={handleComplete} />
         </div>
 
-        {!isGuest && REFLECTION_VIDEOS.map(({ id, blurb }) => {
+        {REFLECTION_VIDEOS.map(({ id, blurb }) => {
           const entry = getBetaVideoById(id);
           if (!entry) return null;
           return (
@@ -112,36 +119,40 @@ export const Reflection = () => {
               key={id}
               title={entry.title}
               description={blurb}
-              onClick={() => setOpenVideoId(id)}
+              onClick={() => handleSelect(id)}
             />
           );
         })}
 
-        {!isGuest && (
-          <div className="space-y-3">
-            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Meditation Sessions</h3>
-            {MEDITATION_SESSION_VIDEOS.map(({ id, blurb }) => {
-              const entry = getBetaVideoById(id);
-              if (!entry) return null;
-              return (
-                <BetaVideoRow
-                  key={id}
-                  title={entry.title}
-                  description={blurb}
-                  onClick={() => setOpenVideoId(id)}
-                />
-              );
-            })}
-          </div>
-        )}
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Meditation Sessions</h3>
+          {MEDITATION_SESSION_VIDEOS.map(({ id, blurb }) => {
+            const entry = getBetaVideoById(id);
+            if (!entry) return null;
+            return (
+              <BetaVideoRow
+                key={id}
+                title={entry.title}
+                description={blurb}
+                onClick={() => handleSelect(id)}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Closing this leaves the user right here on Reflection - no
           navigation needed for a return path. PromptStepper's own
           journaling/Continue/Skip above are entirely unaffected. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </EveningSceneShell>
   );
 };

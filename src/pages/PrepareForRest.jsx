@@ -1,12 +1,13 @@
-import { useState } from 'react';
+/* eslint-disable no-unused-vars */
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { ProgressIndicator } from '../components/ProgressIndicator';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E05
@@ -77,9 +78,15 @@ const REST_ITEMS = [
 export const PrepareForRest = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (EveningSceneShell && ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -91,7 +98,7 @@ export const PrepareForRest = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing">
       <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" />
 
       <div className="flex-1 flex flex-col justify-center space-y-8">
@@ -105,7 +112,7 @@ export const PrepareForRest = () => {
             </div>
           ))}
 
-          {!isGuest && PREPARE_FOR_REST_VIDEOS.map(({ id, blurb }) => {
+          {PREPARE_FOR_REST_VIDEOS.map(({ id, blurb }) => {
             const entry = getBetaVideoById(id);
             if (!entry) return null;
             return (
@@ -113,32 +120,30 @@ export const PrepareForRest = () => {
                 key={id}
                 title={entry.title}
                 description={blurb}
-                onClick={() => setOpenVideoId(id)}
+                onClick={() => handleSelect(id)}
               />
             );
           })}
         </div>
 
-        {!isGuest && (
+        <div className="space-y-4">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
           <div className="space-y-4">
-            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
-            <div className="space-y-4">
-              {SLEEP_SOUND_VIDEOS.map(({ id, blurb }) => {
-                const entry = getBetaVideoById(id);
-                if (!entry) return null;
-                return (
-                  <BetaVideoRow
-                    key={id}
-                    title={entry.title}
-                    description={blurb}
-                    duration={entry.durationLabel}
-                    onClick={() => setOpenVideoId(id)}
-                  />
-                );
-              })}
-            </div>
+            {SLEEP_SOUND_VIDEOS.map(({ id, blurb }) => {
+              const entry = getBetaVideoById(id);
+              if (!entry) return null;
+              return (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  duration={entry.durationLabel}
+                  onClick={() => handleSelect(id)}
+                />
+              );
+            })}
           </div>
-        )}
+        </div>
       </div>
 
       <button
@@ -153,8 +158,14 @@ export const PrepareForRest = () => {
           already "Evening Wind-down", no navigation needed for a return
           path. Continue/advanceStep() above are entirely unaffected. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </EveningSceneShell>
   );
 };

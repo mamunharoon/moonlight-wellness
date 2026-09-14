@@ -28,14 +28,22 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
  */
 export const EveningWindDown = () => {
   const navigate = useNavigate();
-  const { state, currentStep, startSession, advanceStep } = useSession();
+  const { state, currentStep, startSession, advanceStep, resetSession } = useSession();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
-    if (state.status === 'playing' && currentStep) {
+    if (state.status === 'playing' && state.sessionId === 'evening-wind-down' && currentStep) {
       navigate(currentStep.route ?? '/reflection');
       return;
+    }
+    // Back-navigation repair: START_SESSION rejects outright if a session
+    // is already 'playing' or 'interrupted' — including a stale, unrelated
+    // one (e.g. Rise & Reset left via the Leave-routine confirmation).
+    // Same guard as RoutineDetail.jsx's beginRiseAndReset and
+    // AlarmContext.jsx's own startSession('morning-routine') call.
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
     }
     startSession('evening-wind-down');
     advanceStep();
@@ -43,7 +51,7 @@ export const EveningWindDown = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'dusk' }}>
+    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-down</h1>

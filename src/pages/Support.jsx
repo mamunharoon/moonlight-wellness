@@ -1,11 +1,14 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { getCachedDurationMinutes } from '../lib/durationCache';
+import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 
 /*
  * Mobile navigation repair, Phase 3 — Support Hub ("Need a moment?")
@@ -44,13 +47,24 @@ import { BetaVideoModal } from '../components/BetaVideoModal';
  * feeling). "Choose Another" at the completion stage (SupportComplete.jsx)
  * returns to feeling selection, distinct from "Return Home".
  *
- * Access: video options open the existing BetaVideoModal exactly as
- * every other page does — get-beta-video-url requires a real signed-in
- * user, not beta_access, so no gate changed here. Guests can use either
- * mood's interactive option (Grounding, 60-Second Reset — no private
- * media involved) but a video option's Begin Exercise becomes a
- * "Sign in to play" prompt for a guest instead of attempting to open a
- * modal that would just fail server-side.
+ * Back navigation repair: the feeling-select view now has its own
+ * top-left BackButton (it had none before — the only way out was
+ * browser-back or the bottom nav, and this page is full-bleed with no
+ * bottom nav). The recommendation view keeps its own inline back button
+ * (local "return to feeling list" state, not a real navigation) since
+ * that is a genuinely different, correct "back" for that sub-view.
+ *
+ * Guest access repair: a video option's Begin Exercise now opens the
+ * shared SignInPromptDialog (Sign in / Create account / Not now)
+ * instead of a plain "Sign in to play" link. Sign in/Create account
+ * stash the tapped video id AND this exact mood+option combination in
+ * the return URL (`?mood=&option=`) so, after authenticating, this page
+ * restores the same recommendation and auto-opens the same video via
+ * `?openId=` — "return to the originally selected exercise and allow
+ * them to press Play," never auto-playing (Begin Exercise is still a
+ * separate, explicit tap inside the modal). Guests can still use either
+ * mood's interactive option (Grounding, 60-Second Reset) freely — no
+ * private media involved there.
  */
 const CARDS = [
   { id: 'anxious', icon: 'air', title: 'I feel anxious', description: 'A racing mind or a tight chest. Let’s slow it down together.' },
@@ -108,13 +122,38 @@ const MOOD_RECOMMENDATIONS = {
 export const Support = () => {
   const navigate = useNavigate();
   const { isGuest } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   // id of the mood currently showing its recommendation (Back returns to
   // the card list), or null for the normal card-list view.
-  const [activeMoodId, setActiveMoodId] = useState(null);
-  const [optionIndex, setOptionIndex] = useState(0);
+  const [activeMoodId, setActiveMoodId] = useState(() => {
+    const mood = searchParams.get('mood');
+    return mood && MOOD_RECOMMENDATIONS[mood] ? mood : null;
+  });
+  const [optionIndex, setOptionIndex] = useState(() => Number(searchParams.get('option')) || 0);
   // id of the specific video currently open in the modal, or null. Only
   // one modal is ever mounted, so only one option can ever be playing.
-  const [openVideoId, setOpenVideoId] = useState(null);
+  // Post-auth return trip: a matching openId (only meaningful once
+  // signed in — computed once, on mount, same reasoning as
+  // hooks/useProtectedVideo.js) auto-opens the video the user originally
+  // tapped, without auto-playing it (still requires its own Begin
+  // Exercise tap inside the modal).
+  const [openVideoId, setOpenVideoId] = useState(() => {
+    const openId = searchParams.get('openId');
+    return openId && !isGuest && getBetaVideoById(openId) ? openId : null;
+  });
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+
+  // Strips the now-consumed params so they can't re-trigger on a later
+  // re-render or a browser back/forward — touches only router state.
+  useEffect(() => {
+    if (!searchParams.get('openId')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('openId');
+    next.delete('mood');
+    next.delete('option');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mapping = activeMoodId ? MOOD_RECOMMENDATIONS[activeMoodId] : null;
   const option = mapping ? mapping.options[optionIndex % mapping.options.length] : null;
@@ -141,8 +180,23 @@ export const Support = () => {
       navigate(option.route);
       return;
     }
-    if (isGuest) return; // video Begin renders as a sign-in prompt for guests instead — see below
+    if (isGuest) {
+      setSignInPromptOpen(true);
+      return;
+    }
     setOpenVideoId(option.id);
+  };
+
+  const handleSignIn = () => {
+    setPendingContent({ id: option.id, returnPath: `/support?mood=${activeMoodId}&option=${optionIndex}` });
+    setSignInPromptOpen(false);
+    navigate('/auth');
+  };
+
+  const handleCreateAccount = () => {
+    setPendingContent({ id: option.id, returnPath: `/support?mood=${activeMoodId}&option=${optionIndex}` });
+    setSignInPromptOpen(false);
+    navigate('/auth?tab=signup');
   };
 
   // Closing the video (finished, or the user closed it early) is the
@@ -187,23 +241,14 @@ export const Support = () => {
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">{optionDescription}</p>
 
-              {option.kind === 'video' && isGuest ? (
-                <Link
-                  to="/auth"
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-                >
-                  <span>Sign in to play</span>
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleBegin}
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-                >
-                  <span>Begin Exercise</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleBegin}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                <span>Begin Exercise</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
 
               {mapping.options.length > 1 && (
                 <button
@@ -219,6 +264,10 @@ export const Support = () => {
         </div>
       ) : (
         <div className="flex-1 flex flex-col justify-center space-y-8 py-8">
+          <div className="flex items-center gap-3">
+            <BackButton fallback="/" />
+          </div>
+
           <div className="text-center space-y-2">
             <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">self_improvement</span>
             <h1 className="font-serif italic text-3xl text-on-surface">How are you feeling?</h1>
@@ -253,6 +302,12 @@ export const Support = () => {
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={handleVideoClose} />
       )}
+      <SignInPromptDialog
+        open={signInPromptOpen}
+        onSignIn={handleSignIn}
+        onCreateAccount={handleCreateAccount}
+        onDismiss={() => setSignInPromptOpen(false)}
+      />
     </EveningSceneShell>
   );
 };

@@ -2,10 +2,12 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BETA_VIDEO_MANIFEST, getBetaVideoById } from '../lib/betaVideoManifest';
+import { BETA_VIDEO_MANIFEST } from '../lib/betaVideoManifest';
 import { LIBRARY_CATEGORIES, getLibraryCategory } from '../lib/libraryCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -30,16 +32,16 @@ const CATEGORY_ICONS = {
  * entire manifest was /beta, gated behind profiles.beta_access and
  * framed as a QA catalogue. This page carries no beta framing (no "Beta"
  * badge, no betaAccess check) and is reached from the bottom nav, so any
- * signed-in normal user can find and play anything here.
+ * signed-in normal user can find and play anything here. It is a main
+ * bottom-nav destination, so it does not get a back arrow.
  *
- * Access: browsing (title/description/category) is open to everyone,
- * guests included — nothing here is private, it's just metadata already
- * in this bundle. Only pressing Play is gated: get-beta-video-url has
- * always required a real, non-anonymous signed-in user, so a guest's tap
- * is intercepted client-side with a "Sign in to play" prompt rather than
- * ever attempting to open the modal (which would just fail server-side
- * anyway) — the private bucket and short-lived signed URLs are entirely
- * unaffected either way.
+ * Guest access repair: every row stays visible AND tappable for guests
+ * (title/description/category — nothing private) — tapping one always
+ * responds immediately via useProtectedVideo/SignInPromptDialog instead
+ * of the previous silent no-op. Only pressing Play inside the opened
+ * modal is actually gated (get-beta-video-url requires a real signed-in
+ * user server-side regardless) — the private bucket and short-lived
+ * signed URLs are entirely unaffected either way.
  *
  * Duration: only SL01-SL08 have a spec-provided real duration
  * (durationLabel). Every other id shows "Guided video" until it has
@@ -52,7 +54,15 @@ export const Library = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = LIBRARY_CATEGORIES.find((c) => slugify(c) === searchParams.get('category')) || null;
   const [activeCategory, setActiveCategory] = useState(initialCategory);
-  const [openVideoId, setOpenVideoId] = useState(null);
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   const itemsByCategory = useMemo(() => {
     const grouped = {};
@@ -64,20 +74,17 @@ export const Library = () => {
   }, []);
 
   const visibleCategories = activeCategory ? [activeCategory] : LIBRARY_CATEGORIES;
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
 
   const handleSelectCategory = (category) => {
     setActiveCategory(category);
+    const next = new URLSearchParams(searchParams);
+    next.delete('openId');
     if (category) {
-      setSearchParams({ category: slugify(category) });
+      next.set('category', slugify(category));
     } else {
-      setSearchParams({});
+      next.delete('category');
     }
-  };
-
-  const handlePlay = (id) => {
-    if (isGuest) return; // guarded entirely client-side; guests never reach the sign-URL request
-    setOpenVideoId(id);
+    setSearchParams(next);
   };
 
   return (
@@ -96,7 +103,13 @@ export const Library = () => {
         </div>
       )}
 
-      {/* Category filter chips */}
+      {/* Category filter chips. Guest access + mobile repair: this row is
+          intentionally horizontally scrollable on its own (scroll-hide
+          keeps that scrollable but visually clean — see index.css, where
+          this previously-referenced-but-undefined class was actually
+          defined) — the fix for the document-level horizontal scrollbar
+          this used to cause lives one level up, in Layout.jsx's content
+          container (`overflow-x-hidden`), not here. */}
       <div className="flex gap-2 overflow-x-auto scroll-hide -mx-4 px-4 pb-1">
         <button
           type="button"
@@ -140,7 +153,7 @@ export const Library = () => {
                     <button
                       key={entry.id}
                       type="button"
-                      onClick={() => handlePlay(entry.id)}
+                      onClick={() => handleSelect(entry.id)}
                       className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 hover:bg-white/5 active:scale-[0.99] transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset min-h-[44px]"
                     >
                       <span className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
@@ -163,8 +176,15 @@ export const Library = () => {
       </div>
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

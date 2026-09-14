@@ -3,15 +3,16 @@ import React, { useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
 import { useAlarm } from '../context/AlarmContext';
-import { useSession } from '../context/SessionContext';
+import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 
 export const Layout = () => {
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
-  const { isRinging, journeyStep } = useAlarm();
-  // Stage 3C Group 3D Batch D: Session Engine navigation cutover. Only the
-  // two narrow values the forced-navigation effect below actually reads —
-  // not the whole context — per the approved dependency-review guidance.
-  const { state, currentStep } = useSession();
+  const { isRinging } = useAlarm();
+  // Back-navigation repair: activeRoute now comes from the shared
+  // useActiveRoutineStep hook (extracted from this exact effect) so this
+  // effect and BackButton's "leave this routine?" guard can never drift
+  // out of sync about what counts as an active session step.
+  const { activeRoute } = useActiveRoutineStep();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -46,37 +47,13 @@ export const Layout = () => {
       return;
     }
 
-    // List of active morning sub-routes. Temporarily retained as the
-    // fallback authority only (see sessionRoute below) — legacy retirement
-    // is a separate, not-yet-approved decision (docs/stage-3-workbook.md).
-    const stepPaths = {
-      alarm: '/alarm-trigger',
-      start: '/morning-start',
-      affirmation: '/affirmation',
-      stretch: '/morning-flow',
-      breathe: '/breathe',
-      intention: '/intention-setup',
-      complete: '/session-complete'
-    };
-
-    // Stage 3C Group 3D Batch D: dual-source route authority, temporary.
-    // The Session Engine wins whenever it is genuinely 'playing' — never
-    // for 'completed'/'skipped'/'idle', so a persisted-but-inactive runtime
-    // never forces a route. journeyStep/stepPaths remains a fallback for
-    // rollback safety, and is what still governs when no session is
-    // playing (e.g. mid-migration, or if the Session Engine mirror for a
-    // given page were ever disabled).
-    const sessionRoute = state.status === 'playing' ? currentStep?.route ?? null : null;
-    const legacyRoute = journeyStep ? stepPaths[journeyStep] ?? null : null;
-    const activePath = sessionRoute ?? legacyRoute;
-
-    if (activePath && lastForcedPathRef.current !== activePath) {
-      lastForcedPathRef.current = activePath;
-      if (location.pathname !== activePath) {
-        navigate(activePath);
+    if (activeRoute && lastForcedPathRef.current !== activeRoute) {
+      lastForcedPathRef.current = activeRoute;
+      if (location.pathname !== activeRoute) {
+        navigate(activeRoute);
       }
     }
-  }, [isRinging, journeyStep, state.status, currentStep, navigate]);
+  }, [isRinging, activeRoute, navigate]);
 
   const navItems = [
     { label: 'Home', path: '/', icon: 'home_health' },
@@ -126,8 +103,16 @@ export const Layout = () => {
         {/* Dynamic Route Content. Bottom padding clears the taller
             (72px) nav bar plus the iOS home-indicator safe area, so the
             last card/button on any page is never hidden behind either —
-            see index.html's viewport-fit=cover, added alongside this. */}
-        <div className="flex-1 min-h-0 overflow-y-auto scroll-hide pt-4 px-4" style={{ paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))' }}>
+            see index.html's viewport-fit=cover, added alongside this.
+            Guest access repair: overflow-x-hidden added here — Library's
+            category-chip row uses a full-bleed `-mx-4` + `overflow-x-auto`
+            technique (intentionally horizontally scrollable, on its own),
+            but this outer container only ever constrained the Y axis, so
+            that row's own scrollWidth was free to push the whole page
+            wider than the viewport and produce a visible document-level
+            horizontal scrollbar. This clips at the container instead,
+            without touching the chip row's own internal scrolling. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide pt-4 px-4" style={{ paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))' }}>
           <Outlet />
         </div>
 

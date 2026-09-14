@@ -22,7 +22,7 @@ export const PanicMode = () => {
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">self_improvement</span>
         <h1 className="font-serif italic text-3xl text-on-surface leading-snug">

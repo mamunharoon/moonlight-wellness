@@ -1,13 +1,16 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingRing } from '../components/BreathingRing';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E08
@@ -48,13 +51,19 @@ export const Breathe = () => {
   // Complete/Continue, Skip Breathing). See mirrorBreathingExitRef below.
   // Pause/resume deliberately never calls interruptSession()/resumeSession()
   // — it only ever toggles the pre-existing local isPaused state.
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
   if (BreathingRing && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
@@ -121,8 +130,17 @@ export const Breathe = () => {
     mirrorBreathingExitRef.current();
   };
 
+  const handleExitRoutine = () => {
+    setJourneyStep('');
+    navigate('/');
+    if (state.status === 'playing' && currentStep?.id === 'breathe') abandonSession();
+  };
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/morning-flow" />
+      </div>
       <ProgressIndicator activeStep="breathe" />
 
       <div className="text-center space-y-2">
@@ -142,7 +160,7 @@ export const Breathe = () => {
         </span>
       </div>
 
-      {!isGuest && BREATHE_VIDEOS.map(({ id, blurb }) => {
+      {BREATHE_VIDEOS.map(({ id, blurb }) => {
         const entry = getBetaVideoById(id);
         if (!entry) return null;
         return (
@@ -150,28 +168,26 @@ export const Breathe = () => {
             key={id}
             title={entry.title}
             description={blurb}
-            onClick={() => setOpenVideoId(id)}
+            onClick={() => handleSelect(id)}
           />
         );
       })}
 
-      {!isGuest && (
-        <div className="space-y-3">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
-          {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => setOpenVideoId(id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-3">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+        {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => handleSelect(id)}
+            />
+          );
+        })}
+      </div>
 
       {/* Controls */}
       <div className="space-y-3 w-full">
@@ -195,7 +211,13 @@ export const Breathe = () => {
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
         >
-          Skip Breathing
+          Skip this step
+        </button>
+        <button
+          onClick={handleExitRoutine}
+          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+        >
+          Exit routine
         </button>
       </div>
 
@@ -205,8 +227,14 @@ export const Breathe = () => {
           open (the countdown keeps running in the background, exactly as
           it already does behind any other interruption on this screen). */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

@@ -80,7 +80,7 @@ export const EveningBreathing = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude">
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" />
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">

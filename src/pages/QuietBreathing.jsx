@@ -61,7 +61,7 @@ export const QuietBreathing = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           Just breathe. There is nowhere else to be.

@@ -34,7 +34,7 @@ export const StressRelease = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
       <div className="flex-1 flex flex-col justify-center">
         <div className="glass-panel rounded-3xl p-6">
           <PromptStepper prompts={STRESS_PROMPTS} onComplete={handleComplete} />

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { consumePendingContent } from '../lib/pendingContent';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -44,6 +45,25 @@ export const Auth = () => {
     setMessage('');
   };
 
+  // Guest access repair: if this sign-in/sign-up was reached via a
+  // locked-content sign-in prompt (Library, Support, Prepare for Rest,
+  // any contextual exercise row), return the user to that exact page
+  // with the tapped item ready to open — see lib/pendingContent.js and
+  // hooks/useProtectedVideo.js. Otherwise, unchanged existing behaviour.
+  const redirectAfterAuth = () => {
+    const pending = consumePendingContent();
+    if (pending) {
+      if (!pending.id) {
+        navigate(pending.returnPath);
+        return;
+      }
+      const separator = pending.returnPath.includes('?') ? '&' : '?';
+      navigate(`${pending.returnPath}${separator}openId=${encodeURIComponent(pending.id)}`);
+      return;
+    }
+    navigate('/profile');
+  };
+
   const handleSignIn = async (e) => {
     e.preventDefault();
     if (isSubmitting || !supabase) return;
@@ -68,7 +88,7 @@ export const Auth = () => {
       return;
     }
 
-    navigate('/profile');
+    redirectAfterAuth();
   };
 
   const handleSignUp = async (e) => {
@@ -122,7 +142,7 @@ export const Auth = () => {
       return;
     }
 
-    navigate('/profile');
+    redirectAfterAuth();
   };
 
   const handleForgotPassword = async (e) => {

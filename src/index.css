@@ -53,3 +53,17 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* Guest access repair: `scroll-hide` was already applied in Layout.jsx's
+   main content container and Library.jsx's category-chip row, but was
+   never actually defined anywhere — a no-op class, so native scrollbars
+   were never hidden despite the intent. Defined here so both existing
+   usages start working: touch/wheel scrolling is fully preserved, only
+   the visible scrollbar chrome is hidden. */
+.scroll-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}

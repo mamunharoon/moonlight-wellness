@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+/* eslint-disable no-unused-vars */
 import { CONTACT_INFO } from '../lib/legalContent';
+import { BackButton } from './BackButton';
 
 /*
  * WakeWise — Legal & Release Preparation, Phase 1 — LegalLayout
@@ -23,18 +24,10 @@ const bodyTextClass = 'text-sm text-on-surface-variant leading-relaxed';
 const listItemClass = 'text-sm text-on-surface-variant leading-relaxed pl-4 relative before:content-["\\2022"] before:absolute before:left-0 before:text-primary';
 
 export const LegalLayout = ({ title, lastUpdated, isLegal, sections, backTo = '/settings' }) => {
-  const navigate = useNavigate();
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(backTo)}
-          aria-label="Back to Settings"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback={backTo} />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">{title}</h2>
       </div>
 

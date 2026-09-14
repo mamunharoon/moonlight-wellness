@@ -1,7 +1,9 @@
-﻿import { useState, useEffect } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
+import { BackButton } from '../components/BackButton';
 
 const JOURNAL_KEY = 'moonlight_journal_entries';
 const MAX_BODY_LENGTH = 500;
@@ -118,6 +120,9 @@ export const Journal = () => {
 
   return (
     <div className="space-y-8">
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/" />
+      </div>
       <section className="space-y-3">
         <span className="font-label-md text-xs text-primary uppercase tracking-widest font-bold">Today's Affirmation</span>
         <h2 className="text-2xl md:text-3xl italic font-serif text-primary-fixed-dim leading-snug max-w-3xl">

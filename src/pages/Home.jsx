@@ -11,8 +11,8 @@ import { useSession } from '../context/SessionContext';
 // sessionRegistry: this is just display copy for the two sessions that
 // exist today, not a general-purpose session lookup.
 const SESSION_LABELS = {
-  'morning-routine': 'Morning Awakening',
-  'evening-wind-down': 'Evening Wind-down'
+  'morning-routine': 'Rise & Reset',
+  'evening-wind-down': 'Begin Wind-Down'
 };
 
 export const Home = () => {

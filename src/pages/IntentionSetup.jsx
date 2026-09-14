@@ -1,11 +1,14 @@
-﻿import { useState } from 'react';
+﻿/* eslint-disable no-unused-vars */
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
-import { useAuth } from '../context/AuthContext';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 import { supabase } from '../lib/supabaseClient';
 
 // F01-F03: a "Focus Sessions" collection - this page is the app's own
@@ -24,12 +27,18 @@ export const IntentionSetup = () => {
   const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
   // Stage 3C Group 3D Batch C: mirrors the intention -> complete transition
   // into the Session Engine. See handleComplete below.
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const { isGuest } = useAuth();
-  const [openVideoId, setOpenVideoId] = useState(null);
-  const openVideo = openVideoId ? getBetaVideoById(openVideoId) : null;
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo();
 
   if (BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -100,9 +109,18 @@ export const IntentionSetup = () => {
     navigate('/session-complete');
   };
 
+  const handleExitRoutine = () => {
+    setJourneyStep('');
+    navigate('/');
+    if (state.status === 'playing' && currentStep?.id === 'intention') abandonSession();
+  };
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-8 select-none">
-      
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/breathe" />
+      </div>
+
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
@@ -150,39 +168,58 @@ export const IntentionSetup = () => {
         </button>
       </div>
 
-      {!isGuest && (
-        <div className="space-y-3">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Focus Sessions</h3>
-          {FOCUS_SESSION_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => setOpenVideoId(id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-3">
+        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Focus Sessions</h3>
+        {FOCUS_SESSION_VIDEOS.map(({ id, blurb }) => {
+          const entry = getBetaVideoById(id);
+          if (!entry) return null;
+          return (
+            <BetaVideoRow
+              key={id}
+              title={entry.title}
+              description={blurb}
+              onClick={() => handleSelect(id)}
+            />
+          );
+        })}
+      </div>
 
-      <button
-        onClick={handleComplete}
-        disabled={isSaving}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-      >
-        <span>{isSaving ? 'Saving...' : 'Start Your Journey'}</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
+      <div className="space-y-3 w-full">
+        <button
+          onClick={handleComplete}
+          disabled={isSaving}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span>{isSaving ? 'Saving...' : 'Start Your Journey'}</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+        <button
+          onClick={handleComplete}
+          disabled={isSaving}
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        >
+          Skip this step
+        </button>
+        <button
+          onClick={handleExitRoutine}
+          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+        >
+          Exit routine
+        </button>
+      </div>
 
       {/* Closing this leaves the user right here on Set Your Intention -
           no navigation needed for a return path. Start Your Journey above
           is entirely unaffected by whether this is open. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={() => setOpenVideoId(null)} />
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

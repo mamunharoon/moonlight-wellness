@@ -35,7 +35,7 @@ export const EveningComplete = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">bedtime</span>
         <h1 className="font-serif italic text-3xl text-on-surface">You have done enough for today.</h1>
