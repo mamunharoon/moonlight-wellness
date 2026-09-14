@@ -9,14 +9,31 @@ export const Onboarding = () => {
   const [step, setStep] = useState(1);
   const [localAlarm, setLocalAlarm] = useState('07:30');
   const [localBed, setLocalBed] = useState('22:00');
-  // Global timezone correctness: detected once via Intl (no GPS
-  // permission), shown for explicit accept/correction - defaults to the
-  // user's already-effective timezone if this is a re-run of onboarding
-  // (e.g. from Profile), so re-onboarding never silently resets an
-  // already-confirmed choice.
-  const [localTimezone, setLocalTimezone] = useState(effectiveTimezone || detectDeviceTimezone);
-  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
   const detectedTimezone = detectDeviceTimezone();
+  // Global timezone correctness: detected via Intl (no GPS permission),
+  // shown for explicit accept/correction.
+  //
+  // Product Journey Closure fix: this used to be `useState(effectiveTimezone
+  // || detectDeviceTimezone)`, snapshotting effectiveTimezone once at
+  // mount. For a registered user, effectiveTimezone starts out null on
+  // every fresh mount (AlarmContext resets it before its async Supabase
+  // fetch resolves - see AlarmContext.jsx's own syncRhythm effect), so
+  // that snapshot could capture the device-detected default instead of
+  // the real saved zone if this page rendered before the fetch settled.
+  // Confirmed live: revisiting Onboarding (e.g. from Profile's Wake time
+  // row) showed the device zone instead of the real saved one, and
+  // clicking through without noticing would have silently overwritten a
+  // correctly-saved non-default timezone.
+  //
+  // Fixed by deriving instead of syncing: timezoneOverride holds only the
+  // user's own explicit in-page choice (null until they touch the
+  // picker), and localTimezone is computed from it each render - so it
+  // always reflects the latest effectiveTimezone once that resolves,
+  // with no effect needed to keep it in sync.
+  const [timezoneOverride, setTimezoneOverride] = useState(null);
+  const localTimezone = timezoneOverride ?? effectiveTimezone ?? detectedTimezone;
+  const setLocalTimezone = setTimezoneOverride;
+  const [showTimezonePicker, setShowTimezonePicker] = useState(false);
 
   const intentOptions = [
     { id: 'Anxiety', label: 'Reduce Anxiety', desc: 'Calm your nervous system with rhythmic patterns.', icon: 'air' },
