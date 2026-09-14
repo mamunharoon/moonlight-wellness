@@ -2,14 +2,17 @@
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
+import { getStepIndex } from '../session/sessionRegistry';
+import { MORNING_STEP_IDS } from '../session/sessionConstants';
 
 export const AlarmActive = () => {
   const { snooze, dismissAlarm, alarmTime, setJourneyStep } = useAlarm();
-  // Stage 3C Group 3D Cycle 1: a new, standalone line — mirrors the
-  // successful-unlock transition into the Session Engine. See handleUnlock
-  // below for the only place any of this is used; snooze/dismissAlarm are
-  // untouched and never consume this.
-  const { state, currentStep, advanceStep, abandonSession } = useSession();
+  // Close Remaining Daily-Journey Limitations: the alarm/reminder firing
+  // (AlarmContext.jsx's checkTime()) never creates or starts a session
+  // itself anymore - this screen's three choices are the only places a
+  // morning session can be started, reset, or left alone. See
+  // handleUnlock, handleSnooze and handleSkipMorning below.
+  const { state, startSession, resetSession } = useSession();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
   const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00 AM');
@@ -49,23 +52,23 @@ export const AlarmActive = () => {
     setJourneyStep('start');
     navigate('/morning-start');
 
-    // Stage 3C Group 3D Cycle 1: mirror the alarm -> start transition into
-    // the Session Engine. Guarded by a one-shot ref so rapid mousemove
-    // events within a single unlock gesture cannot call advanceStep() more
-    // than once (see hasMirroredUnlockRef above). The status/currentStep
-    // check additionally ensures this only fires when the mirror is
-    // genuinely at the 'alarm' step of a playing session — a direct
-    // /alarm-trigger visit with no active session, or a mismatched mirror,
-    // silently does nothing here and never affects the legacy behaviour
-    // above.
+    // Begin Rise & Reset: the one and only place a morning session is
+    // created. Guarded by a one-shot ref so rapid mousemove events within
+    // a single unlock gesture cannot call startSession() more than once
+    // (see hasMirroredUnlockRef above). Clears any stale/incompatible
+    // session first — same reset-before-start guard already used by
+    // RoutineDetail.jsx's beginRiseAndReset and EveningWindDown.jsx's
+    // handleBegin — then starts fresh at Step 1, so the START_SESSION
+    // guard in sessionReducer.js never silently rejects this.
     if (!hasMirroredUnlockRef.current) {
       hasMirroredUnlockRef.current = true;
 
-      if (state.status === 'playing' && currentStep?.id === 'alarm') {
-        advanceStep();
+      if (state.status === 'playing' || state.status === 'interrupted') {
+        resetSession();
       }
+      startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
     }
-  }, [dismissAlarm, navigate, setJourneyStep, state.status, currentStep, advanceStep]);
+  }, [dismissAlarm, navigate, setJourneyStep, state.status, resetSession, startSession]);
 
   const handleMove = useCallback((clientX) => {
     if (!isDragging.current) return;
@@ -78,22 +81,25 @@ export const AlarmActive = () => {
     }
   }, [handleUnlock]);
 
-  // Alarm & wake-reminder foundation: the third of the three required
-  // choices (Begin Rise & Reset via slide-to-unlock above, Remind me
-  // shortly via snooze below, Skip this morning here) — previously only
-  // two existed. Dismisses the ringing state and abandons the
-  // auto-started Session Engine mirror (checkTime() in AlarmContext.jsx
-  // starts it the instant the alarm fires, before any of these three
-  // choices are made — see that file's own doc comment) so the day's
-  // routine cleanly reads as skipped rather than left dangling
-  // 'playing'/'interrupted', which would otherwise block a later
-  // Routines Hub "Start Routine" tap for either routine (see the
-  // START_SESSION guard in session/sessionReducer.js).
+  // Remind me shortly: never creates or starts a session — reschedules
+  // the foreground reminder (snooze() in AlarmContext.jsx) and explicitly
+  // returns to Today, since this screen doesn't otherwise navigate away
+  // once isRinging turns false.
+  const handleSnooze = () => {
+    snooze();
+    navigate('/');
+  };
+
+  // Skip this morning: the third of the three required choices. Never
+  // starts a routine. Clears the alarm/reminder state and defensively
+  // ensures no morning session remains active (harmless no-op in the
+  // normal case, since nothing starts a session before this point
+  // anymore) before returning to Today — no navigation is forced later.
   const handleSkipMorning = () => {
     dismissAlarm();
     setJourneyStep('');
-    if (state.status === 'playing' && currentStep?.id === 'alarm') {
-      abandonSession();
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
     }
     navigate('/');
   };
@@ -202,7 +208,7 @@ export const AlarmActive = () => {
         </div>
 
         <button
-          onClick={snooze}
+          onClick={handleSnooze}
           className="text-[10px] text-[#5c3d2e]/70 font-semibold uppercase tracking-wider flex items-center gap-2 mx-auto hover:text-[#954835] active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined text-sm">bedtime</span> Remind me shortly

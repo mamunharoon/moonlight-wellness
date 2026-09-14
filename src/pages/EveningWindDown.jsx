@@ -28,12 +28,25 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
  */
 export const EveningWindDown = () => {
   const navigate = useNavigate();
-  const { state, currentStep, startSession, advanceStep, resetSession } = useSession();
+  const { state, currentStep, startSession, advanceStep, resetSession, resumeSession } = useSession();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
     if (state.status === 'playing' && state.sessionId === 'evening-wind-down' && currentStep) {
+      navigate(currentStep.route ?? '/reflection');
+      return;
+    }
+
+    // Close Remaining Daily-Journey Limitations: an 'interrupted' session
+    // for THIS SAME routine (e.g. left via BackButton's "Leave routine")
+    // must be resumed at its own paused step, not reset and restarted
+    // from Step 1 — that was silently discarding real progress (and
+    // Home.jsx's "Continue Wind-Down" landed here expecting exactly this
+    // resume). A stale/incompatible session (any other sessionId) still
+    // falls through to the reset-before-start guard below, unchanged.
+    if (state.status === 'interrupted' && state.sessionId === 'evening-wind-down' && currentStep) {
+      resumeSession();
       navigate(currentStep.route ?? '/reflection');
       return;
     }

@@ -59,7 +59,7 @@ export const AlarmProvider = ({ children }) => {
   // Stage 3C Group 3B2: a new, standalone line — does not modify the
   // protected useAuth() destructure above. See the Background Clock
   // Observer below for the only place this is actually used.
-  const { state: sessionState, startSession, resetSession, interruptSession } = useSession();
+  const { state: sessionState, resetSession } = useSession();
   const userId = user && !user.is_anonymous ? user.id : null;
   const [alarmTime, setAlarmTime] = useState(() => {
     return localStorage.getItem('moonlight_wake_up_time') || '07:30';
@@ -252,26 +252,20 @@ export const AlarmProvider = ({ children }) => {
           image: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=150'
         });
 
-        // Stage 3C Group 3B2: mirror the alarm-fire event into the Session
-        // Engine. journeyStep (above) remains the sole authoritative driver
-        // of navigation - this call only keeps the Session Engine's runtime
-        // state in step, per the approved Group 3B2 design. A leftover
-        // 'playing'/'interrupted' mirror (only possible today as a stale
-        // remnant from a prior day, since no production page yet completes
-        // or resets it - that is Group 3D scope) is reset before starting
-        // fresh, so a new alarm always produces a clean mirror rather than
-        // being silently rejected by the reducer's own already-approved
-        // START_SESSION guard (see src/session/sessionReducer.js).
-        if (sessionState.status === 'playing' || sessionState.status === 'interrupted') {
-          resetSession();
-        }
-        startSession('morning-routine');
+        // Close Remaining Daily-Journey Limitations: the alarm/reminder
+        // firing must only ever display AlarmActive - it must never create
+        // or start a Session Engine session itself. The user's explicit
+        // choice on that screen (Begin Rise & Reset / Snooze / Skip this
+        // morning) is now the sole place a morning session can start (see
+        // AlarmActive.jsx's handleUnlock). This intentionally removes the
+        // previous eager startSession('morning-routine') call that used to
+        // run here, ahead of any user choice.
       }
     };
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, startSession, resetSession]);
+  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
@@ -280,14 +274,15 @@ export const AlarmProvider = ({ children }) => {
     setIsRinging(false);
     setJourneyStep('');
 
-    // Stage 3C Group 3D Batch D snooze-alignment fix: mirror the snooze
-    // pause into the Session Engine so Layout's session-authoritative
-    // navigation (Batch D) doesn't force the user back to /alarm-trigger
-    // while snoozed. checkTime()'s existing 'playing' || 'interrupted'
-    // reset-then-start branch already handles resuming correctly on the
-    // next alarm fire - no other change needed.
-    if (sessionState.status === 'playing') {
-      interruptSession('snooze');
+    // Close Remaining Daily-Journey Limitations: the alarm/reminder no
+    // longer starts a session on fire, so there is nothing to interrupt
+    // here - Snooze never creates or touches a Session Engine session at
+    // all. Defensive reset kept only for the unlikely case a stale
+    // 'playing'/'interrupted' session survives from an unrelated flow, so
+    // Snooze can never leave the engine in a state that blocks the next
+    // alarm fire or a manually-started routine.
+    if (sessionState.status === 'playing' || sessionState.status === 'interrupted') {
+      resetSession();
     }
 
     const [hours, minutes] = alarmTime.split(':').map(Number);

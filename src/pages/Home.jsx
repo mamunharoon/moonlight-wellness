@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { MORNING_DISPLAY_STEP_NUMBERS, MORNING_DISPLAY_STEP_COUNT } from '../session/sessionConstants';
+import { MORNING_STEP_IDS } from '../session/sessionConstants';
+import { getStepIndex } from '../session/sessionRegistry';
+import { now as devNow } from '../lib/devClock';
 
 // Daily Journey & Content Architecture: friendly title/route for the
 // Session Engine's two sessions, so an in-progress routine can be
@@ -22,9 +25,9 @@ const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
 export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions } = useAlarm();
-  const { state, currentStep, resumeSession } = useSession();
+  const { state, currentStep, resumeSession, startSession, resetSession } = useSession();
 
-  const today = new Date().toDateString();
+  const today = devNow().toDateString();
   const isMorningDone = localStorage.getItem(MORNING_DONE_KEY) === today;
   const isEveningDone = localStorage.getItem(EVENING_DONE_KEY) === today;
 
@@ -35,7 +38,7 @@ export const Home = () => {
   // configured alarmTime (not a fixed clock band) per the required Today
   // experience — every other band stays the same fixed daypart split
   // this page already used.
-  const now = new Date();
+  const now = devNow();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const [alarmH, alarmM] = (alarmTime || '07:30').split(':').map(Number);
   const alarmMinutes = (alarmH || 0) * 60 + (alarmM || 0);
@@ -65,6 +68,24 @@ export const Home = () => {
   const handleContinueSession = () => {
     if (state.status === 'interrupted') resumeSession();
     navigate(currentStep.route);
+  };
+
+  // Close Remaining Daily-Journey Limitations: Today's own "Begin Rise &
+  // Reset" card used to be a bare Link straight to /morning-start, which
+  // is now just Step 1 of the routine (see MorningStart.jsx's own doc
+  // comment) and assumes the Session Engine was already started by
+  // whoever navigated here — a real entry point (RoutineDetail.jsx's own
+  // Start Routine) already does this, but Today's card didn't, so a
+  // routine begun from here never actually engaged the Session Engine
+  // (no step tracking, no resume, no "Continue where you left off").
+  // Mirrors RoutineDetail.jsx's beginRiseAndReset exactly: reset-before-
+  // start guard, then start fresh at Step 1.
+  const handleBeginRiseAndReset = () => {
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
+    }
+    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
+    navigate('/morning-start');
   };
 
   const morningStepNumber = isMorningActive ? MORNING_DISPLAY_STEP_NUMBERS[currentStep?.id] : null;
@@ -172,9 +193,13 @@ export const Home = () => {
               <h3 className="text-2xl font-bold leading-tight text-on-surface">Ready when you are</h3>
               <p className="text-sm text-on-surface-variant font-medium">A short 5-step sequence to start your day grounded.</p>
             </div>
-            <Link to="/morning-start" className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10">
+            <button
+              type="button"
+              onClick={handleBeginRiseAndReset}
+              className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+            >
               Begin Rise &amp; Reset
-            </Link>
+            </button>
           </div>
         </div>
       )}
@@ -230,9 +255,19 @@ export const Home = () => {
                   {isEveningActive ? 'Continue your wind-down' : 'What are you grateful for today?'}
                 </h3>
               </div>
-              <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
-                {isEveningActive ? 'Continue Wind-Down' : 'Begin Wind-Down'}
-              </Link>
+              {isEveningActive ? (
+                <button
+                  type="button"
+                  onClick={handleContinueSession}
+                  className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                >
+                  Continue Wind-Down
+                </button>
+              ) : (
+                <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
+                  Begin Wind-Down
+                </Link>
+              )}
               <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
                 Sleep Soundscapes
               </Link>
