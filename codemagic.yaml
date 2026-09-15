@@ -27,12 +27,23 @@ workflows:
     environment:
       # Verify this Xcode version is still offered in Codemagic's current
       # Xcode-version list at setup time (Codemagic periodically retires
-      # old images) — 16.4 is a Capacitor-7-compatible Xcode 16.x release
-      # (Capacitor 7 requires Xcode >= 16.0) picked deliberately rather
-      # than an unpinned "latest", which could jump to an untested major
-      # version between builds. Adjust the value here, not by leaving it
-      # unpinned, if it needs to change.
-      xcode: 16.4
+      # old images) — see https://docs.codemagic.io/specs/versions-macos/
+      # for what's currently available. 26.6 is Codemagic's current
+      # default macOS image (confirmed via Codemagic's docs as of this
+      # commit) and satisfies Apple's App Store Connect upload
+      # requirement (error 19241) that, from April 28, 2026, every
+      # iOS/iPadOS submission be built with Xcode 26+ against the iOS 26
+      # SDK: a prior pin at Xcode 16.4 (bundling the iOS 18.5 SDK) was
+      # rejected by Apple's validation with exactly that error. Capacitor
+      # (7.6.9 here) is fully forward-compatible with Xcode 26/iOS 26 --
+      # this is purely a build-toolchain requirement, not a Capacitor or
+      # app-code change, so the iOS deployment target
+      # (ios/App/Podfile's `platform :ios, '14.0'`) is deliberately left
+      # untouched. Picked as an explicit stable minor-version pin rather
+      # than an unpinned "latest" or "edge", which could jump to an
+      # untested release between builds. Adjust the value here, not by
+      # leaving it unpinned, if it needs to change.
+      xcode: 26.6
       cocoapods: default
       node: 20.18.1
       vars:

@@ -10,6 +10,15 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
 — every build is a deliberate "Start new build," started by you, with
 `dev` picked by hand each time.
 
+**Minimum build toolchain:** Xcode 26.0 or later, building against the
+iOS 26 SDK — this is Apple's own App Store Connect requirement for
+every iOS/iPadOS submission from April 28, 2026 onward (a build made
+with an older Xcode/SDK is rejected at upload with error 19241).
+`codemagic.yaml` currently pins `xcode: 26.6`, Codemagic's default
+macOS image as of this commit; see "Xcode-version mismatch" and "App
+Store Connect rejects the upload with error 19241" in Troubleshooting
+below before ever pinning back below Xcode 26.
+
 ## 1–4. Connect Codemagic to this repository
 
 1. Create or sign in to a Codemagic account at codemagic.io (an
@@ -260,13 +269,28 @@ in `codemagic.yaml` matters). If it persists, the CocoaPods cache
 can be cleared by disabling caching for one build via Codemagic's UI.
 
 **Xcode-version mismatch** — build tools complain about an unsupported
-Xcode version, or Codemagic can't find `xcode: 16.4`: Codemagic
+Xcode version, or Codemagic can't find `xcode: 26.6`: Codemagic
 periodically retires old Xcode images. Check Codemagic's current
 [supported Xcode
-versions](https://docs.codemagic.io/specs/versions/) list and update
-the `xcode:` value in `codemagic.yaml` to another 16.x release — do not
-jump to an unpinned "latest," which risks landing on an untested major
-version.
+versions](https://docs.codemagic.io/specs/versions-macos/) list and
+update the `xcode:` value in `codemagic.yaml` to another Xcode 26.x
+release — do not jump to an unpinned "latest" or "edge," which risks
+landing on an untested release, and do not drop back below Xcode 26 (see
+"App Store Connect rejects the upload with error 19241" below for why).
+
+**App Store Connect rejects the upload with error 19241** — publishing
+fails with "This app was built with the iOS `<N>` SDK. All iOS and
+iPadOS apps must be built with the iOS 26 SDK or later, included in
+Xcode 26 or later.": from April 28, 2026, Apple requires every
+iOS/iPadOS App Store submission to be built with Xcode 26+ against the
+iOS 26 SDK. `codemagic.yaml`'s `xcode:` value must stay pinned to a
+stable Xcode 26.x (or later) release — currently `26.6`, Codemagic's
+default macOS image as of this commit — never something below Xcode
+26. This is purely a build-toolchain requirement: Capacitor (7.6.9 as
+of this commit) is fully compatible with Xcode 26/iOS 26 with no code
+or dependency changes, and the iOS deployment target
+(`ios/App/Podfile`'s `platform :ios, '14.0'`) does not need to change
+just because the build SDK did.
 
 **Signing certificate/profile failure** — automatic signing errors
 (e.g. "No signing certificate found," "profile doesn't match
