@@ -6,20 +6,19 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BackButton } from '../components/BackButton';
 
 /*
- * Daily Journey & Content Architecture — Privacy and Account
+ * Safe Account Management — Privacy and Account
  *
- * Account deletion moves here, out of Profile's main row list — the
- * required Profile organisation keeps it reachable only via
- * Profile -> Privacy and Account -> Delete my account, not prominently
- * on the main screen. Reuses the exact same acknowledge-only
- * ConfirmDialog ("Account deletion will be available soon.") Profile.jsx
- * already used — deletion itself is still out of scope this batch, only
- * its placement changes.
+ * Owner decision: account deletion must not be prominent here. This
+ * screen no longer has its own red "Delete my account" row at all — the
+ * only account-management entry point is the calm "Account management"
+ * row below, which leads to /profile/account-management. Deletion itself
+ * lives one screen further in, as "Request account deletion" (see
+ * DeleteAccount.jsx) — never a single tap away from this list.
  */
 export const PrivacyAndAccount = () => {
   const navigate = useNavigate();
   const { user, isGuest, signOut } = useAuth();
-  const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | 'delete-account' | null
+  const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | null
 
   const handleSignOut = async () => {
     setActiveDialog(null);
@@ -79,11 +78,15 @@ export const PrivacyAndAccount = () => {
         )}
 
         {!isGuest && (
-          <button onClick={() => setActiveDialog('delete-account')} className={rowClass}>
-            <span className="flex items-center gap-3 text-sm font-semibold text-red-400">
-              <span className="material-symbols-outlined text-red-400 text-xl">delete_forever</span>
-              Delete my account
+          <button onClick={() => navigate('/profile/account-management')} className={rowClass}>
+            <span className="flex items-start gap-3 text-left">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl mt-0.5">manage_accounts</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold text-on-surface">Account management</span>
+                <span className="text-xs text-on-surface-variant">Manage your account, subscription and personal data</span>
+              </span>
             </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant shrink-0">chevron_right</span>
           </button>
         )}
       </div>
@@ -96,14 +99,6 @@ export const PrivacyAndAccount = () => {
         cancelLabel="Cancel"
         destructive
         onConfirm={handleSignOut}
-        onDismiss={() => setActiveDialog(null)}
-      />
-
-      <ConfirmDialog
-        open={activeDialog === 'delete-account'}
-        title="Delete account"
-        message="Account deletion will be available soon."
-        cancelLabel="Got it"
         onDismiss={() => setActiveDialog(null)}
       />
     </div>

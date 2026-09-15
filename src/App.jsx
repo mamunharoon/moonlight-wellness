@@ -33,6 +33,8 @@ const AlarmActive = lazy(() => import('./pages/AlarmActive').then((m) => ({ defa
 const MorningFlow = lazy(() => import('./pages/MorningFlow').then((m) => ({ default: m.MorningFlow })));
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
 const PrivacyAndAccount = lazy(() => import('./pages/PrivacyAndAccount').then((m) => ({ default: m.PrivacyAndAccount })));
+const AccountManagement = lazy(() => import('./pages/AccountManagement').then((m) => ({ default: m.AccountManagement })));
+const DeleteAccount = lazy(() => import('./pages/DeleteAccount').then((m) => ({ default: m.DeleteAccount })));
 const Routines = lazy(() => import('./pages/Routines').then((m) => ({ default: m.Routines })));
 const RoutineDetail = lazy(() => import('./pages/RoutineDetail').then((m) => ({ default: m.RoutineDetail })));
 const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
@@ -227,6 +229,12 @@ function App() {
                   <Route path="journey" element={withFallback(<Journey />)} />
                   <Route path="profile" element={withFallback(<Profile />)} />
                   <Route path="profile/privacy-account" element={withFallback(<PrivacyAndAccount />)} />
+                  {/* Safe Account Management and Account Deletion: reached only
+                      via Profile -> Privacy and Account -> Account management
+                      -> Request account deletion — never a bottom-nav tab, never
+                      a shortcut from anywhere else. */}
+                  <Route path="profile/account-management" element={withFallback(<AccountManagement />)} />
+                  <Route path="profile/delete-account" element={withFallback(<DeleteAccount />)} />
 
                   {/* Secondary pages */}
                   <Route path="breathe" element={withFallback(<Breathe />)} />

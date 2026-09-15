@@ -27,7 +27,7 @@ const BUILD_NUMBER = '1';
 export const Settings = () => {
   const navigate = useNavigate();
   const { user, isGuest, signOut } = useAuth();
-  const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | 'delete-account' | null
+  const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | null
   const [reducedMotion, setReducedMotionState] = useState(getReducedMotionPreference);
 
   if (ConfirmDialog && Link) { /* no-op to satisfy blind linter */ }
@@ -93,13 +93,6 @@ export const Settings = () => {
                 <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
                   <span className="material-symbols-outlined text-on-surface-variant text-xl">logout</span>
                   Sign out
-                </span>
-              </button>
-
-              <button onClick={() => setActiveDialog('delete-account')} className={rowClass}>
-                <span className="flex items-center gap-3 text-sm font-semibold text-red-400">
-                  <span className="material-symbols-outlined text-red-400 text-xl">delete_forever</span>
-                  Delete account
                 </span>
               </button>
             </>
@@ -298,14 +291,6 @@ export const Settings = () => {
         cancelLabel="Cancel"
         destructive
         onConfirm={handleSignOut}
-        onDismiss={() => setActiveDialog(null)}
-      />
-
-      <ConfirmDialog
-        open={activeDialog === 'delete-account'}
-        title="Delete account"
-        message="Account deletion will be available soon."
-        cancelLabel="Got it"
         onDismiss={() => setActiveDialog(null)}
       />
     </div>
