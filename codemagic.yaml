@@ -13,11 +13,11 @@
 # No credential of any kind belongs in this file. Every signing/App Store
 # Connect value below is a *name* of something configured in Codemagic's
 # own encrypted storage (an Integration, or an application-level
-# Environment variable referenced only by name at build time, never by
-# value here) — see docs/codemagic-setup-guide.md for exactly what to
-# create and where. Do not replace any of the names below with a real
-# key, token, or .p8 file content "to make it work" — that value goes
-# into Codemagic's UI, never into this repository.
+# Environment variable group referenced only by name at build time,
+# never by value here) — see docs/codemagic-setup-guide.md for exactly
+# what to create and where. Do not replace any of the names below with a
+# real key, token, or .p8 file content "to make it work" — that value
+# goes into Codemagic's UI, never into this repository.
 
 workflows:
   wakewise-ios-testflight:
@@ -38,18 +38,20 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-      # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are NOT referenced
-      # here as a `groups:` entry. Personal (non-Team) Codemagic accounts
-      # can no longer create named environment-variable groups -- global
-      # variables/groups are being phased out for personal accounts. On a
-      # personal account, add both variables directly under this app's
-      # Application -> Environment variables in the Codemagic dashboard
-      # (see docs/codemagic-setup-guide.md); Codemagic injects
-      # application-level variables into every workflow's build
-      # environment automatically, so no reference is needed here. The
-      # "Verify required build-time env vars" script below fails the
-      # build early, before any of it, if either is missing or empty --
-      # see that step for why the check exists.
+      groups:
+        # wakewise_vite_public is an APPLICATION-level environment
+        # variable group, created under this app's own
+        # Application -> Environment variables in Codemagic (not the
+        # deprecated Teams/Personal-account-wide global variable area,
+        # which no longer supports creating named groups on a personal
+        # account). Holds only VITE_SUPABASE_URL and
+        # VITE_SUPABASE_ANON_KEY, both marked Secret -- the same public,
+        # RLS-protected anon-key pair already compiled into every
+        # WakeWise web/preview build; safe to bundle client-side, never
+        # a genuine secret. Do NOT add a service-role key, Stripe
+        # secret, or anything else to this group. See
+        # docs/codemagic-setup-guide.md for exactly how it was created.
+        - wakewise_vite_public
       ios_signing:
         # Automatic signing: Codemagic provisions/renews the Apple
         # Distribution certificate and App Store provisioning profile
@@ -76,10 +78,11 @@ workflows:
         script: |
           set -uo pipefail
           # Confirms VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY were
-          # actually supplied by Codemagic's Application -> Environment
-          # variables before npm ci/build/signing ever run. Values are
-          # never printed -- only the name of a missing variable, so
-          # nothing sensitive reaches the build log even on failure.
+          # actually supplied via the wakewise_vite_public
+          # application-level group (environment.groups, above) before
+          # npm ci/build/signing ever run. Values are never printed --
+          # only the name of a missing variable, so nothing sensitive
+          # reaches the build log even on failure.
           missing=0
           for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
             if [ -z "${!var_name:-}" ]; then
@@ -88,7 +91,7 @@ workflows:
             fi
           done
           if [ "$missing" -eq 1 ]; then
-            echo "One or more required environment variables are unset. Add them under Application -> Environment variables in Codemagic (see docs/codemagic-setup-guide.md) and re-run the build."
+            echo "One or more required environment variables are unset. Confirm they're present in the wakewise_vite_public group under this app's Environment variables in Codemagic (see docs/codemagic-setup-guide.md) and re-run the build."
             exit 1
           fi
 

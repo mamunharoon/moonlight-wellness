@@ -107,15 +107,19 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
 ## 13. Public Vite environment variables
 
 13. Personal (non-Team) Codemagic accounts can no longer create named,
-    global Environment variable groups — Codemagic is removing that
-    capability for personal accounts; existing groups on such accounts
-    are read-only and can only be deleted. `codemagic.yaml` therefore
-    does **not** reference a group for these values. Instead, add both
-    variables at the **application level**: Codemagic → your app →
-    **Settings → Environment variables** (this is scoped to the
-    `moonlight-wellness` app itself, not a Teams/Personal-account-wide
-    group) → add each of the following, one at a time, with **Secret**
-    enabled for both:
+    *global* Environment variable groups under the Teams/Personal
+    account-wide settings — Codemagic is removing that capability for
+    personal accounts; any pre-existing global groups there are
+    read-only and can only be deleted. That is a different area from
+    where this pipeline's variables live: Codemagic's live Personal
+    Account UI requires application-level environment variables to
+    belong to a group too, just one scoped to this app rather than the
+    account. Create it under: Codemagic → your app
+    (`moonlight-wellness`) → **Environment variables** → **Add group**
+    (or equivalent "new group" control on that app-scoped page) →
+    name it exactly **`wakewise_vite_public`** (matching
+    `codemagic.yaml`'s `environment.groups` reference). Inside it, add
+    exactly two variables, both with **Secret** enabled:
     - `VITE_SUPABASE_URL` — the same public Supabase project URL
       already used by the Vercel `dev` deployment (not secret in the
       sense of needing to stay confidential; find it in your local
@@ -128,16 +132,18 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
 
     Enabling **Secret** masks both values in the build log regardless
     of the fact that they're already meant to be client-visible —
-    harmless, just extra caution. Application-level variables are
-    injected into every workflow's build environment automatically, so
-    nothing further needs to reference them in `codemagic.yaml` beyond
-    the two variable names the pipeline's own pre-build check looks
-    for (see `codemagic.yaml`'s "Verify required build-time env vars
-    are set" script, which fails the build before npm/build/signing if
-    either is missing, without ever printing either value). Do **not**
-    add any Stripe, Resend, or Supabase service-role value here;
-    nothing in this build needs them (confirmed in Phase 1's audit
-    below).
+    harmless, just extra caution. Application-level group variables are
+    injected into every workflow's build environment automatically once
+    the group is referenced under `environment.groups` in
+    `codemagic.yaml` (already done), so nothing further needs to change
+    there — the pipeline's own pre-build check still confirms both
+    names actually resolved to a non-empty value (see
+    `codemagic.yaml`'s "Verify required build-time env vars are set"
+    script, which fails the build before npm/build/signing if either is
+    missing, without ever printing either value). Do **not** add any
+    Stripe, Resend, or Supabase service-role value to this group or any
+    other Codemagic variable group; nothing in this build needs them
+    (confirmed in Phase 1's audit below).
 
 ## 14–17. Running and inspecting a build
 
@@ -191,10 +197,9 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
     invalidates Codemagic's ability to sign or publish regardless of
     what's still configured on Codemagic's side. Separately, remove
     the `wakewise_app_store_connect` integration and the
-    `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` application-level
-    environment variables from Codemagic itself, and disconnect the
-    GitHub repository connection under Codemagic's application
-    settings.
+    `wakewise_vite_public` application-level variable group from
+    Codemagic itself, and disconnect the GitHub repository connection
+    under Codemagic's application settings.
 
 ---
 
@@ -209,10 +214,12 @@ lose repo access if permissions were changed there).
 **Missing environment variables** — the pipeline's own "Verify required
 build-time env vars are set" step fails, printing `Missing required
 environment variable: VITE_SUPABASE_URL` and/or
-`VITE_SUPABASE_ANON_KEY`: confirm both variables (step 13) are actually
-present under this app's **Application → Environment variables** in
-Codemagic, with those exact names — case-sensitive, `VITE_` prefix
-required or Vite silently ignores them, as documented in
+`VITE_SUPABASE_ANON_KEY`: confirm the `wakewise_vite_public`
+application-level group (step 13) both exists under this app's
+Environment variables page in Codemagic *and* is referenced in
+`codemagic.yaml`'s `environment.groups` (already done) *and* actually
+contains both variables with those exact names — case-sensitive,
+`VITE_` prefix required or Vite silently ignores them, as documented in
 `src/lib/subscriptionOverride.js`'s own comment on this exact footgun.
 This check runs before npm ci, the web build, and signing, specifically
 so a missing variable fails fast with a clear message instead of
