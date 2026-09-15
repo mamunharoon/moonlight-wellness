@@ -38,6 +38,17 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
+        # Single source of truth for the app's bundle identifier.
+        # ios_signing.bundle_identifier below aliases this same value
+        # (via the &bundle_id anchor) instead of repeating it, so there
+        # is only ever one place to change it. Verified identical, as
+        # of this commit, to capacitor.config.json's "appId" (both the
+        # repo root and ios/App/App copies), ios/App/App.xcodeproj's
+        # PRODUCT_BUNDLE_IDENTIFIER (Debug and Release configs), and
+        # ios/App/App/Info.plist. Do not guess or change this value --
+        # it must keep matching the Xcode project and the App Store
+        # Connect app record exactly, or signing/publishing breaks.
+        BUNDLE_ID: &bundle_id "com.zavaraai.wakewise"
       groups:
         # wakewise_vite_public is an APPLICATION-level environment
         # variable group, created under this app's own
@@ -59,7 +70,7 @@ workflows:
         # manual to upload here, and no certificate/profile file lives in
         # this repo.
         distribution_type: app_store
-        bundle_identifier: com.zavaraai.wakewise
+        bundle_identifier: *bundle_id
     integrations:
       # Name of the App Store Connect API key integration to create in
       # Codemagic (Teams -> Integrations -> App Store Connect). The .p8
@@ -151,10 +162,19 @@ workflows:
       - name: Fetch signing certificate and provisioning profile
         script: |
           set -euo pipefail
+          # $BUNDLE_ID comes from environment.vars.BUNDLE_ID, above --
+          # Codemagic does NOT automatically expose a $BUNDLE_ID variable
+          # from environment.ios_signing.bundle_identifier (a prior version
+          # of this step assumed it did, and failed every build with "line
+          # 15: BUNDLE_ID: unbound variable"). ios_signing.bundle_identifier
+          # aliases the same environment.vars.BUNDLE_ID value via a YAML
+          # anchor, so the two can't drift apart.
+          if [ -z "${BUNDLE_ID:-}" ]; then
+            echo "BUNDLE_ID is required"
+            exit 1
+          fi
           # Uses the wakewise_app_store_connect integration (integrations
-          # .app_store_connect, above) together with $BUNDLE_ID -- which
-          # Codemagic automatically exposes from environment.ios_signing
-          # .bundle_identifier (com.zavaraai.wakewise), above -- to fetch a
+          # .app_store_connect, above) together with $BUNDLE_ID to fetch a
           # matching Apple Distribution certificate and App Store
           # provisioning profile via the App Store Connect API, creating
           # them first if neither exists yet. This must run before
