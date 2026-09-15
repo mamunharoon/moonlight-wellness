@@ -148,12 +148,71 @@ workflows:
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
 
+      - name: Fetch signing certificate and provisioning profile
+        script: |
+          set -euo pipefail
+          # Uses the wakewise_app_store_connect integration (integrations
+          # .app_store_connect, above) together with $BUNDLE_ID -- which
+          # Codemagic automatically exposes from environment.ios_signing
+          # .bundle_identifier (com.zavaraai.wakewise), above -- to fetch a
+          # matching Apple Distribution certificate and App Store
+          # provisioning profile via the App Store Connect API, creating
+          # them first if neither exists yet. This must run before
+          # "keychain add-certificates" and "xcode-project use-profiles"
+          # below -- those steps only install/match files this step has
+          # already downloaded onto the build machine; neither of them
+          # talks to Apple's API itself.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Install the fetched certificate into the build keychain
+        script: |
+          set -euo pipefail
+          keychain add-certificates
+
+      - name: Apply fetched profiles to the Xcode project
+        script: |
+          set -euo pipefail
+          # Matches the provisioning profile(s) fetched above against
+          # ios/App/App.xcodeproj's build settings and, as a result, writes
+          # $HOME/export_options.plist (i.e. /Users/builder/export_options
+          # .plist on Codemagic's Mac build machines) -- the file "Build and
+          # archive the signed .ipa" below passes via
+          # --export-options-plist. This step must run after the
+          # certificate/profile are fetched and installed (the two steps
+          # above) and before the archive step: running the archive step
+          # without it first, as this pipeline previously did, is exactly
+          # why it failed with "Path .../export_options.plist does not
+          # exist" -- nothing had generated the file yet.
+          xcode-project use-profiles
+
+      - name: Verify export_options.plist was generated
+        script: |
+          set -euo pipefail
+          # Explicit, readable check before archiving -- fails fast with a
+          # clear, non-secret diagnostic instead of letting the archive step
+          # fail later with a less actionable "path does not exist" error.
+          export_options_plist="$HOME/export_options.plist"
+          if [ ! -f "$export_options_plist" ]; then
+            echo "export_options.plist was not found at $export_options_plist after 'xcode-project use-profiles' ran."
+            echo "This means automatic signing could not resolve a certificate/provisioning profile for bundle ID $BUNDLE_ID. Common causes:"
+            echo "  - the wakewise_app_store_connect integration isn't attached to this workflow, or its API key was revoked"
+            echo "  - the API key's role can't manage certificates/profiles (needs App Manager or higher)"
+            echo "  - bundle ID $BUNDLE_ID has no matching App Store Connect app record or registered Apple Developer identifier"
+            echo "Contents of \$HOME (file/directory names only -- no file contents, no secret values):"
+            ls -la "$HOME" || true
+            exit 1
+          fi
+          echo "export_options.plist present at $export_options_plist"
+
       - name: Build and archive the signed .ipa
         script: |
           set -euo pipefail
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist "$HOME/export_options.plist"
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/xcarchive
