@@ -159,52 +159,33 @@ workflows:
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
 
-      - name: Fetch signing certificate and provisioning profile
+      - name: Apply the stored signing certificate and profile to the Xcode project
         script: |
           set -euo pipefail
-          # $BUNDLE_ID comes from environment.vars.BUNDLE_ID, above --
-          # Codemagic does NOT automatically expose a $BUNDLE_ID variable
-          # from environment.ios_signing.bundle_identifier (a prior version
-          # of this step assumed it did, and failed every build with "line
-          # 15: BUNDLE_ID: unbound variable"). ios_signing.bundle_identifier
-          # aliases the same environment.vars.BUNDLE_ID value via a YAML
-          # anchor, so the two can't drift apart.
-          if [ -z "${BUNDLE_ID:-}" ]; then
-            echo "BUNDLE_ID is required"
-            exit 1
-          fi
-          # Uses the wakewise_app_store_connect integration (integrations
-          # .app_store_connect, above) together with $BUNDLE_ID to fetch a
-          # matching Apple Distribution certificate and App Store
-          # provisioning profile via the App Store Connect API, creating
-          # them first if neither exists yet. This must run before
-          # "keychain add-certificates" and "xcode-project use-profiles"
-          # below -- those steps only install/match files this step has
-          # already downloaded onto the build machine; neither of them
-          # talks to Apple's API itself.
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-      - name: Install the fetched certificate into the build keychain
-        script: |
-          set -euo pipefail
-          keychain add-certificates
-
-      - name: Apply fetched profiles to the Xcode project
-        script: |
-          set -euo pipefail
-          # Matches the provisioning profile(s) fetched above against
-          # ios/App/App.xcodeproj's build settings and, as a result, writes
-          # $HOME/export_options.plist (i.e. /Users/builder/export_options
-          # .plist on Codemagic's Mac build machines) -- the file "Build and
-          # archive the signed .ipa" below passes via
-          # --export-options-plist. This step must run after the
-          # certificate/profile are fetched and installed (the two steps
-          # above) and before the archive step: running the archive step
-          # without it first, as this pipeline previously did, is exactly
-          # why it failed with "Path .../export_options.plist does not
-          # exist" -- nothing had generated the file yet.
+          # Codemagic's own built-in "Set up code signing identities" step
+          # (which runs automatically before this workflow's scripts,
+          # driven entirely by environment.ios_signing -- distribution_type
+          # and bundle_identifier, above -- plus the wakewise_app_store
+          # _connect integration) has already located and installed the
+          # existing wakewise_distribution certificate and
+          # wakewise_app_store_profile provisioning profile from this
+          # Codemagic account's own signing-identity storage by the time
+          # this script runs. Do NOT call `app-store-connect
+          # fetch-signing-files` or `keychain add-certificates` here --
+          # that was tried and removed: it duplicated work Codemagic's
+          # built-in step already does, and it failed with "Cannot save
+          # Signing Certificates without certificate private key" because
+          # this account's stored certificate has no exportable private
+          # key for a second, redundant save attempt to reuse.
+          #
+          # This step's only job is to match the already-installed
+          # provisioning profile against ios/App/App.xcodeproj's build
+          # settings and, as a result, write $HOME/export_options.plist
+          # (i.e. /Users/builder/export_options.plist on Codemagic's Mac
+          # build machines) -- the file "Build and archive the signed
+          # .ipa" below passes via --export-options-plist. It must run
+          # after Capacitor sync / CocoaPods install (so the Xcode project
+          # it inspects is up to date) and before the archive step.
           xcode-project use-profiles
 
       - name: Verify export_options.plist was generated
@@ -217,9 +198,9 @@ workflows:
           if [ ! -f "$export_options_plist" ]; then
             echo "export_options.plist was not found at $export_options_plist after 'xcode-project use-profiles' ran."
             echo "This means automatic signing could not resolve a certificate/provisioning profile for bundle ID $BUNDLE_ID. Common causes:"
+            echo "  - the wakewise_distribution certificate or wakewise_app_store_profile provisioning profile is missing, expired, or no longer shows a valid certificate association in Codemagic's Code signing identities page"
+            echo "  - the provisioning profile's bundle ID no longer matches $BUNDLE_ID"
             echo "  - the wakewise_app_store_connect integration isn't attached to this workflow, or its API key was revoked"
-            echo "  - the API key's role can't manage certificates/profiles (needs App Manager or higher)"
-            echo "  - bundle ID $BUNDLE_ID has no matching App Store Connect app record or registered Apple Developer identifier"
             echo "Contents of \$HOME (file/directory names only -- no file contents, no secret values):"
             ls -la "$HOME" || true
             exit 1
