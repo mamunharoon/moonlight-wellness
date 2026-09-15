@@ -99,29 +99,20 @@ export const establishRecoverySession = async ({ access_token, refresh_token }) 
 };
 
 /**
- * Orchestrates handling one incoming native URL end to end — dedup,
- * classification, session establishment, and the resulting navigation
- * instruction — without performing the navigation itself, so the whole
- * decision is unit-testable without React. `useNativeDeepLinks.js` is a
- * thin wrapper supplying real dedup storage and calling navigate() with
- * whatever this returns.
+ * Decides what should happen for one incoming native URL — classification,
+ * session establishment, and the resulting navigation instruction —
+ * without performing the navigation itself and without any dedup of its
+ * own (see createRecoveryUrlDeduper below, which wraps this). Pure enough
+ * to unit-test directly with a fake `establishSession`.
  *
- * `processedUrls` is a mutable Set the caller owns (e.g. a useRef's
- * .current) — shared across both a cold-launch getLaunchUrl() result and
- * subsequent appUrlOpen events, and stable across a React Strict Mode
- * double-mount, so the same URL is only ever actually processed once.
- *
- * Returns null when nothing should happen (a duplicate, an unrecognized
- * scheme, or an allow-listed check that didn't match); otherwise
- * `{ path, options }` shaped for react-router's navigate(path, options).
+ * Returns null when there's nothing to do (an unrecognized scheme, or an
+ * allow-listed check that didn't match); otherwise `{ path, options }`
+ * shaped for react-router's navigate(path, options).
  */
 export const resolveIncomingUrl = async (
   url,
-  { processedUrls, establishSession = establishRecoverySession, allowedPaths }
+  { establishSession = establishRecoverySession, allowedPaths }
 ) => {
-  if (processedUrls.has(url)) return null;
-  processedUrls.add(url);
-
   const classification = classifyNativeAuthUrl(url);
 
   if (classification.kind === 'recovery') {
@@ -147,4 +138,107 @@ export const resolveIncomingUrl = async (
   }
 
   return null;
+};
+
+const hasSubtleCrypto = () =>
+  typeof crypto !== 'undefined' && typeof crypto.subtle?.digest === 'function';
+
+const sha256Hex = async (input) => {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+// Non-cryptographic fallback (FNV-1a), used only if Web Crypto's
+// subtle.digest is genuinely unavailable in this WebView/browser. Still
+// token-free — the input string cannot be recovered from the numeric
+// output — just not collision-resistant against a deliberate adversary.
+// That distinction doesn't matter here: this fingerprint only ever backs
+// a same-process, in-memory dedup guard, never anything compared against
+// untrusted input or persisted beyond the running app session, so this
+// is an "equally safe token-free identifier" for that narrow purpose.
+const fnv1aHex = (input) => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv1a:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+};
+
+/**
+ * A one-way, token-free fingerprint of a URL — used for dedup storage
+ * instead of ever retaining the URL (and, for a recovery link, its
+ * access/refresh tokens) itself. Prefers the standard Web Crypto
+ * SubtleCrypto SHA-256 digest; falls back to a non-cryptographic hash
+ * only if that API is unavailable. Never throws.
+ */
+export const fingerprintUrl = async (url) => {
+  if (hasSubtleCrypto()) {
+    try {
+      return await sha256Hex(url);
+    } catch {
+      // fall through to the sync fallback below
+    }
+  }
+  return fnv1aHex(url);
+};
+
+/**
+ * Creates a dedup guard for incoming native URLs. Never retains a raw URL
+ * or its tokens longer than the brief window needed to process it:
+ *
+ * - Concurrent calls for the *same* URL (e.g. a cold-launch getLaunchUrl()
+ *   result and an appUrlOpen event both firing for it) share one in-flight
+ *   promise, keyed transiently by the raw URL string in a plain Map — the
+ *   synchronous has()/set() pair around that Map is what makes this
+ *   race-safe, since two "concurrent" JS calls can never interleave
+ *   between them. That Map entry (the only place a raw URL/token is ever
+ *   held beyond a single function call's local variables) is deleted the
+ *   instant that call settles, success or failure.
+ * - The only state that outlives a single call is a Set of one-way
+ *   fingerprints (see fingerprintUrl) — never the URLs or tokens
+ *   themselves — so a URL already handled earlier in the app session
+ *   (even well after its in-flight entry above is long gone) is still
+ *   correctly recognised as a duplicate and not reprocessed.
+ * - A URL is marked processed (fingerprint recorded) once `work()`
+ *   *resolves* — whether its resolved value represents success or a
+ *   deliberate soft failure (e.g. resolveIncomingUrl() having already
+ *   tried and failed to establish a session for an expired/reused/
+ *   invalid token). Retrying the *identical* URL client-side cannot
+ *   change that server-side outcome, and the existing "invalid or
+ *   expired" screen's "request a new link" path is the correct recovery
+ *   action, which produces a *new* URL (new tokens, new fingerprint)
+ *   that this guard will happily process fresh. This is a deliberate
+ *   choice, not an oversight. If `work()` instead *throws* (an
+ *   unexpected error, not a normal recovery outcome), the fingerprint is
+ *   deliberately NOT recorded, so a genuine crash/bug doesn't
+ *   permanently blackhole an otherwise-valid link — a caller may retry.
+ */
+export const createRecoveryUrlDeduper = () => {
+  const inFlight = new Map(); // raw url -> Promise, transient only
+  const processedFingerprints = new Set(); // long-lived, token-free
+
+  const runOnce = async (url, work) => {
+    const fingerprint = await fingerprintUrl(url);
+    if (processedFingerprints.has(fingerprint)) return null;
+    const result = await work();
+    processedFingerprints.add(fingerprint);
+    return result;
+  };
+
+  const processOnce = (url, work) => {
+    const existing = inFlight.get(url);
+    if (existing) return existing;
+
+    const promise = runOnce(url, work).finally(() => {
+      inFlight.delete(url);
+    });
+    inFlight.set(url, promise);
+    return promise;
+  };
+
+  return { processOnce, processedFingerprints };
 };

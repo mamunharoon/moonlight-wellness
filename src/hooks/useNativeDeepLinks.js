@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isNativePlatform } from '../lib/platform';
-import { resolveIncomingUrl } from '../lib/nativeAuthRecovery';
+import { resolveIncomingUrl, createRecoveryUrlDeduper } from '../lib/nativeAuthRecovery';
 
 // Native deep-link scheme: wakewise://
 // Documented paths (reset-password is not yet registered with Supabase
@@ -20,24 +20,27 @@ const ALLOWED_DEEP_LINK_PATHS = new Set(['auth']);
 
 export function useNativeDeepLinks() {
   const navigate = useNavigate();
-  // Persists across a React Strict Mode double-mount (refs survive the
-  // effect's mount/cleanup/mount cycle) and across getLaunchUrl() +
-  // appUrlOpen both delivering the same cold-launch URL, so a recovery
-  // link's session-establishment and navigation only ever happen once —
-  // see resolveIncomingUrl()'s own dedup for the testable version of
-  // this logic.
-  const processedUrlsRef = useRef(new Set());
+  // createRecoveryUrlDeduper() never stores a raw URL/token beyond the
+  // brief window needed to process it — only one-way fingerprints
+  // long-term (see nativeAuthRecovery.js). One instance persists across
+  // a React Strict Mode double-mount (refs survive the effect's mount/
+  // cleanup/mount cycle) and across getLaunchUrl() + appUrlOpen both
+  // delivering the same cold-launch URL, so a recovery link's
+  // session-establishment and navigation only ever happen once.
+  const deduperRef = useRef(null);
+  if (deduperRef.current == null) {
+    deduperRef.current = createRecoveryUrlDeduper();
+  }
 
   useEffect(() => {
     if (!isNativePlatform()) return undefined;
 
-    const handleUrl = async (url) => {
-      const result = await resolveIncomingUrl(url, {
-        processedUrls: processedUrlsRef.current,
-        allowedPaths: ALLOWED_DEEP_LINK_PATHS,
-      });
-      if (result) navigate(result.path, result.options);
-    };
+    const handleUrl = (url) =>
+      deduperRef.current
+        .processOnce(url, () => resolveIncomingUrl(url, { allowedPaths: ALLOWED_DEEP_LINK_PATHS }))
+        .then((result) => {
+          if (result) navigate(result.path, result.options);
+        });
 
     // Cold launch: the app may have been opened directly via a
     // wakewise:// URL, which appUrlOpen alone is not guaranteed to
