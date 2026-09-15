@@ -32,19 +32,22 @@ later.
   Xcode/device work. **Must be set to `false` before any TestFlight or
   App Store build** — it does not expose anything over the network (it
   is a local/USB-only Safari feature), but it should never ship.
-- **Supabase Auth dashboard redirect URLs are unchanged.** The proposed
-  `wakewise://` deep-link scheme (see `useNativeDeepLinks.js` and
-  `Info.plist`'s `CFBundleURLTypes`) is registered natively but not yet
-  wired into Supabase's allowed redirect URLs — that is an external
-  dashboard change requiring explicit approval, out of scope here.
-  Today, password-reset emails still link to the Vercel web URL
-  (`Auth.jsx`'s `redirectTo: \`${window.location.origin}/reset-password\``),
-  which is correct on web but would resolve to `capacitor://localhost/
-  reset-password` if evaluated inside the native app — this code path
-  is never reached natively yet since no in-app flow calls it from a
-  native context in a way that matters for this phase, but it's the
-  first thing that needs to change when native password-reset is
-  implemented.
+- **Native password recovery — implemented, dashboard change still
+  outstanding.** `src/lib/authRedirect.js` now sends `redirectTo:
+  wakewise://reset-password` on native (via `isNativePlatform()`, never
+  `window.location.origin`) and the fixed DEV Preview URL on web,
+  replacing the old unconditional `window.location.origin` construction.
+  `src/hooks/useNativeDeepLinks.js` / `src/lib/nativeAuthRecovery.js`
+  parse the incoming recovery link, validate it's a genuine
+  `type=recovery` payload, and establish the session via the official
+  `supabase.auth.setSession()` API before ever navigating to
+  `/reset-password` — this project's installed `@supabase/supabase-js`
+  (2.112.0) defaults to `flowType: 'implicit'`, so recovery tokens
+  arrive in the URL fragment, not a PKCE `?code=`. **This still cannot
+  work end-to-end until `wakewise://reset-password` is added to
+  Supabase Auth's redirect URL allow-list** — an explicit dashboard
+  change intentionally not made in this phase. See
+  `docs/ios-xcode-handoff.md` §14 for the exact steps.
 
 ## Future requirements (not implemented in this phase)
 

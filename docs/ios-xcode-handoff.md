@@ -250,12 +250,89 @@ WakeWise for all of these.
       should read as "reminder" throughout, with the delivery caveats
       visible.
 
+### 11b. Password-recovery tests (Secure Native Password Recovery)
+
+**None of these can pass until the Supabase Auth redirect-URL change in
+§14 below has actually been made in the dashboard** — until then, a
+native recovery email link will 400 at Supabase before it ever reaches
+the app. Once that's done, run through all of these on a physical
+iPhone:
+
+- [ ] **Request password recovery from the iPhone**: open WakeWise (or
+      Safari, either works since the request itself is a normal HTTPS
+      call), go to Sign In → Forgot password, submit the account's
+      email. Confirm the generic "if an account exists…" message shows
+      regardless of whether the email exists (no account enumeration).
+- [ ] **Open the email link with WakeWise installed**: tap the link in
+      the recovery email on the iPhone. Confirm it opens WakeWise
+      directly (not Safari) and lands on the password-reset screen in
+      its "ready to reset" state, not "invalid or expired."
+- [ ] **Cold-launch recovery**: force-quit WakeWise first, then tap a
+      fresh recovery link — confirms `App.getLaunchUrl()` is doing its
+      job, not just `appUrlOpen`.
+- [ ] **Background-app recovery**: leave WakeWise open in the
+      background (not force-quit), tap a fresh recovery link — confirms
+      `appUrlOpen` handles the warm case.
+- [ ] **Already-open-app recovery**: with WakeWise in the foreground on
+      some other screen, tap a fresh recovery link — confirm it
+      navigates to the reset screen without any visual glitch or a
+      stuck/duplicate loading state.
+- [ ] **Successful password update**: set a new password (≥8 characters,
+      confirmation matches), submit, confirm the success screen appears
+      and "Continue" lands on `/profile` signed in (existing behaviour,
+      intentionally retained — see the final report for why).
+- [ ] **Sign in using the new password**: sign out, sign back in with
+      the new password to confirm it actually took effect server-side.
+- [ ] **Expired link**: use a recovery link older than Supabase's
+      recovery-link expiry window — confirm the reset screen shows
+      "invalid or expired," not a crash, and never accepts a password
+      submission in that state.
+- [ ] **Reused link**: successfully complete a reset once, then tap the
+      *same* email link again — confirm it's rejected the same way
+      (Supabase invalidates the token after first use).
+- [ ] **Malformed link**: manually type a broken variant in Safari (e.g.
+      `wakewise://reset-password#access_token=garbled`, missing
+      `refresh_token`, or `type=signup` instead of `recovery`) — confirm
+      WakeWise opens to "invalid or expired," never a crash, and no
+      password field ever becomes submittable.
+- [ ] **Non-recovery WakeWise deep link**: open `wakewise://auth`
+      directly (e.g. by typing it in Safari) — confirm it still routes
+      to `/auth` exactly as before; recovery handling must not have
+      broken the existing, unrelated deep link.
+- [ ] **Link opened without WakeWise installed**: uninstall WakeWise,
+      tap a recovery email link — confirm iOS falls back sensibly (no
+      crash reported anywhere; the link simply can't open the
+      unregistered scheme). Reinstall WakeWise afterward for the rest of
+      this checklist.
+- [ ] **Confirm no token appears anywhere visible**: for at least one
+      successful native recovery, check that the access/refresh token
+      never appears in: the visible in-app route (it shouldn't — only
+      `/reset-password`, no fragment/query with tokens), any screenshot
+      you take for this report, Safari Web Inspector's console output,
+      or the "invalid/expired" or any other user-facing error text.
+      **Do not paste the actual recovery link or token into this
+      report or any screenshot** — describe what you saw instead.
+- [ ] **Confirm the web reset-password link continues to work**:
+      request a reset from a desktop/laptop browser (not the app),
+      confirm the existing web flow at
+      `https://wakewise-git-dev-mamun65.vercel.app/reset-password`
+      still works exactly as before this phase.
+- [ ] **Confirm the morning-reminder tap still opens the morning flow**:
+      unrelated regression check — trigger (or wait for) a scheduled
+      morning reminder and confirm tapping it still opens
+      `/morning-start`, not `/reset-password` or anywhere else. This
+      confirms the two native listeners aren't interfering with each
+      other.
+
 ## 12. Evidence to return
 
 For each test above: pass/fail, and for any failure, a screenshot or
 screen recording plus the relevant Safari Web Inspector console output
 or Xcode console log. For signing/build issues, include the exact Xcode
-error text and the Signing & Capabilities screenshot.
+error text and the Signing & Capabilities screenshot. **Never include a
+recovery token, access token, refresh token, or a full recovery URL in
+any screenshot, log excerpt, or report text** — redact it or describe it
+instead.
 
 ## 13. Gates before TestFlight
 
@@ -263,8 +340,9 @@ None of these have been done yet, and none should be skipped:
 
 - [ ] All of §11 and §11a run on a physical iPhone with results recorded.
 - [ ] Native password-reset/deep-link (`wakewise://reset-password`)
-      actually completing end-to-end, including the Supabase dashboard
-      redirect-URL change this still requires (explicitly not made yet).
+      actually completing end-to-end on a physical iPhone — see §11b —
+      including the Supabase dashboard redirect-URL change in §14
+      (explicitly not made in this phase).
 - [ ] `capacitor.config.json`'s `ios.webContentsDebuggingEnabled` set to
       `false`, with `npx cap sync ios` re-run afterward.
 - [ ] Signing team, provisioning profile, and bundle-ID availability
@@ -277,3 +355,66 @@ None of these have been done yet, and none should be skipped:
 
 **Do not report any of the above as passing without actually running
 it on real hardware.**
+
+## 14. Supabase Auth dashboard handoff — password recovery
+
+**Not done in this phase — this is a manual action for the project
+owner.** No Supabase dashboard setting was changed by this work; the
+native recovery flow cannot complete end-to-end until this is done and
+verified.
+
+1. **Exact native redirect URL to add to the allow-list**:
+   ```
+   wakewise://reset-password
+   ```
+   This is the literal value the app requests via `redirectTo` when
+   running natively (see `src/lib/authRedirect.js`). Add it as its own
+   exact entry — do not rely on a partial or prefix match.
+
+2. **Existing URLs that must remain** (do not remove these):
+   - `https://wakewise-git-dev-mamun65.vercel.app/reset-password` — the
+     `dev` branch's Preview URL, used by the web app's redirect
+     (`src/lib/authRedirect.js`'s `WEB_RESET_PASSWORD_URL`).
+   - Whatever localhost entry already exists for local development
+     (e.g. `http://localhost:5173/reset-password`), if one was already
+     configured before this phase — `authRedirect.js`'s explicit
+     localhost rule depends on it still being allowed.
+
+3. **The old Moonlight URL**: this phase did not reference, restore, or
+   otherwise touch any `moonlight-wellness.vercel.app` redirect entry.
+   Whether it can be removed depends on whether any other
+   still-in-use flow (e.g. an old bookmark, a stale mobile session, or
+   Production itself if Production still points at that legacy alias)
+   relies on it — that's outside this phase's audit. Recommend leaving
+   it in place until Production's own configuration is separately
+   confirmed not to need it, rather than removing it as a side effect
+   of this task.
+
+4. **Exact dashboard page**: Supabase Dashboard → select the WakeWise
+   project (ref `kvdxuhyndevrfvsalgnx`) → **Authentication** (left
+   sidebar) → **URL Configuration** → **Redirect URLs** section. Add the
+   native URL from item 1 as a new entry and **Save**.
+
+5. **Do not use a wildcard pattern** (e.g. `wakewise://**` or
+   `wakewise://*`) to "cover" this — add the exact
+   `wakewise://reset-password` string only. A wildcard would let *any*
+   path under the `wakewise://` scheme receive a valid Supabase
+   redirect, which is broader than this app's own deep-link allow-list
+   (`src/hooks/useNativeDeepLinks.js`'s `ALLOWED_DEEP_LINK_PATHS`)
+   actually needs and widens the attack surface for no benefit.
+
+6. **Validating the generated recovery email without exposing its
+   token**: request a reset for a test account you control, open the
+   email, and confirm the link's structure (scheme, host/path, and that
+   it carries `type=recovery` plus token parameters) **without copying
+   the full link or its token into any report, chat message, ticket, or
+   screenshot**. If you need to show someone the link exists and looks
+   right, screenshot only the email's visible text (subject/body) with
+   the link itself covered/cropped out, or describe its shape in words
+   (e.g. "the link starts with `wakewise://reset-password#access_token=`
+   followed by a token, then `&refresh_token=`, then `&type=recovery`")
+   rather than pasting the real value anywhere persisted.
+
+**Do not claim the native recovery flow works end-to-end until this
+allow-list entry has been added and §11b above has been run on a
+physical iPhone.**

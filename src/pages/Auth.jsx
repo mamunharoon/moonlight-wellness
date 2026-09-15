@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
+import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -159,7 +160,7 @@ export const Auth = () => {
 
     setIsSubmitting(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: `${window.location.origin}/reset-password`
+      redirectTo: getPasswordResetRedirectUrl()
     });
     setIsSubmitting(false);
 

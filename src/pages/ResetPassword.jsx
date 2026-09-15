@@ -1,12 +1,14 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { shouldTreatAsValidRecovery } from '../lib/resetPasswordAccess';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export const ResetPassword = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState(() => (supabase ? 'checking' : 'invalid')); // 'checking' | 'valid' | 'invalid' | 'success'
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,8 +19,11 @@ export const ResetPassword = () => {
   useEffect(() => {
     if (!supabase) return;
 
+    let recoveryEventFired = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        recoveryEventFired = true;
         setStatus('valid');
       }
     });
@@ -26,11 +31,30 @@ export const ResetPassword = () => {
     // getSession() is used only to know when Supabase has finished processing
     // the URL for a recovery token — never as proof of recovery itself. Any
     // pre-existing session (anonymous or normal) must not grant access.
-    supabase.auth.getSession().then(() => {
-      setStatus((current) => (current === 'valid' ? current : 'invalid'));
+    //
+    // The one narrow exception: a native wakewise:// recovery link, which
+    // never becomes window.location the way a web link does, so Supabase's
+    // own URL-detection here never runs and PASSWORD_RECOVERY never fires
+    // for it. useNativeDeepLinks.js / nativeAuthRecovery.js already fully
+    // validated that link (genuine type=recovery tokens) and established
+    // the session itself via the official setSession() API *before*
+    // navigating here with `recoveryVerified` in router state — state only
+    // reachable via our own internal navigate() call, never present in a
+    // URL, browser history, or anything a direct/crafted visit could set.
+    // Still independently re-confirm a session actually exists rather than
+    // trusting that flag alone.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (recoveryEventFired) return;
+      const valid = shouldTreatAsValidRecovery({
+        recoveryEventFired,
+        nativeRecoveryVerified: location.state?.recoveryVerified,
+        hasSession: Boolean(session),
+      });
+      setStatus((current) => (current === 'valid' ? current : valid ? 'valid' : 'invalid'));
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e) => {
