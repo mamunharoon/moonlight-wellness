@@ -253,11 +253,15 @@ automatic signing needs the first time it runs for this bundle ID.
 **Duplicate build number** — App Store Connect rejects an upload with
 "The bundle version must be higher than the previously uploaded
 version": this pipeline sets `CFBundleVersion` from Codemagic's own
-`$CM_BUILD_NUMBER`, which is monotonically increasing *per workflow* —
-if you've previously uploaded a build through Xcode directly (or a
+`$BUILD_NUMBER`, which is monotonically increasing *per workflow* — if
+you've previously uploaded a build through Xcode directly (or a
 different pipeline) with a higher number, the counters can be
 momentarily out of sync. Codemagic's build-number counter can be
-manually bumped from the workflow's build history if this happens.
+manually bumped from the workflow's build history if this happens. (If
+Codemagic ever fails to provide `$BUILD_NUMBER` at all, the "Set a
+unique, monotonically increasing build number" step falls back to the
+current UTC epoch-seconds timestamp instead of failing the build — see
+`codemagic.yaml`.)
 
 **Bundle-ID mismatch** — App Store Connect can't find a matching app
 record: confirm the App Store Connect app record (step 5) really uses

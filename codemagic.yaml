@@ -129,14 +129,24 @@ workflows:
       - name: Set a unique, monotonically increasing build number
         script: |
           set -euo pipefail
-          # $CM_BUILD_NUMBER is Codemagic's own auto-incrementing counter
-          # for this workflow -- strictly increasing across builds without
-          # this repo ever tracking or committing a build number itself.
+          # $BUILD_NUMBER is Codemagic's own auto-incrementing counter for
+          # this workflow -- strictly increasing across builds without this
+          # repo ever tracking or committing a build number itself. (There
+          # is no $CM_BUILD_NUMBER variable -- referencing it under `set -u`
+          # is what previously failed the build with "unbound variable".)
           # CFBundleShortVersionString (MARKETING_VERSION, currently 1.0)
           # is deliberately left untouched here -- that's a product
           # decision, not something the pipeline should bump on its own.
+          if [ -z "${BUILD_NUMBER:-}" ]; then
+            echo "BUILD_NUMBER was not provided by Codemagic for this build; falling back to the current UTC epoch-seconds timestamp so CFBundleVersion still increases monotonically."
+            BUILD_NUMBER="$(date -u +%s)"
+          fi
+          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "BUILD_NUMBER ('$BUILD_NUMBER') is not a plain non-negative integer -- App Store Connect requires CFBundleVersion to be numeric. Aborting."
+            exit 1
+          fi
           cd ios/App
-          agvtool new-version -all "$CM_BUILD_NUMBER"
+          agvtool new-version -all "$BUILD_NUMBER"
 
       - name: Build and archive the signed .ipa
         script: |
