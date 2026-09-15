@@ -11,6 +11,7 @@ import { SessionProvider } from './context/SessionContext';
 import { NavigationHistoryProvider } from './context/NavigationHistoryContext';
 import { Layout } from './components/Layout';
 import { AdminRoute } from './components/AdminRoute';
+import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 
 // Mobile navigation repair, Phase 4 (performance): route-level code
 // splitting. The audit found a single ~670KB (170KB gzip) JS chunk
@@ -95,6 +96,14 @@ const RouteFallback = () => (
 // <Suspense fallback={<RouteFallback />}> boilerplate ~45 times.
 const withFallback = (element) => <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
 
+// Capacitor iOS Foundation: routes wakewise:// deep links (native only, see
+// useNativeDeepLinks.js) to their matching in-app route. Mounted inside
+// <Router> so it can call useNavigate(); renders nothing itself.
+function NativeDeepLinkHandler() {
+  useNativeDeepLinks();
+  return null;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -129,6 +138,7 @@ function App() {
                     since BackButton — used by routes on both sides of the
                     <Layout> split — reads this context. */}
                 <NavigationHistoryProvider>
+                <NativeDeepLinkHandler />
                 <Routes>
                 {/* Full-Screen flows */}
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />

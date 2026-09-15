@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>WakeWise</title>
+    <!-- Capacitor iOS Foundation: the index.html served by Vercel already
+         gets this same policy via an HTTP response header (vercel.json) —
+         that header does not apply inside the native app, where this same
+         index.html is loaded locally from the bundle over `capacitor://`
+         with no HTTP layer at all. This <meta> tag is the only way to get
+         a CSP applied natively, so it mirrors the vercel.json policy
+         exactly (same directives, same allowances) to avoid changing web
+         behaviour. Per the CSP spec, `frame-ancestors` and any report-uri
+         are ignored when delivered via <meta> (clickjacking protection on
+         web still comes from the X-Frame-Options header; there is no
+         framing risk natively). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://vercel.live; media-src 'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co; connect-src 'self' https://kvdxuhyndevrfvsalgnx.supabase.co wss://kvdxuhyndevrfvsalgnx.supabase.co https://vercel.live wss://ws-us3.pusher.com; frame-src https://vercel.live; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
