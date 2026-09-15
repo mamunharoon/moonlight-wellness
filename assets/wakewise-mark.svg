@@ -1,0 +1,17 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WakeWise mark: rising sun over horizon">
+  <defs>
+    <clipPath id="wakewise-horizon-clip">
+      <rect x="0" y="0" width="1024" height="610" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#wakewise-horizon-clip)">
+    <circle cx="512" cy="610" r="230" fill="#ffc5b7" />
+    <circle cx="512" cy="610" r="155" fill="#ff9d85" />
+  </g>
+  <g stroke="#ffc5b7" stroke-width="36" stroke-linecap="round">
+    <line x1="379.5" y1="398" x2="321.2" y2="304.7" />
+    <line x1="512" y1="360" x2="512" y2="250" />
+    <line x1="644.5" y1="398" x2="702.8" y2="304.7" />
+  </g>
+  <rect x="212" y="600" width="600" height="20" rx="10" fill="#7bd0ff" />
+</svg>
