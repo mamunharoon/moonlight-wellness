@@ -24,6 +24,8 @@ export const SettingsInfo = () => {
     <LegalLayout
       title={entry.title}
       lastUpdated={entry.lastUpdated}
+      effectiveDate={entry.effectiveDate}
+      version={entry.version}
       isLegal={entry.isLegal}
       sections={entry.sections}
     />

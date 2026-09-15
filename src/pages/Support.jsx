@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
 import { getCatalogEntryById } from '../lib/mediaCatalog';
@@ -305,6 +305,11 @@ export const Support = () => {
               </button>
             ))}
           </div>
+
+          <p className="text-[11px] text-on-surface-variant/70 text-center leading-relaxed px-4">
+            WakeWise offers general wellbeing support, not crisis care. If you need urgent help, see our{' '}
+            <Link to="/settings/medical-disclaimer" className="text-primary font-semibold">Wellbeing Disclaimer</Link>.
+          </p>
         </div>
       )}
 

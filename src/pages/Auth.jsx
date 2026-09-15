@@ -305,6 +305,13 @@ export const Auth = () => {
             </div>
           </div>
 
+          <p className="text-[11px] text-on-surface-variant text-center leading-relaxed">
+            By creating an account, you agree to our{' '}
+            <Link to="/settings/terms-of-service" className="text-primary font-semibold">Terms of Service</Link>
+            {' '}and{' '}
+            <Link to="/settings/privacy-policy" className="text-primary font-semibold">Privacy Policy</Link>.
+          </p>
+
           <button
             type="submit"
             disabled={isSubmitting}

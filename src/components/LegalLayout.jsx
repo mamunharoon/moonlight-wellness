@@ -23,7 +23,7 @@ const sectionHeadingClass = 'text-sm font-bold text-on-surface';
 const bodyTextClass = 'text-sm text-on-surface-variant leading-relaxed';
 const listItemClass = 'text-sm text-on-surface-variant leading-relaxed pl-4 relative before:content-["\\2022"] before:absolute before:left-0 before:text-primary';
 
-export const LegalLayout = ({ title, lastUpdated, isLegal, sections, backTo = '/settings' }) => {
+export const LegalLayout = ({ title, lastUpdated, effectiveDate, version, isLegal, sections, backTo = '/settings' }) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -38,8 +38,11 @@ export const LegalLayout = ({ title, lastUpdated, isLegal, sections, backTo = '/
       )}
 
       <div className="glass-panel p-6 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.02)] space-y-5">
-        {lastUpdated && (
-          <p className="text-xs text-on-surface-variant/70">Last updated: {lastUpdated}</p>
+        {(lastUpdated || effectiveDate) && (
+          <div className="text-xs text-on-surface-variant/70 space-y-0.5">
+            {lastUpdated && <p>Last updated: {lastUpdated}</p>}
+            {effectiveDate && <p>Effective date: {effectiveDate}{version ? ` (version ${version})` : ''}</p>}
+          </div>
         )}
 
         {sections.map((section, i) => (
