@@ -7,11 +7,13 @@ import { SubscriptionProvider } from './context/SubscriptionContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { AudioProvider } from './context/AudioContext';
 import { AlarmProvider } from './context/AlarmContext';
+import { MorningReminderProvider } from './context/MorningReminderContext';
 import { SessionProvider } from './context/SessionContext';
 import { NavigationHistoryProvider } from './context/NavigationHistoryContext';
 import { Layout } from './components/Layout';
 import { AdminRoute } from './components/AdminRoute';
 import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
+import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
 
 // Mobile navigation repair, Phase 4 (performance): route-level code
 // splitting. The audit found a single ~670KB (170KB gzip) JS chunk
@@ -104,6 +106,15 @@ function NativeDeepLinkHandler() {
   return null;
 }
 
+// WakeWise iOS Native Morning Reminders: routes a tapped morning-reminder
+// notification to its fixed in-app target (native only, see
+// useMorningReminderNotificationTap.js). Same isolated pattern as
+// NativeDeepLinkHandler above; renders nothing itself.
+function MorningReminderTapHandler() {
+  useMorningReminderNotificationTap();
+  return null;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -132,6 +143,13 @@ function App() {
               consumer. */}
           <SessionProvider>
             <AlarmProvider>
+              {/* Capacitor iOS Native Morning Reminders: mounted inside
+                  AlarmProvider (not alongside NotificationProvider near the
+                  top of the tree) specifically so it can read the user's
+                  real saved wake time via useAlarm(). Wraps <Router> so
+                  every route, including /auth, can reach useMorningReminder()
+                  as a descendant. */}
+              <MorningReminderProvider>
               <Router>
                 {/* Back-navigation repair: must be inside <Router> (needs
                     useLocation/useNavigate) and wrap every <Routes> below,
@@ -139,6 +157,7 @@ function App() {
                     <Layout> split — reads this context. */}
                 <NavigationHistoryProvider>
                 <NativeDeepLinkHandler />
+                <MorningReminderTapHandler />
                 <Routes>
                 {/* Full-Screen flows */}
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
@@ -306,6 +325,7 @@ function App() {
               </Routes>
               </NavigationHistoryProvider>
               </Router>
+              </MorningReminderProvider>
             </AlarmProvider>
           </SessionProvider>
         </AudioProvider>

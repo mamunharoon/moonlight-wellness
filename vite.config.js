@@ -10,6 +10,10 @@ import react from '@vitejs/plugin-react'
 // React.lazy() splitting already done in App.jsx.
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
   build: {
     rollupOptions: {
       output: {

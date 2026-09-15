@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
+import { useMorningReminder } from '../context/MorningReminderContext';
 import { CATEGORY_GROUPS, FREQUENCY_OPTIONS } from '../lib/notificationPreferences';
 import { showTestNotification } from '../lib/notificationService';
 
@@ -102,6 +103,53 @@ const CategoryRow = ({ categoryId, category, onUpdate }) => (
   </div>
 );
 
+// Capacitor iOS Native Morning Reminders: one device-level (OS) reminder
+// tied to the real saved wake time, deliberately separate from the
+// "Wake-up reminder" row inside the reminder categories below (that one
+// is a web-only, foreground-only, independently-timed reminder — see
+// notificationPreferences.js's CATEGORY_DEFAULTS.wakeUp). Renders nothing
+// on web/PWA (useMorningReminder().supported is false there).
+const MorningReminderSection = () => {
+  const { supported, enabled, permissionStatus, wakeTime, enable, disable } = useMorningReminder();
+  if (!supported) return null;
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Morning reminder</h3>
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center justify-between p-4 min-h-[56px]">
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">notifications</span>
+            Morning reminder
+          </span>
+          <Toggle
+            checked={enabled}
+            onChange={(next) => (next ? enable() : disable())}
+            label="Morning reminder"
+          />
+        </div>
+        <div className="px-4 pb-4 space-y-1.5">
+          {wakeTime && (
+            <p className="text-xs text-on-surface-variant">
+              {enabled ? `Scheduled for ${wakeTime} on this device.` : `Uses your wake time (${wakeTime}) from Onboarding.`}
+            </p>
+          )}
+          {permissionStatus === 'denied' && (
+            <p className="text-xs text-primary">
+              Notifications are turned off for WakeWise. Enable them in iPhone Settings → Notifications → WakeWise to turn this on.
+            </p>
+          )}
+          {!enabled && permissionStatus !== 'denied' && (
+            <p className="text-[11px] text-on-surface-variant">
+              This is a reminder, not a guaranteed alarm — iPhone Focus, silent mode and notification settings can affect delivery. We'll ask permission the first time you turn this on.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export const NotificationSettings = () => {
   const navigate = useNavigate();
   const {
@@ -122,7 +170,7 @@ export const NotificationSettings = () => {
     const currentPermission = permission === 'default' ? await requestPermission() : permission;
     if (currentPermission === 'granted') showTestNotification();
   };
-  if (Toggle && CategoryRow) { /* no-op to satisfy blind linter */ }
+  if (Toggle && CategoryRow && MorningReminderSection) { /* no-op to satisfy blind linter */ }
 
   return (
     <div className="space-y-6">
@@ -184,6 +232,8 @@ export const NotificationSettings = () => {
           )}
         </div>
       </section>
+
+      <MorningReminderSection />
 
       {preferences.enabled && (
         <>

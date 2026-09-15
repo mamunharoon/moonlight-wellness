@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMorningReminder } from '../context/MorningReminderContext';
 import { supabase } from '../lib/supabaseClient';
 import { CONTACT_INFO } from '../lib/legalContent';
 import { openBillingPortal } from '../lib/stripeApi';
@@ -93,6 +94,7 @@ const SecondaryButton = ({ children, onClick, disabled }) => (
 export const DeleteAccount = () => {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
+  const { disable: disableMorningReminder } = useMorningReminder();
 
   const [phase, setPhase] = useState('loading');
   // 'loading' | 'status' | 'explain' | 'billing' | 'reauth' | 'confirm' | 'submitting' | 'done' | 'load-error'
@@ -224,6 +226,10 @@ export const DeleteAccount = () => {
     try {
       const data = await requestAccountDeletion({ password, confirmationPhrase: confirmationInput });
       setPassword('');
+      // Prefer cancelling the account-associated device reminder once
+      // deletion has been explicitly requested, rather than continuing to
+      // remind someone who has asked WakeWise to delete their account.
+      await disableMorningReminder?.();
       setResult(data);
       setPhase('done');
     } catch (e) {

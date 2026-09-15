@@ -33,7 +33,18 @@ export const DEFAULT_PREFERENCES = {
   enabled: false,
   quietHours: { enabled: false, start: '22:00', end: '07:00' },
   snoozeMinutes: 10,
-  categories: CATEGORY_DEFAULTS
+  categories: CATEGORY_DEFAULTS,
+  // Capacitor iOS Native Morning Reminders: a separate, device-level (OS
+  // notification, not JS timer) reminder tied to the real saved wake time
+  // (AlarmContext's alarmTime), not the independently-editable `wakeUp`
+  // category time above. Kept in the same preferences blob rather than a
+  // second storage key, but tracked under its own field since it's a
+  // structurally different mechanism (native calendar trigger vs. web
+  // setInterval). This flag mirrors what MorningReminderContext believes
+  // is actually scheduled on the device — it is corrected on every app
+  // start by reconciling against real permission/pending-notification
+  // state, never trusted blindly.
+  nativeMorningReminder: { enabled: false }
 };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -48,6 +59,7 @@ export const getNotificationPreferences = () => {
       ...clone(DEFAULT_PREFERENCES),
       ...parsed,
       quietHours: { ...DEFAULT_PREFERENCES.quietHours, ...parsed.quietHours },
+      nativeMorningReminder: { ...DEFAULT_PREFERENCES.nativeMorningReminder, ...parsed.nativeMorningReminder },
       categories: Object.fromEntries(
         Object.keys(CATEGORY_DEFAULTS).map((key) => [
           key,
@@ -93,6 +105,11 @@ export const updateCategory = (categoryId, changes) => {
       [categoryId]: { ...prefs.categories[categoryId], ...changes }
     }
   });
+};
+
+export const updateNativeMorningReminderEnabled = (enabled) => {
+  const prefs = getNotificationPreferences();
+  return persist({ ...prefs, nativeMorningReminder: { ...prefs.nativeMorningReminder, enabled } });
 };
 
 export const resetNotificationPreferences = () => persist(clone(DEFAULT_PREFERENCES));

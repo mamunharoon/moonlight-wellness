@@ -70,13 +70,20 @@ that can read the app's WebKit local storage directory. This was
 explicitly out of scope for this phase ("do not perform a broad storage
 migration ... without approval").
 
-### Notification permission
-The current `notificationService.js` uses only the browser
-`Notification` API, which is a no-op inside WKWebView. Real native wake
-reminders require `@capacitor/local-notifications` (permission
-request, scheduling, and iOS-specific behavior around exact-time
-alarms) — explicitly deferred to the dedicated wake-reminder phase this
-foundation is meant to prepare for.
+### Notification permission — implemented (Capacitor iOS Native Morning Reminders)
+`@capacitor/local-notifications@7.0.7` is now installed and used for one
+daily morning reminder (see `src/lib/nativeMorningReminder.js` and
+`src/context/MorningReminderContext.jsx`). Permission is requested only
+after a deliberate user action (toggling "Morning reminder" on in
+Settings → Notifications), never on launch/sign-in. No new `Info.plist`
+key was needed or added — iOS's local-notification permission dialog is
+system-generated and, unlike camera/microphone/location, has no
+corresponding usage-description string to declare. `notificationService.js`
+(the browser `Notification` API) is unchanged and still web-only.
+Native wake-reminder scheduling itself (the local-notification plugin
+wiring above) is done; a separate, still-open item is the privacy
+manifest declaration below, which should mention this plugin's use once
+drafted.
 
 ### Apple subscriptions (In-App Purchase)
 No StoreKit code, product identifiers, or purchase logic exists. Apple

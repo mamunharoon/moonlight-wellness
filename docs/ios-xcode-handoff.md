@@ -171,12 +171,109 @@ guide is written for. Run through all of them and note pass/fail:
       or airplane mode) — confirm the app degrades no worse than the
       web version does.
 
+### 11a. Morning reminder tests (Capacitor iOS Native Morning Reminders)
+
+None of these have been performed — they require `@capacitor/local-notifications`
+running on a real device (the simulator can deliver local notifications,
+but permission prompts, Focus mode, and device-restart persistence should
+be confirmed on a physical iPhone). Go to Settings → Notifications inside
+WakeWise for all of these.
+
+- [ ] **First permission request**: with iOS notification permission not
+      yet decided for WakeWise, turn the "Morning reminder" toggle on —
+      confirm the explanatory copy is visible *before* the toggle is
+      tapped, and that the native iOS permission dialog only appears
+      after tapping the toggle (never on app launch or sign-in).
+- [ ] **Permission allowed**: accept the dialog — confirm the toggle
+      shows on and displays "Scheduled for HH:MM on this device."
+- [ ] **Permission denied**: deny the dialog — confirm the toggle shows
+      off, no "scheduled" text appears, and the UI shows the "enable in
+      iPhone Settings" guidance instead. Confirm turning the toggle off
+      and back on again does *not* re-prompt automatically in a way that
+      feels like nagging (iOS itself blocks a second native prompt after
+      a denial — confirm WakeWise's own UI doesn't imply one is coming).
+- [ ] **Permission later revoked in Settings**: with the reminder on,
+      go to iPhone Settings → Notifications → WakeWise and turn
+      notifications off, then return to WakeWise's Notification settings
+      screen — confirm it reconciles to "off" (does not keep claiming the
+      reminder is active).
+- [ ] **Reminder delivery at the selected local time**: set a wake time a
+      few minutes in the future, enable the reminder, lock the phone, and
+      confirm "Good morning / Your WakeWise morning routine is ready."
+      arrives at that exact local time.
+- [ ] **Delivery across device restart**: with the reminder enabled,
+      restart the iPhone fully, and confirm the reminder still fires at
+      the next scheduled time (iOS local notifications are expected to
+      survive a restart, but this has not been confirmed for this app).
+- [ ] **DST/time-zone behaviour**: change the device's time zone (or test
+      across a DST transition if one falls during the test window) and
+      confirm the reminder still fires at the same local wall-clock wake
+      time, not a fixed UTC offset.
+- [ ] **Wake-time change**: with the reminder on, change the wake time in
+      Onboarding — confirm the reminder now fires at the new time and
+      not also at the old one (only one pending notification should ever
+      exist — check via a second device/enough wait, or Xcode console
+      logging if added temporarily).
+- [ ] **Disable/re-enable**: turn the reminder off, confirm no
+      notification arrives at the previously-scheduled time; turn it back
+      on, confirm exactly one reminder is scheduled again (not two).
+- [ ] **Duplicate-notification prevention**: rapidly toggle the reminder
+      off/on/off/on a few times — confirm only ever one WakeWise morning
+      reminder is pending/fires, never multiple.
+- [ ] **Foreground receipt**: trigger a reminder (or use a very-near-term
+      test time) while WakeWise is open and in the foreground — confirm
+      the app does not crash and behaves reasonably (iOS's default
+      foreground banner behavior for this plugin has not been confirmed
+      for this app).
+- [ ] **Background tap**: background WakeWise (don't force-quit), let the
+      reminder fire, tap it from the notification center/lock screen —
+      confirm it opens WakeWise directly to the morning-routine screen
+      (`/morning-start`).
+- [ ] **Cold-launch tap**: force-quit WakeWise entirely, let the reminder
+      fire, tap it — confirm a cold launch also lands on
+      `/morning-start`, not the default Home route.
+- [ ] **Focus mode / silent-mode limitation**: enable a Focus mode (e.g.
+      Do Not Disturb) that would normally silence notifications, and
+      confirm the reminder is delayed/suppressed as iOS dictates — this
+      is expected platform behavior, not a bug, and the in-app copy
+      should already be setting this expectation ("iPhone Focus, silent
+      mode and notification settings can affect delivery").
+- [ ] **Logout/account-deletion cancellation**: enable the reminder while
+      signed in, then sign out — confirm no further reminder fires and
+      the toggle shows off on next sign-in prompt/screen. Separately,
+      enable the reminder, submit an account-deletion request (does not
+      need to complete), and confirm the reminder is cancelled at that
+      point too.
+- [ ] **Not a guaranteed alarm**: as a sanity check on the copy itself,
+      confirm nowhere in the UI (toggle label, helper text, this
+      checklist) implies WakeWise is a guaranteed/critical alarm — it
+      should read as "reminder" throughout, with the delivery caveats
+      visible.
+
 ## 12. Evidence to return
 
 For each test above: pass/fail, and for any failure, a screenshot or
 screen recording plus the relevant Safari Web Inspector console output
 or Xcode console log. For signing/build issues, include the exact Xcode
 error text and the Signing & Capabilities screenshot.
+
+## 13. Gates before TestFlight
+
+None of these have been done yet, and none should be skipped:
+
+- [ ] All of §11 and §11a run on a physical iPhone with results recorded.
+- [ ] Native password-reset/deep-link (`wakewise://reset-password`)
+      actually completing end-to-end, including the Supabase dashboard
+      redirect-URL change this still requires (explicitly not made yet).
+- [ ] `capacitor.config.json`'s `ios.webContentsDebuggingEnabled` set to
+      `false`, with `npx cap sync ios` re-run afterward.
+- [ ] Signing team, provisioning profile, and bundle-ID availability
+      confirmed for the account this ships from (§5–§7 above).
+- [ ] iOS privacy manifest (`PrivacyInfo.xcprivacy`) and App Store privacy
+      ("nutrition label") disclosures drafted and reviewed — see
+      `docs/ios-security-privacy-future-requirements.md`; local
+      notifications add no new third-party data collection, but the
+      manifest itself still needs to be created before submission.
 
 **Do not report any of the above as passing without actually running
 it on real hardware.**
