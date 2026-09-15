@@ -106,25 +106,38 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
 
 ## 13. Public Vite environment variables
 
-13. In Codemagic: **Teams/Personal account → Environment variables** →
-    create a new group named exactly **`wakewise_vite_public`**
-    (matching `codemagic.yaml`'s `environment.groups` reference).
-    Inside it, add exactly two variables:
+13. Personal (non-Team) Codemagic accounts can no longer create named,
+    global Environment variable groups — Codemagic is removing that
+    capability for personal accounts; existing groups on such accounts
+    are read-only and can only be deleted. `codemagic.yaml` therefore
+    does **not** reference a group for these values. Instead, add both
+    variables at the **application level**: Codemagic → your app →
+    **Settings → Environment variables** (this is scoped to the
+    `moonlight-wellness` app itself, not a Teams/Personal-account-wide
+    group) → add each of the following, one at a time, with **Secret**
+    enabled for both:
     - `VITE_SUPABASE_URL` — the same public Supabase project URL
-      already used by the Vercel `dev` deployment (not secret; find it
-      in your local `.env.local` or the Supabase dashboard's API
-      settings).
+      already used by the Vercel `dev` deployment (not secret in the
+      sense of needing to stay confidential; find it in your local
+      `.env.local` or the Supabase dashboard's API settings).
     - `VITE_SUPABASE_ANON_KEY` — the same public anon key already used
-      by the Vercel `dev` deployment (not secret — it's designed to be
-      client-visible and is protected by Postgres RLS server-side; it
-      is *not* the service-role key, which must never go here or
-      anywhere in this pipeline).
+      by the Vercel `dev` deployment (safe to bundle client-side and
+      protected by Postgres RLS server-side; it is *not* the
+      service-role key, which must never go here or anywhere in this
+      pipeline).
 
-    You can mark both as "Secure" in Codemagic's UI if you'd like them
-    masked in build logs regardless — harmless, just extra caution.
-    Do **not** add any Stripe, Resend, or Supabase service-role value
-    to this group or any other Codemagic variable group; nothing in
-    this build needs them (confirmed in Phase 1's audit below).
+    Enabling **Secret** masks both values in the build log regardless
+    of the fact that they're already meant to be client-visible —
+    harmless, just extra caution. Application-level variables are
+    injected into every workflow's build environment automatically, so
+    nothing further needs to reference them in `codemagic.yaml` beyond
+    the two variable names the pipeline's own pre-build check looks
+    for (see `codemagic.yaml`'s "Verify required build-time env vars
+    are set" script, which fails the build before npm/build/signing if
+    either is missing, without ever printing either value). Do **not**
+    add any Stripe, Resend, or Supabase service-role value here;
+    nothing in this build needs them (confirmed in Phase 1's audit
+    below).
 
 ## 14–17. Running and inspecting a build
 
@@ -133,10 +146,10 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
     *only* way this workflow ever runs — there is no automatic trigger
     to disable.
 15. Watch each step in the Codemagic build log as it runs — they're
-    named exactly as they appear in `codemagic.yaml`: npm ci → vite
-    build → test suite → lint → cap sync → pod install → build number
-    → archive/IPA build → (if all of that succeeded) TestFlight
-    publish.
+    named exactly as they appear in `codemagic.yaml`: verify required
+    env vars → npm ci → vite build → test suite → lint → cap sync →
+    pod install → build number → archive/IPA build → (if all of that
+    succeeded) TestFlight publish.
 16. On success, the **Artifacts** tab of that build lists the `.ipa`,
     the `.xcarchive`, and any collected `.dSYM`/log files per
     `codemagic.yaml`'s `artifacts:` list — download them from there if
@@ -178,9 +191,10 @@ The workflow never triggers itself (see `codemagic.yaml`'s top comment)
     invalidates Codemagic's ability to sign or publish regardless of
     what's still configured on Codemagic's side. Separately, remove
     the `wakewise_app_store_connect` integration and the
-    `wakewise_vite_public` variable group from Codemagic itself, and
-    disconnect the GitHub repository connection under Codemagic's
-    application settings.
+    `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` application-level
+    environment variables from Codemagic itself, and disconnect the
+    GitHub repository connection under Codemagic's application
+    settings.
 
 ---
 
@@ -192,17 +206,18 @@ Integrations → GitHub still has access to this specific repository
 (GitHub's own "Installed GitHub Apps" org/account settings can quietly
 lose repo access if permissions were changed there).
 
-**Missing environment variables** — the `npm run build` step fails or
-produces a build that can't reach Supabase: confirm the
-`wakewise_vite_public` group (step 13) is actually attached to the
-`wakewise-ios-testflight` workflow — Codemagic requires a variable
-group to both exist *and* be referenced (already done, in
-`codemagic.yaml`'s `environment.groups`) *and* actually contain the two
-variables with those exact names (`VITE_SUPABASE_URL`,
-`VITE_SUPABASE_ANON_KEY` — case-sensitive, `VITE_` prefix required or
-Vite silently ignores them, as documented in
-`src/lib/subscriptionOverride.js`'s own comment on this exact
-footgun).
+**Missing environment variables** — the pipeline's own "Verify required
+build-time env vars are set" step fails, printing `Missing required
+environment variable: VITE_SUPABASE_URL` and/or
+`VITE_SUPABASE_ANON_KEY`: confirm both variables (step 13) are actually
+present under this app's **Application → Environment variables** in
+Codemagic, with those exact names — case-sensitive, `VITE_` prefix
+required or Vite silently ignores them, as documented in
+`src/lib/subscriptionOverride.js`'s own comment on this exact footgun.
+This check runs before npm ci, the web build, and signing, specifically
+so a missing variable fails fast with a clear message instead of
+surfacing later as a confusing build or runtime error — and it never
+prints either value, only which name is missing.
 
 **CocoaPods failure** — `pod install` errors: usually a stale
 `Podfile.lock` vs. the plugins actually installed by `npx cap sync

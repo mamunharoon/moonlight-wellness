@@ -12,11 +12,12 @@
 #
 # No credential of any kind belongs in this file. Every signing/App Store
 # Connect value below is a *name* of something configured in Codemagic's
-# own encrypted storage (an Environment variable group or an Integration)
-# — see docs/codemagic-setup-guide.md for exactly what to create and
-# where. Do not replace any of the names below with a real key, token, or
-# .p8 file content "to make it work" — that value goes into Codemagic's
-# UI, never into this repository.
+# own encrypted storage (an Integration, or an application-level
+# Environment variable referenced only by name at build time, never by
+# value here) — see docs/codemagic-setup-guide.md for exactly what to
+# create and where. Do not replace any of the names below with a real
+# key, token, or .p8 file content "to make it work" — that value goes
+# into Codemagic's UI, never into this repository.
 
 workflows:
   wakewise-ios-testflight:
@@ -37,15 +38,18 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-      groups:
-        # Environment variable group to create in Codemagic's dashboard
-        # (Teams/Personal account -> Environment variables). Holds only
-        # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY -- the same public,
-        # RLS-protected anon-key pair already compiled into every WakeWise
-        # web/preview build; safe to bundle client-side, never a secret.
-        # Do NOT add a service-role key, Stripe secret, or anything else
-        # to this group.
-        - wakewise_vite_public
+      # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are NOT referenced
+      # here as a `groups:` entry. Personal (non-Team) Codemagic accounts
+      # can no longer create named environment-variable groups -- global
+      # variables/groups are being phased out for personal accounts. On a
+      # personal account, add both variables directly under this app's
+      # Application -> Environment variables in the Codemagic dashboard
+      # (see docs/codemagic-setup-guide.md); Codemagic injects
+      # application-level variables into every workflow's build
+      # environment automatically, so no reference is needed here. The
+      # "Verify required build-time env vars" script below fails the
+      # build early, before any of it, if either is missing or empty --
+      # see that step for why the check exists.
       ios_signing:
         # Automatic signing: Codemagic provisions/renews the Apple
         # Distribution certificate and App Store provisioning profile
@@ -68,6 +72,26 @@ workflows:
         # possibly-stale native dependency can never silently ship.
         - $HOME/Library/Caches/CocoaPods
     scripts:
+      - name: Verify required build-time env vars are set
+        script: |
+          set -uo pipefail
+          # Confirms VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY were
+          # actually supplied by Codemagic's Application -> Environment
+          # variables before npm ci/build/signing ever run. Values are
+          # never printed -- only the name of a missing variable, so
+          # nothing sensitive reaches the build log even on failure.
+          missing=0
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "Missing required environment variable: $var_name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "One or more required environment variables are unset. Add them under Application -> Environment variables in Codemagic (see docs/codemagic-setup-guide.md) and re-run the build."
+            exit 1
+          fi
+
       - name: Install npm dependencies (npm ci)
         script: |
           set -euo pipefail
