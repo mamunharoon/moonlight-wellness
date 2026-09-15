@@ -1,0 +1,139 @@
+# WakeWise — Codemagic iOS/TestFlight pipeline.
+#
+# Manual-start only: this workflow deliberately has no `triggering` block.
+# Codemagic only builds a workflow automatically if `triggering` names an
+# event (push/pull_request/tag) or a `schedule`; omitting it entirely
+# means the ONLY way to start this workflow is a deliberate "Start new
+# build" in the Codemagic UI (or an explicit API call) with this branch
+# picked by hand each time. Do not add a `triggering` block without
+# re-reading that consequence first — it exists specifically to conserve
+# build minutes and prevent an accidental TestFlight upload from a
+# routine commit.
+#
+# No credential of any kind belongs in this file. Every signing/App Store
+# Connect value below is a *name* of something configured in Codemagic's
+# own encrypted storage (an Environment variable group or an Integration)
+# — see docs/codemagic-setup-guide.md for exactly what to create and
+# where. Do not replace any of the names below with a real key, token, or
+# .p8 file content "to make it work" — that value goes into Codemagic's
+# UI, never into this repository.
+
+workflows:
+  wakewise-ios-testflight:
+    name: WakeWise iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      # Verify this Xcode version is still offered in Codemagic's current
+      # Xcode-version list at setup time (Codemagic periodically retires
+      # old images) — 16.4 is a Capacitor-7-compatible Xcode 16.x release
+      # (Capacitor 7 requires Xcode >= 16.0) picked deliberately rather
+      # than an unpinned "latest", which could jump to an untested major
+      # version between builds. Adjust the value here, not by leaving it
+      # unpinned, if it needs to change.
+      xcode: 16.4
+      cocoapods: default
+      node: 20.18.1
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      groups:
+        # Environment variable group to create in Codemagic's dashboard
+        # (Teams/Personal account -> Environment variables). Holds only
+        # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY -- the same public,
+        # RLS-protected anon-key pair already compiled into every WakeWise
+        # web/preview build; safe to bundle client-side, never a secret.
+        # Do NOT add a service-role key, Stripe secret, or anything else
+        # to this group.
+        - wakewise_vite_public
+      ios_signing:
+        # Automatic signing: Codemagic provisions/renews the Apple
+        # Distribution certificate and App Store provisioning profile
+        # itself via the App Store Connect integration below -- nothing
+        # manual to upload here, and no certificate/profile file lives in
+        # this repo.
+        distribution_type: app_store
+        bundle_identifier: com.zavaraai.wakewise
+    integrations:
+      # Name of the App Store Connect API key integration to create in
+      # Codemagic (Teams -> Integrations -> App Store Connect). The .p8
+      # key, issuer ID, and key ID are uploaded once, there, and stay in
+      # Codemagic's encrypted storage -- this is only a reference name.
+      app_store_connect: wakewise_app_store_connect
+    cache:
+      cache_paths:
+        # Only the *global* CocoaPods download cache -- never the
+        # project's own ios/App/Pods directory, which must always be
+        # resolved fresh from Podfile.lock by `pod install` so a cached,
+        # possibly-stale native dependency can never silently ship.
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Install npm dependencies (npm ci)
+        script: |
+          set -euo pipefail
+          npm ci
+
+      - name: Build the web app (vite build)
+        script: |
+          set -euo pipefail
+          npm run build
+
+      - name: Run the automated test suite
+        script: |
+          set -euo pipefail
+          npm test
+
+      - name: Lint
+        script: |
+          set -euo pipefail
+          npm run lint
+
+      - name: Capacitor sync (copy web build + native deps into ios/)
+        script: |
+          set -euo pipefail
+          npx cap sync ios
+
+      - name: Install CocoaPods dependencies
+        script: |
+          set -euo pipefail
+          cd ios/App
+          pod install
+
+      - name: Set a unique, monotonically increasing build number
+        script: |
+          set -euo pipefail
+          # $CM_BUILD_NUMBER is Codemagic's own auto-incrementing counter
+          # for this workflow -- strictly increasing across builds without
+          # this repo ever tracking or committing a build number itself.
+          # CFBundleShortVersionString (MARKETING_VERSION, currently 1.0)
+          # is deliberately left untouched here -- that's a product
+          # decision, not something the pipeline should bump on its own.
+          cd ios/App
+          agvtool new-version -all "$CM_BUILD_NUMBER"
+
+      - name: Build and archive the signed .ipa
+        script: |
+          set -euo pipefail
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/xcarchive
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      # Runs only if every script above exited 0 -- a failing build,
+      # test, lint, sync, pod install, or archive step aborts the
+      # workflow before this point is ever reached, so nothing is signed
+      # or uploaded on a red build.
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight's processing area only. No beta_groups
+        # entry is configured here on purpose, so the build is never
+        # auto-distributed to any external or internal tester group --
+        # adding yourself as the first internal tester is a deliberate,
+        # manual App Store Connect step (see the setup guide).
+        submit_to_testflight: true
+        # App Store review submission stays explicitly disabled.
+        submit_to_app_store: false

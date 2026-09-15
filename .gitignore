@@ -30,3 +30,9 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# Codemagic iOS build outputs (.ipa, .xcarchive, dSYMs, logs) -- these
+# are Codemagic build artifacts, downloaded from its UI, never committed.
+/build/
+*.ipa
+*.xcarchive
