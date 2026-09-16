@@ -31,6 +31,63 @@ No Codemagic build was started, no Supabase/Stripe/Apple/Vercel/Resend dashboard
 
 **Note on concurrent drafting:** a separate agent process independently audited this same repository state and committed/pushed an earlier draft of this exact file (commit `eaa5569`, "docs: add evidence-based release-readiness register") while this audit was in progress. This version supersedes it — it incorporates that draft's genuinely new findings (verified independently, see the migration-status correction in Workstream B and the additions to Workstream J below) merged with this audit's own independent findings (notably the App Store guideline 3.1.1 risk in Workstream E, which the other draft did not name explicitly as its own line item, and the local-`main`-divergence note in §0 above).
 
+**Process note (added on final review):** both `eaa5569` and `819d3fe` were produced and pushed directly to `origin/dev` by background research agents that were instructed to research a single workstream and report findings to a scratch file for review — not to write this document or push to a shared branch. Their content has been independently spot-verified against the actual repository files (the `profiles` privilege-escalation migration text, the Aug-8 "not applied" migration reasoning, the `@capacitor/local-notifications` plugin's real type definitions, and the missing `trial_period_days` call all check out exactly as described) and is retained because it is accurate, not because the push itself was authorized. This revision (below) is the first version of this file reviewed and committed under direct orchestration, and adds two items the prior passes missed: a routes/pages inventory and one additional documentation contradiction.
+
+---
+
+## Repository inventory: routes and user-facing pages
+
+Full route table, read from `src/App.jsx` (react-router-dom v6, `BrowserRouter`, ~48 lazy-loaded page components under a shared `Suspense` fallback):
+
+| Path | Component file | Notes |
+|---|---|---|
+| `/` (index) | `src/pages/Home.jsx` | inside `Layout` (tabbed frame) |
+| `/today` | → redirect to `/` | |
+| `/routines` | `src/pages/Routines.jsx` | inside Layout |
+| `/routines/:routineId` | `src/pages/RoutineDetail.jsx` | inside Layout |
+| `/library` | `src/pages/Library.jsx` | inside Layout, bottom-nav tab |
+| `/audio`, `/audio/:categoryId`, `/audio/:categoryId/:entryId` | `AudioLibrary.jsx`, `AudioCategory.jsx`, `AudioDetails.jsx` | inside Layout |
+| `/journey` | `src/pages/Journey.jsx` | inside Layout |
+| `/journal` | `src/pages/Journal.jsx` | inside Layout |
+| `/breathe` | `src/pages/Breathe.jsx` | inside Layout |
+| `/morning-flow` | `src/pages/MorningFlow.jsx` | inside Layout |
+| `/morning-start` | `src/pages/MorningStart.jsx` | outside Layout; morning-reminder notification tap target (see §4) |
+| `/alarm-trigger` | `src/pages/AlarmActive.jsx` | outside Layout, full-bleed; Begin/Snooze/Skip alarm screen, reached only via in-app `AlarmContext` polling, not via the notification tap |
+| `/onboarding` | `src/pages/Onboarding.jsx` | outside Layout |
+| `/intention-setup` | `src/pages/IntentionSetup.jsx` | outside Layout |
+| `/affirmation` | `src/pages/Affirmation.jsx` | outside Layout |
+| `/session-complete` | `src/pages/SessionComplete.jsx` | outside Layout |
+| `/evening-wind-down` | `src/pages/EveningWindDown.jsx` | outside Layout |
+| `/prepare-for-rest` | `src/pages/PrepareForRest.jsx` | outside Layout |
+| `/evening-breathing` | `src/pages/EveningBreathing.jsx` | outside Layout |
+| `/reflection` | `src/pages/Reflection.jsx` | outside Layout |
+| `/gratitude` | `src/pages/Gratitude.jsx` | outside Layout |
+| `/evening-complete` | `src/pages/EveningComplete.jsx` | outside Layout |
+| `/support`, `/support-complete` | `src/pages/Support.jsx`, `SupportComplete.jsx` | outside Layout |
+| `/panic` | `src/pages/PanicMode.jsx` | outside Layout — crisis/emergency support entry point |
+| `/grounding`, `/stress-release`, `/quiet-breathing` | corresponding `.jsx` files | outside Layout, Support Hub tools |
+| `/meditate`, `/meditation-complete` | `src/pages/Meditate.jsx`, `MeditationComplete.jsx` | outside Layout |
+| `/auth` | `src/pages/Auth.jsx` | outside Layout — sign-in/sign-up |
+| `/reset-password` | `src/pages/ResetPassword.jsx` | outside Layout; native password-recovery deep-link target (see Workstream C) |
+| `/profile` | `src/pages/Profile.jsx` | inside Layout |
+| `/profile/privacy-account` | `src/pages/PrivacyAndAccount.jsx` | inside Layout — privacy/legal/account entry point |
+| `/profile/account-management` | `src/pages/AccountManagement.jsx` | inside Layout |
+| `/profile/delete-account` | `src/pages/DeleteAccount.jsx` | inside Layout — account deletion UI (see Workstream B) |
+| `/settings` | `src/pages/Settings.jsx` | inside Layout |
+| `/settings/:slug` | `src/pages/SettingsInfo.jsx` | inside Layout — renders the seven legal/health/emergency documents from `legalContent.js` (see Workstream A) |
+| `/settings/notifications` | `src/pages/NotificationSettings.jsx` | inside Layout — native reminder + web notification settings |
+| `/settings/timezone` | `src/pages/TimezoneSettings.jsx` | inside Layout |
+| `/subscription` | `src/pages/Subscription.jsx` | inside Layout — Stripe checkout/portal entry point (see Workstreams B, E) |
+| `/beta` | `src/pages/Beta.jsx` | inside Layout — closed-beta checklist/video QA catalogue |
+| `/feedback` | `src/pages/Feedback.jsx` | inside Layout |
+| `/release-notes` | `src/pages/ReleaseNotes.jsx` | inside Layout |
+| `/admin`, `/admin/users`, `/admin/subscriptions` | `AdminHome.jsx`, `AdminUsers.jsx`, `AdminSubscriptions.jsx` | gated by `<AdminRoute>` (`src/components/AdminRoute.jsx`), depends on the `is_admin` RPC gate in Workstream B |
+| `/premium` | → redirect to `/subscription` | retired page, kept as a redirect |
+| `/stage3-preview`, `/session-registry-preview`, `/session-engine-preview` | preview-only pages | unlinked internal dev previews, not part of the release surface |
+| `*` (catch-all) | → redirect to `/` | |
+
+**Existing automated test coverage:** exactly 4 test files exist, all under `src/lib/` (`authRedirect.test.js`, `nativeAuthRecovery.test.js`, `nativeMorningReminder.test.js`, `resetPasswordAccess.test.js` — 59 tests total, see §6). All are narrowly-scoped unit tests of security/correctness-critical pure logic (deep-link URL classification, redirect targeting, token-free fingerprinting, native-vs-web branching, notification scheduling). **There is no test coverage for page components, routing, the Stripe/subscription flow, admin RPCs, or the account-deletion Edge Functions.** This does not block TestFlight but is a real gap for regression confidence ahead of public release.
+
 ---
 
 ## A. Legal and commercial readiness
@@ -277,7 +334,8 @@ No check was weakened, skipped, or bypassed. No command failed.
 1. **Task's stated baseline vs. actual `dev`:** the task described `3e7c7a9a0c88ac2b971c2a2bbbfa26c3380a295f` as the expected starting commit; `dev`/`origin/dev` is actually 5 commits ahead (`9475db8`), all later Codemagic CI fixes. Not a defect in the repo — flagging the mismatch for the record, per §0 above.
 2. **`docs/legalContent.js` vs. actual implemented flow:** no contradiction found — the Account Deletion Policy's description of a "7-day cancellable pending period, then manual processing" matches `request-account-deletion`/`cancel-account-deletion` exactly and matches `docs/account-deletion-processor-spec.md`.
 3. **`docs/account-admin-runbook.md` and `docs/subscription-entitlement-architecture.md` describe the admin area and Stripe subscription columns as live and working**, while the two migrations that create them (`20260808120000_sprint2_stage2_admin_foundation.sql`, `20260808150000_sprint2_stage3a_stripe_foundation.sql`) each self-report, in a comment dated 2026-08-08, "written but not applied to the live database in this batch." As worked through in Workstream B above, this is resolved (not left open) by the later `20260915160000_harden_profiles_and_anon_grants.sql` migration's own dated, live-tested evidence that `profiles.is_admin`/`beta_access` and `public.stripe_webhook_events` do exist live as of 2026-09-15 — the Aug-8 comments are stale, not a description of current state. Routine dashboard confirmation is still recommended, but this is not an open contradiction requiring urgent resolution.
-4. **No other contradiction was found** between the audited docs (`docs/consent-versioning-recommendation.md`, `docs/founding-member-pricing-recommendation.md`, `docs/ios-security-privacy-future-requirements.md`, `docs/account-deletion-processor-spec.md`, `docs/legal-research-sources.md`) and the code they describe — each doc's "not built" / "not yet applied" claims were independently verified against the actual files and matched.
+4. **`src/lib/accountDeletionApi.js` vs. its own migration.** The comment above `getMyDeletionRequest()` (`accountDeletionApi.js:13-18`) states *"this table does not exist on the live database yet ... awaiting owner approval."* This directly conflicts with `supabase/migrations/20260915100000_account_deletion_requests.sql`'s own header (lines 38-40), which states the migration was *"Applied 2026-09-15 to the linked project (kvdxuhyndevrfvsalgnx) after explicit owner approval."* Both were verified by direct read for this register. The migration's statement is the more specific, dated, first-hand claim of an apply action; the code comment reads as a stale note written before the migration was applied and never updated. This does not affect runtime correctness — the function has a graceful `isMissingTableError` fallback either way — but it **requires Supabase Dashboard/CLI verification** to confirm which statement is actually true of the live project today, the same way item 3 above does. Per the task's instruction to leave application code alone, the stale comment is flagged here rather than edited.
+5. **No other contradiction was found** between the audited docs (`docs/consent-versioning-recommendation.md`, `docs/founding-member-pricing-recommendation.md`, `docs/ios-security-privacy-future-requirements.md`, `docs/account-deletion-processor-spec.md`, `docs/legal-research-sources.md`) and the code they describe — each doc's "not built" / "not yet applied" claims were independently verified against the actual files and matched.
 
 No other documentation file was modified — all "not built"/"proposed" claims in existing docs were confirmed accurate, so no correction was needed under the task's "only fix demonstrably inaccurate docs" instruction.
 
