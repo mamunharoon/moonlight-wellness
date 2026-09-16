@@ -530,11 +530,21 @@ task had access to.
    Purchase role — do not reuse Codemagic's existing signing key**, per
    Phase F §5's own reasoning (different permission scope, and reusing
    one key would couple unrelated rotations).
-3. Apply `supabase/migrations/20260916120000_apple_verified_state_rpc.sql`
-   to the linked project, after review — same deliberate-apply process
-   as step 1. Adds the one `SECURITY DEFINER`,
-   `service_role`-only RPC (`apply_verified_apple_subscription_event`)
-   the verification code below writes through.
+3. ~~Apply `supabase/migrations/20260916120000_apple_verified_state_rpc.sql`
+   to the linked project~~ — **done, 2026-09-16.** Applied to the linked
+   DEV project (`kvdxuhyndevrfvsalgnx`) and behaviourally live-verified —
+   owner `postgres`, `search_path` fixed empty, `anon`/`authenticated`/
+   `PUBLIC` confirmed unable to execute it, `service_role` confirmed
+   able to; idempotency, stale/newer-event ordering, product/environment
+   allow-listing, ownership-conflict rejection, cancellation/expiry/
+   refund/revocation state transitions, and the full Stripe/Apple
+   entitlement precedence matrix were all exercised against the live
+   database — see `docs/apple-subscription-implementation.md` Phase G
+   for the full record. The one `SECURITY DEFINER`, `service_role`-only
+   RPC (`apply_verified_apple_subscription_event`) the verification code
+   below writes through now exists live. **This alone does not make
+   Apple purchases functional** — no Edge Function has been deployed and
+   no Apple credential exists yet.
 4. Deploy `supabase/functions/verify-apple-transaction` and
    `supabase/functions/apple-server-notifications` — as of 2026-09-16
    these are genuine, cryptographically-verifying implementations (real
@@ -546,10 +556,11 @@ task had access to.
    `deno.json` import maps mapping `jose`/`@peculiar/x509`/
    `reflect-metadata` to their `npm:` specifiers have never been
    exercised by a real `supabase functions deploy`) before assuming
-   this works as written. Deploying them alone still does nothing
-   functionally until the secrets above and the migration above both
-   exist — the code fails closed with a clear "not configured" response
-   until then, exactly like the stubs did.
+   this works as written. The database write path (step 3) is now live
+   and verified; deploying the functions alone still does nothing
+   functionally until the secrets in step 2 exist — the code fails
+   closed with a clear "not configured" response until then, exactly
+   like the stubs did.
 5. Once deployed and confirmed reachable, optionally deploy
    `supabase/functions/reconcile-apple-subscriptions` — it does nothing
    on its own without also being scheduled (e.g. via `pg_cron` calling
