@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "jose": "npm:jose@6.2.12",
+    "@peculiar/x509": "npm:@peculiar/x509@2.1.0",
+    "reflect-metadata": "npm:reflect-metadata@0.2.2"
+  }
+}

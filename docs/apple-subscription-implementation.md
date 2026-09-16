@@ -3,6 +3,8 @@
 **Compiled:** 2026-09-16, on `dev`, starting HEAD `c5292be7e67c4fbebf7ad20069c9729a053d3eba`.
 **Scope:** the first safe, testable phase of native Apple subscriptions, per `docs/apple-subscription-architecture.md`. No real purchase, no build upload, no external dashboard touched, no Apple credential committed.
 
+**Updated again 2026-09-16 — "Apply and Verify Subscription Database Foundation in DEV"** (Phase C's schema applied/live-verified) **and "Implement Apple Server Verification and Notifications V2"** (Phase F — the real, cryptographically-verifying server-side implementation, starting HEAD `ab68b7f`). Both updates are additive sections/edits within this same document — see Phase C's "applied and live-verified" note and Phase F below for what changed; earlier sections are otherwise left as written, with superseded claims struck through rather than deleted.
+
 **Read this document alongside:**
 - `docs/apple-subscription-architecture.md` — the design this phase implements (unchanged in its recommendations; a few sections below note where real evidence sharpened or corrected it).
 - `docs/release-readiness-register.md` — updated pointers, Workstreams C/D/E.
@@ -12,7 +14,7 @@
 
 ## 0. Do not claim more than this actually proves
 
-**Apple billing is not complete.** Nothing in this phase (nor in the subsequent database-foundation task of 2026-09-16) creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists today is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed schema that is now **applied and live-verified** in the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`) — but holds zero rows and is written to by nothing; and Edge Functions that are deliberately, honestly non-functional until Apple credentials and App Store Connect configuration exist. Completion still requires, in order: App Store Connect product/offer setup, Apple Developer API credentials, deploying and implementing real App Store Server API/Notifications V2 verification, Apple sandbox testing, and physical-iPhone testing. **None of that has happened. Apple purchases remain completely non-operational** — the database foundation existing and being verified secure is a prerequisite for that work, not a step toward it being usable yet.
+**Apple billing is not complete.** Nothing in this phase, the subsequent database-foundation task (2026-09-16), or the subsequent server-verification task (2026-09-16, Phase F below) creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists today is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed schema that is **applied and live-verified** in the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`) — but holds zero rows and is written to by nothing; genuine, cryptographically-verifying server-side verification code (real JWS + certificate-chain verification, a real App Store Server API client, real subscription-state mapping) that is unit-tested but has **never been deployed, never run inside the actual Supabase Edge Runtime, and never been exercised against a real Apple-signed payload**; and no Apple credentials anywhere in this repository. Completion still requires, in order: generating dedicated Apple credentials, App Store Connect product/offer setup, deploying the Edge Functions and confirming they actually work on the real Supabase Edge Runtime (not just under Node/Vitest), applying the Phase F RPC migration, Apple sandbox testing against the complete matrix, and physical-iPhone testing. **None of that has happened. Apple purchases remain completely non-operational** — writing and testing the verification code is a prerequisite for that work, not a step toward it being usable yet.
 
 ---
 
@@ -118,16 +120,18 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 - Constraint tests confirmed: an invalid `provider` value, an Apple `product_id` outside the allow-list, a duplicate `provider_events (provider, provider_event_id)` pair, a duplicate `provider_subscriptions (provider, apple_original_transaction_id)` pair reused for a second user, and a non-existent `user_id` are all rejected by the database (`23514`/`23505`/`23503` respectively). Every synthetic row used in these tests was inserted and verified inside a transaction that was then rolled back; a post-test count confirmed all three new tables hold zero rows.
 - The pre-existing `subscriptions` row (1 row, `status = 'cancelled'`) was confirmed unchanged before and after; all 17 pre-existing RLS policies and all pre-existing `anon`/`authenticated` grants on the other 7 tables were confirmed byte-identical before and after (19 total policies post-migration = 17 unchanged + 2 new).
 
-`subscriptions` remains the live, authoritative table every existing read path uses — nothing in this phase cuts any read path over to the new tables; they exist and are verified but are not yet written to by anything (no Edge Function writes to them yet — `verify-apple-transaction` and `apple-server-notifications` remain fail-closed stubs, not deployed).
+`subscriptions` remains the live, authoritative table every existing read path uses — nothing in this phase cuts any read path over to the new tables; they exist and are verified but are not yet written to by anything (as of this writing, before Phase F below, `verify-apple-transaction` and `apple-server-notifications` were still fail-closed stubs; Phase F replaced them with real verification code, but that code is not deployed — see Phase F for the current, authoritative state).
 
-### Edge Functions — both fail-closed stubs, not working verifiers
+### Edge Functions — superseded, 2026-09-16
 
-| Function | What it does today | What it deliberately does NOT do |
-|---|---|---|
-| `verify-apple-transaction` | Verifies caller JWT (same pattern as `create-checkout-session`); validates `productIdentifier` against the same allow-list `_shared/planMapping.ts` now exports (`KNOWN_APPLE_PLUS_PRODUCT_IDS`); checks for the *presence* of `APPLE_ISSUER_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY` (never their values); since these are never set in this task, always responds `501` with `{ verified: false, reason: 'apple_server_verification_not_yet_configured' }`. | Never decodes/parses `jwsRepresentation` as if that proved anything. Never writes to `entitlements`/`provider_subscriptions`/`provider_events` (both because nothing is verified, and because those tables don't exist live yet). Never calls the real App Store Server API (no credentials to call it with). |
-| `apple-server-notifications` | Confirms the request is a `POST` with a `signedPayload` string; always responds `200 { received: true, processed: false, reason: 'not_yet_implemented' }` (a `200`, not an error, specifically so Apple does not endlessly retry a notification this endpoint can never process without a code change — different from `stripe-webhook`'s `500`-on-genuine-failure convention, deliberately, per this file's own header comment). | Never verifies the JWS certificate chain (no such logic is wired in — a real implementation should use Apple's own App Store Server Library, not a hand-rolled check). Never writes anything. |
+**The table below described this phase's fail-closed stubs and is retained struck through for the historical record. Both functions were replaced with genuine, cryptographically-verifying implementations in the follow-on "Implement Apple Server Verification and Notifications V2" task — see Phase F below, which is now authoritative.**
 
-**`reconcile-apple-subscriptions` (the scheduled reconciliation job) was not written in this phase.** There is no live Apple transaction data yet to reconcile, and writing a scheduled job with nothing real to poll would be speculative code with no way to test it safely in this task — deferred, not forgotten; its design is already in `docs/apple-subscription-architecture.md` §8.
+~~| Function | What it does today | What it deliberately does NOT do |~~
+~~|---|---|---|~~
+~~| `verify-apple-transaction` | Verifies caller JWT (same pattern as `create-checkout-session`); validates `productIdentifier` against the same allow-list `_shared/planMapping.ts` now exports (`KNOWN_APPLE_PLUS_PRODUCT_IDS`); checks for the *presence* of `APPLE_ISSUER_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY` (never their values); since these are never set in this task, always responds `501` with `{ verified: false, reason: 'apple_server_verification_not_yet_configured' }`. | Never decodes/parses `jwsRepresentation` as if that proved anything. Never writes to `entitlements`/`provider_subscriptions`/`provider_events` (both because nothing is verified, and because those tables don't exist live yet). Never calls the real App Store Server API (no credentials to call it with). |~~
+~~| `apple-server-notifications` | Confirms the request is a `POST` with a `signedPayload` string; always responds `200 { received: true, processed: false, reason: 'not_yet_implemented' }` (a `200`, not an error, specifically so Apple does not endlessly retry a notification this endpoint can never process without a code change — different from `stripe-webhook`'s `500`-on-genuine-failure convention, deliberately, per this file's own header comment). | Never verifies the JWS certificate chain (no such logic is wired in — a real implementation should use Apple's own App Store Server Library, not a hand-rolled check). Never writes anything. |~~
+
+~~**`reconcile-apple-subscriptions` (the scheduled reconciliation job) was not written in this phase.**~~ Written in Phase F below.
 
 ### Provider-neutral entitlement resolution — real, tested, not yet wired into any live read path
 
@@ -176,6 +180,118 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 ---
 
+## Phase F — Server verification and Notifications V2 (real implementation, 2026-09-16)
+
+**Task: "WAKEWISE — IMPLEMENT APPLE SERVER VERIFICATION AND NOTIFICATIONS V2."** Starting commit `ab68b7f`. Replaces the Phase C stubs with genuine, cryptographically-verifying server-side code. **Still not deployed, and Apple purchases are still not operational** — see the Classification section below for exactly what remains.
+
+### 1. Compatibility gate — Apple's official library was evaluated and rejected for this runtime
+
+`@apple/app-store-server-library` (npm, MIT, Apple's own official package, `3.1.0` at the time of this research) was downloaded and its actual source inspected (not assumed from its README) before writing any cryptographic code, per this task's own Phase 1 instruction.
+
+**Finding: not safely usable in Supabase's current Edge Runtime.** Concrete, cited evidence:
+
+| Broken API | Where the library depends on it | Deno issue | Fixed by | Fix merged |
+|---|---|---|---|---|
+| `crypto.X509Certificate.prototype.publicKey` | `SignedDataVerifier`'s certificate-chain verification (`jws_verification.ts` imports `X509Certificate` directly from Node's built-in `crypto`) | [deno#23307](https://github.com/denoland/deno/issues/23307) — its own title names `@apple/app-store-server-library` as the motivating case | [deno#24988](https://github.com/denoland/deno/pull/24988) | 2024 |
+| `crypto.X509Certificate.prototype.verify` | Same class, chain-signature verification | [deno#28494](https://github.com/denoland/deno/issues/28494) — still "Not implemented" as reported against Deno 2.2.2 | [deno#32270](https://github.com/denoland/deno/pull/32270) | — |
+| `node:crypto` EC key curve naming (`'p256'` vs. the OpenSSL short name `'prime256v1'` the `jsonwebtoken` package expects) | `AppStoreServerAPIClient.createBearerToken()`'s JWT signing (via `jsonwebtoken`), and `SignedDataVerifier`'s own internal use of the same package | [deno#22879](https://github.com/denoland/deno/issues/22879) — filed by a developer building **exactly this**: "verifying iOS in-app purchases through an edge function backend," Deno 1.41.2 | [deno#32267](https://github.com/denoland/deno/pull/32267) | **2026-03-02** |
+
+**Supabase's own Edge Runtime is confirmed still pinned to Deno 2.1.4** as of the most recent evidence found (an open, unresolved [supabase/edge-runtime discussion #38898](https://github.com/orgs/supabase/discussions/38898) requesting an upgrade to Deno 2.5) — i.e. *after* all three fixes above landed upstream in Deno (the last as recently as 2026-03-02), with no confirmed timeline for Supabase's own runtime to pick them up. Shipping Apple's official library today would mean its core cryptographic path is confirmed broken on the exact runtime version this project's Edge Functions actually run on.
+
+**The one community attempt at a Deno-native port found**, `@xaio/app-store-server-library-deno` on JSR, **has published zero versions** — not a credible, usable alternative.
+
+**Decision: build the verification layer using two independently-maintained, WebCrypto-native libraries instead**, neither of which touches Node's `node:crypto` module at all (so none of the Deno incompatibilities above apply):
+- **`jose@6.2.12`** — JWS parsing/signing/verification. Zero dependencies; explicitly designed to run identically across Node/Deno/Browser/Workers via the standard Web Crypto API.
+- **`@peculiar/x509@2.1.0`** — X.509 certificate parsing and chain building (`X509ChainBuilder`). Its bundled source was read directly (not assumed): `X509ChainBuilder.findIssuer()` calls `candidateIssuerCert.verify({ publicKey, signatureOnly: true })`, i.e. it genuinely cryptographically verifies each certificate's signature against its candidate issuer via `crypto.subtle.verify` — not a mere subject/issuer string match. Its own dependency tree (`@peculiar/asn1-*`, `asn1js`, `pvtsutils`, `tsyringe`, `tslib`) is pure JS/TypeScript with no native bindings.
+
+This project's own code (`supabase/functions/_shared/appleJwsVerification.ts`) only orchestrates: which candidate certificates to hand the chain builder (the JWS's own `x5c` header entries plus the pinned trusted root), which root to trust, and which additional checks (certificate validity dates, `BasicConstraints` CA flags) to enforce on top of the library's own chain-building signature checks. **It does not implement ASN.1 parsing, signature mathematics, or its own certificate-chain algorithm** — per this task's own "do not create home-grown certificate-chain validation" instruction.
+
+**What this proves, and what it does not.** `appleJwsVerification.test.js` builds a full synthetic 3-tier certificate chain (root → intermediate → leaf, ECDSA P-256/SHA-256 — the exact algorithm Apple signs with) using `@peculiar/x509`'s own certificate generator, signs a JWS with `jose`, and exercises the real verification code end-to-end under Vitest/Node — 13 tests, all passing, covering: a valid chain accepted; a tampered payload rejected; a JWS signed by a key not matching the presented leaf rejected; an untrusted/unrelated root rejected; a self-signed leaf with no intermediate rejected; an expired certificate rejected; a not-yet-valid certificate rejected; the same otherwise-expired chain *accepted* when a synthetic "now" inside its validity window is supplied (proving the date check is real, not vacuous); an unsupported algorithm (`alg: none`) rejected; a missing `x5c` header rejected; malformed/empty input rejected; a non-CA intermediate certificate rejected. Because both `jose` and `@peculiar/x509` are WebCrypto-native — the same Web Crypto API both Node and Deno implement to the same standard — this is real evidence the cryptographic logic itself is correct, not a mock standing in for it. **It has NOT been executed inside the actual Supabase Edge Runtime** (no Docker/Deno CLI available in this task's environment) **and has NOT been exercised against a real Apple-signed JWS** (no Apple credentials exist or were created in this task). Both remain required before this can be trusted in production — see Classification below.
+
+### 2. Security model implemented
+
+**`verify-apple-transaction`** (`supabase/functions/verify-apple-transaction/index.ts`, orchestration in `_shared/applyVerifiedAppleTransaction.ts`):
+- Requires a valid Supabase user JWT; resolves the authenticated user server-side (unchanged from Phase C).
+- Accepts **only** `{ transactionId }` from the client body — no product, status, expiry, environment, price, offer, or `appAccountToken` claim is ever read from the request and trusted for what gets written.
+- Calls Apple's own **App Store Server API** (`_shared/appleServerApi.ts` — a minimal client for exactly the two endpoints this project needs, `GET /inApps/v1/transactions/{id}` and `GET /inApps/v1/subscriptions/{id}`; endpoint paths, the bearer-token claim shape, and both base URLs were read directly out of Apple's own official library's source, not reconstructed from documentation summaries) using WakeWise's own ES256-signed bearer credential (signed with `jose`, sidestepping the `jsonwebtoken` curve-naming bug above entirely) — never trusts a client-submitted JWS.
+- Cryptographically verifies every JWS Apple returns (`appleJwsVerification.ts`) before reading a single field out of it.
+- Enforces bundle id (hardcoded check against the literal string `com.zavaraai.wakewise`, not merely "the secret is non-empty" — an operator typo in the secret value must not silently widen what is accepted), the Apple product-id allow-list (`isKnownApplePlusProductId`), and the configured environment, all against the **verified** payload.
+- Enforces ownership: a present `appAccountToken` that names a different Supabase user is refused outright (`409`); the unconditional enforcement point is the database RPC's own `FOR UPDATE` + exception (see §4).
+- Best-effort enriches with `getAllSubscriptionStatuses` for real `autoRenewStatus`/current `Status` data (a bare "Get Transaction Info" response carries neither) — a failure here is non-fatal, it just means `cancel_at_period_end` is left for the database layer to preserve rather than guessed at.
+- Returns a minimal response (`verified`, `status`, `expiresAt`, `recorded`) — never the signed payload or any other sensitive Apple field.
+
+**`apple-server-notifications`** (`supabase/functions/apple-server-notifications/index.ts`):
+- Public webhook — no Supabase JWT to check, exactly like `stripe-webhook`. Every request is treated as hostile until `signedPayload`'s JWS signature and certificate chain verify against Apple's pinned root.
+- Validates bundle id and environment on the verified outer payload (skipped only for Apple's own `TEST` notification type, which carries no `data` object at all).
+- Separately, independently verifies the nested `signedTransactionInfo`/`signedRenewalInfo` (Apple signs these as their own JWS values, not merely as part of the outer envelope).
+- Uses Apple's `notificationUUID` for replay protection, recorded in `provider_events(provider, provider_event_id)` before any state change, exactly mirroring `stripe_webhook_events`' already-proven idempotency pattern.
+- Resolves the WakeWise user from a verified `appAccountToken` (trustworthy once the JWS it came from has been cryptographically verified — see `docs/apple-subscription-architecture.md` §9) or, if absent, the existing `provider_subscriptions` row already on record for that transaction id; an unresolvable notification is recorded for audit and acknowledged (`200`), never retried forever, exactly mirroring `stripe-webhook`'s own `resolveUserId` → "skip" convention.
+- Never grants or revokes access from `notificationType` alone without an accompanying, itself-verified transaction/status (see §3's allow-list design).
+- Returns `500` (Apple retries) only for a genuine transient failure (a database error); returns `200`/`400` for every other outcome — mirroring `stripe-webhook`'s own "retry only a real failure" convention, and Apple's own guidance not to be retried forever into a permanent condition.
+- Never logs a signed payload, transaction identifier, `appAccountToken`, or user id — only `notificationType`/`subtype` (Apple's own non-sensitive enum values), reason codes, and plain error messages (verified by direct review of every log call in the new code — see §Validation below).
+
+**`reconcile-apple-subscriptions`** (`supabase/functions/reconcile-apple-subscriptions/index.ts`, Phase 6) — written, **not scheduled or deployed**:
+- Requires a dedicated shared secret (`APPLE_RECONCILE_TRIGGER_SECRET`, compared with a constant-time check — never `===` — to avoid a timing side-channel), deliberately separate from `SUPABASE_SERVICE_ROLE_KEY` so it can be rotated independently.
+- Queries `provider_subscriptions` for `provider = 'apple'` rows not verified in the last 24 hours (capped at 50 rows per run — rate/cost-conscious against Apple's own API), and re-verifies each sequentially (not in parallel) through the **same** `verifyAndApplyAppleTransaction` helper `verify-apple-transaction` uses — one source of truth for "how does a verified Apple fact become a database write," never a second, divergent implementation.
+- No `pg_cron` entry, no external scheduler wiring, and the function itself is not deployed — per this task's own "do not schedule or deploy it externally" instruction.
+
+### 3. Subscription state mapping (`_shared/appleSubscriptionStateMapping.ts`)
+
+Every enum value referenced (`NotificationTypeV2`, `Subtype`, `Status`, `OfferType`) was read directly out of Apple's own official library's source during this task's research — not reconstructed from documentation summaries. Central, pure, unit-tested (`appleSubscriptionStateMapping.test.js`, 33 tests):
+
+- `resolveProviderStatus(transaction, appleStatus)` maps Apple's numeric `Status` (1=ACTIVE…5=REVOKED) to this project's vocabulary, with `offerType === 1` (INTRODUCTORY_OFFER) distinguishing `'trial'` from `'active'` — the standard 7-day trial's actual mechanism, per the approved commercial decision; `offerType === 3` (OFFER_CODE, the approved founding-offer mechanism) is deliberately **not** treated as a trial.
+- `mapVerifiedAppleNotificationToStateChange(...)` gates on an explicit **allowlist** of state-bearing notification types (`SUBSCRIBED`, `DID_RENEW`, `DID_FAIL_TO_RENEW`, `GRACE_PERIOD_EXPIRED`, `REFUND`, `REVOKE`, `EXPIRED`, `OFFER_REDEEMED`, `DID_CHANGE_RENEWAL_PREF`, `DID_CHANGE_RENEWAL_STATUS`, `ONE_TIME_CHARGE`) — **any type not on this list, including one this project has simply never seen before, returns `null` (acknowledge-only) by construction**, the literal implementation of this task's "unknown notification types must not accidentally grant or revoke access" instruction (a test asserts this for a deliberately-invented, never-defined notification type, and an earlier draft that instead used a denylist was caught failing exactly this test during development).
+- `DID_CHANGE_RENEWAL_STATUS` / `AUTO_RENEW_DISABLED` sets `cancelAtPeriodEnd: true` while leaving `status` exactly as the transaction's own data says — the literal implementation of "cancellation alone must not end access before the verified expiry time."
+- Covers every scenario this task's own brief enumerated: initial purchase, active renewal, renewal-preference change, cancellation-with-continued-access, expiration, billing retry, billing grace period, refund, revocation, offer-code purchase, introductory-trial purchase, and (via the RPC's own idempotency/ordering guards, §4) duplicate and stale/out-of-order events.
+
+### 4. Database write safety — a new, unapplied RPC migration
+
+`supabase/migrations/20260916120000_apple_verified_state_rpc.sql` — **written, reviewed, NOT applied to the live project** (see this task's own "do not apply additional live migrations" instruction). Adds one `SECURITY DEFINER` function, `public.apply_verified_apple_subscription_event(...)`, replacing what would otherwise be two separate, race-prone client-side upserts:
+
+- **Idempotent event recording**: a duplicate `provider_event_id` is a safe no-op, checked and recorded inside the same transaction as the state write (unlike `stripe-webhook`'s own check-then-process-then-record — this function's single-statement-per-call nature makes a true single-transaction guarantee straightforward).
+- **Ownership enforcement**: `SELECT ... FOR UPDATE` locks the candidate row before checking it, closing the read-then-write race a client-side check would leave open; a transaction id already owned by a different `user_id` raises an exception rather than being silently reassigned.
+- **Newer-wins ordering**: an incoming event whose `last_verified_at` is not newer than what is already on record is a safe no-op for the subscription/entitlement write (the event itself was still recorded above, for idempotency/audit) — the literal implementation of "newer verified state must not be overwritten by an older notification."
+- **Unified entitlement recompute**: reads (never writes) the legacy `subscriptions` table to fold in any existing Stripe entitlement, using the same access-granting-status set and most-recently-verified tie-break rule as `src/lib/entitlementResolution.js` — deliberately re-implemented in SQL rather than called across the Deno/Postgres boundary, matching this project's own established "independently duplicated so one side can never silently drift the other" convention (see `KNOWN_APPLE_PLUS_PRODUCT_IDS`'s own precedent). A dedicated parity test (`entitlementResolution.serverMirror.test.js`) proves the **JavaScript-side** server mirror (`_shared/entitlementResolution.ts`) agrees with the client copy across 9 representative inputs; the **SQL** copy inside this migration could not be executed against a live database in this task and is therefore reviewed, not test-executed — flagged explicitly, not silently assumed correct (see Classification below).
+- `EXECUTE` is revoked from `PUBLIC`, `anon`, **and `authenticated`** — granted only to `service_role`. This is deliberately different from this project's existing `admin_*` RPCs (callable by an authenticated admin user, gated by `is_admin()` inside the function body): this function takes a raw `user_id` parameter with no in-body ownership check of "does the caller own this account," so it must never be reachable by any client-authenticated role at all.
+- `SET search_path = ''` with every reference fully qualified (`public.`/`auth.`) — this project's own already-established hardening pattern for `SECURITY DEFINER` functions (see `20260808120000_sprint2_stage2_admin_foundation.sql`).
+- No SQL string concatenation with any untrusted value — every value arrives as a typed, bound function parameter.
+- Does not touch `subscriptions`, its RLS, or any Stripe write path — reads it, never writes it.
+- Rollback and validate files exist at the paired paths under `supabase/migration-support/`, per this project's own established convention.
+
+### 5. Credential and configuration boundary (names only — see below)
+
+| Secret name | Purpose | Format |
+|---|---|---|
+| `APPLE_ISSUER_ID` | App Store Server API JWT `iss` claim | UUID, from App Store Connect → Users and Access → Integrations → Keys |
+| `APPLE_KEY_ID` | App Store Server API JWT `kid` header | Alphanumeric key id, same page |
+| `APPLE_PRIVATE_KEY` | App Store Server API JWT signing key | PEM-encoded PKCS#8 EC private key (the `.p8` file App Store Connect issues **once**, at key creation — cannot be re-downloaded) |
+| `APPLE_BUNDLE_ID` | Bundle id allow-listed by both Edge Functions | The literal string `com.zavaraai.wakewise` |
+| `APPLE_ENVIRONMENT` | Which App Store Server API host/environment this deployment targets | Exactly `production` or `sandbox` — never inferred, never both at once in a single deployment |
+| `APPLE_RECONCILE_TRIGGER_SECRET` | Authenticates a call to the (unscheduled) `reconcile-apple-subscriptions` function | A random, generated shared secret — deliberately independent of `SUPABASE_SERVICE_ROLE_KEY` so it can be rotated without touching every other function's trust boundary |
+| `SUPABASE_SERVICE_ROLE_KEY` | Already auto-injected by the Supabase platform into every Edge Function — nothing to set manually | n/a |
+
+**On the existing Codemagic App Store Connect key**: this task did **not** assume it is technically or operationally suitable for App Store Server API access, and did not reuse it. Codemagic's own key is scoped for **code-signing/build-automation** use (App Store Connect API access for `xcrun altool`/Codemagic's own publishing step) — a fundamentally different **role/permission scope** in App Store Connect than what the App Store Server API needs (an **In-App Purchase**-scoped key, per Apple's own documentation for generating an App Store Server API key). Reusing one key for both purposes would also **couple rotation**: rotating the signing key (e.g. after a CI credential leak) would simultaneously break server-side purchase verification, and vice versa. **Recommendation: generate a separate, dedicated App Store Connect API key scoped only to the App Store Server API / In-App Purchase role**, least-privilege and independently rotatable. Not created in this task (no App Store Connect action was taken).
+
+**Production vs. sandbox handling**: `APPLE_ENVIRONMENT` is a single, explicit, required value per deployment — this task deliberately does **not** implement an automatic "try production, fall back to sandbox" pattern some integrations use, to avoid any ambiguity about which environment a given verification result actually came from. A deployment that needs to test against sandbox sets `APPLE_ENVIRONMENT=sandbox` explicitly.
+
+**Rotation procedure** (for a future task to execute, not performed here): generate the new key in App Store Connect first (a private key, once downloaded, cannot be re-downloaded — the old key must remain valid until the new one is confirmed working); update `APPLE_KEY_ID`/`APPLE_PRIVATE_KEY` together (they identify the same key pair); revoke the old key in App Store Connect only after confirming a real verification succeeds with the new one; `APPLE_ISSUER_ID` does not change on key rotation (it identifies the App Store Connect team, not the individual key) and needs no corresponding update.
+
+**What must never be exposed to the client**: every secret in the table above, plus any raw signed payload/JWS Apple returns (the Edge Functions already never return these — see §2's "minimal response" notes). None of these values exist anywhere in this repository — every reference in the code and in this document is to the secret's **name**, never a value, per this task's own explicit instruction.
+
+### 6. Tests added in this phase (all passing — see §Validation for the full run)
+
+| File | Covers |
+|---|---|
+| `src/lib/appleJwsVerification.test.js` (new) | Real end-to-end JWS + certificate-chain verification against synthetic chains — see §1 above for the full scenario list (13 tests) |
+| `src/lib/appleServerApi.test.js` (new) | App Store Server API bearer-token JWT signing — correct claim shape, correct short expiry, a wrong public key correctly fails verification (2 tests) |
+| `src/lib/appleSubscriptionStateMapping.test.js` (new) | Every notification/status-mapping scenario this task's brief enumerated, plus the acknowledge-only allowlist and its fail-closed behaviour on an unknown type (33 tests) |
+| `src/lib/applyVerifiedAppleTransaction.test.js` (new) | The orchestration layer itself, with `appleServerApi`/`appleJwsVerification` mocked and a minimal `Deno.env` shim: bundle id / product id / environment / transaction id / `appAccountToken` mismatches all rejected before the database RPC is ever called; a 404 from Apple maps to `transaction_not_found`, not an internal error; an RPC ownership-conflict error maps to `already_linked_to_another_account`; a generic RPC failure maps to `internal_error`; the RPC call's parameter set is asserted to contain nothing beyond what the verified transaction itself carries (10 tests) |
+| `src/lib/entitlementResolution.serverMirror.test.js` (new) | Proves the server-side JS mirror (`_shared/entitlementResolution.ts`) and the client copy (`src/lib/entitlementResolution.js`) agree across 9 representative inputs (9 tests) |
+
+**Explicit test-coverage boundary, same pattern as Phase E's own note**: `verify-apple-transaction/index.ts`, `apple-server-notifications/index.ts`, and `reconcile-apple-subscriptions/index.ts`'s own `Deno.serve` request-handling wiring (HTTP method/JWT/header checks, response-status selection) is not directly unit-tested — this repo still has no Deno test runner. What IS tested is every pure decision function these handlers call (JWS verification, state mapping, the full orchestration layer with the network/DB boundary mocked) — narrowing the same pre-existing, repo-wide gap Phase E already narrowed for Stripe, not closing it wholesale. The RPC migration's **SQL** itself (as opposed to its JS-mirrored entitlement-precedence logic) could not be executed against a live database in this task — reviewed, not test-executed.
+
+---
+
 ## Where implementation differed from the architecture document
 
 - **iOS deployment target**: the architecture document did not anticipate needing to raise it; Phase A's real compatibility research found the selected plugin requires iOS 15.0, so this was done and is now recorded as a fact, not a future risk.
@@ -194,7 +310,20 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 - `entitlementResolution.js` — the unified either-Stripe-or-Apple rule.
 - `planMapping.ts` additions — trial eligibility, refund/dispute mapping, Apple product allow-list.
 - `create-checkout-session`/`stripe-webhook` Stripe fixes — code-level logic (trial gating, refund/dispute mapping) is unit-tested via the pure functions it now calls; the Deno request-handling wiring itself is not (see Phase E's explicit boundary note).
-- Migration SQL — manually reviewed for syntax and matched against this project's own established RLS pattern (no local Postgres/Docker available in this environment for a local dry-run); both migrations subsequently **applied to the linked DEV project and live-verified** — see Phase C above for the full verification record.
+- Migrations `20260916100000`/`20260916110000` — **applied to the linked DEV project and live-verified**; see Phase C above.
+- **(Phase F, 2026-09-16) `appleJwsVerification.ts` — genuine JWS signature + X.509 certificate-chain verification**, proven end-to-end against synthetic chains matching Apple's real shape (13 tests) — see Phase F §1.
+- **(Phase F) `appleServerApi.ts`'s bearer-token JWT signing** — correct claim shape, correct short expiry, wrong-key rejection proven (2 tests).
+- **(Phase F) `appleSubscriptionStateMapping.ts`** — every notification/status scenario this task's brief enumerated, plus the fail-closed unknown-type allowlist behaviour (33 tests).
+- **(Phase F) `applyVerifiedAppleTransaction.ts`'s orchestration logic** — bundle/product/environment/transaction-id/`appAccountToken` checks, Apple-API-error mapping, RPC-error mapping, and the RPC call's own parameter surface, all proven with the network/DB boundary mocked (10 tests).
+- **(Phase F) `_shared/entitlementResolution.ts` (server-side mirror) agrees with the client copy** across 9 representative inputs — a genuine parity proof, not an assumption.
+- **(Phase F) RPC migration `20260916120000` — reviewed, NOT applied, NOT test-executed against a live database.** Its JS-mirrored entitlement-precedence logic is proven correct (above); the SQL implementing that same logic inside the `SECURITY DEFINER` function itself could not be executed in this task's environment (no local Postgres/Docker) and is reviewed only — flagged, not silently assumed correct.
+
+### Requires Supabase deployment
+
+- **(Phase F) The real verification code in `verify-apple-transaction`/`apple-server-notifications`/`reconcile-apple-subscriptions` has never run inside the actual Supabase Edge Runtime** — no Docker/Deno CLI is available in this task's environment. The cryptographic logic is proven correct under Node/Vitest using the same WebCrypto-based libraries Deno implements to the same standard (Phase F §1), which is strong but not conclusive evidence for the exact deployed runtime.
+- The per-function `deno.json` import maps (`jose`/`@peculiar/x509`/`reflect-metadata` → their `npm:` specifiers) added for the three new functions have never been exercised by an actual `supabase functions deploy` — confirm they resolve correctly at real deploy time before assuming this compiles as-is.
+- `reconcile-apple-subscriptions` exists in the repository but is not deployed and has no schedule — deploying it (without also scheduling it) is harmless (it stays unreachable without the trigger secret) but does nothing on its own.
+- Applying migration `20260916120000_apple_verified_state_rpc.sql` to the linked DEV project.
 
 ### Implemented but requires macOS/Xcode verification
 
@@ -203,11 +332,16 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 - Adding the "In-App Purchase" capability in Xcode's Signing & Capabilities (the plugin's own README instructs this; not something a `project.pbxproj` text edit alone can safely replicate without Xcode to confirm the resulting entitlements are correct).
 - Confirming the exact error shape StoreKit/this plugin surface for a user-cancelled purchase (this phase's cancellation-detection heuristic is unconfirmed — see Phase B).
 
+### Requires Apple credentials
+
+- **(Phase F)** Generating a dedicated App Store Server API key (issuer id, key id, private key) — scoped separately from Codemagic's existing key, see Phase F §5 for why. Nothing in this repository fabricates, guesses, or commits a value for `APPLE_ISSUER_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`/`APPLE_RECONCILE_TRIGGER_SECRET` — every reference is to the name only.
+- Setting `APPLE_BUNDLE_ID=com.zavaraai.wakewise` and `APPLE_ENVIRONMENT=sandbox` (or `production`, once ready) as actual Supabase Edge Function secrets.
+
 ### Requires App Store Connect configuration
 
 - Creating the `wakewise_plus` subscription group and the two products (`com.zavaraai.wakewise.plus.monthly`, `com.zavaraai.wakewise.plus.annual`).
 - Configuring the standard 7-day trial as the product's introductory offer, and separately creating the founding offer as an **Apple offer code** (product `com.zavaraai.wakewise.plus.annual`, New-subscriber eligibility, Pay Up Front, one year, AUD $49.99, renews at $59.99, explicitly answered "No" to also granting the introductory offer) — the mechanism is now confirmed and approved (`docs/apple-subscription-architecture.md` §6/§16), but neither the introductory offer nor the offer code has actually been created in App Store Connect yet.
-- Generating the App Store Server API key (issuer id, key id, private key) `verify-apple-transaction` needs to stop being a stub.
+- Generating the dedicated App Store Server API key above.
 - Configuring the App Store Server Notifications V2 URL once `apple-server-notifications` is deployed and its URL is known.
 - Adding the "In-App Purchase" capability (Xcode-side, but the App Store Connect agreement/tax/banking prerequisites are dashboard-side).
 
@@ -219,10 +353,10 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 ### Blocked or deferred (explicitly, not silently)
 
-- Real App Store Server API / App Store Server Notifications V2 implementation — blocked on Apple credentials this task must not fabricate or commit.
-- `reconcile-apple-subscriptions` scheduled job — deferred, no live data to reconcile yet.
-- Both new migrations are now applied and live-verified in DEV (2026-09-16) — no longer deferred; see Phase C above.
-- Cutting `SubscriptionContext.jsx`/any live read path over to `entitlements`/`resolveEntitlement` — still deferred; the schema is now live but not yet populated by any writer.
+- ~~Real App Store Server API / App Store Server Notifications V2 implementation — blocked on Apple credentials this task must not fabricate or commit.~~ **Implemented (Phase F, 2026-09-16).** The code exists, is verification-real, and is unit-tested; it is still blocked on Apple credentials/App Store Connect setup/deployment before it can actually run — see "Requires Apple credentials"/"Requires App Store Connect configuration"/"Requires Supabase deployment" above.
+- ~~`reconcile-apple-subscriptions` scheduled job — deferred, no live data to reconcile yet.~~ **Written (Phase F).** Deliberately still not scheduled or deployed — a future, separate, explicit action.
+- Both migrations `20260916100000`/`20260916110000` are applied and live-verified in DEV (2026-09-16). Migration `20260916120000` (Phase F's RPC) is written and reviewed, **not** applied.
+- Cutting `SubscriptionContext.jsx`/any live read path over to `entitlements`/`resolveEntitlement` — still deferred; the schema is now live but not yet populated by any writer (Phase F's code writes to it, but has never actually run — see "Requires Supabase deployment").
 - Apple-specific account-deletion warning copy (`DeleteAccount.jsx`) — deferred, since no live Apple entitlement can exist yet to warn about; `docs/apple-subscription-architecture.md` §10 already documents the intended wording for when it's needed.
 - The trial-vs-founding-offer commercial decision itself was **approved 2026-09-16, and its exact mechanism (an Apple offer code, not a second introductory offer) confirmed feasible from Apple's official documentation the same day** (see below) — this phase's code already supports the approved outcome (the trial-gating code is provider-agnostic; the Apple introductory offer and the founding offer code are both entirely dashboard-side and still untouched).
 
@@ -268,3 +402,31 @@ Run in this environment (Windows, no Xcode/CocoaPods/Docker/local Postgres — a
 - **Unprotected database writes**: none — both new tables have zero client write policy; both new Edge Functions write nothing (they're stubs); the two Stripe webhook additions write only through the existing service-role admin client, exactly like every pre-existing write path in that file.
 - **Sensitive transaction logging**: none — audited every new `console.*` call by hand; each logs only a plain `error.message`, a productIdentifier, or a boolean presence check.
 - **Unrelated changes**: `git status`/`git diff --stat` reviewed — only the files listed in the final report below were touched; `docs/audio-content-specification.md` remains untracked and untouched.
+
+---
+
+## Phase F Validation (2026-09-16, "Implement Apple Server Verification and Notifications V2")
+
+Run in this environment (Windows, no Xcode/CocoaPods/Docker/local Postgres/Deno CLI — all expected, all reported honestly, never worked around):
+
+| Check | Result |
+|---|---|
+| `npm test` | **PASS** — 14 test files, **238/238 tests** (up from 171 at the end of Phase E; 67 new tests across 5 new files) |
+| `npm run build` | **PASS** — clean, no errors |
+| `npm run lint` | **PASS** — 0 errors, the same 4 pre-existing `react-hooks/exhaustive-deps` warnings, none new (one real lint error in a first draft of `appleJwsVerification.test.js` — a Node `Buffer` global ESLint doesn't recognise in this project's browser-style config — was found and fixed by switching to a plain WebCrypto-compatible base64url helper) |
+| Edge Function/type checks | This repository has no `tsconfig.json` and no Deno CLI available in this environment — there was no type-check tooling to run before this task, and none was added (a pre-existing gap, not introduced here). `npx tsc --noEmit` was attempted and confirmed there is no project to check. |
+| SQL validation for the new migration | `supabase db lint --local`/execution against a real database was not possible (no local Postgres/Docker, same limitation as Phase E) — the RPC was manually reviewed against this project's own established `SECURITY DEFINER` pattern (`20260808120000_sprint2_stage2_admin_foundation.sql`) and its entitlement-precedence SQL was cross-checked line-by-line against the JS logic proven correct by `entitlementResolution.serverMirror.test.js`. |
+| `git diff --check` | **PASS** — no whitespace errors |
+| Secret-pattern scan | **PASS — no matches.** Every new/changed file scanned for Stripe/Apple-shaped secret patterns (`sk_live_`/`sk_test_`, PEM `PRIVATE KEY` headers, AWS-shaped keys, JWT-shaped tokens) — zero matches. `appleRootCertificates.ts` embeds Apple's own **public** root certificate (downloaded directly from `apple.com` over HTTPS, SHA-256 fingerprint independently corroborated) — a `CERTIFICATE` PEM block, not a `PRIVATE KEY` one, and not a secret. |
+| Dependency audit | `npm audit` run and inspected specifically for `jose`, `@peculiar/x509`, `reflect-metadata`, and every package in their dependency trees (`@peculiar/asn1-*`, `asn1js`, `pvtsutils`, `tsyringe`, `tslib`) — **zero vulnerabilities found in any of them.** (The repo's pre-existing `npm audit` findings — `tar`/`vite`/`vitest`/`@capacitor/cli`/etc. — are unrelated to this task and were not introduced by it.) |
+
+### Diff self-review (the specific risks this task asked to check for)
+
+- **Custom/incomplete cryptographic shortcuts**: none — every actual cryptographic operation (JWS signature verification, X.509 certificate-chain building/verification) is delegated to `jose`/`@peculiar/x509`; this project's own code only orchestrates which certificates to check and which business rules (bundle id, product id, environment) to apply to an already-verified payload. See Phase F §1 for the full reasoning.
+- **Unverified JWS decoding**: none — `appleJwsVerification.ts` exposes exactly one function, and it either returns a fully verified, decoded payload or throws; there is no "decode without verifying" helper anywhere in the module (an earlier draft had one, exported for logging convenience — removed during this task's own review, before it was ever used anywhere, specifically because it was a needless footgun against this task's "never merely decode and call it verified" rule).
+- **Client-controlled entitlement writes**: none — `verify-apple-transaction` accepts only `transactionId` from the client (confirmed by direct code read and by `applyVerifiedAppleTransaction.test.js`'s explicit assertion that the RPC call's parameter set contains nothing beyond what the verified Apple transaction itself carries); `apple-server-notifications` never reads anything from the request except the raw `signedPayload` string, whose contents are only trusted after independent cryptographic verification.
+- **Overbroad service-role use**: the new RPC (`apply_verified_apple_subscription_event`) revokes `EXECUTE` from `PUBLIC`/`anon`/`authenticated` and grants it to `service_role` only — confirmed by direct read of the migration's own `REVOKE`/`GRANT` statements (not test-executed against a live database — see the migration's own review notes).
+- **Replay or ordering weaknesses**: `provider_events(provider, provider_event_id)`'s existing unique constraint (applied and live-verified in the prior task) is used for idempotent event recording; the new RPC additionally enforces "newer verified state must not be overwritten by an older notification" via a `last_verified_at` ordering guard, reviewed but not live-tested.
+- **Sensitive logging**: none — every `console.*` call across all three new/changed Edge Functions was read directly (listed in Phase F §2 above); each logs only a reason code, a plain `error.message`, a notification type, or a static label — never a JWS, transaction identifier, `appAccountToken`, user id, or any credential value.
+- **Embedded keys**: none — `appleRootCertificates.ts` embeds Apple's own public root certificate only (see the dependency-audit row above); no private key, API key, or other secret value appears anywhere in this diff.
+- **Accidental Stripe regressions**: none — `git diff --stat` against every Stripe-related file (`stripe-webhook`, `create-checkout-session`, `create-portal-session`, `_shared/planMapping.ts`, `_shared/stripeClient.ts`) confirmed zero changes; this task touched only the two Apple Edge Functions, new `_shared/apple*.ts`/`entitlementResolution.ts` modules, one new Edge Function (`reconcile-apple-subscriptions`), one new migration, `package.json`/`package-lock.json` (three new devDependencies), five new test files, and the four documentation files.

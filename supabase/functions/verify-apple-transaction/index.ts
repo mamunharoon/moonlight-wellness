@@ -1,47 +1,30 @@
-// Apple Subscription Architecture task, Phase C — client-triggered Apple
-// transaction verification.
+// Apple Server Verification task — verify-apple-transaction.
 //
-// *** THIS IS A FAIL-CLOSED STUB, NOT A WORKING VERIFIER. ***
-// docs/apple-subscription-architecture.md §8 designs the real flow:
-// verify the client-submitted transaction against Apple's own App Store
-// Server API (or independently verify the JWS signature against Apple's
-// published root certificates), never trusting the device's own claim.
-// That requires Apple credentials (APPLE_ISSUER_ID, APPLE_KEY_ID,
-// APPLE_PRIVATE_KEY — an App Store Connect API key) this task does not
-// have, must not fabricate, and must not commit. Every path through this
-// function that lacks those credentials responds honestly that
-// verification did not happen and grants nothing — it never falls back
-// to trusting the client's transaction data, and it never decodes
-// `jwsRepresentation` as if that alone proved anything (a JWS's *shape*
-// is not its *validity* — only a real signature-chain check against
-// Apple's roots, or Apple's own server confirming the transaction ID,
-// counts as verified).
+// Client-triggered, post-purchase verification. This is now a genuine
+// verifier, not a stub — see appleJwsVerification.ts's header comment
+// for why Apple's own official library is not used, and what is used
+// instead (jose + @peculiar/x509, both WebCrypto-native).
 //
-// What this stub DOES do safely, today, without any Apple credential:
-//   - Verifies the caller's own Supabase identity from their JWT (same
-//     pattern as create-checkout-session) — a request with no valid
-//     session is rejected before anything else happens.
-//   - Validates the claimed product id against the same fixed
-//     allow-list the future real verifier must also enforce
-//     (KNOWN_APPLE_PLUS_PRODUCT_IDS) — an unrecognised product id is
-//     rejected immediately, never silently accepted.
-//   - Never writes to entitlements/provider_subscriptions/provider_events
-//     (Phase C's new tables) — both because no verification has actually
-//     happened, and because those tables do not exist on the live
-//     project yet (their migration is deliberately unapplied — see
-//     supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql).
-//     A future task, once Apple credentials exist and that migration is
-//     applied, replaces the body of the `else` branch below with the
-//     real App Store Server API call + provider_subscriptions/
-//     entitlements upsert — the shape of what that write should look
-//     like is documented, not implemented, in
-//     docs/apple-subscription-architecture.md §7-§8.
-//   - Never logs `jwsRepresentation`, a receipt, or any raw transaction
-//     payload — only the (already non-sensitive, allow-listed)
-//     productIdentifier and plain error messages are ever logged.
+// Trust boundary (per this task's explicit security model):
+//   - Requires a valid Supabase user JWT; resolves the authenticated
+//     user server-side (same pattern as create-checkout-session).
+//   - Accepts ONLY a `transactionId` from the client — nothing else the
+//     client claims (product, status, expiry, environment, price,
+//     offer, appAccountToken) is ever trusted for what gets written.
+//   - The actual verification/apply flow (call Apple's own App Store
+//     Server API, cryptographically verify every JWS returned, enforce
+//     bundle id / product-id allow-list / environment / ownership, and
+//     write via the service-role-only RPC) lives in
+//     _shared/applyVerifiedAppleTransaction.ts — shared with
+//     reconcile-apple-subscriptions so the security-critical logic is
+//     never duplicated between the two callers.
+//   - Returns a minimal response: verified true/false, status, expiry.
+//     Never the signed payload, never any other sensitive Apple field.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { isKnownApplePlusProductId } from '../_shared/planMapping.ts';
+import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { appleServerCredentialsConfigured } from '../_shared/appleServerApi.ts';
+import { verifyAndApplyAppleTransaction } from '../_shared/applyVerifiedAppleTransaction.ts';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -49,14 +32,26 @@ const json = (body, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 
-// Presence-only check — never reads the actual secret value into a
-// variable that could be logged or returned. A future real
-// implementation reads these to sign App Store Server API requests; this
-// stub only asks "do they exist yet."
-const appleServerCredentialsConfigured = () =>
-  Boolean(Deno.env.get('APPLE_ISSUER_ID')) &&
-  Boolean(Deno.env.get('APPLE_KEY_ID')) &&
-  Boolean(Deno.env.get('APPLE_PRIVATE_KEY'));
+const NOT_CONFIRMED_MESSAGE = "We couldn't confirm this purchase yet. Please check back shortly, or contact support if this continues.";
+
+// Reasons that reflect a genuine, permanent rejection (bad data, wrong
+// product, ownership conflict) vs. a transient one (Apple API
+// unavailable) — used only to pick an appropriate HTTP status; the
+// response body's own `reason` field is what a caller should actually
+// branch on.
+const HTTP_STATUS_BY_REASON = {
+  transaction_not_found: 404,
+  bundle_id_mismatch: 400,
+  unknown_product: 400,
+  environment_mismatch: 400,
+  transaction_id_mismatch: 400,
+  appAccountToken_mismatch: 409,
+  already_linked_to_another_account: 409,
+  user_not_resolved: 400,
+  signature_invalid: 502,
+  apple_api_unavailable: 502,
+  internal_error: 500
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -82,6 +77,7 @@ Deno.serve(async (req) => {
   if (userData.user.is_anonymous) {
     return json({ error: 'Please sign in or create an account first.' }, 403);
   }
+  const userId = userData.user.id;
 
   let body = {};
   try {
@@ -90,47 +86,44 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid request body' }, 400);
   }
 
-  const productIdentifier = body?.productIdentifier;
-  if (typeof productIdentifier !== 'string' || !isKnownApplePlusProductId(productIdentifier)) {
-    return json({ error: 'Unknown or missing product identifier' }, 400);
-  }
-
-  // transactionId/jwsRepresentation are read only far enough to confirm
-  // they are present and string-shaped — never parsed, decoded, or
-  // otherwise treated as meaningful data by this stub.
+  // The ONLY thing accepted from the client. No productIdentifier,
+  // status, or jwsRepresentation is read from the request body at all —
+  // every one of those now comes exclusively from Apple's own verified
+  // response.
   const transactionId = body?.transactionId;
-  const jwsRepresentation = body?.jwsRepresentation;
-  if (typeof transactionId !== 'string' || typeof jwsRepresentation !== 'string') {
-    return json({ error: 'Malformed transaction payload' }, 400);
+  if (typeof transactionId !== 'string' || transactionId.length === 0) {
+    return json({ error: 'Missing transactionId' }, 400);
   }
 
   if (!appleServerCredentialsConfigured()) {
-    // Fail closed: no entitlement is granted, no row is written, and the
-    // client is told plainly that this purchase is not yet confirmed —
-    // never that it succeeded. See docs/apple-subscription-implementation.md
-    // for exactly what remains to complete this (App Store Connect API
-    // key generation, then a real App Store Server API call here).
     console.warn('verify-apple-transaction: Apple server credentials not configured — verification not yet available');
+    return json({ verified: false, reason: 'apple_server_verification_not_yet_configured', message: NOT_CONFIRMED_MESSAGE }, 501);
+  }
+
+  const environment = Deno.env.get('APPLE_ENVIRONMENT') ?? '';
+  const bundleId = Deno.env.get('APPLE_BUNDLE_ID') ?? '';
+  if (bundleId !== 'com.zavaraai.wakewise' || (environment !== 'production' && environment !== 'sandbox')) {
+    // Fail closed on a misconfiguration, never guess a bundle id or
+    // environment. bundleId is intentionally hardcoded to WakeWise's
+    // real bundle id (not merely "non-empty") — an operator typo in the
+    // secret value must not silently widen what this function accepts.
+    console.error('verify-apple-transaction: APPLE_BUNDLE_ID/APPLE_ENVIRONMENT misconfigured');
+    return json({ verified: false, reason: 'apple_server_verification_not_yet_configured', message: NOT_CONFIRMED_MESSAGE }, 501);
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const result = await verifyAndApplyAppleTransaction(
+    { transactionId, environment, expectedUserId: userId },
+    { supabaseAdmin }
+  );
+
+  if (!result.verified) {
+    console.warn('verify-apple-transaction: not verified', result.reason);
     return json(
-      {
-        verified: false,
-        reason: 'apple_server_verification_not_yet_configured',
-        message: "We couldn't confirm this purchase yet. Please check back shortly, or contact support if this continues."
-      },
-      501
+      { verified: false, reason: result.reason, message: NOT_CONFIRMED_MESSAGE },
+      HTTP_STATUS_BY_REASON[result.reason] ?? 502
     );
   }
 
-  // Unreachable in this task (the credentials above are never set here),
-  // and deliberately left unimplemented rather than guessed at — see the
-  // file header. A real implementation must not be added without those
-  // credentials to actually test against Apple's sandbox environment.
-  return json(
-    {
-      verified: false,
-      reason: 'not_implemented',
-      message: "We couldn't confirm this purchase yet. Please check back shortly, or contact support if this continues."
-    },
-    501
-  );
+  return json({ verified: true, status: result.status, expiresAt: result.expiresAt, recorded: result.recorded });
 });

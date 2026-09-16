@@ -3,6 +3,8 @@
 **Compiled:** 2026-09-16, on `dev`, starting HEAD `a2f4e0457af30d386f2e7916edd9ceb91c89a221`.
 **Method:** static repository audit (exact file/line citations throughout) plus primary-source research (Apple Developer Documentation, App Review Guidelines, and official/candidate library repositories — direct links and access dates in §17). No code was written, no dependency was installed, no dashboard was touched, no application behaviour changed. This is an architecture and planning document only.
 
+**Update (2026-09-16 — "Implement Apple Server Verification and Notifications V2"):** §8's verification design is now implemented — see `docs/apple-subscription-implementation.md` Phase F. One real deviation from this section's own text: §8 says Apple's own App Store Server Library "is a first-party tool, not a third-party dependency" for JWS/certificate-chain verification; concrete testing found that library not safely usable in Supabase's current Deno-based Edge Runtime (cited GitHub issues, one of which explicitly names this exact library as the motivating case for a still-unimplemented Deno `node:crypto` API), so the implementation uses two other independently-maintained, WebCrypto-native libraries (`jose`, `@peculiar/x509`) instead — see Phase F §1 for the full evidence and reasoning. The verification flow itself (App Store Server API for client-triggered verification, App Store Server Notifications V2 for ongoing state, a scheduled reconciliation backstop), the security properties, and the provider-neutral schema this section describes are otherwise implemented as designed.
+
 ---
 
 ## 1. Executive recommendation

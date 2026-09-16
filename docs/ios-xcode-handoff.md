@@ -492,8 +492,10 @@ task had access to.
    this stays a deliberate no-action item unless a fresh approval changes it.
 8. Create Apple sandbox tester accounts.
 9. Generate an App Store Server API key (issuer id, key id, private
-   key) — required before `supabase/functions/verify-apple-transaction`
-   can stop being a fail-closed stub.
+   key) — `supabase/functions/verify-apple-transaction` is genuine
+   verification code as of 2026-09-16 (see step 2 above), but it still
+   responds fail-closed at runtime (`501`, `apple_server_verification_not_yet_configured`)
+   until this key's values are actually set as secrets.
 10. Once `verify-apple-transaction` and `apple-server-notifications`
     are actually deployed (a Supabase dashboard action, not done in this
     phase either — see below), configure the App Store Server
@@ -513,18 +515,47 @@ task had access to.
    nothing writes to them yet. **This does not make Apple purchases
    functional** — it only means the schema those future writes need
    already exists and is verified secure.
-2. Set the Apple-related Edge Function secrets (names only — see
-   `docs/apple-subscription-architecture.md` §8 and
-   `docs/apple-subscription-implementation.md`): `APPLE_ISSUER_ID`,
-   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and whatever shared secret the
-   eventual real App Store Server Notifications verification approach
-   requires.
-3. Deploy `supabase/functions/verify-apple-transaction` and
-   `supabase/functions/apple-server-notifications` — both currently
-   exist in the repository as fail-closed stubs; deploying them alone
-   changes nothing functionally until the secrets above exist and the
-   stub bodies are replaced with real App Store Server API / JWS
-   certificate-chain verification.
+2. ~~Set the Apple-related Edge Function secrets~~ — **still to do, but
+   now well-defined.** Real verification code exists and reads these
+   exact names as of 2026-09-16 (see
+   `docs/apple-subscription-implementation.md` Phase F §5 for the full
+   table, formats, and rotation procedure): `APPLE_ISSUER_ID`,
+   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID`
+   (`com.zavaraai.wakewise`), `APPLE_ENVIRONMENT` (`sandbox` or
+   `production`), and `APPLE_RECONCILE_TRIGGER_SECRET` (a generated
+   shared secret, deliberately separate from
+   `SUPABASE_SERVICE_ROLE_KEY`, gating the unscheduled
+   `reconcile-apple-subscriptions` function). **Use a dedicated App
+   Store Connect API key scoped to the App Store Server API / In-App
+   Purchase role — do not reuse Codemagic's existing signing key**, per
+   Phase F §5's own reasoning (different permission scope, and reusing
+   one key would couple unrelated rotations).
+3. Apply `supabase/migrations/20260916120000_apple_verified_state_rpc.sql`
+   to the linked project, after review — same deliberate-apply process
+   as step 1. Adds the one `SECURITY DEFINER`,
+   `service_role`-only RPC (`apply_verified_apple_subscription_event`)
+   the verification code below writes through.
+4. Deploy `supabase/functions/verify-apple-transaction` and
+   `supabase/functions/apple-server-notifications` — as of 2026-09-16
+   these are genuine, cryptographically-verifying implementations (real
+   JWS + certificate-chain verification, a real App Store Server API
+   client), **not** the earlier fail-closed stubs, and are unit-tested —
+   see `docs/apple-subscription-implementation.md` Phase F. They have
+   **never been deployed or run inside the actual Supabase Edge
+   Runtime** — confirm the deploy actually succeeds (the per-function
+   `deno.json` import maps mapping `jose`/`@peculiar/x509`/
+   `reflect-metadata` to their `npm:` specifiers have never been
+   exercised by a real `supabase functions deploy`) before assuming
+   this works as written. Deploying them alone still does nothing
+   functionally until the secrets above and the migration above both
+   exist — the code fails closed with a clear "not configured" response
+   until then, exactly like the stubs did.
+5. Once deployed and confirmed reachable, optionally deploy
+   `supabase/functions/reconcile-apple-subscriptions` — it does nothing
+   on its own without also being scheduled (e.g. via `pg_cron` calling
+   it with the `X-Reconcile-Secret` header on some interval), which
+   this project has not set up and is intentionally left for a later,
+   separate decision (see Phase F §2's reconciliation notes).
 
 ### Apple sandbox testing (not started)
 
