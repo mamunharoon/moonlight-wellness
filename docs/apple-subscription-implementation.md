@@ -3,7 +3,7 @@
 **Compiled:** 2026-09-16, on `dev`, starting HEAD `c5292be7e67c4fbebf7ad20069c9729a053d3eba`.
 **Scope:** the first safe, testable phase of native Apple subscriptions, per `docs/apple-subscription-architecture.md`. No real purchase, no build upload, no external dashboard touched, no Apple credential committed.
 
-**Updated again 2026-09-16 — "Apply and Verify Subscription Database Foundation in DEV"** (Phase C's schema applied/live-verified), **"Implement Apple Server Verification and Notifications V2"** (Phase F — the real, cryptographically-verifying server-side implementation, starting HEAD `ab68b7f`), **and "Apply and Verify Apple Verified-State RPC Migration"** (Phase G — the one migration Phase F wrote now applied and live-verified, starting HEAD `d06eb46`). These updates are additive sections/edits within this same document — see Phase C's "applied and live-verified" note, Phase F, and Phase G below for what changed; earlier sections are otherwise left as written, with superseded claims struck through rather than deleted.
+**Updated again 2026-09-16 — "Apply and Verify Subscription Database Foundation in DEV"** (Phase C's schema applied/live-verified), **"Implement Apple Server Verification and Notifications V2"** (Phase F — the real, cryptographically-verifying server-side implementation, starting HEAD `ab68b7f`), **"Apply and Verify Apple Verified-State RPC Migration"** (Phase G — the one migration Phase F wrote now applied and live-verified, starting HEAD `d06eb46`), **and "Securely Deploy Apple Subscription Edge Functions to DEV"** (Phase H — App Store Connect setup completed, a dedicated Apple key configured as secrets, all three functions deployed and runtime-smoke-tested, starting HEAD `8f64a56`). These updates are additive sections/edits within this same document — see Phase C's "applied and live-verified" note, Phase F, Phase G, and Phase H below for what changed; earlier sections are otherwise left as written, with superseded claims struck through rather than deleted.
 
 **Read this document alongside:**
 - `docs/apple-subscription-architecture.md` — the design this phase implements (unchanged in its recommendations; a few sections below note where real evidence sharpened or corrected it).
@@ -14,7 +14,7 @@
 
 ## 0. Do not claim more than this actually proves
 
-**Apple billing is not complete.** Nothing in this phase, the subsequent database-foundation task (2026-09-16), the subsequent server-verification task (2026-09-16, Phase F below), or the subsequent RPC-migration apply task (2026-09-16, Phase G below) creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists today is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed schema that is **applied and live-verified** in the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`), including the one atomic write-path RPC (Phase G) — but every one of those tables still holds zero rows and is written to by nothing live; genuine, cryptographically-verifying server-side verification code (real JWS + certificate-chain verification, a real App Store Server API client, real subscription-state mapping) that is unit-tested but has **never been deployed, never run inside the actual Supabase Edge Runtime, and never been exercised against a real Apple-signed payload**; and no Apple credentials anywhere in this repository. Completion still requires, in order: generating dedicated Apple credentials, App Store Connect product/offer setup, deploying the Edge Functions and confirming they actually work on the real Supabase Edge Runtime (not just under Node/Vitest), Apple sandbox testing against the complete matrix, and physical-iPhone testing. **None of that has happened. Apple purchases remain completely non-operational** — writing, testing, and now live-verifying the database write path is a prerequisite for that work, not a step toward it being usable yet.
+**Apple billing is not complete.** Nothing in this phase, the subsequent database-foundation task (2026-09-16), the subsequent server-verification task (2026-09-16, Phase F below), the subsequent RPC-migration apply task (2026-09-16, Phase G below), or the subsequent secure-deployment task (2026-09-16, Phase H below) creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists today is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed schema that is **applied and live-verified** in the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`), including the one atomic write-path RPC (Phase G) — every one of those tables still holds zero rows; genuine, cryptographically-verifying server-side verification code that is **now deployed to DEV and runtime-smoke-tested** (Phase H) — proven, against the real Edge Runtime, to correctly reject unauthenticated requests, malformed input, and forged/cryptographically-invalid data; and dedicated Apple credentials now exist as Supabase secrets (never committed, never printed). What is still missing: a genuine sandbox purchase has never been attempted or succeeded, so no *valid* Apple transaction has ever been presented to this code — only its rejection behaviour is proven, not its acceptance behaviour; the App Store Connect notification URL has not been configured; and the app has not passed App Review (the founding-offer production code cannot even be generated until then). **Apple purchases remain completely non-operational** — deploying and smoke-testing the rejection paths is a necessary step, not a demonstration that a real purchase would succeed.
 
 ---
 
@@ -336,6 +336,111 @@ Updated `docs/apple-subscription-implementation.md` (this section), `docs/releas
 
 ---
 
+## Phase H — Secure deployment to DEV (2026-09-16, "Securely Deploy Apple Subscription Edge Functions to DEV")
+
+Starting commit `8f64a56`. App Store Connect setup is now complete (product/offer configuration, outside this repo — see below), a dedicated App Store Server API key exists, and the three Edge Functions Phase F wrote are now **deployed to the linked DEV project and runtime-smoke-tested**. **Apple subscriptions are still not operationally verified — no genuine sandbox transaction has been attempted or succeeded.**
+
+### App Store setup now completed (outside this repository, recorded for reference only)
+
+- App: WakeWise: Daily Wellness. Bundle ID: `com.zavaraai.wakewise`.
+- Subscription group "WakeWise Plus"; products `com.zavaraai.wakewise.plus.monthly`, `com.zavaraai.wakewise.plus.annual`.
+- Monthly/annual introductory offer: one-week free trial, 175 storefronts, no end date — matches the approved commercial decision (§16).
+- Founding annual offer: AUD $49.99 Pay Up Front, one year, new-subscriber eligibility, does not combine with the introductory trial, auto-renews at normal annual pricing — matches the approved mechanism (§6).
+- **The production offer code `WAKEWISEFOUNDING` cannot be generated until the app passes App Review and reaches Ready for Distribution** — Apple's own constraint, not a WakeWise decision. Founding-offer redemption is therefore blocked on App Review regardless of anything else in this phase.
+- Dedicated App Store Server API key "WakeWise App Store Server", Key ID `K863527LV5`, created separately from Codemagic's existing signing key (different App Store Connect role/permission scope — see Phase F §5's own reasoning for why reuse was rejected). The `.p8` file was downloaded once, read directly from the user's Downloads folder by this task, and never printed, logged, or committed — see "Secret handling" below.
+
+### Phase 1 — configuration discovery
+
+Every environment-variable name below was confirmed by reading the actual deployed source (`_shared/appleServerApi.ts`, the three function `index.ts` files) — none were invented or renamed:
+
+| Name | Required by | Format the code expects |
+|---|---|---|
+| `APPLE_ISSUER_ID` | `appleServerApi.ts` bearer-token signing | Plain UUID string |
+| `APPLE_KEY_ID` | `appleServerApi.ts` bearer-token `kid` header | Plain string (`K863527LV5`) |
+| `APPLE_PRIVATE_KEY` | `appleServerApi.ts`'s `importPKCS8(config.privateKeyPem, 'ES256')` | **Raw PEM text, real (unescaped) newlines** — confirmed by reading the code: there is no `\n`-unescape step anywhere, so `jose.importPKCS8` receives exactly what is stored, unmodified. Not base64, not a file path, not escaped-newline. |
+| `APPLE_BUNDLE_ID` | `verify-apple-transaction`, `apple-server-notifications` bundle-id checks | Plain string (`com.zavaraai.wakewise`) |
+| `APPLE_ENVIRONMENT` | All three functions | Exactly `sandbox` or `production` — a single explicit value, never inferred |
+| `APPLE_RECONCILE_TRIGGER_SECRET` | `reconcile-apple-subscriptions`'s trigger-secret check | Opaque random string — **not an Apple-issued value**, generated by this task (32 bytes, `crypto.randomBytes(32).toString('base64url')`), deliberately independent of `SUPABASE_SERVICE_ROLE_KEY` |
+| — | — | **No numeric Apple app ID variable exists anywhere in the deployed code** (confirmed by a repo-wide `grep` for `appAppleId`/`APPLE_APP_ID` returning zero matches) — this implementation's `appleJwsVerification.ts` does not use Apple's own `SignedDataVerifier` class (see Phase F §1), so the `appAppleId` field that class optionally accepts is not applicable here. Nothing was invented in its place. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | `verify-apple-transaction`'s auth client, `supabaseAdmin.ts` | Already auto-injected by the Supabase platform into every Edge Function — never set manually, confirmed unchanged (see "Secret handling" below) |
+
+**Private key file**: located via the exact narrow path this task specified (`C:\Users\<user>\Downloads\`), matched against the exact expected filename for Key ID `K863527LV5` — `SubscriptionKey_K863527LV5.p8` was found (alongside an unrelated `AuthKey_A7X4FDM5BP.p8`, a *different* key id, correctly not used). No recursive/broad-drive search was performed. Verified structurally (PEM `BEGIN`/`END PRIVATE KEY` markers present, 6 lines, 257 bytes — consistent with a PKCS#8-wrapped EC private key) without ever reading or printing its actual content into any tool output.
+
+**Issuer ID**: not present anywhere in this repository, this task's own brief, or Codemagic's configuration (`codemagic.yaml` only notes that Codemagic's own key/issuer/key-id live in Codemagic's own dashboard vault, never in the repo) — per this task's own stop condition ("Issuer ID... is uncertain"), this was not guessed, assumed, or reused from Codemagic. **Asked the user directly and received it in this session's chat.**
+
+### Phase 2 — pre-deployment review
+
+- Migration `20260916120000` confirmed live (`schema_migrations` contains it); the RPC confirmed still `service_role`-only (`information_schema.routine_privileges` shows exactly `service_role` and the owning `postgres` role — no `anon`/`authenticated`/`PUBLIC` row).
+- Full test suite re-run: 238/238 passing, unchanged from the prior task (no code was modified before deployment).
+- **JWT/gateway boundary determined per function** (no `supabase/config.toml` exists in this repo — deliberately not created in this task, to avoid introducing an untested new file that could subtly change other Supabase CLI command behaviour with no local Docker/Postgres available to validate it; the boundary was instead set explicitly per-function at deploy time via CLI flags, documented here so a future redeploy uses the same flags):
+  - `verify-apple-transaction`: **gateway JWT verification ON** (the CLI's default — no `--no-verify-jwt` flag passed). This function already independently authenticates the caller in its own code (`authClient.auth.getUser(jwt)`); leaving the gateway check on is a genuine, harmless extra layer, not a redundant risk.
+  - `apple-server-notifications`: **gateway JWT verification explicitly OFF** (`--no-verify-jwt`) — Apple's own servers have no way to obtain or send a Supabase-issued JWT, so this is not optional. Security instead comes entirely from this function's own cryptographic verification of `signedPayload` (Phase F) — confirmed this is not a weaker trust boundary, only a *different* one appropriate to a public webhook, exactly like `stripe-webhook`'s own pre-existing pattern of no gateway JWT + Stripe-Signature verification instead.
+  - `reconcile-apple-subscriptions`: **gateway JWT verification ON** (default). It already has its own explicit `X-Reconcile-Secret` check independent of any Supabase JWT; leaving the gateway check on makes it strictly *more* restrictive (a caller needs a structurally valid Supabase JWT to even reach the function, in addition to the correct secret), never less.
+- Confirmed every state-changing write in all three functions goes through `apply_verified_apple_subscription_event` — the only other database writes present are `apple-server-notifications`'s three `provider_events`-only inserts for acknowledge-only/unresolved/conflicted notifications (audit-trail recording, never touching `provider_subscriptions`/`entitlements`; by design, documented in Phase F §2) and read-only `SELECT`s (the notification handler's owner-lookup fallback, the reconciliation function's stale-row query).
+- Re-confirmed via direct code read: zero `console.*` calls anywhere in the three deployed functions reference a signed payload, JWS, transaction identifier, `appAccountToken`, user id, or any secret value — every call logs only a reason code, a plain `error.message`, a notification type, or a static label (same review as Phase F, re-verified against the exact deployed source).
+- No authentication-boundary ambiguity was found — nothing required stopping before deployment.
+
+### Phase 3 — secrets set (names only; no value ever displayed, logged, or committed)
+
+All six secrets above were set in one batch via `supabase secrets set --env-file <path>`, where `<path>` pointed to a temporary file written **outside this repository** (this session's own scratchpad directory, `chmod 600`), constructed entirely by a script that read the `.p8` file directly into the file with no intermediate echo to any terminal output. **The temporary file was deleted immediately after the `secrets set` call succeeded** — confirmed absent afterward. `supabase secrets list` was then used to confirm exactly six new secret **names** exist (`APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID`, `APPLE_ENVIRONMENT`, `APPLE_RECONCILE_TRIGGER_SECRET`) — the CLI's own output shows only a SHA-256 fingerprint per secret, never a reversible value. Every pre-existing secret (`STRIPE_*`, `SUPABASE_*`) retained its original `updated_at` timestamp, confirming none were overwritten. `APPLE_ENVIRONMENT` was set to `sandbox`, per this task's own "configure for Apple sandbox/testing initially" instruction.
+
+### Phase 4 — deployment
+
+All three functions deployed successfully via `supabase functions deploy <name> --import-map supabase/functions/<name>/deno.json` (each function's own per-function `deno.json`, written in the prior task, resolving `jose`/`@peculiar/x509`/`reflect-metadata` to their `npm:` specifiers). **No Docker was available or required** — the CLI printed a `WARNING: Docker is not running` and transparently bundled server-side instead; every `_shared` dependency (including `appleJwsVerification.ts`, `appleRootCertificates.ts`, `appleServerApi.ts`) uploaded and built without error for all three functions. `supabase functions list` confirms:
+
+| Function | Status | Version | `verify_jwt` | Import map |
+|---|---|---|---|---|
+| `verify-apple-transaction` | ACTIVE | 1 | `true` | applied |
+| `apple-server-notifications` | ACTIVE | 1 | `false` | applied |
+| `reconcile-apple-subscriptions` | ACTIVE | 1 | `true` | applied |
+
+**No cryptographic dependency failed to load** — see Phase 5 below for the direct evidence (a crafted, cryptographically-invalid JWS was correctly rejected by `apple-server-notifications`'s real verification code running on the actual Edge Runtime, not merely accepted or crashing).
+
+### Phase 5 — runtime security/smoke tests (real HTTP calls against the deployed functions; no Apple credential used, no purchase attempted)
+
+**`verify-apple-transaction`** (base URL + the project's own public anon key read from the untracked, gitignored `.env.local` — never a secret in the sensitive sense, since it is the same key already embedded in WakeWise's own client bundle):
+- No `Authorization` header → **401** `UNAUTHORIZED_NO_AUTH_HEADER` (rejected at the Supabase gateway, before this function's own code ever runs).
+- Garbage `Authorization: Bearer not-a-real-jwt-at-all` → **401** `UNAUTHORIZED_INVALID_JWT_FORMAT` (gateway-level).
+- The project's own anon key (a structurally valid, real Supabase-signed JWT — passes the gateway — but not a real user session) with a missing `transactionId` → **401** `{"error":"Sign in required"}`. This function's own `authClient.auth.getUser()` check correctly rejects the anon key before the `transactionId` presence check is ever reached.
+- The same anon key with a malformed (numeric, non-string) `transactionId` → **401** `{"error":"Sign in required"}` — same reason: authentication fails first, so the malformed-input path is provably unreachable without genuine user authentication. **Honest limitation**: this task did not create a throwaway user account (not authorised by this task's brief), so the specific case "a real, signed-in WakeWise user's own JWT with a missing/malformed `transactionId`" was not exercised via a live HTTP call — the code path that would handle it (`if (typeof transactionId !== 'string' ...) return 400`) was instead confirmed by direct reading of the deployed source, immediately following successful user resolution.
+- Zero database rows were created by any of the above (confirmed below).
+
+**`apple-server-notifications`** (no Supabase JWT sent at all — by design, since Apple never has one):
+- Missing `signedPayload` → **400** `{"error":"Missing signedPayload"}`.
+- Malformed `signedPayload` (not JWS-shaped at all) → **400** `{"error":"Signature verification failed"}`.
+- A structurally JWS-shaped but cryptographically fake payload (a fabricated 3-segment token with a bogus `x5c`/signature) → **400** `{"error":"Signature verification failed"}` — **this is the decisive proof that the real cryptographic verification code is running on the actual Supabase Edge Runtime and correctly rejecting forged data**, not silently accepting it, crashing, or falling back to any unverified path.
+- Empty JSON body (`{}`) → **400** `{"error":"Missing signedPayload"}`.
+- Non-JSON body → **400** `{"error":"Invalid notification payload"}`.
+- Zero database rows were created by any of the above (confirmed below). Every response above is a `4xx` (permanent/client-error) status, correctly distinguishing "this input can never succeed" from a transient server failure (which this function's own code reserves a `500` for — untested here since no genuine downstream failure occurred).
+
+**`reconcile-apple-subscriptions`**:
+- No `Authorization` header → **401** `UNAUTHORIZED_NO_AUTH_HEADER` (gateway-level).
+- The project's own anon key (a valid-shaped JWT — an "ordinary" caller) with no `X-Reconcile-Secret` header → **401** `{"error":"Unauthorized"}`.
+- The same anon key with a wrong `X-Reconcile-Secret` value → **401** `{"error":"Unauthorized"}`.
+- No data was queried or modified by any of the above (confirmed below).
+
+**Runtime confirmation**:
+- Cryptographic libraries (`jose`, `@peculiar/x509`, `reflect-metadata`) load successfully on the real Edge Runtime — proven by the fake-JWS rejection above, not merely inferred from a clean deploy.
+- The embedded Apple root certificate resource (`appleRootCertificates.ts`) loads successfully — the same fake-JWS test exercises the chain-building code path that reads it; a missing/malformed resource would have produced a `500`, not the observed `400`.
+- **Live function logs were not directly retrievable** — this Supabase CLI version has no `functions logs` subcommand and no other logs-query path was available in this environment. In its place: every `console.*` call in the deployed source was re-read directly (Phase 2 above) and confirmed to log only reason codes/notification types/plain error messages, never a signed payload, private key, or other secret — the strongest evidence available without a live log stream.
+- Database check (run once, after every smoke test above): `entitlements` = 0 rows, `provider_subscriptions` = 0 rows, `provider_events` = 0 rows — **zero synthetic Apple rows created**. The one existing Stripe subscription row: `status = 'cancelled'`, count = 1 — **byte-identical to every prior recorded baseline**, confirming zero Stripe regression.
+
+### Phase 6 — notification URL
+
+**`https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications`** — not configured in App Store Connect during this task, per this task's own instruction.
+
+**Apple should NOT use this same URL for both Sandbox and Production.** This DEV deployment's `APPLE_ENVIRONMENT` secret is set to `sandbox`; `apple-server-notifications`'s own code rejects any verified notification whose own `environment` field does not match the deployment's configured value (`data.environment !== expectedEnvironment` → `400`, Phase F §2). A genuine Production notification sent to this URL would therefore be correctly rejected as an environment mismatch, not silently accepted. App Store Connect supports separate "Sandbox Server URL" and "Production Server URL" fields for App Store Server Notifications V2 — **this URL should only ever be registered as the Sandbox Server URL.** A real Production URL would need a separate deployment (either a different Supabase project, or this same project's functions redeployed with `APPLE_ENVIRONMENT=production` — not done, since this project is DEV) — not created in this task, and not recommended until App Review approval makes production purchases relevant at all.
+
+### Phase 7 — what remains before Apple purchases are operationally verified
+
+- App Store Connect notification URL configuration (this task deliberately did not perform it) — register the Sandbox Server URL above once ready to actually sandbox-test.
+- Apple sandbox tester account creation and a genuine sandbox purchase, restore, cancellation, renewal, and refund — none attempted (forbidden by this task).
+- A production deployment/environment, once App Review approves the app and the `WAKEWISEFOUNDING` offer code can be generated.
+- Physical-iPhone verification of the native purchase UI against the now-live server.
+- **Apple subscriptions remain operationally unverified until a genuine sandbox transaction succeeds end-to-end** — everything in this phase proves the deployed code rejects invalid/forged input correctly; it does not yet prove a *valid* Apple transaction is accepted and correctly recorded, since no real Apple-signed data has been presented to it.
+
+---
+
 ## Where implementation differed from the architecture document
 
 - **iOS deployment target**: the architecture document did not anticipate needing to raise it; Phase A's real compatibility research found the selected plugin requires iOS 15.0, so this was done and is now recorded as a fact, not a future risk.
@@ -361,12 +466,14 @@ Updated `docs/apple-subscription-implementation.md` (this section), `docs/releas
 - **(Phase F) `applyVerifiedAppleTransaction.ts`'s orchestration logic** — bundle/product/environment/transaction-id/`appAccountToken` checks, Apple-API-error mapping, RPC-error mapping, and the RPC call's own parameter surface, all proven with the network/DB boundary mocked (10 tests).
 - **(Phase F) `_shared/entitlementResolution.ts` (server-side mirror) agrees with the client copy** across 9 representative inputs — a genuine parity proof, not an assumption.
 - **(Phase G, 2026-09-16) RPC migration `20260916120000` — applied to the linked DEV project and behaviourally live-verified.** Owner `postgres`, `prosecdef=true`, `search_path` fixed empty, `anon`/`authenticated`/`PUBLIC` confirmed unable to execute it (`42501`), `service_role` confirmed able to. Idempotency, stale/newer-event ordering, product/environment allow-listing, ownership-conflict rejection, cancellation-preserves-access, expiry/refund/revocation state transitions, and — for the first time — the full four-way Stripe/Apple entitlement precedence matrix (Stripe-only, Apple-only, both, neither) were all exercised against the live database inside rollback-safe transactions, with zero residual rows confirmed after. See Phase G below for the complete record.
+- **(Phase H, 2026-09-16) All three Edge Functions deployed to DEV and runtime-smoke-tested against the real Supabase Edge Runtime.** Real HTTP calls (no Apple credential, no purchase) confirmed: unauthenticated/malformed-JWT/wrong-secret requests all correctly rejected; a cryptographically-forged JWS presented to `apple-server-notifications` was correctly rejected by the real, deployed `jose`/`@peculiar/x509` verification code (proof the libraries load and the logic runs on the actual runtime, not merely under Node/Vitest); zero synthetic database rows created; the existing Stripe row unaffected. See Phase H below for the complete record.
 
-### Requires Supabase deployment
+### Deployed and runtime-tested (was "Requires Supabase deployment" — now done, see Phase H)
 
-- **(Phase F/G) The real verification code in `verify-apple-transaction`/`apple-server-notifications`/`reconcile-apple-subscriptions` has never run inside the actual Supabase Edge Runtime** — no Docker/Deno CLI is available in this task's environment. The cryptographic logic is proven correct under Node/Vitest using the same WebCrypto-based libraries Deno implements to the same standard (Phase F §1), and the database write path it calls into is now live-verified (Phase G), which is strong but not conclusive evidence for the exact deployed runtime.
-- The per-function `deno.json` import maps (`jose`/`@peculiar/x509`/`reflect-metadata` → their `npm:` specifiers) added for the three new functions have never been exercised by an actual `supabase functions deploy` — confirm they resolve correctly at real deploy time before assuming this compiles as-is.
-- `reconcile-apple-subscriptions` exists in the repository but is not deployed and has no schedule — deploying it (without also scheduling it) is harmless (it stays unreachable without the trigger secret) but does nothing on its own.
+- ~~The real verification code... has never run inside the actual Supabase Edge Runtime~~ — **done (Phase H).** All three functions are `ACTIVE` in DEV with the correct per-function JWT/gateway boundary, and their rejection behaviour against invalid/forged input is proven live.
+- ~~The per-function `deno.json` import maps... have never been exercised by an actual `supabase functions deploy`~~ — **exercised successfully (Phase H)**; all three functions built and deployed without error.
+- `reconcile-apple-subscriptions` is deployed but still has no schedule (no `pg_cron` entry, no external trigger) — deliberately, per this task's own "do not schedule" instruction; it remains reachable only by a caller that knows `APPLE_RECONCILE_TRIGGER_SECRET`.
+- **What deployment does NOT prove**: no genuine Apple-signed payload has ever been presented to any of the three functions — only their correct *rejection* of invalid/unauthenticated/forged input is verified. Their correct *acceptance* of a real, valid Apple transaction remains unverified until an actual sandbox purchase is attempted (see "Requires Apple sandbox testing" below).
 
 ### Implemented but requires macOS/Xcode verification
 
@@ -375,18 +482,20 @@ Updated `docs/apple-subscription-implementation.md` (this section), `docs/releas
 - Adding the "In-App Purchase" capability in Xcode's Signing & Capabilities (the plugin's own README instructs this; not something a `project.pbxproj` text edit alone can safely replicate without Xcode to confirm the resulting entitlements are correct).
 - Confirming the exact error shape StoreKit/this plugin surface for a user-cancelled purchase (this phase's cancellation-detection heuristic is unconfirmed — see Phase B).
 
-### Requires Apple credentials
+### Requires Apple credentials — done (Phase H, 2026-09-16)
 
-- **(Phase F)** Generating a dedicated App Store Server API key (issuer id, key id, private key) — scoped separately from Codemagic's existing key, see Phase F §5 for why. Nothing in this repository fabricates, guesses, or commits a value for `APPLE_ISSUER_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`/`APPLE_RECONCILE_TRIGGER_SECRET` — every reference is to the name only.
-- Setting `APPLE_BUNDLE_ID=com.zavaraai.wakewise` and `APPLE_ENVIRONMENT=sandbox` (or `production`, once ready) as actual Supabase Edge Function secrets.
+- ~~Generating a dedicated App Store Server API key~~ — **done.** "WakeWise App Store Server", Key ID `K863527LV5`, created separately from Codemagic's existing key.
+- ~~Setting `APPLE_BUNDLE_ID`/`APPLE_ENVIRONMENT` as Supabase secrets~~ — **done.** All six secrets (`APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID`, `APPLE_ENVIRONMENT=sandbox`, `APPLE_RECONCILE_TRIGGER_SECRET`) confirmed present by name in the linked DEV project — see Phase H §3. Nothing in this repository fabricates, guesses, or commits a value for any of them — every reference anywhere in this documentation is to the name only.
+- Not yet done: a *production*-environment key/secret configuration (this remains `sandbox`-only, deliberately, until App Review approval makes production relevant).
 
-### Requires App Store Connect configuration
+### Requires App Store Connect configuration — mostly done (Phase H, 2026-09-16)
 
-- Creating the `wakewise_plus` subscription group and the two products (`com.zavaraai.wakewise.plus.monthly`, `com.zavaraai.wakewise.plus.annual`).
-- Configuring the standard 7-day trial as the product's introductory offer, and separately creating the founding offer as an **Apple offer code** (product `com.zavaraai.wakewise.plus.annual`, New-subscriber eligibility, Pay Up Front, one year, AUD $49.99, renews at $59.99, explicitly answered "No" to also granting the introductory offer) — the mechanism is now confirmed and approved (`docs/apple-subscription-architecture.md` §6/§16), but neither the introductory offer nor the offer code has actually been created in App Store Connect yet.
-- Generating the dedicated App Store Server API key above.
-- Configuring the App Store Server Notifications V2 URL once `apple-server-notifications` is deployed and its URL is known.
-- Adding the "In-App Purchase" capability (Xcode-side, but the App Store Connect agreement/tax/banking prerequisites are dashboard-side).
+- ~~Creating the `wakewise_plus` subscription group and the two products~~ — **done.** Subscription group "WakeWise Plus"; `com.zavaraai.wakewise.plus.monthly`, `com.zavaraai.wakewise.plus.annual`.
+- ~~Configuring the standard 7-day trial... and separately creating the founding offer as an Apple offer code~~ — **done**, matching the approved design exactly: one-week introductory trial (175 storefronts, no end date) on both products; founding annual offer AUD $49.99 Pay Up Front for one year, new-subscriber eligibility, does not combine with the introductory trial, auto-renews at normal pricing.
+- **Still blocked: the production offer code `WAKEWISEFOUNDING` cannot be generated until the app passes App Review and reaches Ready for Distribution** — Apple's own constraint. The founding offer's *mechanism* is fully configured; its *redeemable code* does not exist yet.
+- ~~Generating the dedicated App Store Server API key~~ — **done**, see above.
+- Configuring the App Store Server Notifications V2 URL — **still not done**, deliberately (this task's own instruction was not to configure it) — the exact URL to use is now known: see Phase H §6.
+- Adding the "In-App Purchase" capability (Xcode-side, but the App Store Connect agreement/tax/banking prerequisites are dashboard-side) — not addressed by this task (no Xcode/macOS access in this environment).
 
 ### Requires Apple sandbox testing
 
@@ -396,8 +505,8 @@ Updated `docs/apple-subscription-implementation.md` (this section), `docs/releas
 
 ### Blocked or deferred (explicitly, not silently)
 
-- ~~Real App Store Server API / App Store Server Notifications V2 implementation — blocked on Apple credentials this task must not fabricate or commit.~~ **Implemented (Phase F, 2026-09-16).** The code exists, is verification-real, and is unit-tested; it is still blocked on Apple credentials/App Store Connect setup/deployment before it can actually run — see "Requires Apple credentials"/"Requires App Store Connect configuration"/"Requires Supabase deployment" above.
-- ~~`reconcile-apple-subscriptions` scheduled job — deferred, no live data to reconcile yet.~~ **Written (Phase F).** Deliberately still not scheduled or deployed — a future, separate, explicit action.
+- ~~Real App Store Server API / App Store Server Notifications V2 implementation — blocked on Apple credentials this task must not fabricate or commit.~~ **Implemented (Phase F) and deployed with real credentials (Phase H, 2026-09-16).** The code exists, is verification-real, unit-tested, deployed, and runtime-smoke-tested against the real Edge Runtime. What remains blocked: a genuine sandbox transaction (not attempted, forbidden by Phase H's own instruction) and App Store Connect notification URL configuration (deliberately not done).
+- ~~`reconcile-apple-subscriptions` scheduled job — deferred, no live data to reconcile yet.~~ **Written (Phase F) and deployed (Phase H).** Deliberately still not scheduled — a future, separate, explicit action.
 - All three migrations (`20260916100000`, `20260916110000`, `20260916120000`) are applied and live-verified in DEV (2026-09-16).
 - Cutting `SubscriptionContext.jsx`/any live read path over to `entitlements`/`resolveEntitlement` — still deferred; the schema and its write RPC are now both live, but no Edge Function has actually run against them yet — see "Requires Supabase deployment".
 - Apple-specific account-deletion warning copy (`DeleteAccount.jsx`) — deferred, since no live Apple entitlement can exist yet to warn about; `docs/apple-subscription-architecture.md` §10 already documents the intended wording for when it's needed.

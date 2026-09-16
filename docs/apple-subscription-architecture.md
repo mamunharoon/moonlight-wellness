@@ -5,6 +5,8 @@
 
 **Update (2026-09-16 — "Implement Apple Server Verification and Notifications V2"):** §8's verification design is now implemented — see `docs/apple-subscription-implementation.md` Phase F. One real deviation from this section's own text: §8 says Apple's own App Store Server Library "is a first-party tool, not a third-party dependency" for JWS/certificate-chain verification; concrete testing found that library not safely usable in Supabase's current Deno-based Edge Runtime (cited GitHub issues, one of which explicitly names this exact library as the motivating case for a still-unimplemented Deno `node:crypto` API), so the implementation uses two other independently-maintained, WebCrypto-native libraries (`jose`, `@peculiar/x509`) instead — see Phase F §1 for the full evidence and reasoning. The verification flow itself (App Store Server API for client-triggered verification, App Store Server Notifications V2 for ongoing state, a scheduled reconciliation backstop), the security properties, and the provider-neutral schema this section describes are otherwise implemented as designed.
 
+**Further update (2026-09-16 — "Securely Deploy Apple Subscription Edge Functions to DEV"):** §14's dashboard-action table is now mostly complete — App Store Connect product/offer/trial/founding-offer configuration is done, a dedicated App Store Server API key exists, and all six required secrets are configured in the linked DEV Supabase project. The three Edge Functions are deployed and runtime-smoke-tested against real (but non-Apple, non-purchase) HTTP requests. **Apple subscriptions remain operationally unverified — no genuine sandbox transaction has been attempted.** See `docs/apple-subscription-implementation.md` Phase H for the full record, including why this DEV deployment's notification URL must be registered as Apple's **Sandbox** Server URL only, never Production.
+
 ---
 
 ## 1. Executive recommendation
@@ -482,21 +484,21 @@ create policy provider_subscriptions_select_own on public.provider_subscriptions
 
 ---
 
-## 14. Required dashboard actions (future — none performed in this task)
+## 14. Required dashboard actions
 
-**Must wait until implementation code exists (cannot usefully be done first):**
+**Update (2026-09-16 — "Securely Deploy Apple Subscription Edge Functions to DEV"): items 1, 2, 2a, 5, and 7 below are now done** — see `docs/apple-subscription-implementation.md` Phase H for the full record. Items 6 and 8 remain deliberately not done (Phase H's own instruction was not to configure App Store Connect further). Table retained below for the historical/planning record, with completed items struck through.
 
 | # | Action | System |
 |---|---|---|
-| 1 | Create the `wakewise_plus` subscription group, service-level ranking, and both products (§6 identifiers) | App Store Connect |
-| 2 | Configure the standard 7-day trial introductory offer (§6, approved) | App Store Connect |
-| 2a | Create the founding-member offer code — `com.zavaraai.wakewise.plus.annual`, New subscribers, Pay Up Front, one year, AUD $49.99, renews at $59.99, answered "No" to also granting the introductory offer (§6, approved and confirmed feasible) | App Store Connect → the subscription → Offer Codes |
-| 3 | Select price points closest to AUD $7.99/$59.99/$49.99 across territories | App Store Connect |
+| 1 | ~~Create the `wakewise_plus` subscription group, service-level ranking, and both products (§6 identifiers)~~ — **done.** "WakeWise Plus" group; `com.zavaraai.wakewise.plus.monthly`/`.annual`. | App Store Connect |
+| 2 | ~~Configure the standard 7-day trial introductory offer (§6, approved)~~ — **done.** One-week trial, 175 storefronts, no end date, both products. | App Store Connect |
+| 2a | ~~Create the founding-member offer code~~ — **the offer mechanism is configured** (`com.zavaraai.wakewise.plus.annual`, New subscribers, Pay Up Front, one year, AUD $49.99, renews at $59.99, does not combine with the introductory trial) — **but the actual redeemable production code `WAKEWISEFOUNDING` cannot be generated until the app passes App Review and reaches Ready for Distribution** — Apple's own constraint, still pending. | App Store Connect → the subscription → Offer Codes |
+| 3 | Select price points closest to AUD $7.99/$59.99/$49.99 across territories | App Store Connect — status not confirmed by this task; not re-verified |
 | 4 | Family Sharing — no action; approved 2026-09-16 to remain disabled | App Store Connect (deliberately not touched) |
-| 5 | Generate an App Store Server API key (issuer id, key id, private key) | App Store Connect → Users and Access → Integrations |
-| 6 | Configure the App Store Server Notifications V2 URL (pointing at the new `apple-server-notifications` Edge Function's public URL, which only exists once deployed) | App Store Connect |
-| 7 | Set the new Apple-related secrets (§8's named list) | Supabase Edge Function secrets |
-| 8 | Create sandbox tester Apple IDs | App Store Connect → Users and Access → Sandbox |
+| 5 | ~~Generate an App Store Server API key~~ — **done.** "WakeWise App Store Server", Key ID `K863527LV5`, created separately from Codemagic's existing key. | App Store Connect → Users and Access → Integrations |
+| 6 | Configure the App Store Server Notifications V2 URL — **still not done, deliberately.** The exact URL to use is now known: `https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications` (register as the **Sandbox** Server URL only — see `docs/apple-subscription-implementation.md` Phase H §6 for why this DEV/sandbox-configured deployment must not also be the Production URL). | App Store Connect |
+| 7 | ~~Set the new Apple-related secrets~~ — **done.** All six confirmed present by name in the linked DEV Supabase project (values never printed or committed — see Phase H §3). | Supabase Edge Function secrets |
+| 8 | Create sandbox tester Apple IDs | App Store Connect → Users and Access → Sandbox — not done, required before any real sandbox test |
 
 **Can be done independently of code, once the commercial decision in §16 is made:**
 

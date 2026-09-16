@@ -515,21 +515,24 @@ task had access to.
    nothing writes to them yet. **This does not make Apple purchases
    functional** — it only means the schema those future writes need
    already exists and is verified secure.
-2. ~~Set the Apple-related Edge Function secrets~~ — **still to do, but
-   now well-defined.** Real verification code exists and reads these
-   exact names as of 2026-09-16 (see
-   `docs/apple-subscription-implementation.md` Phase F §5 for the full
-   table, formats, and rotation procedure): `APPLE_ISSUER_ID`,
-   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID`
-   (`com.zavaraai.wakewise`), `APPLE_ENVIRONMENT` (`sandbox` or
-   `production`), and `APPLE_RECONCILE_TRIGGER_SECRET` (a generated
-   shared secret, deliberately separate from
+2. ~~Set the Apple-related Edge Function secrets~~ — **done, 2026-09-16.**
+   All six confirmed present by NAME in the linked DEV project (never a
+   value — see `docs/apple-subscription-implementation.md` Phase H §3):
+   `APPLE_ISSUER_ID`, `APPLE_KEY_ID` (`K863527LV5`), `APPLE_PRIVATE_KEY`,
+   `APPLE_BUNDLE_ID` (`com.zavaraai.wakewise`), `APPLE_ENVIRONMENT`
+   (currently `sandbox`), and `APPLE_RECONCILE_TRIGGER_SECRET` (a
+   generated shared secret, deliberately separate from
    `SUPABASE_SERVICE_ROLE_KEY`, gating the unscheduled
-   `reconcile-apple-subscriptions` function). **Use a dedicated App
-   Store Connect API key scoped to the App Store Server API / In-App
-   Purchase role — do not reuse Codemagic's existing signing key**, per
-   Phase F §5's own reasoning (different permission scope, and reusing
-   one key would couple unrelated rotations).
+   `reconcile-apple-subscriptions` function). The dedicated App Store
+   Connect API key **"WakeWise App Store Server"** (Key ID `K863527LV5`)
+   was used — **not** Codemagic's existing signing key, per Phase F §5's
+   own reasoning (different permission scope, and reusing one key would
+   couple unrelated rotations). **Rotation note**: to switch to
+   `production` later, this requires a *separate* `APPLE_ENVIRONMENT`
+   value — this DEV project remains `sandbox`-only; do not simply flip
+   this value in place without also considering whether a separate
+   deployment is more appropriate (see Phase H §6's notification-URL
+   reasoning).
 3. ~~Apply `supabase/migrations/20260916120000_apple_verified_state_rpc.sql`
    to the linked project~~ — **done, 2026-09-16.** Applied to the linked
    DEV project (`kvdxuhyndevrfvsalgnx`) and behaviourally live-verified —
@@ -545,43 +548,66 @@ task had access to.
    below writes through now exists live. **This alone does not make
    Apple purchases functional** — no Edge Function has been deployed and
    no Apple credential exists yet.
-4. Deploy `supabase/functions/verify-apple-transaction` and
-   `supabase/functions/apple-server-notifications` — as of 2026-09-16
-   these are genuine, cryptographically-verifying implementations (real
-   JWS + certificate-chain verification, a real App Store Server API
-   client), **not** the earlier fail-closed stubs, and are unit-tested —
-   see `docs/apple-subscription-implementation.md` Phase F. They have
-   **never been deployed or run inside the actual Supabase Edge
-   Runtime** — confirm the deploy actually succeeds (the per-function
-   `deno.json` import maps mapping `jose`/`@peculiar/x509`/
-   `reflect-metadata` to their `npm:` specifiers have never been
-   exercised by a real `supabase functions deploy`) before assuming
-   this works as written. The database write path (step 3) is now live
-   and verified; deploying the functions alone still does nothing
-   functionally until the secrets in step 2 exist — the code fails
-   closed with a clear "not configured" response until then, exactly
-   like the stubs did.
-5. Once deployed and confirmed reachable, optionally deploy
-   `supabase/functions/reconcile-apple-subscriptions` — it does nothing
-   on its own without also being scheduled (e.g. via `pg_cron` calling
-   it with the `X-Reconcile-Secret` header on some interval), which
-   this project has not set up and is intentionally left for a later,
-   separate decision (see Phase F §2's reconciliation notes).
+4. ~~Deploy `supabase/functions/verify-apple-transaction` and
+   `supabase/functions/apple-server-notifications`~~ — **done,
+   2026-09-16.** Both deployed to DEV (`ACTIVE`, version 1) via
+   `supabase functions deploy <name> --import-map
+   supabase/functions/<name>/deno.json` — the per-function `deno.json`
+   import maps resolved correctly with no local Docker (the CLI bundled
+   server-side, printing only `WARNING: Docker is not running`).
+   `verify-apple-transaction` deployed with the CLI's default gateway
+   JWT verification ON (`verify_jwt=true` — it already authenticates the
+   caller in its own code, so this is a genuine extra layer, not a
+   redundant risk); `apple-server-notifications` deployed with
+   `--no-verify-jwt` (**required** — Apple has no way to send a Supabase
+   JWT; security comes entirely from this function's own cryptographic
+   `signedPayload` verification). Runtime-smoke-tested with real HTTP
+   calls (no Apple credential, no purchase): a cryptographically-forged
+   JWS presented to `apple-server-notifications` was correctly rejected
+   by the real, deployed `jose`/`@peculiar/x509` code — direct proof the
+   cryptographic dependencies load and run correctly on the actual
+   Supabase Edge Runtime, not merely under Node/Vitest. Full results in
+   `docs/apple-subscription-implementation.md` Phase H §5. **This still
+   does not make Apple purchases functional** — no genuine Apple-signed
+   payload has been presented to either function; only their rejection
+   of invalid/forged/unauthenticated input is proven.
+5. ~~Once deployed and confirmed reachable, optionally deploy
+   `supabase/functions/reconcile-apple-subscriptions`~~ — **done,
+   2026-09-16.** Deployed to DEV (`ACTIVE`, version 1, gateway JWT
+   verification ON as an additional layer on top of its own
+   `X-Reconcile-Secret` check). Confirmed via real HTTP calls that an
+   unauthenticated request, an ordinary valid-shaped JWT with no secret
+   header, and a wrong secret value are all rejected (`401`). **Still
+   not scheduled** — no `pg_cron` entry, no external trigger — it does
+   nothing on its own; deliberately left for a later, separate decision
+   (see Phase F §2's reconciliation notes).
 
-### Apple sandbox testing (not started)
+### Apple sandbox testing (still not started)
+
+**Prerequisite step, not done yet**: register the notification URL —
+`https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications`
+— as App Store Connect's **Sandbox Server URL** (not Production; see
+`docs/apple-subscription-implementation.md` Phase H §6 for why this
+specific DEV-configured deployment must not also be the Production
+URL), and create at least one sandbox tester Apple ID.
 
 Every row in `docs/apple-subscription-architecture.md` §12's sandbox
 test matrix — first purchase (monthly/annual), trial eligibility/
 ineligibility, founding-offer-code redemption/eligibility/ineligibility
-(the commercial decision and mechanism are already approved and
-confirmed feasible — this is sandbox verification of the actual App
-Store Connect configuration once created, not a further decision),
-explicitly confirming a founding-offer-code redemption does **not** also
-grant the introductory trial (and vice versa), cancellation, restore
-(same device, another device, wrong account), renewal, refund, and the
-terminated-app/cold-launch scenarios equivalent to those already run for
-the native
-reminder feature.
+(the commercial decision and mechanism are already approved, configured
+in App Store Connect, and confirmed feasible — this is sandbox
+verification of the actual configuration, not a further decision; note
+the *production* redeemable code `WAKEWISEFOUNDING` cannot exist until
+App Review approval, so only the trial and Pay-Up-Front-offer mechanics
+themselves — not that specific code — can be sandbox-tested before
+then), explicitly confirming a founding-offer-code redemption does
+**not** also grant the introductory trial (and vice versa), cancellation,
+restore (same device, another device, wrong account), renewal, refund,
+and the terminated-app/cold-launch scenarios equivalent to those already
+run for the native reminder feature. **None of this was attempted in
+the 2026-09-16 secure-deployment task** — it was explicitly forbidden
+from performing any real or sandbox purchase; it deployed and
+runtime-smoke-tested the server-side rejection paths only.
 
 2. **Existing URLs that must remain** (do not remove these):
    - `https://wakewise-git-dev-mamun65.vercel.app/reset-password` — the
