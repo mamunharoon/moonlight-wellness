@@ -29,6 +29,35 @@ export const FREQUENCY_OPTIONS = [
   { id: 'custom', label: 'Custom days' }
 ];
 
+// Capacitor's own Weekday enum values (Sunday=1 .. Saturday=7 — see
+// @capacitor/local-notifications' definitions.d.ts). The native morning
+// reminder stores/validates weekday selections in this exact numbering
+// (kept independent of CATEGORY_DEFAULTS' unrelated 0=Sun..6=Sat
+// convention above) so a selection can be handed straight to
+// `schedule.on.weekday` with no conversion step. nativeMorningReminder.js
+// re-declares this same range for its own native-scheduling-layer needs
+// (id bounds-checking) — the two are intentionally not cross-imported so
+// this module stays dependency-free (see the file header); both must be
+// kept in sync if the range ever changes, which it structurally cannot
+// since it mirrors a fixed platform enum.
+export const ALL_NATIVE_REMINDER_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+// Safely coerces an arbitrary (possibly missing, malformed, or
+// older-format) stored value into a valid weekday selection: a deduped,
+// sorted subset of 1-7. Falls back to "every day" for anything that isn't
+// a non-empty array of valid weekday numbers — covers both a genuinely
+// older stored preference (no weekdays field at all) and any malformed
+// value (wrong type, out-of-range numbers, empty array) the same way, so
+// an existing user's reminder keeps firing daily exactly as before rather
+// than silently going quiet.
+export const sanitizeNativeReminderWeekdays = (value) => {
+  if (!Array.isArray(value)) return [...ALL_NATIVE_REMINDER_WEEKDAYS];
+  const valid = [...new Set(value.filter((day) => Number.isInteger(day) && day >= 1 && day <= 7))].sort(
+    (a, b) => a - b
+  );
+  return valid.length > 0 ? valid : [...ALL_NATIVE_REMINDER_WEEKDAYS];
+};
+
 export const DEFAULT_PREFERENCES = {
   enabled: false,
   quietHours: { enabled: false, start: '22:00', end: '07:00' },
@@ -40,11 +69,24 @@ export const DEFAULT_PREFERENCES = {
   // category time above. Kept in the same preferences blob rather than a
   // second storage key, but tracked under its own field since it's a
   // structurally different mechanism (native calendar trigger vs. web
-  // setInterval). This flag mirrors what MorningReminderContext believes
-  // is actually scheduled on the device — it is corrected on every app
-  // start by reconciling against real permission/pending-notification
-  // state, never trusted blindly.
-  nativeMorningReminder: { enabled: false }
+  // setInterval).
+  //   - enabled: the user's own last explicit choice (set only by an
+  //     explicit enable/disable/logout/account-deletion action) — this is
+  //     intent, and survives a transient permission denial so that
+  //     re-granting permission in iPhone Settings can resume the reminder
+  //     without requiring the user to also re-find and re-tap the toggle.
+  //   - weekdays: which days fire, in Capacitor's own Weekday numbering
+  //     (see ALL_NATIVE_REMINDER_WEEKDAYS above). Defaults to every day so
+  //     an existing user's reminder behaviour never silently changes.
+  //   - lastReconciledFingerprint: an opaque string capturing exactly the
+  //     scheduling-relevant inputs (wake time, weekdays, permission,
+  //     device timezone/offset) as of the last time MorningReminderContext
+  //     actually rescheduled the device — the minimum non-sensitive
+  //     metadata needed to tell "nothing relevant changed, skip
+  //     rescheduling" apart from "something changed, reconcile" on every
+  //     app-active/resume, without re-deriving/persisting anything more
+  //     sensitive than that.
+  nativeMorningReminder: { enabled: false, weekdays: [...ALL_NATIVE_REMINDER_WEEKDAYS], lastReconciledFingerprint: null }
 };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -59,7 +101,15 @@ export const getNotificationPreferences = () => {
       ...clone(DEFAULT_PREFERENCES),
       ...parsed,
       quietHours: { ...DEFAULT_PREFERENCES.quietHours, ...parsed.quietHours },
-      nativeMorningReminder: { ...DEFAULT_PREFERENCES.nativeMorningReminder, ...parsed.nativeMorningReminder },
+      nativeMorningReminder: {
+        ...DEFAULT_PREFERENCES.nativeMorningReminder,
+        ...parsed.nativeMorningReminder,
+        // Re-sanitized on every read (not just migrated once on write) so
+        // a malformed value written by a future rollback or a corrupted
+        // localStorage entry is always safely coerced back to a valid
+        // selection, never trusted as-is.
+        weekdays: sanitizeNativeReminderWeekdays(parsed.nativeMorningReminder?.weekdays)
+      },
       categories: Object.fromEntries(
         Object.keys(CATEGORY_DEFAULTS).map((key) => [
           key,
@@ -110,6 +160,28 @@ export const updateCategory = (categoryId, changes) => {
 export const updateNativeMorningReminderEnabled = (enabled) => {
   const prefs = getNotificationPreferences();
   return persist({ ...prefs, nativeMorningReminder: { ...prefs.nativeMorningReminder, enabled } });
+};
+
+// Persists a sanitized weekday selection. Never persists an empty
+// selection while the reminder is enabled — the caller (setWeekdays in
+// MorningReminderContext) is expected to already enforce "at least one
+// day" before calling this, but sanitizeNativeReminderWeekdays' own
+// empty-array fallback to "every day" is a second, independent backstop
+// here too, so this function alone can never leave a stored empty set.
+export const updateNativeMorningReminderWeekdays = (weekdays) => {
+  const prefs = getNotificationPreferences();
+  return persist({
+    ...prefs,
+    nativeMorningReminder: { ...prefs.nativeMorningReminder, weekdays: sanitizeNativeReminderWeekdays(weekdays) }
+  });
+};
+
+export const updateNativeMorningReminderFingerprint = (fingerprint) => {
+  const prefs = getNotificationPreferences();
+  return persist({
+    ...prefs,
+    nativeMorningReminder: { ...prefs.nativeMorningReminder, lastReconciledFingerprint: fingerprint ?? null }
+  });
 };
 
 export const resetNotificationPreferences = () => persist(clone(DEFAULT_PREFERENCES));

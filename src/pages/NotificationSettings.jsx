@@ -3,6 +3,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { useMorningReminder } from '../context/MorningReminderContext';
 import { CATEGORY_GROUPS, FREQUENCY_OPTIONS } from '../lib/notificationPreferences';
 import { showTestNotification } from '../lib/notificationService';
+import { MORNING_REMINDER_WEEKDAY_DISPLAY_ORDER, MORNING_REMINDER_WEEKDAY_LABELS } from '../lib/nativeMorningReminder';
 
 /*
  * WakeWise — Notifications & Reminders, Phase B — NotificationSettings
@@ -109,9 +110,51 @@ const CategoryRow = ({ categoryId, category, onUpdate }) => (
 // is a web-only, foreground-only, independently-timed reminder — see
 // notificationPreferences.js's CATEGORY_DEFAULTS.wakeUp). Renders nothing
 // on web/PWA (useMorningReminder().supported is false there).
+// Same visual/interaction pattern as CategoryRow's own weekday picker
+// below (rounded pill, aria-pressed, active/inactive colouring), sized
+// slightly larger for a friendlier touch target on this, the reminder
+// most likely to be tapped half-asleep. This is a genuinely separate
+// weekday selection from CategoryRow's — see MorningReminderContext.jsx's
+// header comment for why the two systems (native vs. web/foreground) are
+// never coupled.
+const WeekdayPicker = ({ selected, onToggle }) => (
+  <div className="flex gap-1.5" role="group" aria-label="Reminder days">
+    {MORNING_REMINDER_WEEKDAY_DISPLAY_ORDER.map((day) => {
+      const active = selected.includes(day);
+      const label = MORNING_REMINDER_WEEKDAY_LABELS[day];
+      return (
+        <button
+          key={day}
+          type="button"
+          aria-pressed={active}
+          aria-label={label}
+          onClick={() => onToggle(day)}
+          className={`w-10 h-10 min-w-[40px] min-h-[40px] rounded-full text-xs font-bold transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-90 ${
+            active ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant border-white/10 hover:bg-white/5'
+          }`}
+        >
+          {label[0]}
+        </button>
+      );
+    })}
+  </div>
+);
+
 const MorningReminderSection = () => {
-  const { supported, enabled, permissionStatus, wakeTime, enable, disable } = useMorningReminder();
+  const { supported, enabled, permissionStatus, wakeTime, weekdays, setWeekdays, scheduleSummary, enable, disable } =
+    useMorningReminder();
   if (!supported) return null;
+
+  // Enforced again here (not just in MorningReminderContext.setWeekdays,
+  // which already refuses an empty result) so the UI itself never even
+  // attempts to remove the last remaining day — "at least one selected
+  // day while the reminder is enabled" as a visible constraint, not just
+  // a silent no-op.
+  const handleToggleDay = (day) => {
+    const next = weekdays.includes(day) ? weekdays.filter((d) => d !== day) : [...weekdays, day];
+    if (next.length === 0) return;
+    setWeekdays(next);
+  };
 
   return (
     <section className="space-y-2">
@@ -128,12 +171,26 @@ const MorningReminderSection = () => {
             label="Morning reminder"
           />
         </div>
-        <div className="px-4 pb-4 space-y-1.5">
+        <div className="px-4 pb-4 space-y-3">
           {wakeTime && (
             <p className="text-xs text-on-surface-variant">
-              {enabled ? `Scheduled for ${wakeTime} on this device.` : `Uses your wake time (${wakeTime}) from Onboarding.`}
+              {enabled && scheduleSummary
+                ? `Scheduled: ${scheduleSummary} on this device.`
+                : `Uses your wake time (${wakeTime}) from Onboarding.`}
             </p>
           )}
+
+          {(enabled || permissionStatus === 'denied') && (
+            <div className="space-y-1.5">
+              <span className="text-xs text-on-surface-variant font-semibold" id="morning-reminder-days-label">
+                Days
+              </span>
+              <div aria-labelledby="morning-reminder-days-label">
+                <WeekdayPicker selected={weekdays} onToggle={handleToggleDay} />
+              </div>
+            </div>
+          )}
+
           {permissionStatus === 'denied' && (
             <p className="text-xs text-primary">
               Notifications are turned off for WakeWise. Enable them in iPhone Settings → Notifications → WakeWise to turn this on.
@@ -142,6 +199,12 @@ const MorningReminderSection = () => {
           {!enabled && permissionStatus !== 'denied' && (
             <p className="text-[11px] text-on-surface-variant">
               This is a reminder, not a guaranteed alarm — iPhone Focus, silent mode and notification settings can affect delivery. We'll ask permission the first time you turn this on.
+            </p>
+          )}
+          {enabled && (
+            <p className="text-[11px] text-on-surface-variant">
+              Uses your iPhone's default notification sound — WakeWise doesn't yet include a custom reminder sound. Tap the
+              notification's Begin, Snooze, or Skip actions, or open the app, to respond.
             </p>
           )}
         </div>
@@ -170,7 +233,7 @@ export const NotificationSettings = () => {
     const currentPermission = permission === 'default' ? await requestPermission() : permission;
     if (currentPermission === 'granted') showTestNotification();
   };
-  if (Toggle && CategoryRow && MorningReminderSection) { /* no-op to satisfy blind linter */ }
+  if (Toggle && CategoryRow && MorningReminderSection && WeekdayPicker) { /* no-op to satisfy blind linter */ }
 
   return (
     <div className="space-y-6">

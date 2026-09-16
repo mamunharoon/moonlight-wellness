@@ -171,13 +171,24 @@ guide is written for. Run through all of them and note pass/fail:
       or airplane mode) — confirm the app degrades no worse than the
       web version does.
 
-### 11a. Morning reminder tests (Capacitor iOS Native Morning Reminders)
+### 11a. Morning reminder tests (Complete Native Wake Reminder Functionality)
 
-None of these have been performed — they require `@capacitor/local-notifications`
+**Implementation summary** (see `src/lib/nativeMorningReminder.js`, `src/context/MorningReminderContext.jsx`, `src/hooks/useMorningReminderNotificationTap.js`, `src/pages/NotificationSettings.jsx` for the full implementation; `src/lib/nativeMorningReminder.test.js` and `src/lib/notificationPreferences.test.js` for the unit-test coverage — 66 + 14 tests, all passing as of this writing):
+
+- **Weekday scheduling**: one repeating calendar notification per selected weekday, using `@capacitor/local-notifications`' own `Weekday` enum (Sunday=1..Saturday=7) in `schedule.on.weekday`. Each weekday has a fixed, deterministic notification id (`990011`-`990017` = `990010 + weekday`), so re-scheduling a selected day always *replaces* its own pending request (no duplicate-prevention logic needed beyond the id scheme itself) and a deselected day is explicitly cancelled. Defaults to every day for any existing/older stored preference with no weekday field, so behaviour never silently changes for a current user.
+- **Legacy id retired**: the old single fixed id (`990001`, daily-only, no weekday field) is explicitly cancelled every time the weekday schedule is (re)applied, as a one-time migration/cleanup step. It remains exported and unit-tested for backward compatibility, but the app no longer schedules it.
+- **Notification actions**: a fixed action type (`wakewise-morning-reminder`) with three fixed, allow-listed actions — **Begin** (`foreground: true` — opens the app to the real alarm/decision screen), **Snooze** (`foreground: false` — the plugin's own documented way to act without opening the app; schedules one deterministic one-time snooze notification, fixed id `990020`, **10 minutes** later — matching `notificationPreferences.js`'s own pre-existing `snoozeMinutes` default rather than inventing a new value), **Skip** (`foreground: false` — cancels only the pending snooze, never touches the weekday schedule, never disables the reminder).
+- **Corrected routing**: the default tap *and* the Begin action both now open **`/alarm-trigger`** (`AlarmActive.jsx` — the real Begin-slide/Snooze/Skip alarm screen), not `/morning-start` (routine Step 1) as before. This was the task's own confirmed gap; the fix is evidenced by direct audit of `App.jsx`/`Layout.jsx`/`sessionDefinitions.js`, not assumed.
+- **Sound**: no local audio asset exists anywhere in this repository (checked: `src/assets/`, `public/`, and a repo-wide search for `.wav`/`.caf`/`.aiff`/`.mp3`/`.m4a` outside `node_modules`/`dist` — none found). The schedule call now explicitly sets `sound: 'default'` — confirmed via this plugin's own iOS source (`LocalNotificationsPlugin.swift`: `content.sound` is only set when the `sound` key is present at all) and its bundled README ("If not provided, it will produce ... no sound on iOS") that **omitting the field entirely means the reminder fires silently on iOS** — this is a real, pre-existing bug in the original implementation (which never set `sound`), fixed here as a side effect of implementing this feature, not something newly introduced. **Custom sound remains blocked purely by the missing asset, not by code**: to complete it, add a short (Apple's guidance is commonly cited as 30 seconds or shorter — confirm the current figure against Apple's own documentation before sourcing one) `.wav`/`.caf`/`.aiff` file to the `ios/App/App` Xcode target's "Copy Bundle Resources" build phase, then pass its exact filename (with extension) as the `sound` field via `applyMorningReminderSchedule(wakeTime, weekdays, { sound: 'exact-filename.wav' })` — the option already exists and is unit-tested; only the asset itself is missing.
+- **Foreground behaviour**: scheduled with `silent: true` (iOS-only) — while WakeWise is open, `AlarmContext.jsx`'s own second-by-second wall-clock check already surfaces the in-app Begin/Snooze/Skip alarm screen at the same real wake time; showing the native banner *as well* would be a redundant second alarm. This is a deliberate "least surprising" design decision, not a platform default — see the code comment on `weekdayReminderNotification` in `nativeMorningReminder.js`. **The actual foreground timing interplay between this suppression and `AlarmContext`'s own trigger has not been confirmed on a device — see the checklist below.**
+- **Timezone/DST + permission reconciliation**: an idempotent reconciliation path (`MorningReminderContext.reconcile`, driven by `@capacitor/app`'s `appStateChange` listener as well as mount and wake-time-change) rechecks permission (read-only, never requests it), reconciles the user's stored on/off intent against live device state, and rebuilds the schedule only when a fingerprint of `wake time | weekdays | device UTC offset | device IANA zone` actually differs from the last-reconciled one **or** live device state (`getPending()`) doesn't match — never on every render/resume unconditionally. The decision logic itself (`decideMorningReminderReconciliation` in `nativeMorningReminder.js`) is unit-tested directly, including the "permission granted after returning from Settings without re-tapping the toggle" and "unchanged fingerprint avoids unnecessary rescheduling" cases explicitly.
+- **Permission intent vs. live state**: the user's last explicit enable/disable choice is persisted separately from the live "is something actually scheduled and permitted right now" state the toggle displays — a denial no longer permanently forgets that the user wanted the reminder on, so granting permission again from iPhone Settings can resume it without the user re-finding the toggle. Permission is requested from exactly one place (`enable()`, on an explicit user tap) — reconciliation never requests it.
+
+None of the items below have been performed — they require `@capacitor/local-notifications`
 running on a real device (the simulator can deliver local notifications,
-but permission prompts, Focus mode, and device-restart persistence should
-be confirmed on a physical iPhone). Go to Settings → Notifications inside
-WakeWise for all of these.
+but permission prompts, Focus mode, background/terminated action delivery,
+and device-restart persistence should be confirmed on a physical iPhone).
+Go to Settings → Notifications inside WakeWise for all of these.
 
 - [ ] **First permission request**: with iOS notification permission not
       yet decided for WakeWise, turn the "Morning reminder" toggle on —
@@ -185,7 +196,8 @@ WakeWise for all of these.
       tapped, and that the native iOS permission dialog only appears
       after tapping the toggle (never on app launch or sign-in).
 - [ ] **Permission allowed**: accept the dialog — confirm the toggle
-      shows on and displays "Scheduled for HH:MM on this device."
+      shows on and displays the schedule summary (e.g. "Scheduled: Every
+      day at HH:MM on this device.").
 - [ ] **Permission denied**: deny the dialog — confirm the toggle shows
       off, no "scheduled" text appears, and the UI shows the "enable in
       iPhone Settings" guidance instead. Confirm turning the toggle off
@@ -195,12 +207,26 @@ WakeWise for all of these.
 - [ ] **Permission later revoked in Settings**: with the reminder on,
       go to iPhone Settings → Notifications → WakeWise and turn
       notifications off, then return to WakeWise's Notification settings
-      screen — confirm it reconciles to "off" (does not keep claiming the
-      reminder is active).
+      screen (or background/foreground the app) — confirm it reconciles
+      to "off" (does not keep claiming the reminder is active).
+- [ ] **Permission re-granted in Settings without re-tapping the toggle**:
+      from the denied state above, turn notifications back on for
+      WakeWise from iPhone Settings, then return to (or foreground) the
+      app — confirm the reminder resumes on its own via reconciliation,
+      matching `decideMorningReminderReconciliation`'s unit-tested
+      "permission granted after returning from Settings" behaviour.
+- [ ] **Weekday selection**: with the reminder on, deselect all but two or
+      three days — confirm only those days' notifications fire, and that
+      the schedule summary text updates to match (e.g. "Mon, Wed, Fri").
+      Attempt to deselect the very last remaining day — confirm the UI
+      refuses (at least one day must always remain selected).
+- [ ] **Weekday change cancels obsolete days**: with Mon/Wed/Fri selected,
+      deselect Wednesday — confirm Wednesday's reminder no longer fires,
+      while Monday's and Friday's still do.
 - [ ] **Reminder delivery at the selected local time**: set a wake time a
       few minutes in the future, enable the reminder, lock the phone, and
       confirm "Good morning / Your WakeWise morning routine is ready."
-      arrives at that exact local time.
+      arrives at that exact local time, audibly (default iOS sound).
 - [ ] **Delivery across device restart**: with the reminder enabled,
       restart the iPhone fully, and confirm the reminder still fires at
       the next scheduled time (iOS local notifications are expected to
@@ -208,30 +234,63 @@ WakeWise for all of these.
 - [ ] **DST/time-zone behaviour**: change the device's time zone (or test
       across a DST transition if one falls during the test window) and
       confirm the reminder still fires at the same local wall-clock wake
-      time, not a fixed UTC offset.
+      time, not a fixed UTC offset, and that the reconciliation
+      fingerprint-based reschedule (see the implementation summary above)
+      does not produce duplicate or missing notifications across the
+      change.
 - [ ] **Wake-time change**: with the reminder on, change the wake time in
       Onboarding — confirm the reminder now fires at the new time and
-      not also at the old one (only one pending notification should ever
-      exist — check via a second device/enough wait, or Xcode console
-      logging if added temporarily).
+      not also at the old one for every selected weekday.
 - [ ] **Disable/re-enable**: turn the reminder off, confirm no
-      notification arrives at the previously-scheduled time; turn it back
-      on, confirm exactly one reminder is scheduled again (not two).
+      notification arrives at the previously-scheduled time for any
+      selected day; turn it back on, confirm exactly the selected
+      weekdays are scheduled again (not duplicated).
 - [ ] **Duplicate-notification prevention**: rapidly toggle the reminder
-      off/on/off/on a few times — confirm only ever one WakeWise morning
-      reminder is pending/fires, never multiple.
-- [ ] **Foreground receipt**: trigger a reminder (or use a very-near-term
+      off/on/off/on, and separately rapidly change the weekday selection,
+      a few times — confirm only ever one pending notification per
+      selected weekday, never multiple, and no stray legacy (990001) or
+      snooze (990020) notification left behind.
+- [ ] **Foreground behaviour**: trigger a reminder (or use a very-near-term
       test time) while WakeWise is open and in the foreground — confirm
-      the app does not crash and behaves reasonably (iOS's default
-      foreground banner behavior for this plugin has not been confirmed
-      for this app).
-- [ ] **Background tap**: background WakeWise (don't force-quit), let the
-      reminder fire, tap it from the notification center/lock screen —
-      confirm it opens WakeWise directly to the morning-routine screen
-      (`/morning-start`).
-- [ ] **Cold-launch tap**: force-quit WakeWise entirely, let the reminder
-      fire, tap it — confirm a cold launch also lands on
-      `/morning-start`, not the default Home route.
+      the native banner does **not** appear (per the deliberate
+      `silent: true` decision above) and that `AlarmContext`'s own
+      in-app alarm screen appears instead, without any duplicate
+      navigation or double-triggering.
+- [ ] **Begin action / default tap (background)**: background WakeWise
+      (don't force-quit), let the reminder fire, tap the notification
+      body (or the Begin action) from the notification center/lock
+      screen — confirm it opens WakeWise directly to `/alarm-trigger`
+      (the Begin-slide/Snooze/Skip alarm screen), **not** `/morning-start`.
+- [ ] **Begin action / default tap (cold launch)**: force-quit WakeWise
+      entirely, let the reminder fire, tap it — confirm a cold launch
+      also lands on `/alarm-trigger`. This exercises the native plugin's
+      `retainUntilConsumed` event-retention behaviour (confirmed in this
+      plugin's own iOS source) for a cold-launch tap.
+- [ ] **Snooze action (background, app not foregrounded)**: let the
+      reminder fire, tap the Snooze action directly (not the notification
+      body) from the lock screen/notification center **without** opening
+      the app — confirm a new notification arrives exactly 10 minutes
+      later, and that this does not require the app to have been opened.
+      This specifically exercises whether a `foreground: false` action is
+      reliably delivered to the app's background listener while the app
+      is fully terminated, not merely backgrounded — the bundled plugin
+      docs do not make an explicit guarantee about this either way.
+- [ ] **Snooze action (app terminated)**: repeat the above with WakeWise
+      fully force-quit beforehand — confirm the same 10-minutes-later
+      behaviour, or note precisely if it does not (see the note above).
+- [ ] **Snooze replaces, does not accumulate**: tap Snooze twice on two
+      separate firings without letting the first snooze fire — confirm
+      only one pending snooze notification ever exists.
+- [ ] **Skip action**: let the reminder fire, tap Skip — confirm no
+      snooze notification is scheduled, the reminder is not disabled, and
+      the next selected weekday's regular reminder still fires normally.
+- [ ] **Cold-launch tap routes correctly after an action**: after tapping
+      Snooze or Skip from a terminated launch, confirm the app does not
+      unexpectedly navigate anywhere (only a default tap or Begin should
+      navigate to `/alarm-trigger`).
+- [ ] **Locked-device behaviour**: confirm the reminder (and its actions,
+      where iOS surfaces them on the lock screen) behave correctly with
+      the device locked.
 - [ ] **Focus mode / silent-mode limitation**: enable a Focus mode (e.g.
       Do Not Disturb) that would normally silence notifications, and
       confirm the reminder is delayed/suppressed as iOS dictates — this
@@ -239,11 +298,15 @@ WakeWise for all of these.
       should already be setting this expectation ("iPhone Focus, silent
       mode and notification settings can affect delivery").
 - [ ] **Logout/account-deletion cancellation**: enable the reminder while
-      signed in, then sign out — confirm no further reminder fires and
-      the toggle shows off on next sign-in prompt/screen. Separately,
-      enable the reminder, submit an account-deletion request (does not
-      need to complete), and confirm the reminder is cancelled at that
-      point too.
+      signed in, then sign out — confirm no further reminder fires for
+      any selected weekday and the toggle shows off on next sign-in
+      prompt/screen. Separately, enable the reminder, submit an
+      account-deletion request (does not need to complete), and confirm
+      every owned notification (weekday set + any pending snooze) is
+      cancelled at that point too.
+- [ ] **Custom sound wording matches reality**: confirm the in-app copy
+      states the reminder uses the iPhone's default notification sound
+      (not a custom WakeWise sound), matching the actual implementation.
 - [ ] **Not a guaranteed alarm**: as a sanity check on the copy itself,
       confirm nowhere in the UI (toggle label, helper text, this
       checklist) implies WakeWise is a guaranteed/critical alarm — it
@@ -317,10 +380,12 @@ iPhone:
       confirm the existing web flow at
       `https://wakewise-git-dev-mamun65.vercel.app/reset-password`
       still works exactly as before this phase.
-- [ ] **Confirm the morning-reminder tap still opens the morning flow**:
+- [ ] **Confirm the morning-reminder tap still opens the right screen**:
       unrelated regression check — trigger (or wait for) a scheduled
-      morning reminder and confirm tapping it still opens
-      `/morning-start`, not `/reset-password` or anywhere else. This
+      morning reminder and confirm tapping it opens `/alarm-trigger` (the
+      real alarm/decision screen — see §11a's "Complete Native Wake
+      Reminder Functionality" summary for why this is `/alarm-trigger`,
+      not `/morning-start`), not `/reset-password` or anywhere else. This
       confirms the two native listeners aren't interfering with each
       other.
 
