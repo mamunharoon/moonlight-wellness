@@ -500,14 +500,19 @@ task had access to.
     Notifications V2 URL to point at the deployed
     `apple-server-notifications` function's public URL.
 
-### Supabase dashboard steps (not done in this phase)
+### Supabase dashboard steps
 
-1. Apply `supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql`
+1. ~~Apply `supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql`
    and `supabase/migrations/20260916110000_stripe_trial_and_refund_support.sql`
-   to the linked project, after review — following this project's own
-   established deliberate-apply process (see
-   `supabase/migration-support/README.md`), never via an automatic
-   `db push --include-all`.
+   to the linked project~~ — **done, 2026-09-16.** Both migrations are applied
+   to the linked DEV project (`kvdxuhyndevrfvsalgnx`) and live-verified
+   (tables, RLS, policies, grants, uniqueness/allow-list constraints, and
+   authenticated/anon access boundaries all confirmed directly against
+   the live database — see `docs/apple-subscription-implementation.md`
+   Phase C for the full record). The three new tables hold zero rows;
+   nothing writes to them yet. **This does not make Apple purchases
+   functional** — it only means the schema those future writes need
+   already exists and is verified secure.
 2. Set the Apple-related Edge Function secrets (names only — see
    `docs/apple-subscription-architecture.md` §8 and
    `docs/apple-subscription-implementation.md`): `APPLE_ISSUER_ID`,

@@ -12,7 +12,7 @@
 
 ## 0. Do not claim more than this actually proves
 
-**Apple billing is not complete.** Nothing in this phase creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists after this phase is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed, unapplied schema; and Edge Functions that are deliberately, honestly non-functional until Apple credentials and App Store Connect configuration exist. Completion still requires, in order: App Store Connect product/offer setup, Apple Developer API credentials, applying the two new migrations to the live project, real App Store Server API/Notifications V2 implementation, Apple sandbox testing, and physical-iPhone testing. None of that happened here.
+**Apple billing is not complete.** Nothing in this phase (nor in the subsequent database-foundation task of 2026-09-16) creates a real purchase, verifies a real transaction, or grants entitlement from an Apple purchase. What exists today is: a compatible, installed client library; a platform-safe UI that never shows Stripe on iOS; a reviewed schema that is now **applied and live-verified** in the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`) — but holds zero rows and is written to by nothing; and Edge Functions that are deliberately, honestly non-functional until Apple credentials and App Store Connect configuration exist. Completion still requires, in order: App Store Connect product/offer setup, Apple Developer API credentials, deploying and implementing real App Store Server API/Notifications V2 verification, Apple sandbox testing, and physical-iPhone testing. **None of that has happened. Apple purchases remain completely non-operational** — the database foundation existing and being verified secure is a prerequisite for that work, not a step toward it being usable yet.
 
 ---
 
@@ -106,11 +106,19 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 ## Phase C — Server-verification boundary
 
-### Schema (written, reviewed, **not applied**)
+### Schema — applied and live-verified in DEV (2026-09-16)
 
-`supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql` — creates `entitlements`, `provider_subscriptions`, `provider_events` exactly as designed in `docs/apple-subscription-architecture.md` §7, with RLS enabled on all three, `authenticated` granted SELECT-own only (no INSERT/UPDATE/DELETE policy exists for `authenticated` on any of the three — matching this project's own already-verified `subscriptions`/`account_deletion_requests` pattern — plus explicit `REVOKE`s as defense-in-depth, mirroring the already-proven `20260915160000_harden_profiles_and_anon_grants.sql` migration's own reasoning), `provider_events` with zero client policy at all, and the two uniqueness constraints (`provider_subscriptions_stripe_sub_unique`, `provider_subscriptions_apple_txn_unique`) that make an Apple original-transaction id structurally unable to attach to two different WakeWise accounts. Rollback and validate files exist at the paired paths under `supabase/migration-support/`, per this project's own established convention.
+`supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql` — creates `entitlements`, `provider_subscriptions`, `provider_events` exactly as designed in `docs/apple-subscription-architecture.md` §7, with RLS enabled on all three, `authenticated` granted SELECT-own only (no INSERT/UPDATE/DELETE policy exists for `authenticated` on any of the three — matching this project's own already-verified `subscriptions`/`account_deletion_requests` pattern — plus explicit `REVOKE`s as defense-in-depth, mirroring the already-proven `20260915160000_harden_profiles_and_anon_grants.sql` migration's own reasoning), `provider_events` with zero client policy at all, and the three uniqueness/allow-list constraints (`provider_subscriptions_stripe_sub_unique`, `provider_subscriptions_apple_txn_unique`, and `provider_subscriptions_apple_product_id_allowlist` — the last one added during this task's pre-apply security review, mirroring `KNOWN_APPLE_PLUS_PRODUCT_IDS` at the database level) that make an Apple original-transaction id structurally unable to attach to two different WakeWise accounts and reject any Apple `product_id` outside the two known products. Rollback and validate files exist at the paired paths under `supabase/migration-support/`, per this project's own established convention.
 
-**Not applied to the live project — per this task's explicit instruction.** `subscriptions` remains the live, authoritative table every existing read path uses; nothing in this phase depends on the new tables existing live.
+**Applied to the linked DEV Supabase project (`kvdxuhyndevrfvsalgnx`, "Moonlight Wellness") on 2026-09-16**, together with `20260916110000_stripe_trial_and_refund_support.sql`, via `supabase db push --linked` after a pre-apply discovery check (git status, `supabase migration list --linked`, and a direct read-only query of `supabase_migrations.schema_migrations` confirmed these were the only two pending migrations and that none of the three new tables pre-existed) and a full live post-migration verification:
+
+- All three tables exist; RLS enabled on all three (`relforcerowsecurity = false`, matching every other table in this project — the table owner and `service_role` bypass RLS by Supabase's own design regardless of `FORCE`, so `FORCE` is not part of this project's security model anywhere).
+- `entitlements`/`provider_subscriptions` have exactly one policy each (`*_select_own`, `authenticated`, `SELECT`, `auth.uid() = user_id`); `provider_events` has zero policies. `anon` holds zero privileges on any of the three; `authenticated` holds `SELECT` only (no `INSERT`/`UPDATE`/`DELETE`).
+- Rollback-safe behavioural tests (`BEGIN … SET LOCAL ROLE …; SET LOCAL request.jwt.claim.sub = '<uuid>'; …; ROLLBACK;` against two real user ids) confirmed: `anon` gets `permission denied` on SELECT/INSERT for all three tables; an authenticated user can SELECT their own `entitlements`/`provider_subscriptions` row but gets zero rows for another user's; `authenticated` gets `permission denied` on INSERT/UPDATE for `entitlements`/`provider_subscriptions` and on SELECT/INSERT for `provider_events`.
+- Constraint tests confirmed: an invalid `provider` value, an Apple `product_id` outside the allow-list, a duplicate `provider_events (provider, provider_event_id)` pair, a duplicate `provider_subscriptions (provider, apple_original_transaction_id)` pair reused for a second user, and a non-existent `user_id` are all rejected by the database (`23514`/`23505`/`23503` respectively). Every synthetic row used in these tests was inserted and verified inside a transaction that was then rolled back; a post-test count confirmed all three new tables hold zero rows.
+- The pre-existing `subscriptions` row (1 row, `status = 'cancelled'`) was confirmed unchanged before and after; all 17 pre-existing RLS policies and all pre-existing `anon`/`authenticated` grants on the other 7 tables were confirmed byte-identical before and after (19 total policies post-migration = 17 unchanged + 2 new).
+
+`subscriptions` remains the live, authoritative table every existing read path uses — nothing in this phase cuts any read path over to the new tables; they exist and are verified but are not yet written to by anything (no Edge Function writes to them yet — `verify-apple-transaction` and `apple-server-notifications` remain fail-closed stubs, not deployed).
 
 ### Edge Functions — both fail-closed stubs, not working verifiers
 
@@ -131,7 +139,7 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 ### 1. Seven-day trial — now actually passed to Stripe, server-eligibility-gated
 
-- `supabase/migrations/20260916110000_stripe_trial_and_refund_support.sql` (also unapplied) adds `subscriptions.trial_used_at timestamptz` and widens the `status` CHECK constraint to add `'refunded'`.
+- `supabase/migrations/20260916110000_stripe_trial_and_refund_support.sql` (applied and live-verified in DEV on 2026-09-16 — see Phase C above) adds `subscriptions.trial_used_at timestamptz` (nullable, confirmed live) and widens the `status` CHECK constraint to add `'refunded'` (confirmed live as the sole CHECK constraint governing `status`, listing exactly `trial`/`active`/`cancelled`/`expired`/`refunded`). The pre-existing subscription row's `trial_used_at` defaulted to `NULL` as expected; its `status`/`plan`/`provider` were confirmed unchanged by the migration.
 - `supabase/functions/_shared/planMapping.ts`: new `isTrialEligible(row) = !row?.trial_used_at` — reads only this one column, never a client-supplied "eligible" flag, and never any other field on the row (tested explicitly — a forged `plan`/`status`/`eligible` field on a hypothetical malformed request body cannot influence it, since the function only ever receives the server's own DB row).
 - `supabase/functions/create-checkout-session/index.ts`: now reads `trial_used_at` alongside the existing `stripe_customer_id` select, computes `trialEligible = isTrialEligible(existingRow)`, and passes `subscription_data.trial_period_days: 7` **only when eligible** — this is the confirmed-missing piece from the prior audit (`docs/apple-subscription-architecture.md` §2's own citation of the exact line that never included it).
 - `supabase/functions/stripe-webhook/index.ts`: new `recordTrialUsageIfStarted(supabaseAdmin, userId, mappedStatus)`, called only from `checkout.session.completed`, only when the resulting subscription's *mapped* status is `'trial'` (i.e. Stripe actually confirmed `trialing`, not merely that a checkout session was created) — an abandoned checkout can never burn a user's one trial. The `UPDATE … WHERE trial_used_at IS NULL` guard means this can never overwrite an already-recorded first use.
@@ -161,10 +169,10 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 ### Documentation updated
 
-- `docs/apple-subscription-implementation.md` — this document.
+- `docs/apple-subscription-implementation.md` — this document, updated again 2026-09-16 with the database-foundation apply-and-verify results (see Phase C above).
 - `docs/apple-subscription-architecture.md` — see "Where implementation differed from the design" below.
-- `docs/release-readiness-register.md` — Workstreams C (Capacitor — plugin now installed, deployment target now 15.0), D (native reminder — unaffected), E (Apple subscription — updated to reflect Phase 1's real progress, still correctly not claiming completion).
-- `docs/ios-xcode-handoff.md` — new §, exact dashboard/device steps this phase left for later.
+- `docs/release-readiness-register.md` — Workstreams C (Capacitor — plugin now installed, deployment target now 15.0), D (native reminder — unaffected), E (Apple subscription — updated to reflect Phase 1's real progress and, as of 2026-09-16, the applied/verified database foundation — still correctly not claiming Apple subscriptions complete).
+- `docs/ios-xcode-handoff.md` — new §, exact dashboard/device steps this phase left for later; updated 2026-09-16 to note the database foundation is live.
 
 ---
 
@@ -186,7 +194,7 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 - `entitlementResolution.js` — the unified either-Stripe-or-Apple rule.
 - `planMapping.ts` additions — trial eligibility, refund/dispute mapping, Apple product allow-list.
 - `create-checkout-session`/`stripe-webhook` Stripe fixes — code-level logic (trial gating, refund/dispute mapping) is unit-tested via the pure functions it now calls; the Deno request-handling wiring itself is not (see Phase E's explicit boundary note).
-- Migration SQL — manually reviewed for syntax and matched against this project's own established RLS pattern; **not** validated by `supabase db lint` (see §Validation — no local Postgres/Docker available in this environment).
+- Migration SQL — manually reviewed for syntax and matched against this project's own established RLS pattern (no local Postgres/Docker available in this environment for a local dry-run); both migrations subsequently **applied to the linked DEV project and live-verified** — see Phase C above for the full verification record.
 
 ### Implemented but requires macOS/Xcode verification
 
@@ -213,8 +221,8 @@ The plugin's own podspec/`Package.swift` require iOS 15.0. This project's deploy
 
 - Real App Store Server API / App Store Server Notifications V2 implementation — blocked on Apple credentials this task must not fabricate or commit.
 - `reconcile-apple-subscriptions` scheduled job — deferred, no live data to reconcile yet.
-- Applying either new migration to the live project — explicitly out of this task's scope.
-- Cutting `SubscriptionContext.jsx`/any live read path over to `entitlements`/`resolveEntitlement` — deferred until the schema is actually live and populated.
+- Both new migrations are now applied and live-verified in DEV (2026-09-16) — no longer deferred; see Phase C above.
+- Cutting `SubscriptionContext.jsx`/any live read path over to `entitlements`/`resolveEntitlement` — still deferred; the schema is now live but not yet populated by any writer.
 - Apple-specific account-deletion warning copy (`DeleteAccount.jsx`) — deferred, since no live Apple entitlement can exist yet to warn about; `docs/apple-subscription-architecture.md` §10 already documents the intended wording for when it's needed.
 - The trial-vs-founding-offer commercial decision itself was **approved 2026-09-16, and its exact mechanism (an Apple offer code, not a second introductory offer) confirmed feasible from Apple's official documentation the same day** (see below) — this phase's code already supports the approved outcome (the trial-gating code is provider-agnostic; the Apple introductory offer and the founding offer code are both entirely dashboard-side and still untouched).
 
