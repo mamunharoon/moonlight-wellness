@@ -471,23 +471,22 @@ task had access to.
    heuristic — update it if the real shape differs (see the
    implementation document's own flagged caveat).
 
-### App Store Connect steps (in order; several depend on the commercial decision in `docs/apple-subscription-architecture.md` §16 still being made first)
+### App Store Connect steps (in order)
 
-1. Resolve the trial-vs-founding-offer commercial decision (§16 of the
-   architecture document) — nothing below involving the introductory
-   offer can be configured correctly until this is decided.
+1. **Commercial decision already approved 2026-09-16** (`docs/apple-subscription-architecture.md` §6/§16) — two mutually exclusive introductory paths: standard customers get a 7-day trial (monthly or annual); founding members get the annual product Pay-Up-Front at AUD $49.99 for the first year, no trial, renewing at $59.99. **This step is now: confirm hands-on, inside App Store Connect, whether both an eligibility-scoped "standard trial" introductory offer and a separate "founding member" Pay-Up-Front introductory offer can actually be configured on the same subscription group for two different subscriber cohorts** — this specific mechanical question was not resolved by document research and needs direct dashboard investigation. **If it cannot be configured securely and consistently, apply the pre-approved fallback: configure the 7-day trial only, and defer the founding offer** — do not improvise a different combination without a fresh approval.
 2. Create the `wakewise_plus` subscription group.
 3. Create the two products: `com.zavaraai.wakewise.plus.monthly`,
    `com.zavaraai.wakewise.plus.annual`.
 4. Configure the subscription group's service-level ranking (needed for
    correct upgrade/downgrade behaviour between the two products).
-5. Configure the approved introductory offer per the decision in step 1.
+5. Configure the approved introductory offer(s) per step 1's outcome.
 6. Select the price points closest to AUD $7.99 / $59.99 / $49.99 —
    cannot be predicted exactly from documentation; must be chosen
    directly in App Store Connect's own pricing UI.
-7. Decide and configure Family Sharing (currently disabled per the
-   approved product decision — confirm this remains the intent before
-   any change).
+7. Family Sharing: **approved 2026-09-16 to remain disabled** — no
+   action needed here. Note for the record only: Apple does not allow
+   turning Family Sharing back off once enabled for a subscription, so
+   this stays a deliberate no-action item unless a fresh approval changes it.
 8. Create Apple sandbox tester accounts.
 9. Generate an App Store Server API key (issuer id, key id, private
    key) — required before `supabase/functions/verify-apple-transaction`
