@@ -13,6 +13,27 @@ import {
   formatMonthlyPrice,
   trialDisclosureText
 } from '../lib/pricingConfig';
+import {
+  APPLE_PRODUCT_IDS,
+  isAppleIAPSupported,
+  getAppleProducts,
+  purchaseAppleProduct,
+  restoreApplePurchases,
+  openAppleManageSubscriptions,
+  addAppleTransactionUpdateListener
+} from '../lib/applePurchaseAdapter';
+import { verifyAppleTransaction } from '../lib/appleVerificationApi';
+
+// Platform behaviour (Apple Subscription Architecture task, Phase B):
+// computed once — the platform an app is running on never changes
+// within a session, so this is a plain module-scope constant, not
+// component state. iOS native build: Apple IAP only, Stripe checkout/
+// portal hidden entirely below. Web build: Stripe only, unchanged. An
+// existing active Stripe subscriber still sees their real entitlement on
+// iOS (the "Current plan"/status sections below read subscription from
+// SubscriptionContext exactly the same way on every platform) — they
+// just don't see a Stripe purchase or portal CTA there.
+const IS_NATIVE_IOS = isAppleIAPSupported();
 
 /*
  * Subscription Model, Sprint 2 Stage 1 (+ Stage 1A, Stage 3A) — Subscription screen
@@ -80,7 +101,7 @@ const formatRenewalDate = (subscription) => {
 
 export const Subscription = () => {
   const navigate = useNavigate();
-  const { isGuest } = useAuth();
+  const { isGuest, user } = useAuth();
   const { subscription, loading, error, refreshSubscription } = useSubscription();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeDialog, setActiveDialog] = useState(null); // 'sign-in' | null
@@ -91,6 +112,108 @@ export const Subscription = () => {
   const [portalError, setPortalError] = useState(null);
   const [banner, setBanner] = useState(null); // 'success' | 'cancelled' | null
   const devOverride = getSubscriptionOverride();
+
+  // Apple Subscription Architecture task, Phase B — native purchase
+  // state. Entirely inert on web (every setter below is only ever
+  // reached from native-gated effects/handlers).
+  const [appleProducts, setAppleProducts] = useState({});
+  const [appleProductsState, setAppleProductsState] = useState(IS_NATIVE_IOS ? 'loading' : 'idle'); // 'idle'|'loading'|'ready'|'unavailable'
+  const [applePurchaseState, setApplePurchaseState] = useState('idle'); // 'idle'|'purchasing'|'verifying'|'awaiting-confirmation'|'cancelled'|'failed'
+  const [applePurchaseError, setApplePurchaseError] = useState(null);
+  const [appleRestoreState, setAppleRestoreState] = useState('idle'); // 'idle'|'restoring'|'restored'|'failed'
+  const [appleManageState, setAppleManageState] = useState('idle'); // 'idle'|'opening'|'failed'
+
+  // Never grants access from a client-side purchase/restore callback —
+  // this only ever sends the transaction to the server (Phase C's
+  // verify-apple-transaction, currently a fail-closed stub — see
+  // docs/apple-subscription-implementation.md) and then re-reads real
+  // entitlement state from Supabase via refreshSubscription(), exactly
+  // like the existing Stripe return-from-checkout flow already does.
+  const handleAppleTransactionResult = async (result) => {
+    if (result.outcome === 'cancelled') {
+      setApplePurchaseState('cancelled');
+      return;
+    }
+    if (result.outcome === 'unavailable') {
+      setApplePurchaseState('failed');
+      setApplePurchaseError('In-app purchases are not available right now.');
+      return;
+    }
+    if (result.outcome === 'failed') {
+      setApplePurchaseState('failed');
+      setApplePurchaseError(result.message || "We couldn't complete that purchase. Please try again.");
+      return;
+    }
+    if (result.outcome === 'purchased') {
+      setApplePurchaseState('verifying');
+      try {
+        await verifyAppleTransaction({
+          transactionId: result.transactionId,
+          productIdentifier: result.productIdentifier,
+          jwsRepresentation: result.jwsRepresentation
+        });
+      } catch (e) {
+        console.warn('[Subscription] Apple transaction verification call failed', e?.message);
+      }
+      // Whether or not verification above actually confirmed anything
+      // (in this phase it never does — see the stub's own file header),
+      // the only source of truth for whether the user has access is a
+      // fresh read of their real subscription state, never this
+      // callback's own outcome.
+      await refreshSubscription();
+      setApplePurchaseState('awaiting-confirmation');
+    }
+  };
+
+  useEffect(() => {
+    if (!IS_NATIVE_IOS) return undefined;
+
+    let ignore = false;
+    getAppleProducts().then((products) => {
+      if (ignore) return;
+      setAppleProducts(products);
+      setAppleProductsState(Object.keys(products).length > 0 ? 'ready' : 'unavailable');
+    });
+
+    const removeListener = addAppleTransactionUpdateListener((result) => {
+      handleAppleTransactionResult(result);
+    });
+
+    return () => {
+      ignore = true;
+      removeListener();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApplePurchase = async () => {
+    if (isGuest) {
+      setActiveDialog('sign-in');
+      return;
+    }
+    setApplePurchaseState('purchasing');
+    setApplePurchaseError(null);
+    const productIdentifier = interval === 'monthly' ? APPLE_PRODUCT_IDS.monthly : APPLE_PRODUCT_IDS.annual;
+    const result = await purchaseAppleProduct(productIdentifier, { appAccountToken: user?.id });
+    await handleAppleTransactionResult(result);
+  };
+
+  const handleAppleRestore = async () => {
+    setAppleRestoreState('restoring');
+    const result = await restoreApplePurchases();
+    if (result.outcome === 'restored') {
+      await refreshSubscription();
+      setAppleRestoreState('restored');
+    } else {
+      setAppleRestoreState('failed');
+    }
+  };
+
+  const handleAppleManage = async () => {
+    setAppleManageState('opening');
+    const result = await openAppleManageSubscriptions();
+    setAppleManageState(result.outcome === 'opened' ? 'idle' : 'failed');
+  };
 
   if (ConfirmDialog && Fragment && Link) { /* no-op to satisfy blind linter */ }
 
@@ -255,8 +378,9 @@ export const Subscription = () => {
         </div>
       </section>
 
-      {/* Actions */}
-      {!plusActive && (
+      {/* Actions — native iOS: Apple In-App Purchase only, never Stripe.
+          Web: Stripe only, unchanged from before this task. */}
+      {!plusActive && !IS_NATIVE_IOS && (
         <div className="space-y-3">
           <div className="flex glass-panel rounded-full p-1 border-white/10">
             {Object.entries(INTERVAL_LABELS).map(([value, label]) => (
@@ -307,7 +431,109 @@ export const Subscription = () => {
         </div>
       )}
 
-      {subscription.provider === 'stripe' && (
+      {!plusActive && IS_NATIVE_IOS && (
+        <div className="space-y-3">
+          <div className="flex glass-panel rounded-full p-1 border-white/10">
+            {Object.entries(INTERVAL_LABELS).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setInterval_(value)}
+                className={`flex-1 py-2 rounded-full text-sm font-bold transition-all ${
+                  interval === value ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="glass-panel rounded-2xl p-4 text-center space-y-1 border-white/10">
+            {appleProductsState === 'loading' && (
+              <p className="text-sm text-on-surface-variant">Loading prices from the App Store…</p>
+            )}
+            {appleProductsState === 'unavailable' && (
+              <p className="text-sm text-on-surface-variant">
+                We couldn't load App Store pricing right now. Please try again shortly.
+              </p>
+            )}
+            {appleProductsState === 'ready' && (
+              <>
+                {/* Never a hard-coded price on iOS — always the exact,
+                    localised string StoreKit itself returned. */}
+                <p className="text-lg font-bold text-on-surface">
+                  {interval === 'monthly'
+                    ? appleProducts[APPLE_PRODUCT_IDS.monthly]?.priceString ?? '—'
+                    : appleProducts[APPLE_PRODUCT_IDS.annual]?.priceString ?? '—'}
+                </p>
+                <p className="text-xs text-on-surface-variant pt-1">
+                  A free trial or introductory offer may be available — the App Store will show your exact eligibility
+                  and terms before you're charged. Subscriptions renew automatically unless cancelled at least 24 hours
+                  before the end of the current period.
+                </p>
+              </>
+            )}
+          </div>
+
+          <p className="text-[11px] text-on-surface-variant text-center leading-relaxed px-2">
+            By subscribing, you agree to our{' '}
+            <Link to="/settings/subscription-terms" className="text-primary font-semibold">Subscription Terms</Link>
+            {' '}and{' '}
+            <Link to="/settings/refund-policy" className="text-primary font-semibold">Refund Policy</Link>.
+          </p>
+
+          <button
+            onClick={handleApplePurchase}
+            disabled={appleProductsState !== 'ready' || applePurchaseState === 'purchasing' || applePurchaseState === 'verifying'}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60"
+          >
+            {applePurchaseState === 'purchasing' && 'Purchasing…'}
+            {applePurchaseState === 'verifying' && 'Confirming your subscription…'}
+            {(applePurchaseState === 'idle' || applePurchaseState === 'cancelled' || applePurchaseState === 'failed' || applePurchaseState === 'awaiting-confirmation') &&
+              `Subscribe with Apple — ${interval === 'monthly' ? 'Monthly' : 'Annual'}`}
+          </button>
+
+          {applePurchaseState === 'cancelled' && (
+            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+              Purchase cancelled — no changes were made.
+            </p>
+          )}
+          {applePurchaseState === 'failed' && (
+            <p role="alert" className="text-[10px] text-red-400 font-medium px-1 text-center">
+              {applePurchaseError || "We couldn't complete that purchase."}
+            </p>
+          )}
+          {applePurchaseState === 'awaiting-confirmation' && (
+            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+              Purchase received — we're confirming your subscription. This can take a moment; check back shortly, or
+              contact support if it doesn't update.
+            </p>
+          )}
+
+          <button
+            onClick={handleAppleRestore}
+            disabled={appleRestoreState === 'restoring'}
+            className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 text-sm"
+          >
+            {appleRestoreState === 'restoring' ? 'Restoring…' : 'Restore Purchases'}
+          </button>
+          {appleRestoreState === 'restored' && (
+            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+              Restore complete — refreshing your subscription status.
+            </p>
+          )}
+          {appleRestoreState === 'failed' && (
+            <p role="alert" className="text-[10px] text-red-400 font-medium px-1 text-center">
+              We couldn't restore purchases. Please try again.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Manage subscription — web/Stripe subscribers only ever see the
+          Stripe portal (never on iOS, where Stripe Checkout/Portal must
+          never open). A Stripe subscriber using the iOS app instead sees
+          an informational message plus a link to manage on the web. */}
+      {subscription.provider === 'stripe' && !IS_NATIVE_IOS && (
         <div className="space-y-3">
           <button
             onClick={handleManageSubscription}
@@ -322,7 +548,36 @@ export const Subscription = () => {
         </div>
       )}
 
-      {plusActive && subscription.provider !== 'stripe' && (
+      {subscription.provider === 'stripe' && IS_NATIVE_IOS && (
+        <p className="text-xs text-on-surface-variant text-center px-1 leading-relaxed">
+          You're subscribed via the web. Manage or cancel your subscription at wakewise.com or in a browser — Stripe
+          billing management isn't available inside the iOS app.
+        </p>
+      )}
+
+      {/* Apple-channel Manage Subscription — not reachable in this
+          phase (see docs/apple-subscription-implementation.md: no live
+          Apple entitlement can exist yet), included so this UI is
+          already correct once a future task's server verification goes
+          live and subscription.provider can genuinely be 'apple'. */}
+      {IS_NATIVE_IOS && subscription.provider === 'apple' && (
+        <div className="space-y-3">
+          <button
+            onClick={handleAppleManage}
+            disabled={appleManageState === 'opening'}
+            className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+          >
+            {appleManageState === 'opening' ? 'Opening subscription management…' : 'Manage subscription'}
+          </button>
+          {appleManageState === 'failed' && (
+            <p role="alert" className="text-[10px] text-red-400 font-medium px-1">
+              We couldn't open subscription management. Please try again.
+            </p>
+          )}
+        </div>
+      )}
+
+      {plusActive && subscription.provider !== 'stripe' && subscription.provider !== 'apple' && (
         <p className="text-xs text-on-surface-variant text-center px-1">
           Your Plus access was granted by an administrator.
         </p>

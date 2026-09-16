@@ -11,7 +11,16 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
-import { priceIdForInterval } from '../_shared/planMapping.ts';
+import { priceIdForInterval, isTrialEligible } from '../_shared/planMapping.ts';
+
+// Apple Subscription Architecture task, Phase D — the seven-day trial:
+// TRIAL_DAYS mirrors src/lib/pricingConfig.js's own TRIAL_DAYS = 7 (kept
+// as a separate constant here rather than imported, since this Deno
+// function cannot import a Vite/browser-targeted src/ module — the two
+// are expected to be kept in sync by hand, exactly like every other
+// duplicated-by-necessity constant between the client and Edge Function
+// layers in this codebase).
+const TRIAL_DAYS = 7;
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -68,7 +77,7 @@ Deno.serve(async (req) => {
 
   const { data: existingRow, error: fetchError } = await supabaseAdmin
     .from('subscriptions')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, trial_used_at')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -78,6 +87,13 @@ Deno.serve(async (req) => {
   }
 
   let customerId = existingRow?.stripe_customer_id ?? null;
+
+  // Server-side trial eligibility (Phase D): decided from this user's own
+  // stored subscriptions row, never from anything the client sent — a
+  // user cannot grant themselves a repeat trial by claiming eligibility
+  // in the request body, because the request body is never consulted for
+  // this at all.
+  const trialEligible = isTrialEligible(existingRow);
 
   try {
     const stripe = getStripeClient();
@@ -111,7 +127,17 @@ Deno.serve(async (req) => {
       success_url: `${origin}/subscription?checkout=success`,
       cancel_url: `${origin}/subscription?checkout=cancelled`,
       metadata: { supabase_user_id: user.id },
-      subscription_data: { metadata: { supabase_user_id: user.id } }
+      subscription_data: {
+        metadata: { supabase_user_id: user.id },
+        // Phase D: the confirmed missing piece — previously this object
+        // never included trial_period_days at all, so any trial in
+        // effect could only ever have come from the Stripe Price
+        // object's own configuration (unverifiable from this repo, per
+        // the release-readiness register's own finding). Now passed
+        // explicitly, and only when this specific user is actually
+        // eligible.
+        ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {})
+      }
     });
 
     return json({ url: session.url });

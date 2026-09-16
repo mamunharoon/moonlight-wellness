@@ -436,6 +436,99 @@ verified.
    running natively (see `src/lib/authRedirect.js`). Add it as its own
    exact entry — do not rely on a partial or prefix match.
 
+## 15. Apple subscriptions — macOS/Xcode and dashboard handoff
+
+**Not done in this phase.** Phase 1 of `docs/apple-subscription-architecture.md`
+was implemented on Windows — see `docs/apple-subscription-implementation.md`
+for the full detail. Everything below requires macOS/Xcode, a physical
+iPhone, App Store Connect, or Apple sandbox testing, none of which this
+task had access to.
+
+### macOS/Xcode steps
+
+1. **Run `pod install`** (or `npx cap sync ios` again from macOS) to
+   actually resolve the newly-added `CapgoNativePurchases` pod — this
+   task's `npx cap sync ios` correctly added the Podfile entry, but
+   CocoaPods itself is not installed on this Windows machine, so the pod
+   was never actually fetched/linked.
+2. **Confirm the iOS deployment target change took effect cleanly.** This
+   task raised `IPHONEOS_DEPLOYMENT_TARGET` (all 4 occurrences in
+   `project.pbxproj`) and `Podfile`'s `platform :ios` from 14.0 to 15.0
+   (required by the plugin's own podspec — see the implementation
+   document's Phase A). Open the project in Xcode and confirm no
+   conflicting per-target setting remains, and that this doesn't
+   surprise any other already-configured signing/capability setting.
+3. **Add the "In-App Purchase" capability** in Xcode → the App target →
+   Signing & Capabilities. The plugin's own README states this
+   explicitly as a required manual step; a `project.pbxproj` text edit
+   alone was not attempted for this, since Xcode is the safer place to
+   confirm the resulting entitlements are correct.
+4. **Confirm a clean build and archive** with the new plugin linked.
+5. **Confirm the exact StoreKit purchase-cancellation error shape** this
+   plugin surfaces (e.g. via a StoreKit Testing configuration in Xcode,
+   or a sandbox purchase attempt cancelled mid-flow) and compare against
+   `src/lib/applePurchaseAdapter.js`'s `purchaseAppleProduct` cancellation
+   heuristic — update it if the real shape differs (see the
+   implementation document's own flagged caveat).
+
+### App Store Connect steps (in order; several depend on the commercial decision in `docs/apple-subscription-architecture.md` §16 still being made first)
+
+1. Resolve the trial-vs-founding-offer commercial decision (§16 of the
+   architecture document) — nothing below involving the introductory
+   offer can be configured correctly until this is decided.
+2. Create the `wakewise_plus` subscription group.
+3. Create the two products: `com.zavaraai.wakewise.plus.monthly`,
+   `com.zavaraai.wakewise.plus.annual`.
+4. Configure the subscription group's service-level ranking (needed for
+   correct upgrade/downgrade behaviour between the two products).
+5. Configure the approved introductory offer per the decision in step 1.
+6. Select the price points closest to AUD $7.99 / $59.99 / $49.99 —
+   cannot be predicted exactly from documentation; must be chosen
+   directly in App Store Connect's own pricing UI.
+7. Decide and configure Family Sharing (currently disabled per the
+   approved product decision — confirm this remains the intent before
+   any change).
+8. Create Apple sandbox tester accounts.
+9. Generate an App Store Server API key (issuer id, key id, private
+   key) — required before `supabase/functions/verify-apple-transaction`
+   can stop being a fail-closed stub.
+10. Once `verify-apple-transaction` and `apple-server-notifications`
+    are actually deployed (a Supabase dashboard action, not done in this
+    phase either — see below), configure the App Store Server
+    Notifications V2 URL to point at the deployed
+    `apple-server-notifications` function's public URL.
+
+### Supabase dashboard steps (not done in this phase)
+
+1. Apply `supabase/migrations/20260916100000_apple_subscription_entitlements_foundation.sql`
+   and `supabase/migrations/20260916110000_stripe_trial_and_refund_support.sql`
+   to the linked project, after review — following this project's own
+   established deliberate-apply process (see
+   `supabase/migration-support/README.md`), never via an automatic
+   `db push --include-all`.
+2. Set the Apple-related Edge Function secrets (names only — see
+   `docs/apple-subscription-architecture.md` §8 and
+   `docs/apple-subscription-implementation.md`): `APPLE_ISSUER_ID`,
+   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and whatever shared secret the
+   eventual real App Store Server Notifications verification approach
+   requires.
+3. Deploy `supabase/functions/verify-apple-transaction` and
+   `supabase/functions/apple-server-notifications` — both currently
+   exist in the repository as fail-closed stubs; deploying them alone
+   changes nothing functionally until the secrets above exist and the
+   stub bodies are replaced with real App Store Server API / JWS
+   certificate-chain verification.
+
+### Apple sandbox testing (not started)
+
+Every row in `docs/apple-subscription-architecture.md` §12's sandbox
+test matrix — first purchase (monthly/annual), trial eligibility/
+ineligibility, founding-offer eligibility/ineligibility (once the
+commercial decision above is made), cancellation, restore (same device,
+another device, wrong account), renewal, refund, and the terminated-app/
+cold-launch scenarios equivalent to those already run for the native
+reminder feature.
+
 2. **Existing URLs that must remain** (do not remove these):
    - `https://wakewise-git-dev-mamun65.vercel.app/reset-password` — the
      `dev` branch's Preview URL, used by the web app's redirect

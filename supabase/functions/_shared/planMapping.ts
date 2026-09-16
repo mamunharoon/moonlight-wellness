@@ -46,3 +46,53 @@ const STRIPE_STATUS_MAP = {
 };
 
 export const mapStripeStatus = (stripeStatus) => STRIPE_STATUS_MAP[stripeStatus] ?? 'expired';
+
+// Apple Subscription Architecture task, Phase D — the two confirmed
+// Stripe gaps this app's own earlier audits found: the trial was never
+// actually passed to Stripe, and refund/dispute events were never
+// handled. Both pure/framework-free so they're directly unit-testable
+// (this file has no Deno-specific import at module scope — only
+// knownPlusPriceIds/priceIdForInterval above read Deno.env, and this
+// project's Vitest config can still import this .ts file from a test
+// under src/lib/, exactly the same cross-boundary import pattern this
+// task's own test suite uses).
+
+// Server-side trial eligibility: a user is eligible only if their own
+// subscriptions row has never recorded a trial start before. Never
+// derived from anything client-supplied — create-checkout-session reads
+// the row itself, not a flag the browser sent. `row` is the existing
+// subscriptions record for this user (or null/undefined for "no row
+// yet," which is eligible — a brand new subscriber).
+export const isTrialEligible = (row) => !row?.trial_used_at;
+
+// Refund/dispute lifecycle events -> this app's subscriptions.status
+// vocabulary (now widened to include 'refunded' by
+// 20260916110000_stripe_trial_and_refund_support.sql). 'refunded' is
+// deliberately NOT in entitlements.js's ACTIVE_STATUSES, so mapping to
+// it alone revokes access — no change to entitlements.js is needed for
+// this to take effect. A dispute is treated as an immediate access
+// suspension (the existing 'cancelled' value) pending resolution, not a
+// new status value, keeping the schema change minimal. Any other event
+// type maps to null — the caller must skip processing, never guess.
+export const STRIPE_REFUND_DISPUTE_EVENT_STATUS = {
+  'charge.refunded': 'refunded',
+  'charge.dispute.created': 'cancelled'
+};
+
+export const mapRefundOrDisputeEventToStatus = (stripeEventType) =>
+  STRIPE_REFUND_DISPUTE_EVENT_STATUS[stripeEventType] ?? null;
+
+// Apple Subscription Architecture task, Phase C — the proposed App Store
+// Connect product identifiers (docs/apple-subscription-architecture.md
+// §6; not yet created in App Store Connect). Mirrors
+// src/lib/applePurchaseAdapter.js's own APPLE_PRODUCT_IDS constant —
+// kept as a separate, independently-declared list here (not imported
+// across the Deno/Vite boundary) so the server-side allow-list can never
+// be silently widened by a client-side change to the other file; both
+// must be updated together by hand if these identifiers ever change.
+export const KNOWN_APPLE_PLUS_PRODUCT_IDS = [
+  'com.zavaraai.wakewise.plus.monthly',
+  'com.zavaraai.wakewise.plus.annual'
+];
+
+export const isKnownApplePlusProductId = (productId) => KNOWN_APPLE_PLUS_PRODUCT_IDS.includes(productId);

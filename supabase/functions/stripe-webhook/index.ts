@@ -14,7 +14,7 @@
 import Stripe from 'npm:stripe@17.4.0';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
-import { mapStripeStatus, knownPlusPriceIds } from '../_shared/planMapping.ts';
+import { mapStripeStatus, knownPlusPriceIds, mapRefundOrDisputeEventToStatus } from '../_shared/planMapping.ts';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -79,6 +79,39 @@ const applySubscriptionState = async (supabaseAdmin, userId, stripeSubscription,
     { onConflict: 'user_id' }
   );
 
+  if (error) throw error;
+};
+
+// Phase D: records that this user's one trial has now genuinely been
+// used — called only from checkout.session.completed, only when the
+// resulting subscription's status actually is 'trialing' (mapStripeStatus
+// maps this to 'trial'). Never called merely because a checkout session
+// was created (an abandoned checkout must never burn the user's trial),
+// and never overwrites an existing trial_used_at (a renewal/upgrade that
+// happens to still read as 'trial' status must not reset the clock on an
+// already-recorded first use).
+const recordTrialUsageIfStarted = async (supabaseAdmin, userId, mappedStatus) => {
+  if (mappedStatus !== 'trial') return;
+  const { error } = await supabaseAdmin
+    .from('subscriptions')
+    .update({ trial_used_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('trial_used_at', null);
+  if (error) {
+    console.error('stripe-webhook: failed to record trial_used_at', error.message);
+  }
+};
+
+// Phase D: the confirmed missing refund/dispute handling. A minimal,
+// targeted UPDATE (not the full applySubscriptionState upsert above,
+// which needs a real Stripe Subscription object) — a charge/dispute
+// event only ever changes `status` on an existing row, never any other
+// field, and never creates a row that doesn't already exist (a refund or
+// dispute is inherently for a charge that already succeeded and was
+// already written by an earlier checkout.session.completed/
+// customer.subscription.updated event).
+const applyRefundOrDisputeStatus = async (supabaseAdmin, userId, status) => {
+  const { error } = await supabaseAdmin.from('subscriptions').update({ status }).eq('user_id', userId);
   if (error) throw error;
 };
 
@@ -157,7 +190,29 @@ Deno.serve(async (req) => {
           }
 
           await applySubscriptionState(supabaseAdmin, userId, stripeSubscription, session.customer);
+          await recordTrialUsageIfStarted(supabaseAdmin, userId, mapStripeStatus(stripeSubscription.status));
         }
+        break;
+      }
+
+      case 'charge.refunded':
+      case 'charge.dispute.created': {
+        const charge = event.data.object;
+        const status = mapRefundOrDisputeEventToStatus(event.type);
+        if (!status) {
+          // Cannot happen for these two literal case labels, but never
+          // guess — skip rather than write an unmapped value.
+          console.warn(`${event.type}: no status mapping, skipping`);
+          break;
+        }
+
+        const userId = await resolveUserId(supabaseAdmin, { customerId: charge.customer });
+        if (!userId) {
+          console.error(`${event.type}: could not resolve a WakeWise user for charge`, charge.id);
+          break;
+        }
+
+        await applyRefundOrDisputeStatus(supabaseAdmin, userId, status);
         break;
       }
 
