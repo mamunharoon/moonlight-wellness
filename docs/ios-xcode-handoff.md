@@ -473,13 +473,16 @@ task had access to.
 
 ### App Store Connect steps (in order)
 
-1. **Commercial decision already approved 2026-09-16** (`docs/apple-subscription-architecture.md` §6/§16) — two mutually exclusive introductory paths: standard customers get a 7-day trial (monthly or annual); founding members get the annual product Pay-Up-Front at AUD $49.99 for the first year, no trial, renewing at $59.99. **This step is now: confirm hands-on, inside App Store Connect, whether both an eligibility-scoped "standard trial" introductory offer and a separate "founding member" Pay-Up-Front introductory offer can actually be configured on the same subscription group for two different subscriber cohorts** — this specific mechanical question was not resolved by document research and needs direct dashboard investigation. **If it cannot be configured securely and consistently, apply the pre-approved fallback: configure the 7-day trial only, and defer the founding offer** — do not improvise a different combination without a fresh approval.
+1. **Commercial decision approved 2026-09-16, mechanism confirmed feasible from Apple's official documentation** (`docs/apple-subscription-architecture.md` §6/§16) — **not an open question any more**:
+   - Configure the standard **introductory offer** (Free Trial, 7 days) on the subscription products, for standard customers.
+   - Separately create a **founding-member offer code** (App Store Connect → the subscription → Offer Codes, not the product's own introductory-offer field): product `com.zavaraai.wakewise.plus.annual`, customer eligibility **New subscribers**, offer type **Pay Up Front**, duration **one year**, Australian price **AUD $49.99**, renews at the standard **AUD $59.99** annual price. When App Store Connect asks whether offer-code redeemers should also be eligible for the introductory offer, **answer "No"** — this is what keeps the two mutually exclusive, not the product configuration itself.
+   - This is a genuinely different mechanism from a second introductory offer, and does not carry the earlier-flagged risk of two introductory offers being unconfigurable together — that specific risk no longer applies to this approach. **Still to be done, still requires hands-on App Store Connect work**: the introductory offer and the offer code have not been created; confirm during configuration that App Store Connect's actual UI matches this description exactly (offer-code field names/options can change between App Store Connect releases) and that the "No" answer is selected before publishing the campaign.
 2. Create the `wakewise_plus` subscription group.
 3. Create the two products: `com.zavaraai.wakewise.plus.monthly`,
    `com.zavaraai.wakewise.plus.annual`.
 4. Configure the subscription group's service-level ranking (needed for
    correct upgrade/downgrade behaviour between the two products).
-5. Configure the approved introductory offer(s) per step 1's outcome.
+5. Configure the introductory offer and the founding offer code per step 1.
 6. Select the price points closest to AUD $7.99 / $59.99 / $49.99 —
    cannot be predicted exactly from documentation; must be chosen
    directly in App Store Connect's own pricing UI.
@@ -522,10 +525,15 @@ task had access to.
 
 Every row in `docs/apple-subscription-architecture.md` §12's sandbox
 test matrix — first purchase (monthly/annual), trial eligibility/
-ineligibility, founding-offer eligibility/ineligibility (once the
-commercial decision above is made), cancellation, restore (same device,
-another device, wrong account), renewal, refund, and the terminated-app/
-cold-launch scenarios equivalent to those already run for the native
+ineligibility, founding-offer-code redemption/eligibility/ineligibility
+(the commercial decision and mechanism are already approved and
+confirmed feasible — this is sandbox verification of the actual App
+Store Connect configuration once created, not a further decision),
+explicitly confirming a founding-offer-code redemption does **not** also
+grant the introductory trial (and vice versa), cancellation, restore
+(same device, another device, wrong account), renewal, refund, and the
+terminated-app/cold-launch scenarios equivalent to those already run for
+the native
 reminder feature.
 
 2. **Existing URLs that must remain** (do not remove these):
