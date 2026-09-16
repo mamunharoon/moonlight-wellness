@@ -49,6 +49,15 @@ FROM pg_constraint
 WHERE conrelid = 'public.provider_subscriptions'::regclass AND contype = 'u'
 ORDER BY conname;
 
+-- 7b. The Apple product-id allow-list CHECK constraint exists and lists
+--     exactly the two known product ids.
+-- Expected: 1 row, definition mentions both
+-- 'com.zavaraai.wakewise.plus.monthly' and 'com.zavaraai.wakewise.plus.annual'.
+SELECT conname, pg_get_constraintdef(oid) AS definition
+FROM pg_constraint
+WHERE conrelid = 'public.provider_subscriptions'::regclass
+  AND conname = 'provider_subscriptions_apple_product_id_allowlist';
+
 -- 8. The idempotency backstop on provider_events exists.
 -- Expected: 1 row (provider_events_unique).
 SELECT conname

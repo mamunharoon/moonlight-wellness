@@ -48,6 +48,11 @@
 --     subscription id) unable to ever be linked to two different
 --     WakeWise accounts at the database level, not merely by
 --     application-code discipline.
+--   - `provider_subscriptions_apple_product_id_allowlist` mirrors
+--     KNOWN_APPLE_PLUS_PRODUCT_IDS from planMapping.ts at the database
+--     level, added during the pre-apply security review of this
+--     migration (see docs/apple-subscription-implementation.md's
+--     database-foundation section for the review record).
 --   - `provider_events`' own unique constraint (provider+provider_event_id)
 --     is the idempotency/replay-protection backstop for both the future
 --     Apple Server Notifications handler and any other provider.
@@ -111,7 +116,21 @@ CREATE TABLE IF NOT EXISTS public.provider_subscriptions (
   updated_at timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT provider_subscriptions_stripe_sub_unique UNIQUE (provider, stripe_subscription_id),
-  CONSTRAINT provider_subscriptions_apple_txn_unique UNIQUE (provider, apple_original_transaction_id)
+  CONSTRAINT provider_subscriptions_apple_txn_unique UNIQUE (provider, apple_original_transaction_id),
+  -- DB-level backstop matching supabase/functions/_shared/planMapping.ts's
+  -- KNOWN_APPLE_PLUS_PRODUCT_IDS allow-list. Only constrains rows where
+  -- provider = 'apple' — Stripe/Google/manual rows use this column for
+  -- their own provider-specific identifiers and are untouched. The real
+  -- write-path protection is that no non-service-role caller can write to
+  -- this table at all (see the RLS/grant section below); this constraint
+  -- is an additional safety net against a future server-side verification
+  -- bug that forgets to check the allow-list before writing.
+  CONSTRAINT provider_subscriptions_apple_product_id_allowlist CHECK (
+    provider <> 'apple' OR product_id IN (
+      'com.zavaraai.wakewise.plus.monthly',
+      'com.zavaraai.wakewise.plus.annual'
+    )
+  )
 );
 
 CREATE INDEX IF NOT EXISTS provider_subscriptions_user_id_idx ON public.provider_subscriptions (user_id);
