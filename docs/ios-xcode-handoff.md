@@ -582,14 +582,21 @@ task had access to.
    nothing on its own; deliberately left for a later, separate decision
    (see Phase F §2's reconciliation notes).
 
-### Apple sandbox testing (still not started)
+### Apple sandbox testing (still not started — a build is now ready for it)
 
-**Prerequisite step, not done yet**: register the notification URL —
-`https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications`
-— as App Store Connect's **Sandbox Server URL** (not Production; see
-`docs/apple-subscription-implementation.md` Phase H §6 for why this
-specific DEV-configured deployment must not also be the Production
-URL), and create at least one sandbox tester Apple ID.
+**Update (2026-09-16 — "Verify and Upload Subscription-Enabled TestFlight
+Build"):** ~~register the notification URL... and create at least one
+sandbox tester Apple ID~~ — **both already done**, confirmed via direct
+evidence (the notification URL is registered as the Sandbox Server URL
+V2, confirmed in a Codemagic publish log; two Australian sandbox Apple
+Accounts already exist, per the task's own known state) — the user's
+own App Store Connect actions, not performed by any task in this
+repository. **TestFlight build 1.0 (8), commit `a1e63df`, containing
+the complete Apple subscription implementation, is now confirmed
+available to the `WakeWise Internal Testers` group** — see
+`docs/apple-subscription-implementation.md` Phase I for the exact
+verification evidence and the exact remaining physical-device steps.
+Nothing below has actually been attempted yet.
 
 Every row in `docs/apple-subscription-architecture.md` §12's sandbox
 test matrix — first purchase (monthly/annual), trial eligibility/

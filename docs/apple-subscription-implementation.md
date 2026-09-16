@@ -3,7 +3,7 @@
 **Compiled:** 2026-09-16, on `dev`, starting HEAD `c5292be7e67c4fbebf7ad20069c9729a053d3eba`.
 **Scope:** the first safe, testable phase of native Apple subscriptions, per `docs/apple-subscription-architecture.md`. No real purchase, no build upload, no external dashboard touched, no Apple credential committed.
 
-**Updated again 2026-09-16 — "Apply and Verify Subscription Database Foundation in DEV"** (Phase C's schema applied/live-verified), **"Implement Apple Server Verification and Notifications V2"** (Phase F — the real, cryptographically-verifying server-side implementation, starting HEAD `ab68b7f`), **"Apply and Verify Apple Verified-State RPC Migration"** (Phase G — the one migration Phase F wrote now applied and live-verified, starting HEAD `d06eb46`), **and "Securely Deploy Apple Subscription Edge Functions to DEV"** (Phase H — App Store Connect setup completed, a dedicated Apple key configured as secrets, all three functions deployed and runtime-smoke-tested, starting HEAD `8f64a56`). These updates are additive sections/edits within this same document — see Phase C's "applied and live-verified" note, Phase F, Phase G, and Phase H below for what changed; earlier sections are otherwise left as written, with superseded claims struck through rather than deleted.
+**Updated again 2026-09-16 — "Apply and Verify Subscription Database Foundation in DEV"** (Phase C's schema applied/live-verified), **"Implement Apple Server Verification and Notifications V2"** (Phase F — the real, cryptographically-verifying server-side implementation, starting HEAD `ab68b7f`), **"Apply and Verify Apple Verified-State RPC Migration"** (Phase G — the one migration Phase F wrote now applied and live-verified, starting HEAD `d06eb46`), **"Securely Deploy Apple Subscription Edge Functions to DEV"** (Phase H — App Store Connect setup completed, a dedicated Apple key configured as secrets, all three functions deployed and runtime-smoke-tested, starting HEAD `8f64a56`), **and "Verify and Upload Subscription-Enabled TestFlight Build"** (Phase I — TestFlight build 1.0 (8), commit `a1e63df`, uploaded and confirmed available to internal testers, starting HEAD `a1e63df`). These updates are additive sections/edits within this same document — see Phase C's "applied and live-verified" note, Phase F, Phase G, Phase H, and Phase I below for what changed; earlier sections are otherwise left as written, with superseded claims struck through rather than deleted.
 
 **Read this document alongside:**
 - `docs/apple-subscription-architecture.md` — the design this phase implements (unchanged in its recommendations; a few sections below note where real evidence sharpened or corrected it).
@@ -433,11 +433,77 @@ All three functions deployed successfully via `supabase functions deploy <name> 
 
 ### Phase 7 — what remains before Apple purchases are operationally verified
 
-- App Store Connect notification URL configuration (this task deliberately did not perform it) — register the Sandbox Server URL above once ready to actually sandbox-test.
-- Apple sandbox tester account creation and a genuine sandbox purchase, restore, cancellation, renewal, and refund — none attempted (forbidden by this task).
+- ~~App Store Connect notification URL configuration~~ — **done**, outside this repository (see Phase I below — confirmed via direct evidence, not configured by any task in this repo's history).
+- ~~Apple sandbox tester account creation~~ — **done**, outside this repository (two Australian sandbox Apple Accounts, per the user's own setup). **A genuine sandbox purchase, restore, cancellation, renewal, and refund remain not attempted** — forbidden by every task in this repo's history, including the one (Phase I) that first made a genuinely subscription-capable build available in TestFlight.
 - A production deployment/environment, once App Review approves the app and the `WAKEWISEFOUNDING` offer code can be generated.
-- Physical-iPhone verification of the native purchase UI against the now-live server.
-- **Apple subscriptions remain operationally unverified until a genuine sandbox transaction succeeds end-to-end** — everything in this phase proves the deployed code rejects invalid/forged input correctly; it does not yet prove a *valid* Apple transaction is accepted and correctly recorded, since no real Apple-signed data has been presented to it.
+- Physical-iPhone verification of the native purchase UI against the now-live server — a TestFlight build containing this capability now exists (Phase I) but has not yet been installed/exercised on a physical device by any task in this repo's history.
+- **Apple subscriptions remain operationally unverified until a genuine sandbox transaction succeeds end-to-end** — everything through Phase H proves the deployed server code rejects invalid/forged input correctly; Phase I makes a real, installable build available to test actual purchase acceptance, but does not itself attempt or simulate one.
+
+---
+
+## Phase I — Subscription-enabled TestFlight build (2026-09-16, "Verify and Upload Subscription-Enabled TestFlight Build")
+
+Starting commit `a1e63df`. Objective: get a TestFlight build containing the complete Apple subscription implementation into internal testers' hands. **No source code changed — this task only verified readiness and triggered the existing, already-configured Codemagic pipeline.**
+
+### Determining the existing TestFlight state (evidence, not assumption)
+
+The most recent TestFlight build before this task (Codemagic build #7, uploaded 2026-09-15) was built from commit `9475db8` — confirmed via `git log --oneline 9475db8..a1e63df` (14 commits) and `git merge-base --is-ancestor 9475db8 a1e63df` (true). `9475db8` predates the *first* Apple subscription commit (`c5292be`, the architecture doc) entirely — build #7 contains **none** of the Apple subscription work, not even the research phase. A new build was therefore required; this was not assumed from the build number alone (build numbers are Codemagic's own auto-incrementing counter, unrelated to source commit — see below).
+
+Build #7 was also found, independently, to be stuck in a pre-existing "Waiting for Review" state (App Store Connect: `WakeWise External Testers` group attached, all 3 testers showing "No Builds Available") — Codemagic's own publish log showed its automatic "submit to TestFlight beta review" step failed because required Beta App Review Information (Feedback Email, First/Last Name, Phone, Email) was never filled in on the App Store Connect side. **This state predates this task** (no prior task in this repository's history ever touched App Store Connect) and was left completely untouched — no Test Information was filled in, no review was advanced, nothing was submitted.
+
+### Pre-build readiness (all verified by direct code/config inspection)
+
+`@capgo/native-purchases@7.19.3` installed and synced; iOS deployment target `15.0` in both `Podfile` and all four `project.pbxproj` build configs; bundle id `com.zavaraai.wakewise` consistent across `capacitor.config.json` and the Xcode project; both product ids (`com.zavaraai.wakewise.plus.monthly`/`.annual`) identical between the client allow-list (`applePurchaseAdapter.js`) and the server allow-list (`planMapping.ts`); `Subscription.jsx`'s `IS_NATIVE_IOS` gating confirmed to hide every Stripe checkout/management entry point on native iOS while still rendering Apple-specific UI; `SubscriptionContext.jsx`'s own `subscriptions` read is **not** platform-gated, confirming an existing Stripe subscriber's entitlement still resolves correctly on iOS; zero hardcoded sandbox/Apple-ID credentials anywhere in the repo; zero `.storekit` configuration file anywhere in the repo (no risk of an unsafe local StoreKit test config leaking into the release archive — Apple's real sandbox environment activates automatically for a TestFlight install, no local config needed).
+
+### Build numbering — no repository change was needed or made
+
+`codemagic.yaml`'s own build-number step uses Codemagic's own auto-incrementing `$BUILD_NUMBER` variable (`agvtool new-version -all "$BUILD_NUMBER"`) — this repository never tracks a build number (`ios/App/App.xcodeproj/project.pbxproj`'s `CURRENT_PROJECT_VERSION = 1` is an unused scaffold default, overwritten at every build). `MARKETING_VERSION` (`1.0`) was left untouched — no compatibility requirement demanded a change. This is why Phase I required **zero tracked file changes** to produce a correctly-numbered new build.
+
+### Quality gates (all passing, matching the 238-test baseline)
+
+`npm ci` (clean, 13 pre-existing vulnerabilities unrelated to this task, none new), `npm run build` (clean), `npx vitest run` (**238/238**, unchanged), `npm run lint` (0 errors, the same 4 pre-existing warnings), `npx cap sync ios` (clean, all 3 plugins detected including `@capgo/native-purchases@7.19.3`). `git status` confirmed zero tree drift from any of the above.
+
+### Build triggered and monitored to completion
+
+Codemagic workflow `wakewise-ios-testflight` ("WakeWise iOS TestFlight") started by hand against branch `dev` (the workflow has no automatic trigger — a deliberate `codemagic.yaml` design choice — so an explicit "Start new build" was required; the branch selector defaults to `main` and had to be changed to `dev` explicitly before starting). Build #8, commit `a1e63df` (confirmed in the build's own overview panel), ID `6aaa3e9feab117275d7eb5c1`.
+
+Every step passed: prepare machine, fetch sources, restore cache, set up code signing identities, verify env vars, `npm ci`, `vite build`, test suite, lint, Capacitor sync, CocoaPods install, set build number, apply signing certificate/profile, verify `export_options.plist`, build and archive the signed `.ipa` (1m 8s), publish to App Store Connect (1m 43s). Total build time ~3m 54s. Artifacts include `App.ipa` (1.38 MB) and `CapgoNativePurchases.framework.dSYM.zip` (799.90 KB) — direct confirmation the purchase plugin is compiled into this binary.
+
+**Post-processing status: "finished with post-processing failed" — expected, and not a real failure.** The archive built, signed, and uploaded successfully; App Store Connect finished processing the binary (`a0601898-0a76-485c-a7fc-b4d9d01ea550`). Codemagic's automatic "submit to TestFlight beta review" step then failed with `422: Another build is in review. — Another build in the same train is already in beta review.` — Apple's own API correctly refusing a second beta-review submission while build #7's stuck submission still occupies that slot for version 1.0. **No external distribution occurred for build #8** — unlike build #7, no group was even auto-attached to it before this failure (confirmed directly in App Store Connect: build #8 showed zero groups immediately afterward).
+
+### Export compliance — answered honestly, based on the app's actual encryption use, not guessed
+
+Build #8 required an "App Encryption Documentation" answer (App Store Connect's per-build compliance gate, blocking access for every test group — internal included — until answered) that no prior task had ever encountered (build #7 apparently answered this already). Answered based on direct knowledge of what the compiled iOS client actually does: it makes only standard TLS/HTTPS network calls via iOS system frameworks (`URLSession`, `StoreKit`) to Supabase, and — on iOS — never to Stripe (gated off by `IS_NATIVE_IOS`); it implements no proprietary or custom cryptographic algorithm of its own. (The `jose`/`@peculiar/x509` JWS/certificate-chain verification from Phase F runs entirely server-side, in Supabase Edge Functions — it is not part of the compiled iOS app binary and does not factor into this declaration.) Answered: "Standard encryption algorithms instead of, or in addition to, using or accessing the encryption within Apple's operating system" (accurate — TLS via system frameworks); "Is your app going to be available for distribution in France?" — answered **No**, the conservative, minimal-commitment choice, since this repository has no record of France being a deliberate target market and this per-build TestFlight answer does not bind the actual App Store distribution-territory decision (a separate, later, deliberate choice for the user to make at real submission time). This unblocked the build to "Ready to Submit" with no further action.
+
+### Internal testing availability — confirmed live
+
+Build #8 already showed the `WakeWise Internal Testers` group attached (1 tester) immediately after the compliance answer was saved — Apple's own Internal Testing groups auto-receive every new processed build with no further per-build submission step required (unlike External Testing, which needs the now-blocked Beta App Review). **No action was taken on `WakeWise External Testers`** — it was not viewed for build #8, not added, and remains exactly as it was before this task (attached only to build #7, in its pre-existing blocked "Waiting for Review" state).
+
+### Post-upload verification
+
+- Version/build: **1.0 (8)**. Source commit: **`a1e63df`** (confirmed in Codemagic's build overview).
+- Bundle identifier: `com.zavaraai.wakewise` (confirmed in the App Store Connect distribution log: `Bundle id: com.zavaraai.wakewise`, `Name: WakeWise: Daily Wellness`).
+- Internal testing: **available** (`WakeWise Internal Testers`, 1 tester, confirmed attached).
+- Compliance/processing warnings: none remaining — "Ready to Submit" status, `Missing Compliance` resolved. The only outstanding condition is the expected, benign `422` beta-review-submission failure documented above (does not affect internal testing).
+- Both product identifiers compiled into the client: confirmed by direct source inspection (`applePurchaseAdapter.js`) before the build, and by the presence of `CapgoNativePurchases.framework` in the build's own artifact list after it.
+- No secret file, `.p8` file, temporary env file, signing credential, or sandbox account credential entered git or the app bundle — this task made zero code/config changes; Codemagic's own signing (an existing, already-verified integration) and App Store Connect API key never passed through this repository or this session's local filesystem at all.
+- Repository confirmed clean except the pre-existing untracked `docs/audio-content-specification.md`; `main` confirmed untouched throughout.
+
+### Exact notification URL (confirmed, not reconfigured)
+
+`https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications` — confirmed already registered as the **Sandbox** Server URL, V2, via direct evidence in the Codemagic publish log (`Subscription status url for sandbox: ...`, `Subscription status url version for sandbox: V2`) — this is the user's own prior App Store Connect action, not something any task in this repository touched. Matches exactly Phase H §6's identified endpoint and its "Sandbox only, never Production" recommendation.
+
+### Remaining physical-device sandbox test steps (not performed or simulated by this task)
+
+1. On a physical iPhone signed into TestFlight with the account that received the internal-tester invite, install build 1.0 (8) from the TestFlight app.
+2. Sign in to WakeWise as a real (non-anonymous) account.
+3. Open the Subscription screen and confirm the native Apple purchase UI renders (base price only, generic offer language — no Stripe UI visible at all).
+4. On the device, sign out of the production App Store account and sign in with one of the two existing Australian sandbox Apple Accounts (Settings → App Store → Sandbox Account, or the in-app sandbox prompt at first purchase attempt) — **do not do this on the reviewer/owner's own real Apple ID**.
+5. Attempt a real sandbox purchase of the monthly product, then separately the annual product, observing: the `'verifying'` UI state, the eventual `refreshSubscription()`-driven entitlement update, and confirm `verify-apple-transaction` recorded a real `provider_subscriptions`/`entitlements` row (check via a read-only `supabase db query --linked` count, never by fabricating a row).
+6. Confirm the App Store Server Notification for the purchase actually arrives at the Sandbox URL above and that `apple-server-notifications` processes it (check `provider_events` for a new, real `provider_event_id` — again, observe only, never insert one manually).
+7. Test restore (same device, a second device signed into the same sandbox account, and a different sandbox account) to exercise §9's cross-account-theft-prevention design against a real device for the first time.
+8. Test cancellation (confirm access persists until the verified expiry, matching Phase F/G's own DID_CHANGE_RENEWAL_STATUS design) and, if practical within the sandbox's accelerated renewal cycle, a renewal.
+9. Only after every step above succeeds should any documentation in this repository describe Apple subscriptions as operationally verified — this task does not do so, and none should until then.
 
 ---
 
@@ -494,7 +560,7 @@ All three functions deployed successfully via `supabase functions deploy <name> 
 - ~~Configuring the standard 7-day trial... and separately creating the founding offer as an Apple offer code~~ — **done**, matching the approved design exactly: one-week introductory trial (175 storefronts, no end date) on both products; founding annual offer AUD $49.99 Pay Up Front for one year, new-subscriber eligibility, does not combine with the introductory trial, auto-renews at normal pricing.
 - **Still blocked: the production offer code `WAKEWISEFOUNDING` cannot be generated until the app passes App Review and reaches Ready for Distribution** — Apple's own constraint. The founding offer's *mechanism* is fully configured; its *redeemable code* does not exist yet.
 - ~~Generating the dedicated App Store Server API key~~ — **done**, see above.
-- Configuring the App Store Server Notifications V2 URL — **still not done**, deliberately (this task's own instruction was not to configure it) — the exact URL to use is now known: see Phase H §6.
+- ~~Configuring the App Store Server Notifications V2 URL~~ — **done**, outside this repository (confirmed 2026-09-16 by direct evidence in a Codemagic build log: `Subscription status url for sandbox: https://kvdxuhyndevrfvsalgnx.supabase.co/functions/v1/apple-server-notifications`, `Subscription status url version for sandbox: V2` — matching exactly the URL Phase H §6 identified). Not configured by any task in this repository's history — the user's own App Store Connect action.
 - Adding the "In-App Purchase" capability (Xcode-side, but the App Store Connect agreement/tax/banking prerequisites are dashboard-side) — not addressed by this task (no Xcode/macOS access in this environment).
 
 ### Requires Apple sandbox testing
