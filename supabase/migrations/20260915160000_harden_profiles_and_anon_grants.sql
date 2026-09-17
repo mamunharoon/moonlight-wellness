@@ -1,7 +1,18 @@
 -- Full Security Review — harden public.profiles grants + remove
 -- unnecessary anon grants on service-role-only tables.
 --
--- *** PROPOSED — NOT YET APPLIED. Awaiting explicit owner approval. ***
+-- APPLIED. Confirmed present in the live migration ledger for project
+-- kvdxuhyndevrfvsalgnx (`supabase migration list --linked`, re-checked
+-- 2026-09-17), and live-behaviourally-verified per commit c0b89ac
+-- ("docs: correct register — profiles privilege-escalation migration
+-- confirmed live and enforced", 2026-09-16) — this comment originally
+-- read "PROPOSED — NOT YET APPLIED. Awaiting explicit owner approval,"
+-- which is stale. Note: that same commit's message records that an
+-- earlier task deliberately left this exact header untouched, per that
+-- task's own explicit instruction not to modify it — this correction
+-- reflects this later task's own explicit instruction to fix it instead.
+-- Only this comment was corrected; no executable SQL in this file was
+-- changed.
 --
 -- ============================================================================
 -- PART 1 — public.profiles: close a confirmed privilege-escalation path

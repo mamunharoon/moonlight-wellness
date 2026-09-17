@@ -43,8 +43,15 @@
 -- This migration is additive and reversible. See the paired rollback file:
 --   supabase/migrations/20260808150000_sprint2_stage3a_stripe_foundation_rollback.sql
 --
--- Per Sprint 2 Stage 1/2A's own precedent, this migration is written but
--- not applied to the live database in this batch — see the Stage 3A report.
+-- APPLIED. Confirmed present in the live migration ledger for project
+-- kvdxuhyndevrfvsalgnx (`supabase migration list --linked`, re-checked
+-- 2026-09-17) — this comment originally read "written but not applied to
+-- the live database in this batch," which is stale and no longer
+-- describes reality. `docs/release-readiness-register.md`'s own
+-- Workstream B independently corroborates this (public.stripe_webhook_events
+-- confirmed to exist live, with zero non-service-role policies, per the
+-- 2026-09-15 harden migration's own live-tested claims). Only this
+-- comment was corrected; no executable SQL in this file was changed.
 
 BEGIN;
 

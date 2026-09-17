@@ -47,8 +47,15 @@
 -- This migration is additive and reversible. See the paired rollback file:
 --   supabase/migrations/20260808120000_sprint2_stage2_admin_foundation_rollback.sql
 --
--- Per Sprint 2 Stage 1's own precedent, this migration is written but not
--- applied to the live database in this batch — see the Stage 2 report.
+-- APPLIED. Confirmed present in the live migration ledger for project
+-- kvdxuhyndevrfvsalgnx (`supabase migration list --linked`, re-checked
+-- 2026-09-17) — this comment originally read "written but not applied to
+-- the live database in this batch," which is stale and no longer
+-- describes reality. `docs/release-readiness-register.md`'s own
+-- Workstream B independently corroborates this (profiles.is_admin/
+-- beta_access confirmed to exist live via a 2026-09-16 pg_attribute
+-- check performed while verifying an unrelated later migration). Only
+-- this comment was corrected; no executable SQL in this file was changed.
 
 BEGIN;
 

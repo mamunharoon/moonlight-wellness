@@ -1,14 +1,15 @@
 -- Apple Subscription Architecture, Phase C — provider-neutral entitlement
 -- foundation.
 --
--- *** PROPOSED — NOT YET APPLIED. This migration was written as part of
--- "Implement the first safe, testable phase of native Apple
--- subscriptions" and was deliberately NOT run against the live project —
--- see that task's own explicit "Do not apply migrations to a live
--- project during this task" instruction. Applying it is a future,
--- separate, deliberate action requiring explicit owner approval, exactly
--- like every other migration in this project (see
--- supabase/migration-support/README.md). ***
+-- APPLIED. Applied to the linked DEV project (kvdxuhyndevrfvsalgnx) and
+-- live-verified on 2026-09-16 — see commit ab68b7f ("docs: record applied
+-- and verified Apple subscription database foundation") and
+-- `docs/apple-subscription-implementation.md` Phase C. Confirmed present
+-- in the live migration ledger (`supabase migration list --linked`,
+-- re-checked 2026-09-17). This comment originally read "PROPOSED — NOT
+-- YET APPLIED... deliberately NOT run against the live project," which
+-- is stale. Only this comment was corrected; no executable SQL in this
+-- file was changed.
 --
 -- Implements the schema proposed in docs/apple-subscription-architecture.md
 -- §7: a provider-neutral `entitlements` table (the one row per user a

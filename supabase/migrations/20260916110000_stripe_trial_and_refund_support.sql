@@ -7,10 +7,15 @@
 --   (2) the webhook never handled `charge.refunded`/`charge.dispute.created`,
 --       so a Stripe-side refund did not revoke entitlement.
 --
--- *** PROPOSED — NOT YET APPLIED. Same status as
--- 20260916100000_apple_subscription_entitlements_foundation.sql — see
--- that file's header and supabase/migration-support/README.md. Not run
--- against the live project by this task. ***
+-- APPLIED. Applied to the linked DEV project (kvdxuhyndevrfvsalgnx) and
+-- live-verified on 2026-09-16, alongside 20260916100000 — see commit
+-- ab68b7f ("docs: record applied and verified Apple subscription
+-- database foundation") and `docs/apple-subscription-implementation.md`
+-- Phase C. Confirmed present in the live migration ledger (`supabase
+-- migration list --linked`, re-checked 2026-09-17). This comment
+-- originally read "PROPOSED — NOT YET APPLIED... Not run against the
+-- live project by this task," which is stale. Only this comment was
+-- corrected; no executable SQL in this file was changed.
 --
 -- Both additions are minimal and additive to the existing `subscriptions`
 -- table — no existing column, policy, or grant is touched.

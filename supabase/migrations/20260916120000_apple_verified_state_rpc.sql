@@ -1,12 +1,15 @@
 -- Apple Server Verification task, Phase 4 — the one atomic, service-role-
 -- only write path for verified Apple subscription state.
 --
--- *** PROPOSED — NOT YET APPLIED. Not run against the live project by
--- this task — see this task's own "Do not apply additional live
--- migrations" instruction. Applying it is a future, separate, deliberate
--- action requiring explicit owner approval, exactly like every other
--- migration in this project (see supabase/migration-support/README.md).
--- ***
+-- APPLIED. Applied to the linked DEV project (kvdxuhyndevrfvsalgnx) and
+-- live-verified on 2026-09-16 — see commit 8f64a56 ("docs: record
+-- applied and verified Apple verified-state RPC migration") and
+-- `docs/apple-subscription-implementation.md` Phase G. Confirmed present
+-- in the live migration ledger (`supabase migration list --linked`,
+-- re-checked 2026-09-17). This comment originally read "PROPOSED — NOT
+-- YET APPLIED. Not run against the live project by this task," which is
+-- stale. Only this comment was corrected; no executable SQL in this file
+-- was changed.
 --
 -- Why an RPC rather than plain upserts from the Edge Function (the
 -- pattern stripe-webhook/index.ts already uses successfully): this
