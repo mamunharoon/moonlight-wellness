@@ -26,6 +26,8 @@ const sessionContextSource = read('../context/SessionContext.jsx');
 const routineProgressSource = read('../session/routineProgress.js');
 const sessionCompleteSource = read('./SessionComplete.jsx');
 const eveningCompleteSource = read('./EveningComplete.jsx');
+const routineDetailSource = read('./RoutineDetail.jsx');
+const eveningWindDownSource = read('./EveningWindDown.jsx');
 
 describe('Stale-routine choice card — "Yesterday\'s unfinished routine" (Morning)', () => {
   it('renders a distinct stale-choice card, gated on morningHasStaleChoice, only when nothing exists for today', () => {
@@ -158,5 +160,73 @@ describe('Same-day repeat completion — no double daily-streak credit', () => {
 describe('"today\'s routine remains independently available" after a previous-day routine is completed', () => {
   it('routineProgress.js only stamps the PINNED date (not today) while a routine is pinned, and falls back to today once unpinned', () => {
     expect(routineProgressSource).toMatch(/dateKey: pinnedDateKey \?\? todayDateKey\(\)/);
+  });
+});
+
+describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind-Down Step 1 of 6, not Reflection Step 2', () => {
+  it('RoutineDetail.jsx\'s own "Start Routine" for Wind-Down is a plain navigation - it never starts the Session Engine itself, deferring entirely to EveningWindDown.jsx\'s own Begin button', () => {
+    // requiresAuth: false for 'wind-down' means handleStart's own guard
+    // (`if (!detail.requiresAuth) return;`) never intercepts the click at
+    // all - the <Link to={detail.startRoute}> fires unmodified. This is
+    // the one entry point already proven not to have "the Rise & Reset
+    // bug" (see this file's own doc comment) - the reference behaviour
+    // both Home's card and Repeat must match.
+    expect(routineDetailSource).toMatch(/'wind-down': \{/);
+    const windDownBlock = routineDetailSource.match(/'wind-down': \{[\s\S]*?\n {2}\},?/)?.[0] ?? '';
+    expect(windDownBlock).toMatch(/requiresAuth: false/);
+    expect(windDownBlock).toMatch(/startRoute: '\/evening-wind-down'/);
+  });
+
+  it('EveningWindDown.jsx genuinely displays "Step 1 of 6" as its own real screen, and only starts/advances the session once ITS OWN Begin button is tapped', () => {
+    expect(eveningWindDownSource).toMatch(/Step 1 of 6/);
+    expect(eveningWindDownSource).toMatch(/startSession\('evening-wind-down'\);\s*\n\s*advanceStep\(\);\s*\n\s*navigate\('\/reflection'\);/);
+  });
+
+  it('Home.jsx\'s handleBeginEveningWindDown no longer pre-starts the session or skips to Reflection - it is a plain navigation to the Wind-Down intro, matching RoutineDetail.jsx exactly', () => {
+    expect(homeSource).toMatch(/const handleBeginEveningWindDown = \(\) => \{\s*\n\s*navigate\('\/evening-wind-down'\);\s*\n\s*\};/);
+    // The old skip-straight-to-Reflection implementation must be gone.
+    expect(homeSource).not.toMatch(/startSession\('evening-wind-down'\);\s*\n\s*advanceStep\(\);\s*\n\s*navigate\('\/reflection'\);/);
+  });
+
+  it('both the ordinary "Begin Wind-Down" card and "Repeat Evening Routine" call this exact same function - there is only one Evening fresh-start code path to keep in sync', () => {
+    const occurrences = homeSource.match(/handleBeginEveningWindDown\(\)/g) ?? [];
+    // handleEveningAction's not-in-progress fallback, the 'repeat' dialog
+    // branch, and the 'discard-stale' dialog branch - three call sites,
+    // one shared implementation, zero duplicated skip-to-Reflection logic.
+    expect(occurrences.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('Morning already has full parity - handleBeginRiseAndReset and RoutineDetail.jsx\'s beginRiseAndReset both start at getStepIndex(\'morning-routine\', MORNING_STEP_IDS.START), with no equivalent skip', () => {
+    for (const source of [homeSource, routineDetailSource]) {
+      expect(source).toMatch(/startSession\('morning-routine', \{ startIndex: getStepIndex\('morning-routine', MORNING_STEP_IDS\.START\) \}\);/);
+    }
+    // Home.jsx navigates to the literal route; RoutineDetail.jsx navigates
+    // to the same route via its own detail.startRoute ('/morning-start'
+    // for 'rise-reset') - same destination, different but equally valid
+    // spelling, so each is checked in its own terms rather than forcing
+    // an identical literal string match.
+    expect(homeSource).toMatch(/navigate\('\/morning-start'\);/);
+    expect(routineDetailSource).toMatch(/startRoute: '\/morning-start'/);
+    expect(routineDetailSource).toMatch(/navigate\(detail\.startRoute\);/);
+  });
+});
+
+describe('Repeat/discard-stale isolation — clearing is scoped to exactly the selected routine', () => {
+  it('the repeat dialog never references the OTHER period\'s RITUAL_SESSION_IDS entry inside its own branch', () => {
+    const repeatBranch = homeSource.match(/\} else if \(kind === 'repeat'\) \{[\s\S]*?\n {4}\}/)?.[0] ?? '';
+    expect(repeatBranch).not.toBe('');
+    expect(repeatBranch).not.toMatch(/RITUAL_SESSION_IDS\.morning|RITUAL_SESSION_IDS\.evening/);
+  });
+
+  it('the discard-stale dialog only calls discardStaleRoutine once, on the single resolved `sessionId` - never both routines at once', () => {
+    const discardBranch = homeSource.match(/\} else if \(kind === 'discard-stale'\) \{[\s\S]*?\n {4}\}/)?.[0] ?? '';
+    expect(discardBranch).not.toBe('');
+    const discardCalls = discardBranch.match(/discardStaleRoutine\(/g) ?? [];
+    expect(discardCalls.length).toBe(1);
+  });
+
+  it('discardStaleRoutine/resetRoutine/startSession are all single-sessionId-argument functions - the type system itself makes touching the other routine\'s progress from one call impossible', () => {
+    expect(sessionContextSource).toMatch(/const discardStaleRoutine = useCallback\(\(sessionId\) => \{/);
+    expect(sessionContextSource).toMatch(/const resetRoutine = useCallback\(\(sessionId\) => \{/);
   });
 });

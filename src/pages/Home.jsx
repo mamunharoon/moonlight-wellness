@@ -35,7 +35,7 @@ export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
   const { profile, user } = useAuth();
-  const { state, startSession, advanceStep, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
+  const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
   // Global timezone correctness: every "what day/time is it for this
   // user" question below goes through getZonedParts(effectiveTimezone),
@@ -297,17 +297,30 @@ export const Home = () => {
     navigate('/morning-start');
   };
 
-  // Same reset-before-start guard, for a genuinely fresh Evening Wind-
-  // down start — mirrors EveningWindDown.jsx's own fresh-start branch
-  // (advances straight past the content-free "windDown" step to
-  // Reflection, exactly as tapping Begin on that page itself does).
+  // Build 10 fresh-start parity fix — this used to call
+  // startSession('evening-wind-down') + advanceStep() + navigate to
+  // '/reflection' directly, skipping the Wind-Down intro (Step 1 of 6)
+  // entirely: the user's first-ever glimpse of an Evening session was
+  // "Step 2 of 6", never "Step 1 of 6". That was inconsistent with the
+  // one other real "start a fresh Evening routine" entry point,
+  // RoutineDetail.jsx's own "Start Routine" for Wind-Down — a plain
+  // <Link to="/evening-wind-down"> that starts NOTHING in the Session
+  // Engine yet, deferring entirely to EveningWindDown.jsx's own "Begin"
+  // button (which shows the real "Step 1 of 6 — Evening Wind-down"
+  // screen first, and only starts/advances to Reflection once THAT
+  // button is tapped). It was also inconsistent with Morning's own
+  // parity: handleBeginRiseAndReset below and RoutineDetail.jsx's
+  // beginRiseAndReset already always land on MorningStart.jsx's genuine
+  // "Step 1 of 5" — no equivalent skip exists for Morning. Fixed by
+  // matching RoutineDetail.jsx's own already-correct pattern exactly: a
+  // plain navigation, nothing more. This is what makes both "Begin
+  // Wind-Down" (this card's ordinary not-started CTA) and "Repeat
+  // Evening Routine" (handleConfirmDialog's 'repeat' branch, which calls
+  // this same function) behave identically to a genuinely fresh Evening
+  // routine — both now stop at Wind-Down's own Step 1 screen, exactly
+  // like Start Routine does, rather than silently skipping it.
   const handleBeginEveningWindDown = () => {
-    if (state.status === 'playing' || state.status === 'interrupted') {
-      resetSession();
-    }
-    startSession('evening-wind-down');
-    advanceStep();
-    navigate('/reflection');
+    navigate('/evening-wind-down');
   };
 
   return (
