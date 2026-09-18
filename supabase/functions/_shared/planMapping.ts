@@ -96,3 +96,36 @@ export const KNOWN_APPLE_PLUS_PRODUCT_IDS = [
 ];
 
 export const isKnownApplePlusProductId = (productId) => KNOWN_APPLE_PLUS_PRODUCT_IDS.includes(productId);
+
+// Duplicate-Subscription Remediation — two deliberately distinct
+// vocabularies, never conflated:
+//
+// BLOCKING_STRIPE_STATUSES is Stripe's OWN raw subscription.status
+// values, used only at checkout-guard time (create-checkout-session)
+// when live-querying Stripe directly — the DB can be stale (the exact
+// bug this remediation fixes), so the guard must classify what Stripe
+// itself reports, before anything is mapped into this app's vocabulary.
+// 'canceled' and 'incomplete_expired' are the only terminal Stripe
+// statuses; every other status is access-bearing or still resolving and
+// must block a second checkout.
+export const BLOCKING_STRIPE_STATUSES = [
+  'trialing',
+  'active',
+  'past_due',
+  'unpaid',
+  'paused',
+  'incomplete'
+];
+
+export const isBlockingStripeStatus = (stripeStatus) => BLOCKING_STRIPE_STATUSES.includes(stripeStatus);
+
+// NON_TERMINAL_LEDGER_STATUSES is this app's OWN mapped vocabulary
+// (mapStripeStatus's output, also provider_subscriptions.status's
+// broader set), used only when counting existing rows in the
+// provider_subscriptions ledger during webhook processing — see
+// stripe-webhook/index.ts's projection-selection logic. Mirrors
+// entitlementResolution.js's own ACCESS_GRANTING_STATUSES so the two
+// never drift apart.
+export const NON_TERMINAL_LEDGER_STATUSES = ['trial', 'active', 'grace_period', 'billing_retry'];
+
+export const isNonTerminalLedgerStatus = (status) => NON_TERMINAL_LEDGER_STATUSES.includes(status);

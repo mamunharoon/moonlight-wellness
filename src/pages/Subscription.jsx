@@ -254,6 +254,10 @@ export const Subscription = () => {
     startCheckoutFlow();
   };
 
+  // Duplicate-Subscription Remediation — the Edge Function's structured
+  // error codes get a specific message; ALREADY_CHECKOUT_IN_PROGRESS with
+  // a resumable URL redirects straight to the existing Checkout Session
+  // instead of dead-ending the user in an error state.
   const startCheckoutFlow = async () => {
     setCheckoutLoading(true);
     setCheckoutError(null);
@@ -263,7 +267,19 @@ export const Subscription = () => {
       // and never returns control here.
     } catch (e) {
       console.error('Error starting checkout:', e.message);
-      setCheckoutError("We couldn't start checkout. Please try again.");
+      if (e.code === 'ALREADY_CHECKOUT_IN_PROGRESS' && e.checkoutUrl) {
+        window.location.href = e.checkoutUrl;
+        return;
+      }
+      if (e.code === 'ALREADY_SUBSCRIBED') {
+        setCheckoutError('You already have a subscription. Manage it below.');
+      } else if (e.code === 'ALREADY_CHECKOUT_IN_PROGRESS') {
+        setCheckoutError('A checkout is already in progress for your account. Please wait a moment and try again.');
+      } else if (e.code === 'ATTEMPT_NO_LONGER_VALID') {
+        setCheckoutError('That checkout attempt is no longer valid. Please try again.');
+      } else {
+        setCheckoutError("We couldn't start checkout. Please try again.");
+      }
       setCheckoutLoading(false);
     }
   };

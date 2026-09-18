@@ -14,7 +14,13 @@
 import Stripe from 'npm:stripe@17.4.0';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
-import { mapStripeStatus, knownPlusPriceIds, mapRefundOrDisputeEventToStatus } from '../_shared/planMapping.ts';
+import {
+  mapStripeStatus,
+  knownPlusPriceIds,
+  mapRefundOrDisputeEventToStatus,
+  NON_TERMINAL_LEDGER_STATUSES
+} from '../_shared/planMapping.ts';
+import { buildStripeLedgerFields, upsertStripeLedgerRow } from '../_shared/providerLedger.ts';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -46,40 +52,142 @@ const resolveUserId = async (supabaseAdmin, { metadataUserId, subscriptionId, cu
   return null;
 };
 
-// Writes the full Stripe-derived state for one user. Only ever called
-// once a price id on the subscription has been confirmed to be one of
-// our own known Solas Plus prices — see the isKnownPlusPrice guard at
-// each call site. Sets plan='plus' unconditionally here (not
-// conditionally per-status): cancellation flips `status`, not `plan`,
-// exactly matching entitlements.js's own documented model, so a
-// cancelled subscription correctly stays plan='plus' + status='cancelled'
-// rather than being reset to plan='free'.
-const applySubscriptionState = async (supabaseAdmin, userId, stripeSubscription, customerId) => {
-  const firstItem = stripeSubscription.items?.data?.[0] ?? null;
-  const priceId = firstItem?.price?.id ?? null;
-  const status = mapStripeStatus(stripeSubscription.status);
-  // current_period_end moved from the top-level Subscription object to
-  // each subscription item on newer Stripe API versions — check both so
-  // this works regardless of which API version the account is on.
-  const periodEnd = stripeSubscription.current_period_end ?? firstItem?.current_period_end ?? null;
-  const expiresAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
-
+// Writes the single effective public.subscriptions projection the rest
+// of the app reads (SubscriptionContext.jsx). Sets plan='plus'
+// unconditionally (not conditionally per-status): cancellation flips
+// `status`, not `plan`, exactly matching entitlements.js's own documented
+// model, so a cancelled subscription correctly stays plan='plus' +
+// status='cancelled' rather than being reset to plan='free'.
+const writeProjectionFromLedgerFields = async (supabaseAdmin, fields) => {
   const { error } = await supabaseAdmin.from('subscriptions').upsert(
     {
-      user_id: userId,
+      user_id: fields.user_id,
       plan: 'plus',
-      status,
+      status: fields.status,
       provider: 'stripe',
-      stripe_customer_id: customerId,
-      stripe_subscription_id: stripeSubscription.id,
-      stripe_price_id: priceId,
-      expires_at: expiresAt,
-      cancel_at_period_end: Boolean(stripeSubscription.cancel_at_period_end)
+      stripe_customer_id: fields.stripe_customer_id,
+      stripe_subscription_id: fields.stripe_subscription_id,
+      stripe_price_id: fields.product_id,
+      expires_at: fields.current_period_expires_at,
+      cancel_at_period_end: fields.cancel_at_period_end
     },
     { onConflict: 'user_id' }
   );
-
   if (error) throw error;
+};
+
+// Duplicate-Subscription Remediation — the corrected replacement for the
+// old applySubscriptionState's unconditional upsert. Every subscription-
+// lifecycle event first writes the ledger unconditionally (above), then
+// decides whether the effective projection may change:
+//
+//   1. If this event is about the subscription the projection ALREADY
+//      tracks, update it normally — the ordinary lifecycle path
+//      (trialing -> active, cancellation, etc).
+//   2. Otherwise, count this user's non-terminal Stripe ledger rows.
+//      - Zero: nothing to promote, leave the projection as-is.
+//      - Exactly one: unambiguous — safe to (re)promote it as the
+//        effective projection (covers a brand-new subscriber, or the
+//        previously-tracked subscription having just gone terminal with
+//        this being the sole survivor).
+//      - More than one: a genuine conflict between real Stripe
+//        subscriptions (exactly the historical $50/year + $7.99/month
+//        situation this remediation exists to handle). The ledger keeps
+//        recording the full truth; the projection is deliberately left
+//        untouched and the conflict is logged rather than guessed at.
+//
+// This is what makes "an event for subscription A can never cancel or
+// overwrite the row currently tracking subscription B" true regardless of
+// which order checkout.session.completed / customer.subscription.* events
+// arrive in for the same new subscription — everything is keyed off
+// stripe_subscription_id, never off event type or arrival order.
+const updateLedgerAndProjection = async (supabaseAdmin, userId, stripeSubscription, customerId, environment) => {
+  const eventFields = buildStripeLedgerFields(userId, stripeSubscription, customerId);
+  await upsertStripeLedgerRow(supabaseAdmin, eventFields, environment);
+
+  const { data: currentProjection, error: fetchError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('stripe_subscription_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+
+  if (currentProjection?.stripe_subscription_id === stripeSubscription.id) {
+    await writeProjectionFromLedgerFields(supabaseAdmin, eventFields);
+    return;
+  }
+
+  const { data: nonTerminalRows, error: ledgerError } = await supabaseAdmin
+    .from('provider_subscriptions')
+    .select('stripe_subscription_id, stripe_customer_id, product_id, status, current_period_expires_at, cancel_at_period_end')
+    .eq('user_id', userId)
+    .eq('provider', 'stripe')
+    .in('status', NON_TERMINAL_LEDGER_STATUSES);
+  if (ledgerError) throw ledgerError;
+
+  if (!nonTerminalRows || nonTerminalRows.length === 0) {
+    return;
+  }
+
+  if (nonTerminalRows.length === 1) {
+    const winner = nonTerminalRows[0];
+    await writeProjectionFromLedgerFields(supabaseAdmin, { user_id: userId, ...winner });
+    return;
+  }
+
+  console.error(
+    'stripe-webhook: reconciliation conflict — multiple non-terminal Stripe subscriptions for user, projection left untouched',
+    userId,
+    nonTerminalRows.map((row) => `${row.stripe_subscription_id}:${row.status}`)
+  );
+};
+
+// Duplicate-Subscription Remediation — marks the checkout_attempts row
+// that produced this session as consumed. checkout_attempt_id travels
+// through server-set (not client-writable) Checkout Session metadata —
+// see create-checkout-session/index.ts. The user_id match is defense in
+// depth against any mismatch, not the primary trust boundary (metadata is
+// already trustworthy). A miss here (no metadata, mismatch, already
+// terminal) is logged but never blocks the real subscription-state
+// processing above, which has already completed by the time this runs.
+// Idempotent under webhook retries: the status filter makes a repeat
+// update a harmless no-op.
+const consumeCheckoutAttempt = async (supabaseAdmin, userId, checkoutAttemptId) => {
+  if (!checkoutAttemptId) return;
+  const { data, error } = await supabaseAdmin
+    .from('checkout_attempts')
+    .update({ status: 'consumed', consumed_at: new Date().toISOString() })
+    .eq('id', checkoutAttemptId)
+    .eq('user_id', userId)
+    .in('status', ['pending', 'open'])
+    .select('id');
+
+  if (error) {
+    console.error('stripe-webhook: failed to mark checkout attempt consumed', error.message);
+    return;
+  }
+  if (!data || data.length === 0) {
+    console.warn('stripe-webhook: checkout attempt not found, mismatched, or already terminal', checkoutAttemptId);
+  }
+};
+
+// Duplicate-Subscription Remediation — releases an attempt whose Stripe
+// Checkout Session expired without completion, so the user is free to
+// start a new one. Only transitions out of 'open' — a session that
+// somehow expires after already being marked consumed (should not
+// happen, since Stripe never sends both for the same session) is left
+// alone rather than regressed.
+const releaseExpiredCheckoutAttempt = async (supabaseAdmin, checkoutAttemptId) => {
+  if (!checkoutAttemptId) return;
+  const { error } = await supabaseAdmin
+    .from('checkout_attempts')
+    .update({ status: 'expired', updated_at: new Date().toISOString() })
+    .eq('id', checkoutAttemptId)
+    .eq('status', 'open');
+
+  if (error) {
+    console.error('stripe-webhook: failed to release expired checkout attempt', error.message);
+  }
 };
 
 // Phase D: records that this user's one trial has now genuinely been
@@ -147,6 +255,12 @@ Deno.serve(async (req) => {
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
+  // Duplicate-Subscription Remediation — derived from the verified
+  // event itself (event.livemode), never hardcoded or assumed from which
+  // project this function is deployed to, mirroring how the Apple
+  // functions derive 'sandbox'/'production' from Apple's own verified
+  // environment field rather than guessing.
+  const environment = event.livemode ? 'production' : 'sandbox';
 
   // Idempotency: a redelivered event id is a safe no-op. Checked before
   // any processing, recorded only after processing succeeds below — a
@@ -189,9 +303,21 @@ Deno.serve(async (req) => {
             break;
           }
 
-          await applySubscriptionState(supabaseAdmin, userId, stripeSubscription, session.customer);
+          await updateLedgerAndProjection(supabaseAdmin, userId, stripeSubscription, session.customer, environment);
           await recordTrialUsageIfStarted(supabaseAdmin, userId, mapStripeStatus(stripeSubscription.status));
+          await consumeCheckoutAttempt(supabaseAdmin, userId, session.metadata?.checkout_attempt_id);
         }
+        break;
+      }
+
+      // Duplicate-Subscription Remediation — releases the checkout_attempts
+      // lock the moment Stripe itself considers the Checkout Session dead,
+      // rather than relying solely on the lazy stripe_expires_at check
+      // inside claim_checkout_attempt. No ledger/projection impact: an
+      // expired session never became a subscription.
+      case 'checkout.session.expired': {
+        const session = event.data.object;
+        await releaseExpiredCheckoutAttempt(supabaseAdmin, session.metadata?.checkout_attempt_id);
         break;
       }
 
@@ -237,7 +363,7 @@ Deno.serve(async (req) => {
           break;
         }
 
-        await applySubscriptionState(supabaseAdmin, userId, stripeSubscription, stripeSubscription.customer);
+        await updateLedgerAndProjection(supabaseAdmin, userId, stripeSubscription, stripeSubscription.customer, environment);
         break;
       }
 

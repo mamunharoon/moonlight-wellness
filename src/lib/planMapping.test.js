@@ -13,7 +13,11 @@ import {
   isTrialEligible,
   mapRefundOrDisputeEventToStatus,
   isKnownApplePlusProductId,
-  KNOWN_APPLE_PLUS_PRODUCT_IDS
+  KNOWN_APPLE_PLUS_PRODUCT_IDS,
+  isBlockingStripeStatus,
+  BLOCKING_STRIPE_STATUSES,
+  isNonTerminalLedgerStatus,
+  NON_TERMINAL_LEDGER_STATUSES
 } from '../../supabase/functions/_shared/planMapping.ts';
 
 describe('mapStripeStatus (pre-existing, given a dedicated test file for the first time in this task)', () => {
@@ -87,5 +91,48 @@ describe('isKnownApplePlusProductId / KNOWN_APPLE_PLUS_PRODUCT_IDS (server-side 
     expect(isKnownApplePlusProductId('com.attacker.wakewise.plus.monthly')).toBe(false);
     expect(isKnownApplePlusProductId(undefined)).toBe(false);
     expect(isKnownApplePlusProductId(null)).toBe(false);
+  });
+});
+
+describe('isBlockingStripeStatus (Duplicate-Subscription Remediation — checkout guard, raw Stripe vocabulary)', () => {
+  it('blocks every access-bearing or still-resolving raw Stripe status', () => {
+    expect(BLOCKING_STRIPE_STATUSES).toEqual(['trialing', 'active', 'past_due', 'unpaid', 'paused', 'incomplete']);
+    for (const status of BLOCKING_STRIPE_STATUSES) {
+      expect(isBlockingStripeStatus(status)).toBe(true);
+    }
+  });
+
+  it('does not block the two genuinely terminal raw Stripe statuses', () => {
+    expect(isBlockingStripeStatus('canceled')).toBe(false);
+    expect(isBlockingStripeStatus('incomplete_expired')).toBe(false);
+  });
+
+  it('does not block an unrecognised or missing status — never guesses a block', () => {
+    expect(isBlockingStripeStatus('some-future-stripe-status')).toBe(false);
+    expect(isBlockingStripeStatus(undefined)).toBe(false);
+  });
+});
+
+describe('isNonTerminalLedgerStatus (Duplicate-Subscription Remediation — webhook projection selection, mapped vocabulary)', () => {
+  it('treats every access-granting mapped status as non-terminal, mirroring entitlementResolution.js', () => {
+    expect(NON_TERMINAL_LEDGER_STATUSES).toEqual(['trial', 'active', 'grace_period', 'billing_retry']);
+    for (const status of NON_TERMINAL_LEDGER_STATUSES) {
+      expect(isNonTerminalLedgerStatus(status)).toBe(true);
+    }
+  });
+
+  it('treats cancelled/expired/refunded/revoked as terminal', () => {
+    expect(isNonTerminalLedgerStatus('cancelled')).toBe(false);
+    expect(isNonTerminalLedgerStatus('expired')).toBe(false);
+    expect(isNonTerminalLedgerStatus('refunded')).toBe(false);
+    expect(isNonTerminalLedgerStatus('revoked')).toBe(false);
+  });
+
+  it('never conflates raw Stripe statuses with the mapped ledger vocabulary', () => {
+    // 'trialing'/'past_due' are raw Stripe statuses (see BLOCKING_STRIPE_STATUSES
+    // above) — they must never be treated as non-terminal LEDGER statuses,
+    // since the ledger only ever stores mapStripeStatus's mapped output.
+    expect(isNonTerminalLedgerStatus('trialing')).toBe(false);
+    expect(isNonTerminalLedgerStatus('past_due')).toBe(false);
   });
 });
