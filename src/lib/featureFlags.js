@@ -56,3 +56,27 @@ export const clearFeatureFlagOverrides = () => {
     // no-op
   }
 };
+
+// iOS DEV remediation phase — build-time (not per-device) flag: whether
+// the Beta Program section (Settings -> Beta Program: Beta Program hub,
+// Send Feedback, Release Notes) is shown at all. Deliberately separate
+// from the per-device override system above (that system is for QA
+// toggling a shipped flag's default per-device; this one decides what
+// ships in the first place, per build). Every WakeWise build today -
+// local dev, the DEV Vercel preview, and every TestFlight build via
+// codemagic.yaml - is meant to keep this visible, since testers need it.
+// There is deliberately no separate "production" Codemagic workflow yet
+// (see docs/codemagic-setup-guide.md - this repo has exactly one
+// workflow, wakewise-ios-testflight), so this flag defaults to visible
+// (true) whenever it's unset, rather than requiring every existing build
+// config to be touched just to keep today's behaviour unchanged.
+//
+// TO HIDE THE BETA PROGRAM FOR THE EVENTUAL PUBLIC PRODUCTION BUILD:
+// set VITE_SHOW_BETA_PROGRAM=false wherever that future build's
+// environment variables are configured (a new Codemagic workflow's own
+// environment.vars, or a production .env file) - no code change needed.
+// Vite only ever exposes env vars prefixed VITE_ to client code (see
+// subscriptionOverride.js's own comment on this exact footgun), and only
+// as strings, so the comparison below is against the literal string
+// 'false', not the boolean.
+export const isBetaProgramVisible = () => import.meta.env.VITE_SHOW_BETA_PROGRAM !== 'false';

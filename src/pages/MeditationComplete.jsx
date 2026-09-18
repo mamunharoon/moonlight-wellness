@@ -1,8 +1,10 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { BackButton } from '../components/BackButton';
 
 const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
 
@@ -61,6 +63,10 @@ export const MeditationComplete = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10">
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/meditate" />
+      </div>
+
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
         <div className="space-y-4">
           <span className="material-symbols-outlined text-primary text-4xl">self_improvement</span>

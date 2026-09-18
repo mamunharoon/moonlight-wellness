@@ -27,7 +27,31 @@ export const getFirstName = ({ profile, user } = {}) => {
   return name ? capitalize(name) : null;
 };
 
-export const getMorningGreeting = ({ profile, user } = {}) => {
+const GREETING_BASE_BY_PERIOD = {
+  morning: 'Good morning',
+  afternoon: 'Good afternoon',
+  evening: 'Good evening'
+};
+
+// Home.jsx's own timeState buckets ('before-wake'/'night' included) that
+// map to a personalised daypart greeting - the other two buckets
+// deliberately have no entry here (and so render no greeting at all),
+// matching the product spec: only morning/afternoon/evening ever greet
+// the user by name.
+export const GREETING_PERIOD_BY_TIME_STATE = {
+  'daytime-morning': 'morning',
+  daytime: 'afternoon',
+  evening: 'evening'
+};
+
+// The one place a daypart + name become the actual greeting string shown
+// on Home - used for all three greeted dayparts so "Good afternoon"/
+// "Good evening" can never drift out of sync with how "Good morning"
+// resolves a name (same priority order, same neutral fallback with no
+// dangling comma when no valid name exists).
+export const getGreeting = (period, { profile, user } = {}) => {
+  const base = GREETING_BASE_BY_PERIOD[period];
+  if (!base) return null;
   const firstName = getFirstName({ profile, user });
-  return firstName ? `Good morning, ${firstName}` : 'Good morning';
+  return firstName ? `${base}, ${firstName}` : base;
 };

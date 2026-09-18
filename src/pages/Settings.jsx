@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
+import { isBetaProgramVisible } from '../lib/featureFlags';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -170,33 +171,39 @@ export const Settings = () => {
 
       {/* Closed Beta Preparation, Phase A: entry points into the beta
           hub, feedback flow, and release notes — same placement pattern
-          as the Subscription section above. */}
-      <section className="space-y-2">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Beta Program</h3>
-        <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-          <Link to="/beta" className={rowClass}>
-            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">science</span>
-              Beta Program
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-          </Link>
-          <Link to="/feedback" className={rowClass}>
-            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">feedback</span>
-              Send Feedback
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-          </Link>
-          <Link to="/release-notes" className={rowClass}>
-            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">history_edu</span>
-              Release Notes
-            </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-          </Link>
-        </div>
-      </section>
+          as the Subscription section above. Gated behind
+          isBetaProgramVisible() (see featureFlags.js) so it can be hidden
+          for the eventual public production build via a build-time env
+          var alone — visible by default today (local dev, DEV Vercel,
+          and every TestFlight build), matching what testers need. */}
+      {isBetaProgramVisible() && (
+        <section className="space-y-2">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Beta Program</h3>
+          <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+            <Link to="/beta" className={rowClass}>
+              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+                <span className="material-symbols-outlined text-on-surface-variant text-xl">science</span>
+                Beta Program
+              </span>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+            </Link>
+            <Link to="/feedback" className={rowClass}>
+              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+                <span className="material-symbols-outlined text-on-surface-variant text-xl">feedback</span>
+                Send Feedback
+              </span>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+            </Link>
+            <Link to="/release-notes" className={rowClass}>
+              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+                <span className="material-symbols-outlined text-on-surface-variant text-xl">history_edu</span>
+                Release Notes
+              </span>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Support */}
       <section className="space-y-2">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getFirstName, getMorningGreeting } from './greeting';
+import { getFirstName, getGreeting, GREETING_PERIOD_BY_TIME_STATE } from './greeting';
 
 describe('getFirstName', () => {
   it('uses a valid profile first name', () => {
@@ -55,17 +55,40 @@ describe('getFirstName', () => {
   });
 });
 
-describe('getMorningGreeting', () => {
-  it('greets by first name when one is available', () => {
-    expect(getMorningGreeting({ profile: { first_name: 'Jane' }, user: null })).toBe('Good morning, Jane');
+describe('getGreeting', () => {
+  it('greets by first name for each of the three dayparts', () => {
+    expect(getGreeting('morning', { profile: { first_name: 'Jane' }, user: null })).toBe('Good morning, Jane');
+    expect(getGreeting('afternoon', { profile: { first_name: 'Jane' }, user: null })).toBe('Good afternoon, Jane');
+    expect(getGreeting('evening', { profile: { first_name: 'Jane' }, user: null })).toBe('Good evening, Jane');
   });
 
-  it('falls back to a neutral greeting when no valid name exists', () => {
-    expect(getMorningGreeting({ profile: null, user: { email: 'jane@example.com' } })).toBe('Good morning');
-    expect(getMorningGreeting({})).toBe('Good morning');
+  it('falls back to a neutral, comma-free greeting when no valid name exists', () => {
+    expect(getGreeting('morning', { profile: null, user: { email: 'jane@example.com' } })).toBe('Good morning');
+    expect(getGreeting('afternoon', {})).toBe('Good afternoon');
+    expect(getGreeting('evening', {})).toBe('Good evening');
   });
 
-  it('capitalises an all-lowercase stored name in the rendered greeting (regression: "Good morning, Mamun", not "mamun")', () => {
-    expect(getMorningGreeting({ profile: { first_name: 'mamun' }, user: null })).toBe('Good morning, Mamun');
+  it('capitalises an all-lowercase stored name in the rendered greeting (regression: "Good afternoon, Mamun", not "mamun")', () => {
+    expect(getGreeting('afternoon', { profile: { first_name: 'mamun' }, user: null })).toBe('Good afternoon, Mamun');
+    expect(getGreeting('evening', { profile: { first_name: 'mamun' }, user: null })).toBe('Good evening, Mamun');
+  });
+
+  it('returns null for a period with no known greeting, rather than guessing', () => {
+    expect(getGreeting('midnight-snack', { profile: { first_name: 'Jane' }, user: null })).toBeNull();
+  });
+});
+
+describe('GREETING_PERIOD_BY_TIME_STATE', () => {
+  it('maps exactly the three greeted Home.jsx timeState buckets to their daypart, and no others', () => {
+    expect(GREETING_PERIOD_BY_TIME_STATE).toEqual({
+      'daytime-morning': 'morning',
+      daytime: 'afternoon',
+      evening: 'evening'
+    });
+  });
+
+  it('never maps the before-wake or night timeState buckets to a greeting', () => {
+    expect(GREETING_PERIOD_BY_TIME_STATE['before-wake']).toBeUndefined();
+    expect(GREETING_PERIOD_BY_TIME_STATE.night).toBeUndefined();
   });
 });

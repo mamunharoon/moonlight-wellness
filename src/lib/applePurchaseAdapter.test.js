@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Apple Subscription Architecture task, Phase E.
 const mockNativePurchases = {
   getProducts: vi.fn(),
+  getPurchases: vi.fn(),
   purchaseProduct: vi.fn(),
   restorePurchases: vi.fn(),
   manageSubscriptions: vi.fn(),
@@ -29,7 +30,9 @@ const {
   restoreApplePurchases,
   openAppleManageSubscriptions,
   addAppleTransactionUpdateListener,
-  resolveAppleProductDisplay
+  resolveAppleProductDisplay,
+  getActiveApplePlan,
+  formatActiveApplePlanMessage
 } = mod;
 
 beforeEach(() => {
@@ -99,6 +102,76 @@ describe('resolveAppleProductDisplay', () => {
       productId: APPLE_PRODUCT_IDS.annual,
       priceString: null
     });
+  });
+});
+
+describe('getActiveApplePlan', () => {
+  const appleProducts = {
+    [APPLE_PRODUCT_IDS.monthly]: { identifier: APPLE_PRODUCT_IDS.monthly, title: 'Monthly', priceString: 'A$7.99' },
+    [APPLE_PRODUCT_IDS.annual]: { identifier: APPLE_PRODUCT_IDS.annual, title: 'Annual', priceString: 'A$59.99' }
+  };
+
+  it('resolves the monthly interval and its own priceString from a real monthly purchase', async () => {
+    mockNativePurchases.getPurchases.mockResolvedValue({
+      purchases: [{ productIdentifier: APPLE_PRODUCT_IDS.monthly }]
+    });
+    expect(await getActiveApplePlan(appleProducts)).toEqual({ interval: 'monthly', priceString: 'A$7.99' });
+  });
+
+  it('resolves the yearly interval and its own priceString from a real annual purchase', async () => {
+    mockNativePurchases.getPurchases.mockResolvedValue({
+      purchases: [{ productIdentifier: APPLE_PRODUCT_IDS.annual }]
+    });
+    expect(await getActiveApplePlan(appleProducts)).toEqual({ interval: 'yearly', priceString: 'A$59.99' });
+  });
+
+  it('ignores a purchase for a product outside the allow-list', async () => {
+    mockNativePurchases.getPurchases.mockResolvedValue({
+      purchases: [{ productIdentifier: 'com.example.other.subscription' }]
+    });
+    expect(await getActiveApplePlan(appleProducts)).toBeNull();
+  });
+
+  it('returns null (never an invented price) when no matching purchase exists', async () => {
+    mockNativePurchases.getPurchases.mockResolvedValue({ purchases: [] });
+    expect(await getActiveApplePlan(appleProducts)).toBeNull();
+  });
+
+  it('returns null when the matching product has not loaded into appleProducts yet', async () => {
+    mockNativePurchases.getPurchases.mockResolvedValue({
+      purchases: [{ productIdentifier: APPLE_PRODUCT_IDS.monthly }]
+    });
+    expect(await getActiveApplePlan({})).toBeNull();
+  });
+
+  it('returns null, never throws, on a native call failure', async () => {
+    mockNativePurchases.getPurchases.mockRejectedValue(new Error('boom'));
+    expect(await getActiveApplePlan(appleProducts)).toBeNull();
+  });
+
+  it('returns null on web without calling the plugin', async () => {
+    nativeFlag = false;
+    expect(await getActiveApplePlan(appleProducts)).toBeNull();
+    expect(mockNativePurchases.getPurchases).not.toHaveBeenCalled();
+  });
+});
+
+describe('formatActiveApplePlanMessage', () => {
+  it('builds the trial-suffixed sentence for a monthly trial', () => {
+    expect(formatActiveApplePlanMessage({ interval: 'monthly', priceString: 'A$7.99' }, 'trial')).toBe(
+      'A$7.99 per month after your free trial'
+    );
+  });
+
+  it('builds the plain sentence (no trial suffix) for an active annual subscription', () => {
+    expect(formatActiveApplePlanMessage({ interval: 'yearly', priceString: 'A$59.99' }, 'active')).toBe(
+      'A$59.99 per year'
+    );
+  });
+
+  it('returns null (never a broken sentence) when there is no plan/priceString yet', () => {
+    expect(formatActiveApplePlanMessage(null, 'trial')).toBeNull();
+    expect(formatActiveApplePlanMessage({ interval: 'monthly', priceString: null }, 'trial')).toBeNull();
   });
 });
 

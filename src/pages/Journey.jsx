@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,7 @@ const readGuestJournalEntries = () => {
 };
 
 export const Journey = () => {
+  const navigate = useNavigate();
   const { userId, intentions } = useAlarm();
   const { loading: authLoading, isGuest } = useAuth();
   const [entries, setEntries] = useState([]);
@@ -68,11 +70,25 @@ export const Journey = () => {
 
     return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="font-headline-lg text-2xl md:text-3xl text-on-surface font-bold tracking-tight">Your Journey</h2>
-        <p className="text-on-surface-variant font-body-md mt-1">
-          Honest tracking of your sleep, intentions, and reflections.
-        </p>
+      {/* Navigation audit: reached only from Profile's "Journey and
+          progress" row, not a bottom-nav tab, so - like Settings.jsx and
+          Subscription.jsx - it owns its own back-affordance header rather
+          than relying on <Layout>'s generic header, which has no
+          per-route back button. */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate('/profile')}
+          aria-label="Back to Profile"
+          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+        >
+          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+        </button>
+        <div>
+          <h2 className="font-headline-lg text-2xl md:text-3xl text-on-surface font-bold tracking-tight">Your Journey</h2>
+          <p className="text-on-surface-variant font-body-md mt-1">
+            Honest tracking of your sleep, intentions, and reflections.
+          </p>
+        </div>
       </div>
 
             {/* Recent Intentions */}

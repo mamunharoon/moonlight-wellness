@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,7 @@ import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { getStepIndex } from '../session/sessionRegistry';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
-import { getMorningGreeting } from '../lib/greeting';
+import { getGreeting } from '../lib/greeting';
 import { TimezoneBanner } from '../components/TimezoneBanner';
 
 // Daily Journey & Content Architecture: friendly title/route for the
@@ -76,6 +77,27 @@ export const Home = () => {
     timeState = 'night';
   }
 
+  // Morning/Evening selector: null means "automatic" (the timeState
+  // logic above decides, unchanged) - only becomes 'morning'/'evening'
+  // once the user actually taps a pill, and then stays that way for the
+  // rest of this page view (component state, not persisted - a fresh
+  // visit re-derives from the real clock again). Only overrides during
+  // daytime-morning/daytime/evening: before-wake and night are real
+  // time-based constraints (before your alarm; late enough that winding
+  // down further doesn't make sense), not a ritual choice to toggle.
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const overridableTimeStates = timeState === 'daytime-morning' || timeState === 'daytime' || timeState === 'evening';
+  const effectiveTimeState =
+    overridableTimeStates && selectedPeriod === 'morning'
+      ? 'daytime-morning'
+      : overridableTimeStates && selectedPeriod === 'evening'
+        ? 'evening'
+        : timeState;
+  // Which pill looks active. Once the user has picked one, show that
+  // choice; otherwise reflect the real clock (existing daypart rules) -
+  // evening/night lean the Evening pill, everything else leans Morning.
+  const activePeriod = selectedPeriod ?? (timeState === 'evening' || timeState === 'night' ? 'evening' : 'morning');
+
   const primaryIntention = intentions[0] || 'Stay calm';
 
   // Resuming an 'interrupted' routine must flip it back to 'playing'
@@ -114,14 +136,26 @@ export const Home = () => {
 
       <TimezoneBanner />
 
-      {/* Simple daily completion status */}
+      {/* Morning/Evening selector — also shows each ritual's daily
+          completion status (the ✓ prefix), same as before this was made
+          functional. */}
       <div className="flex gap-2">
-        <span className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full ${isMorningDone ? 'bg-primary/15 text-primary' : 'glass-panel text-on-surface-variant/60'}`}>
+        <button
+          type="button"
+          onClick={() => setSelectedPeriod('morning')}
+          aria-pressed={activePeriod === 'morning'}
+          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all ${activePeriod === 'morning' ? 'bg-primary/15 text-primary' : 'glass-panel text-on-surface-variant/60 hover:bg-white/5'}`}
+        >
           {isMorningDone ? '✓ Morning' : 'Morning'}
-        </span>
-        <span className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full ${isEveningDone ? 'bg-secondary/15 text-secondary' : 'glass-panel text-on-surface-variant/60'}`}>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedPeriod('evening')}
+          aria-pressed={activePeriod === 'evening'}
+          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all ${activePeriod === 'evening' ? 'bg-secondary/15 text-secondary' : 'glass-panel text-on-surface-variant/60 hover:bg-white/5'}`}
+        >
           {isEveningDone ? '✓ Evening' : 'Evening'}
-        </span>
+        </button>
         {isMeditatedToday && (
           <span className="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full bg-tertiary/15 text-tertiary">
             ✓ Meditated today
@@ -215,10 +249,10 @@ export const Home = () => {
       )}
 
       {/* MORNING WINDOW — not started */}
-      {timeState === 'daytime-morning' && !isMorningActive && !isMorningDone && (
+      {effectiveTimeState === 'daytime-morning' && !isMorningActive && !isMorningDone && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getMorningGreeting({ profile, user })}</h2>
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
             <p className="text-xs text-on-surface-variant font-medium">Ready for your breath of fresh air today?</p>
           </div>
           <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
@@ -241,7 +275,7 @@ export const Home = () => {
       )}
 
       {/* MORNING WINDOW — complete */}
-      {timeState === 'daytime-morning' && isMorningDone && (
+      {effectiveTimeState === 'daytime-morning' && isMorningDone && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Rise &amp; Reset complete</h2>
@@ -255,10 +289,10 @@ export const Home = () => {
       )}
 
       {/* DAYTIME */}
-      {timeState === 'daytime' && (
+      {effectiveTimeState === 'daytime' && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Stay Centered</h2>
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('afternoon', { profile, user })}</h2>
             <p className="text-xs text-on-surface-variant font-medium">One small step at a time.</p>
           </div>
           <div className="glass-panel p-6 rounded-3xl space-y-6 shadow-sm bg-gradient-to-br from-[#ffffff]/5 to-transparent">
@@ -275,10 +309,10 @@ export const Home = () => {
       )}
 
       {/* EVENING */}
-      {timeState === 'evening' && (
+      {effectiveTimeState === 'evening' && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">Begin Wind-Down</h2>
+            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
             <p className="text-xs text-on-surface-variant font-medium">
               {isEveningDone ? 'Tonight\'s wind-down is complete. Rest well.' : 'You\'ve done enough for today. Let\'s prepare for tomorrow.'}
             </p>

@@ -57,6 +57,53 @@ export const resolveAppleProductDisplay = (interval, appleProducts) => {
 const safeErrorMessage = (error) => (error && typeof error.message === 'string' ? error.message : 'Unknown error');
 
 /**
+ * For a subscriber whose entitlement provider is Apple, resolves which
+ * allow-listed product (monthly/annual) their real, current purchase
+ * actually is - by asking StoreKit for the device's own purchase history
+ * (never guessed from the DB, which has no interval/product-id column;
+ * see subscriptions table schema), then reading that exact product's
+ * already-fetched localised priceString out of `appleProducts` (the map
+ * getAppleProducts returns). Returns null - never a guessed interval or
+ * invented price - if unsupported, no allow-listed purchase is found, or
+ * that product's priceString hasn't loaded into `appleProducts` yet.
+ */
+export const getActiveApplePlan = async (appleProducts) => {
+  if (!isAppleIAPSupported()) return null;
+  try {
+    const { purchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS });
+    const active = (purchases ?? []).find((p) => ALLOWED_APPLE_PRODUCT_IDS.has(p?.productIdentifier));
+    if (!active) return null;
+
+    const priceString = appleProducts?.[active.productIdentifier]?.priceString;
+    if (!priceString) return null;
+
+    return {
+      interval: active.productIdentifier === APPLE_PRODUCT_IDS.monthly ? 'monthly' : 'yearly',
+      priceString
+    };
+  } catch (error) {
+    console.warn('[applePurchaseAdapter] getActiveApplePlan failed, continuing without it', safeErrorMessage(error));
+    return null;
+  }
+};
+
+/**
+ * Builds the Current Plan section's localised price line for an Apple
+ * subscriber, e.g. "A$7.99 per month after your free trial" - the one
+ * place this exact sentence is assembled, so its wording can't drift
+ * between callers. Returns null (never a partially-built or guessed
+ * sentence) when there's no real priceString to show, matching "show the
+ * current status/date without inventing a price" when StoreKit data
+ * isn't available yet.
+ */
+export const formatActiveApplePlanMessage = (activeApplePlan, subscriptionStatus) => {
+  if (!activeApplePlan?.priceString) return null;
+  const perLabel = activeApplePlan.interval === 'monthly' ? 'per month' : 'per year';
+  const trialSuffix = subscriptionStatus === 'trial' ? ' after your free trial' : '';
+  return `${activeApplePlan.priceString} ${perLabel}${trialSuffix}`;
+};
+
+/**
  * Fetches the two WakeWise Plus products from StoreKit, via the plugin.
  * Returns only products whose identifier is in the allow-list above —
  * never trusts an arbitrary identifier the plugin might hand back.

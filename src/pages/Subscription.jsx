@@ -21,7 +21,9 @@ import {
   restoreApplePurchases,
   openAppleManageSubscriptions,
   addAppleTransactionUpdateListener,
-  resolveAppleProductDisplay
+  resolveAppleProductDisplay,
+  getActiveApplePlan,
+  formatActiveApplePlanMessage
 } from '../lib/applePurchaseAdapter';
 import { verifyAppleTransaction } from '../lib/appleVerificationApi';
 
@@ -106,6 +108,12 @@ export const Subscription = () => {
   const [appleRestoreState, setAppleRestoreState] = useState('idle'); // 'idle'|'restoring'|'restored'|'failed'
   const [appleManageState, setAppleManageState] = useState('idle'); // 'idle'|'opening'|'failed'
 
+  // Current Plan's localised price line for an Apple-provider subscriber
+  // (see getActiveApplePlan's own doc comment) - stays null on every other
+  // platform/provider, so the Current Plan section renders exactly as
+  // before for a Stripe subscriber or a signed-out/free user.
+  const [activeApplePlan, setActiveApplePlan] = useState(null);
+
   // Never grants access from a client-side purchase/restore callback —
   // this only ever sends the transaction to the server (Phase C's
   // verify-apple-transaction, currently a fail-closed stub — see
@@ -168,6 +176,29 @@ export const Subscription = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Current Plan's localised price line — only once the product catalog
+  // has actually loaded (appleProductsState 'ready'), and only for a real
+  // Apple-provider subscriber; never queries native purchase history for
+  // a Stripe subscriber or a free/guest account. A stale resolved plan
+  // from a prior provider is never shown even if this effect doesn't
+  // re-run in time to clear it — the render guard below re-checks
+  // subscription.provider on every render, so it alone decides whether
+  // activeApplePlan is ever displayed.
+  useEffect(() => {
+    if (!IS_NATIVE_IOS || appleProductsState !== 'ready' || subscription.provider !== 'apple') {
+      return undefined;
+    }
+
+    let ignore = false;
+    getActiveApplePlan(appleProducts).then((plan) => {
+      if (!ignore) setActiveApplePlan(plan);
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [appleProductsState, appleProducts, subscription.provider]);
 
   const handleApplePurchase = async () => {
     if (isGuest) {
@@ -334,6 +365,16 @@ export const Subscription = () => {
             </span>
           </div>
         </div>
+        {/* Apple-provider subscriber only (see getActiveApplePlan's own
+            doc comment) — never rendered for a Stripe subscriber or a
+            free/guest account, and never a guessed price when StoreKit
+            data hasn't loaded yet (formatActiveApplePlanMessage returns
+            null in that case, so nothing extra renders). */}
+        {!loading && IS_NATIVE_IOS && subscription.provider === 'apple' && formatActiveApplePlanMessage(activeApplePlan, subscription.status) && (
+          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">
+            {formatActiveApplePlanMessage(activeApplePlan, subscription.status)}
+          </p>
+        )}
         {!loading && getStatusExplanation(subscription) && (
           <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(subscription)}</p>
         )}

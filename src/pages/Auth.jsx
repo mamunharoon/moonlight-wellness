@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
+import { BackButton } from '../components/BackButton';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -174,6 +175,15 @@ export const Auth = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-center py-6 max-w-md mx-auto space-y-8">
+      {/* Navigation audit: rendered outside <Layout> (no shared header),
+          and reached from several places (Profile's Sign In/Create
+          Account, and locked-content sign-in prompts elsewhere) - so
+          BackButton's own goBack() is used rather than a hardcoded
+          destination, returning to wherever the user actually came from. */}
+      <div className="flex items-center gap-3">
+        <BackButton fallback="/profile" />
+      </div>
+
       <div className="text-center space-y-2">
         <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
         <h2 className="text-2xl font-bold text-on-surface">
