@@ -44,6 +44,62 @@ import { getZonedParts, getCachedTimezone } from '../lib/timezone';
 const ROUTINE_PROGRESS_KEY = 'moonlight_routine_progress';
 const ROUTINE_PROGRESS_VERSION = 1;
 
+// "Resume Previous Routine" remediation — a small, separate store mapping
+// sessionId -> the ORIGINAL local dateKey a stale routine was resumed
+// from. Deliberately its own key/shape (not folded into the routines
+// object above): it needs to survive independently of any single
+// snapshot write, and its presence is itself the signal "the live session
+// for this sessionId is a continuation of a PREVIOUS day's routine, not
+// today's" - saveRoutineProgress consults it below so every subsequent
+// step-by-step mirror write, while that previous-day session is actively
+// being played out, keeps stamping the ORIGINAL date instead of silently
+// re-dating it to today (the exact "falsely recorded as today's routine"
+// failure this whole mechanism exists to prevent). Cleared the moment
+// that particular run ends (completed, abandoned, or reset) - see
+// SessionContext.jsx's resetSession/abandonSession/resetRoutine.
+const PINNED_DATE_KEY = 'moonlight_routine_progress_pinned_date';
+
+const readPinnedDates = () => {
+  try {
+    const raw = localStorage.getItem(PINNED_DATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writePinnedDates = (pins) => {
+  try {
+    localStorage.setItem(PINNED_DATE_KEY, JSON.stringify(pins));
+  } catch {
+    // storage unavailable - in-memory only for this session, same silent-noop convention as the rest of this module.
+  }
+};
+
+/** Pins `sessionId` to a specific dateKey - call exactly once, the moment a stale (prior-day) routine is resumed. */
+export const pinRoutineDate = (sessionId, dateKey) => {
+  if (!sessionId || typeof dateKey !== 'string' || !dateKey) return;
+  const pins = readPinnedDates();
+  pins[sessionId] = dateKey;
+  writePinnedDates(pins);
+};
+
+/** The pinned original dateKey for this routine, or null if it isn't currently pinned. */
+export const getPinnedRoutineDate = (sessionId) => {
+  const pins = readPinnedDates();
+  return typeof pins[sessionId] === 'string' ? pins[sessionId] : null;
+};
+
+/** Clears the pin for exactly this routine - idempotent, safe to call even when nothing was pinned. */
+export const unpinRoutineDate = (sessionId) => {
+  const pins = readPinnedDates();
+  if (!(sessionId in pins)) return;
+  delete pins[sessionId];
+  writePinnedDates(pins);
+};
+
 const VALID_STATUSES = Object.values(SESSION_STATUS);
 
 const todayDateKey = () => getZonedParts(getCachedTimezone(), new Date()).dateKey;
@@ -99,13 +155,17 @@ const validateEntry = (sessionId, candidate) => {
 export const saveRoutineProgress = (sessionId, snapshot) => {
   if (!sessionId || !getSessionById(sessionId)) return;
   const all = readAll();
+  // A pinned date (set by resumeStaleRoutine) means this write belongs to
+  // a previous-day session being continued right now - keep stamping ITS
+  // original date, never today's, until the pin is cleared.
+  const pinnedDateKey = getPinnedRoutineDate(sessionId);
   all[sessionId] = {
     stepIndex: snapshot?.stepIndex ?? 0,
     status: snapshot?.status ?? SESSION_STATUS.IDLE,
     startedAt: snapshot?.startedAt ?? null,
     updatedAt: snapshot?.updatedAt ?? null,
     completionEventId: snapshot?.completionEventId ?? null,
-    dateKey: todayDateKey()
+    dateKey: pinnedDateKey ?? todayDateKey()
   };
   writeAll(all);
 };
@@ -147,4 +207,5 @@ export const clearRoutineProgress = (sessionId) => {
  */
 export const clearAllRoutineProgress = () => {
   writeAll({});
+  writePinnedDates({});
 };

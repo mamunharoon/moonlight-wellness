@@ -104,7 +104,18 @@ export const Reflection = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/evening-wind-down">
+    // Evening visual-consistency fix: this page previously used the
+    // "dusk" atmosphere phase — the same brown/orange sunset gradient as
+    // the opening Wind-Down screen — while every step after
+    // it (Gratitude, Breathing, Prepare For Rest, Completion) already used
+    // 'moonlight'. That made the sunset-to-night transition happen TWICE
+    // (once abruptly between Reflection and Gratitude) instead of once,
+    // right where it belongs, between Wind-Down and Reflection. 'moonlight'
+    // here means Reflection now shares the exact same gradient as every
+    // subsequent evening step, so there is no visible change at all
+    // crossing that boundary — only the deliberate Wind-Down -> Reflection
+    // transition remains.
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-wind-down">
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 2 of 6</span>
       <div className="flex-1 flex flex-col justify-center space-y-4">

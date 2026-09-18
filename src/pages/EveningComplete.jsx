@@ -5,6 +5,10 @@ import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
+import { shouldWriteCompletionDate } from '../lib/routineCardState';
+
+const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -39,11 +43,25 @@ export const EveningComplete = () => {
     // completion status" (Home.jsx) needs an equivalent evening marker,
     // which never existed before this batch.
     //
-    // Global timezone correctness: same YYYY-MM-DD local-day key as the
-    // morning write above, not device toDateString() - see that file's
-    // comment for why (local-midnight-spanning routines, format parity
-    // with what Home.jsx reads back).
-    localStorage.setItem('moonlight_evening_completed_date', getZonedParts(effectiveTimezone, devNow()).dateKey);
+    // "Repeat Evening Routine" / "Resume Previous Routine" remediation —
+    // see SessionComplete.jsx's own handleReturnHome for the full
+    // rationale: a session resumed from a genuinely stale snapshot is
+    // pinned to its own original dateKey, so its completion credits that
+    // original day, never today; an ordinary session (including one
+    // spanning a local midnight) still credits "now" exactly as before.
+    // The write itself is skipped entirely once the flag already holds
+    // this exact value - a same-day repeat completion is a no-op, never
+    // a second "credit", since this data model has no counter to
+    // increment in the first place.
+    const pinnedDateKey = getPinnedRoutineDate(state.sessionId);
+    const attributionDateKey = pinnedDateKey ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
+    if (shouldWriteCompletionDate(localStorage.getItem(EVENING_DONE_KEY), attributionDateKey)) {
+      localStorage.setItem(EVENING_DONE_KEY, attributionDateKey);
+    }
+    if (state.sessionId) {
+      unpinRoutineDate(state.sessionId);
+      clearRoutineProgress(state.sessionId);
+    }
     navigate('/');
     resetSession();
   };

@@ -24,7 +24,10 @@ const {
   getRoutineProgress,
   getRoutineProgressIncludingStale,
   clearRoutineProgress,
-  clearAllRoutineProgress
+  clearAllRoutineProgress,
+  pinRoutineDate,
+  getPinnedRoutineDate,
+  unpinRoutineDate
 } = await import('./routineProgress');
 
 const MORNING = 'morning-routine';
@@ -132,5 +135,53 @@ describe('routineProgress — independent per-routine snapshots (Build 10 remedi
     expect(() => saveRoutineProgress(null, { stepIndex: 0, status: SESSION_STATUS.PLAYING })).not.toThrow();
     expect(() => saveRoutineProgress('not-a-real-routine', { stepIndex: 0, status: SESSION_STATUS.PLAYING })).not.toThrow();
     expect(getRoutineProgress('not-a-real-routine')).toBeNull();
+  });
+});
+
+describe('pinRoutineDate/getPinnedRoutineDate/unpinRoutineDate - "Resume Previous Routine" date retention', () => {
+  beforeEach(() => {
+    store.clear();
+  });
+
+  it('has nothing pinned by default', () => {
+    expect(getPinnedRoutineDate(MORNING)).toBeNull();
+  });
+
+  it('pins and reads back independently per sessionId', () => {
+    pinRoutineDate(MORNING, '2026-09-10');
+    pinRoutineDate(EVENING, '2026-09-11');
+    expect(getPinnedRoutineDate(MORNING)).toBe('2026-09-10');
+    expect(getPinnedRoutineDate(EVENING)).toBe('2026-09-11');
+  });
+
+  it('unpinRoutineDate clears only the named routine, and is idempotent', () => {
+    pinRoutineDate(MORNING, '2026-09-10');
+    pinRoutineDate(EVENING, '2026-09-11');
+    unpinRoutineDate(MORNING);
+    expect(getPinnedRoutineDate(MORNING)).toBeNull();
+    expect(getPinnedRoutineDate(EVENING)).toBe('2026-09-11');
+    expect(() => unpinRoutineDate(MORNING)).not.toThrow();
+  });
+
+  it('saveRoutineProgress stamps the PINNED date, not today, while a routine is pinned (the core "retain original identity" fix)', () => {
+    pinRoutineDate(EVENING, '2026-09-10');
+    saveRoutineProgress(EVENING, { stepIndex: 2, status: SESSION_STATUS.PLAYING, startedAt: '2026-09-10T20:00:00.000Z', updatedAt: '2026-09-10T20:05:00.000Z', completionEventId: null });
+    const stale = getRoutineProgressIncludingStale(EVENING);
+    expect(stale).toMatchObject({ stepIndex: 2, status: SESSION_STATUS.PLAYING, dateKey: '2026-09-10' });
+  });
+
+  it('saveRoutineProgress falls back to today once unpinned', () => {
+    pinRoutineDate(MORNING, '2000-01-01');
+    unpinRoutineDate(MORNING);
+    saveRoutineProgress(MORNING, { stepIndex: 0, status: SESSION_STATUS.PLAYING, startedAt: null, updatedAt: null, completionEventId: null });
+    expect(getRoutineProgressIncludingStale(MORNING)).toMatchObject({ isStale: false });
+  });
+
+  it('clearAllRoutineProgress (sign-out isolation) also wipes every pinned date', () => {
+    pinRoutineDate(MORNING, '2026-09-10');
+    pinRoutineDate(EVENING, '2026-09-11');
+    clearAllRoutineProgress();
+    expect(getPinnedRoutineDate(MORNING)).toBeNull();
+    expect(getPinnedRoutineDate(EVENING)).toBeNull();
   });
 });

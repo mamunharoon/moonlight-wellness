@@ -1,0 +1,162 @@
+// Regression guard for two remediations added in the same batch:
+//   1. "Resume Previous Routine" / "Start Today's Routine" — wiring
+//      shouldOfferStaleRoutineChoice (already pure-logic tested in
+//      routineCardState.test.js/routineProgress.test.js) into Home.jsx's
+//      actual rendered UI, never silently resuming/deleting/mislabelling
+//      an unfinished routine from an earlier local day.
+//   2. The completed-routine "Do Again" defect — confirming did nothing
+//      because it only ever called resetRoutine() and never launched
+//      anything. Replaced with "Repeat Morning/Evening Routine", wired
+//      through the SAME fresh-start handlers the ordinary "Begin" card
+//      already uses (handleBeginRiseAndReset/handleBeginEveningWindDown),
+//      so confirming genuinely starts the routine at its own start route.
+//
+// No DOM/component rendering is available in this repo's Vitest (see
+// Home.routineState.test.js's own note) - these are source-level checks,
+// matching every other regression guard in this codebase for exactly
+// that reason.
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
+
+const homeSource = read('./Home.jsx');
+const sessionContextSource = read('../context/SessionContext.jsx');
+const routineProgressSource = read('../session/routineProgress.js');
+const sessionCompleteSource = read('./SessionComplete.jsx');
+const eveningCompleteSource = read('./EveningComplete.jsx');
+
+describe('Stale-routine choice card — "Yesterday\'s unfinished routine" (Morning)', () => {
+  it('renders a distinct stale-choice card, gated on morningHasStaleChoice, only when nothing exists for today', () => {
+    expect(homeSource).toMatch(/morningCardState === 'not-started' && !morningHasStaleChoice/);
+    expect(homeSource).toMatch(/morningCardState === 'not-started' && morningHasStaleChoice/);
+  });
+
+  it('shows the original date in a friendly format, never silently presented as today\'s own progress', () => {
+    expect(homeSource).toMatch(/formatStaleRoutineDate\(morningStaleSnapshot\?\.dateKey, today\)/);
+    expect(homeSource).toMatch(/'s Morning routine is unfinished\./);
+  });
+
+  it('"Resume Previous Routine" is scoped to resumeStaleRoutine\\(RITUAL_SESSION_IDS.morning\\), never the live/today resume path', () => {
+    expect(homeSource).toMatch(/handleResumeStaleMorning = \(\) => \{\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.morning\)\)/);
+  });
+
+  it('"Start Today\'s Routine" opens the discard-stale confirmation, scoped to morning', () => {
+    expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'discard-stale', period: 'morning' \}\)/);
+  });
+});
+
+describe('Stale-routine choice card — "Yesterday\'s unfinished routine" (Evening)', () => {
+  it('renders a distinct stale-choice card, gated on eveningHasStaleChoice, only when nothing exists for today', () => {
+    expect(homeSource).toMatch(/eveningCardState === 'not-started' && !eveningHasStaleChoice/);
+    expect(homeSource).toMatch(/eveningCardState === 'not-started' && eveningHasStaleChoice/);
+  });
+
+  it('shows the original date in a friendly format', () => {
+    expect(homeSource).toMatch(/formatStaleRoutineDate\(eveningStaleSnapshot\?\.dateKey, today\)/);
+    expect(homeSource).toMatch(/'s Evening routine is unfinished\./);
+  });
+
+  it('"Resume Previous Routine" is scoped to resumeStaleRoutine\\(RITUAL_SESSION_IDS.evening\\)', () => {
+    expect(homeSource).toMatch(/handleResumeStaleEvening = \(\) => \{\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.evening\)\)/);
+  });
+
+  it('"Start Today\'s Routine" opens the discard-stale confirmation, scoped to evening', () => {
+    expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'discard-stale', period: 'evening' \}\)/);
+  });
+});
+
+describe('"Start today\'s routine?" discard confirmation — exact required wording, and never silently discards without it', () => {
+  it('has the exact title/message/confirm label', () => {
+    expect(homeSource).toMatch(/title: "Start today's routine\?"/);
+    expect(homeSource).toMatch(/message: 'Your unfinished previous routine progress will be cleared\.'/);
+  });
+
+  it('confirming calls discardStaleRoutine(sessionId) before starting the fresh routine, never the other way around', () => {
+    const match = homeSource.match(/\} else if \(kind === 'discard-stale'\) \{\s*\n\s*discardStaleRoutine\(sessionId\);\s*\n\s*if \(period === 'morning'\) handleBeginRiseAndReset\(\);\s*\n\s*else handleBeginEveningWindDown\(\);/);
+    expect(match).not.toBeNull();
+  });
+});
+
+describe('SessionContext.jsx — resumeStaleRoutine/discardStaleRoutine never touch journal/reflection/intention storage', () => {
+  it('only references routineProgress\'s own pin/snapshot functions, not any journal/reflection API', () => {
+    const resumeStaleBlock = sessionContextSource.match(/const resumeStaleRoutine = useCallback\([\s\S]*?\n {2}\}, \[\]\);/)?.[0] ?? '';
+    const discardStaleBlock = sessionContextSource.match(/const discardStaleRoutine = useCallback\([\s\S]*?\n {2}\}, \[\]\);/)?.[0] ?? '';
+    expect(resumeStaleBlock).not.toBe('');
+    expect(discardStaleBlock).not.toBe('');
+    for (const block of [resumeStaleBlock, discardStaleBlock]) {
+      expect(block).not.toMatch(/journal/i);
+      expect(block).not.toMatch(/reflection/i);
+      expect(block).not.toMatch(/intention/i);
+      expect(block).not.toMatch(/supabase/i);
+    }
+  });
+
+  it('resumeStaleRoutine pins the ORIGINAL dateKey before restoring live state - this is the "retain original identity" mechanism', () => {
+    expect(sessionContextSource).toMatch(/pinRoutineDate\(sessionId, stale\.dateKey\)/);
+  });
+
+  it('resetSession/abandonSession/resetRoutine all unpin whatever routine they end, so a NEXT run saves under today\'s real date again', () => {
+    expect(sessionContextSource).toMatch(/const abandonSession = useCallback\(\(\) => \{\s*\n\s*if \(state\.sessionId\) unpinRoutineDate\(state\.sessionId\);/);
+    expect(sessionContextSource).toMatch(/const resetSession = useCallback\(\(\) => \{\s*\n\s*if \(state\.sessionId\) unpinRoutineDate\(state\.sessionId\);/);
+    expect(sessionContextSource).toMatch(/unpinRoutineDate\(sessionId\);\s*\n\s*clearRoutineProgress\(sessionId\);/);
+  });
+});
+
+describe('Completed-routine "Repeat" fix (the "Do Again does nothing" defect)', () => {
+  it('the ambiguous "Do Again" label no longer exists anywhere', () => {
+    expect(homeSource).not.toMatch(/>\s*Do Again\s*</);
+  });
+
+  it('a completed Morning routine shows "Repeat Morning Routine", a completed Evening routine shows "Repeat Evening Routine"', () => {
+    expect(homeSource).toMatch(/Repeat Morning Routine/);
+    expect(homeSource).toMatch(/Repeat Evening Routine/);
+  });
+
+  it('tapping Repeat opens the repeat dialog, scoped to that one period', () => {
+    expect(homeSource).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'morning' \}\)\}/);
+    expect(homeSource).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'evening' \}\)\}/);
+  });
+
+  it('the repeat dialog uses non-destructive confirmation copy - the previous completion is preserved, not something being discarded', () => {
+    expect(homeSource).toMatch(/title: `Repeat \$\{label\} Routine\?`/);
+    expect(homeSource).toMatch(/message: 'Your completed routine and saved reflections will remain in your history\.'/);
+    expect(homeSource).toMatch(/confirmLabel: 'Start Again'/);
+    expect(homeSource).toMatch(/destructive: false/);
+  });
+
+  it('confirming Repeat actually launches the routine (the exact defect: confirming used to do nothing) via the SAME fresh-start handler the ordinary Begin card uses', () => {
+    const match = homeSource.match(/\} else if \(kind === 'repeat'\) \{\s*\n\s*if \(period === 'morning'\) handleBeginRiseAndReset\(\);\s*\n\s*else handleBeginEveningWindDown\(\);/);
+    expect(match).not.toBeNull();
+  });
+
+  it('Repeat Morning never touches Evening\'s own sessionId, and vice versa - each dialog kind only ever resolves `sessionId` from `RITUAL_SESSION_IDS[period]`', () => {
+    expect(homeSource).toMatch(/const sessionId = RITUAL_SESSION_IDS\[period\];/);
+  });
+});
+
+describe('Same-day repeat completion — no double daily-streak credit', () => {
+  it('SessionComplete.jsx and EveningComplete.jsx both gate their completion-date write behind shouldWriteCompletionDate', () => {
+    expect(sessionCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(MORNING_DONE_KEY\), attributionDateKey\)/);
+    expect(eveningCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(EVENING_DONE_KEY\), attributionDateKey\)/);
+  });
+
+  it('both attribute completion to a pinned (original) date when one exists, falling back to "now" only when it does not', () => {
+    expect(sessionCompleteSource).toMatch(/const pinnedDateKey = getPinnedRoutineDate\(state\.sessionId\);/);
+    expect(sessionCompleteSource).toMatch(/const attributionDateKey = pinnedDateKey \?\? getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
+    expect(eveningCompleteSource).toMatch(/const pinnedDateKey = getPinnedRoutineDate\(state\.sessionId\);/);
+    expect(eveningCompleteSource).toMatch(/const attributionDateKey = pinnedDateKey \?\? getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
+  });
+
+  it('both unpin and clear that routine\'s snapshot on return home, so a resolved (stale-then-resumed) run is never re-offered as "unfinished" again', () => {
+    expect(sessionCompleteSource).toMatch(/unpinRoutineDate\(state\.sessionId\);\s*\n\s*clearRoutineProgress\(state\.sessionId\);/);
+    expect(eveningCompleteSource).toMatch(/unpinRoutineDate\(state\.sessionId\);\s*\n\s*clearRoutineProgress\(state\.sessionId\);/);
+  });
+});
+
+describe('"today\'s routine remains independently available" after a previous-day routine is completed', () => {
+  it('routineProgress.js only stamps the PINNED date (not today) while a routine is pinned, and falls back to today once unpinned', () => {
+    expect(routineProgressSource).toMatch(/dateKey: pinnedDateKey \?\? todayDateKey\(\)/);
+  });
+});

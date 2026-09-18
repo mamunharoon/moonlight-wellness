@@ -4,7 +4,9 @@ import {
   resolveRoutineCardState,
   resolveRoutineStepIndex,
   shouldShowCrossRoutineBanner,
-  shouldOfferStaleRoutineChoice
+  shouldOfferStaleRoutineChoice,
+  formatStaleRoutineDate,
+  shouldWriteCompletionDate
 } from './routineCardState';
 
 const MORNING = RITUAL_SESSION_IDS.morning;
@@ -90,19 +92,69 @@ describe('shouldShowCrossRoutineBanner', () => {
 });
 
 describe('shouldOfferStaleRoutineChoice', () => {
-  it('offers the choice only when today has no entry and a stale one exists', () => {
-    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: { isStale: true } })).toBe(true);
+  it('offers the choice only when today has no entry and a genuinely unfinished stale one exists (playing)', () => {
+    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: { isStale: true, status: 'playing' } })).toBe(true);
+  });
+
+  it('offers the choice for a stale interrupted entry too', () => {
+    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: { isStale: true, status: 'interrupted' } })).toBe(true);
   });
 
   it('never offers it once today already has its own entry', () => {
-    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: { stepIndex: 0 }, staleSnapshot: { isStale: true } })).toBe(false);
+    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: { stepIndex: 0 }, staleSnapshot: { isStale: true, status: 'playing' } })).toBe(false);
   });
 
   it('never offers it once already completed today', () => {
-    expect(shouldOfferStaleRoutineChoice({ doneToday: true, todaySnapshot: null, staleSnapshot: { isStale: true } })).toBe(false);
+    expect(shouldOfferStaleRoutineChoice({ doneToday: true, todaySnapshot: null, staleSnapshot: { isStale: true, status: 'playing' } })).toBe(false);
   });
 
   it('never offers it when there is no stale entry at all', () => {
     expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: null })).toBe(false);
+  });
+
+  it('never offers it when the stale entry already completed - a resolved outcome, not unfinished progress', () => {
+    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: { isStale: true, status: 'completed' } })).toBe(false);
+  });
+
+  it('never offers it when the stale entry was deliberately abandoned (skipped)', () => {
+    expect(shouldOfferStaleRoutineChoice({ doneToday: false, todaySnapshot: null, staleSnapshot: { isStale: true, status: 'skipped' } })).toBe(false);
+  });
+});
+
+describe('formatStaleRoutineDate', () => {
+  it('labels the exact same dateKey as today as "Today"', () => {
+    expect(formatStaleRoutineDate('2026-09-18', '2026-09-18')).toBe('Today');
+  });
+
+  it('labels one calendar day before today as "Yesterday"', () => {
+    expect(formatStaleRoutineDate('2026-09-17', '2026-09-18')).toBe('Yesterday');
+  });
+
+  it('labels anything older than yesterday with a short formatted date', () => {
+    expect(formatStaleRoutineDate('2026-09-10', '2026-09-18')).toBe('Sep 10');
+  });
+
+  it('handles a local-midnight/month boundary deterministically (pure calendar-day arithmetic, no real clock)', () => {
+    expect(formatStaleRoutineDate('2026-08-31', '2026-09-01')).toBe('Yesterday');
+    expect(formatStaleRoutineDate('2025-12-31', '2026-01-01')).toBe('Yesterday');
+  });
+
+  it('returns an empty string for missing input rather than throwing', () => {
+    expect(formatStaleRoutineDate(null, '2026-09-18')).toBe('');
+    expect(formatStaleRoutineDate('2026-09-18', null)).toBe('');
+  });
+});
+
+describe('shouldWriteCompletionDate', () => {
+  it('needs a write when nothing is stored yet', () => {
+    expect(shouldWriteCompletionDate(null, '2026-09-18')).toBe(true);
+  });
+
+  it('needs a write when today\'s date differs from what is stored', () => {
+    expect(shouldWriteCompletionDate('2026-09-17', '2026-09-18')).toBe(true);
+  });
+
+  it('is a no-op (no write) when the exact same date is already stored - the same-day-repeat / no-double-credit case', () => {
+    expect(shouldWriteCompletionDate('2026-09-18', '2026-09-18')).toBe(false);
   });
 });

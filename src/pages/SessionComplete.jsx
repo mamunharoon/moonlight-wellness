@@ -6,6 +6,10 @@ import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
+import { shouldWriteCompletionDate } from '../lib/routineCardState';
+
+const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
@@ -26,12 +30,32 @@ export const SessionComplete = () => {
   }, [state.status, currentStep, completeSession]);
 
   const handleReturnHome = () => {
-    // Global timezone correctness: "today" for completion tracking is the
-    // user's own local calendar day (getZonedParts' dateKey), not the
-    // device's toDateString() rendering - matters for a routine spanning
-    // a local midnight (started before, completed after), and keeps this
-    // write in the same YYYY-MM-DD format Home.jsx now reads it back in.
-    localStorage.setItem('moonlight_morning_completed_date', getZonedParts(effectiveTimezone, devNow()).dateKey);
+    // "Repeat Morning Routine" / "Resume Previous Routine" remediation —
+    // a session resumed from a genuinely stale (prior local day) snapshot
+    // via resumeStaleRoutine() is pinned to ITS OWN original dateKey
+    // (routineProgress.js), so completing it credits that original day,
+    // never today - "today's routine must remain independently
+    // available" afterwards, which only holds if today's own completion
+    // flag was never touched by finishing yesterday's carried-over run.
+    // An ordinary (unpinned) session - including one that happens to
+    // span a local midnight during continuous play - still credits
+    // "now", exactly as before: global timezone correctness is
+    // getZonedParts' dateKey, never device toDateString().
+    const pinnedDateKey = getPinnedRoutineDate(state.sessionId);
+    const attributionDateKey = pinnedDateKey ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
+    // Same-day-repeat / no-double-credit policy: this data model tracks
+    // daily completion as one boolean-per-day flag, not a counter or a
+    // per-session history table (see routineCardState.js's own doc
+    // comment on shouldWriteCompletionDate) - repeating Rise & Reset a
+    // second time today must not create a second "credit", so the write
+    // is skipped entirely once the flag already holds this exact value.
+    if (shouldWriteCompletionDate(localStorage.getItem(MORNING_DONE_KEY), attributionDateKey)) {
+      localStorage.setItem(MORNING_DONE_KEY, attributionDateKey);
+    }
+    if (state.sessionId) {
+      unpinRoutineDate(state.sessionId);
+      clearRoutineProgress(state.sessionId);
+    }
     setJourneyStep('');
     navigate('/');
     resetSession();

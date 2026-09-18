@@ -8,7 +8,14 @@ import {
   SESSION_STATUS,
 } from '../session/sessionReducer';
 import { loadSessionState, saveSessionState } from '../session/sessionPersistence';
-import { saveRoutineProgress, getRoutineProgress, clearRoutineProgress } from '../session/routineProgress';
+import {
+  saveRoutineProgress,
+  getRoutineProgress,
+  getRoutineProgressIncludingStale,
+  clearRoutineProgress,
+  pinRoutineDate,
+  unpinRoutineDate
+} from '../session/routineProgress';
 
 /*
  * Stage 3C — Session Engine core, provider (Ticket Group 2)
@@ -117,8 +124,22 @@ export const SessionProvider = ({ children }) => {
   }, []);
   const resumeSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.RESUME_SESSION }), []);
   const completeSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.COMPLETE_SESSION }), []);
-  const abandonSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.ABANDON_SESSION }), []);
-  const resetSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION }), []);
+  // "Resume Previous Routine" remediation — abandoning/resetting whatever
+  // is currently live also unpins its date (if any). Both are genuine
+  // endpoints for a run (deliberate exit; explicit reset/fresh-start), so
+  // a NEXT session for this same sessionId must save under today's real
+  // date again, not the old pinned one. Pinning is otherwise dormant for
+  // routines that were never resumed from a stale entry - unpinning one
+  // that was never pinned is already a safe no-op (routineProgress.js's
+  // own unpinRoutineDate).
+  const abandonSession = useCallback(() => {
+    if (state.sessionId) unpinRoutineDate(state.sessionId);
+    dispatch({ type: SESSION_ACTION_TYPES.ABANDON_SESSION });
+  }, [state.sessionId]);
+  const resetSession = useCallback(() => {
+    if (state.sessionId) unpinRoutineDate(state.sessionId);
+    dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION });
+  }, [state.sessionId]);
 
   // Build 10 remediation — resumes a SPECIFIC routine by sessionId,
   // never "whatever is currently live". If that routine is already the
@@ -167,8 +188,53 @@ export const SessionProvider = ({ children }) => {
     if (state.sessionId === sessionId) {
       dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION });
     }
+    unpinRoutineDate(sessionId);
     clearRoutineProgress(sessionId);
   }, [state.sessionId]);
+
+  // "Resume Previous Routine" remediation — resumes a routine's own
+  // STALE (prior local day) snapshot specifically, never today's. Only
+  // ever called for a sessionId that resolveRoutineCardState/
+  // shouldOfferStaleRoutineChoice has already determined has no live or
+  // today entry (otherwise the ordinary resumeRoutine path above already
+  // handles it) — still re-validated here independently rather than
+  // trusting the caller. Pins the snapshot's own original dateKey BEFORE
+  // dispatching, so the very next persistence-mirror write (this
+  // component's own useEffect below) keeps stamping that original date,
+  // not today's — this is what keeps the resumed run's identity/date
+  // "not falsely recorded as today's routine" for as long as it stays
+  // active. No-ops (returns false) if there is genuinely nothing stale
+  // and unfinished to resume for this sessionId.
+  const resumeStaleRoutine = useCallback((sessionId) => {
+    const stale = getRoutineProgressIncludingStale(sessionId);
+    const isUnfinished = stale?.status === SESSION_STATUS.PLAYING || stale?.status === SESSION_STATUS.INTERRUPTED;
+    if (!stale || !stale.isStale || !isUnfinished) return false;
+    pinRoutineDate(sessionId, stale.dateKey);
+    dispatch({
+      type: SESSION_ACTION_TYPES.RESTORE_SESSION,
+      payload: {
+        sessionId,
+        stepIndex: stale.stepIndex,
+        status: SESSION_STATUS.PLAYING,
+        startedAt: stale.startedAt,
+        updatedAt: stale.updatedAt,
+        interruptionReason: null,
+        completionEventId: null
+      }
+    });
+    return true;
+  }, []);
+
+  // "Start Today's Routine" (discarding an unfinished stale snapshot) —
+  // never touches the live reducer, since by construction a routine only
+  // ever shows the stale-choice card when it is NOT the currently-live
+  // session (see resolveRoutineCardState/shouldOfferStaleRoutineChoice).
+  // Idempotent: clearing an already-cleared/unpinned routine is a safe
+  // no-op (routineProgress.js's own clearRoutineProgress/unpinRoutineDate).
+  const discardStaleRoutine = useCallback((sessionId) => {
+    unpinRoutineDate(sessionId);
+    clearRoutineProgress(sessionId);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -193,6 +259,8 @@ export const SessionProvider = ({ children }) => {
       resetSession,
       resumeRoutine,
       resetRoutine,
+      resumeStaleRoutine,
+      discardStaleRoutine,
     }),
     [
       state,
@@ -215,6 +283,8 @@ export const SessionProvider = ({ children }) => {
       resetSession,
       resumeRoutine,
       resetRoutine,
+      resumeStaleRoutine,
+      discardStaleRoutine,
     ]
   );
 

@@ -12,8 +12,15 @@ import {
   MORNING_STEP_IDS
 } from '../session/sessionConstants';
 import { getStepIndex, getSessionById } from '../session/sessionRegistry';
-import { getRoutineProgress } from '../session/routineProgress';
-import { RITUAL_SESSION_IDS, resolveRoutineCardState, resolveRoutineStepIndex, shouldShowCrossRoutineBanner } from '../lib/routineCardState';
+import { getRoutineProgress, getRoutineProgressIncludingStale } from '../session/routineProgress';
+import {
+  RITUAL_SESSION_IDS,
+  resolveRoutineCardState,
+  resolveRoutineStepIndex,
+  shouldShowCrossRoutineBanner,
+  shouldOfferStaleRoutineChoice,
+  formatStaleRoutineDate
+} from '../lib/routineCardState';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
 import { getGreeting } from '../lib/greeting';
@@ -28,7 +35,7 @@ export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
   const { profile, user } = useAuth();
-  const { state, startSession, advanceStep, resetSession, resumeRoutine, resetRoutine } = useSession();
+  const { state, startSession, advanceStep, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
   // Global timezone correctness: every "what day/time is it for this
   // user" question below goes through getZonedParts(effectiveTimezone),
@@ -80,6 +87,28 @@ export const Home = () => {
   const morningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.morning, liveState: state, snapshot: morningSnapshotToday });
   const eveningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.evening, liveState: state, snapshot: eveningSnapshotToday });
 
+  // "Yesterday's unfinished routine" remediation — a routine can have
+  // genuinely nothing recorded for TODAY (morningCardState/
+  // eveningCardState above both correctly resolve to 'not-started') while
+  // still having a genuinely unfinished snapshot from an earlier local
+  // day sitting in routineProgress.js. shouldOfferStaleRoutineChoice is
+  // the single gate for "should the stale-choice card render instead of
+  // the ordinary Begin card" — it already excludes today's own entries,
+  // already-completed-today routines, and stale entries that were
+  // actually completed/deliberately abandoned (not genuinely unfinished).
+  const morningStaleSnapshot = getRoutineProgressIncludingStale(RITUAL_SESSION_IDS.morning);
+  const eveningStaleSnapshot = getRoutineProgressIncludingStale(RITUAL_SESSION_IDS.evening);
+  const morningHasStaleChoice = shouldOfferStaleRoutineChoice({
+    doneToday: isMorningDone,
+    todaySnapshot: morningSnapshotToday,
+    staleSnapshot: morningStaleSnapshot
+  });
+  const eveningHasStaleChoice = shouldOfferStaleRoutineChoice({
+    doneToday: isEveningDone,
+    todaySnapshot: eveningSnapshotToday,
+    staleSnapshot: eveningStaleSnapshot
+  });
+
   const resolveStepLabel = (sessionId, stepIndex) => {
     const session = getSessionById(sessionId);
     const stepId = session?.steps[stepIndex]?.id;
@@ -91,12 +120,87 @@ export const Home = () => {
     return num ? `Step ${num} of ${EVENING_DISPLAY_STEP_COUNT}` : '';
   };
 
-  // "Start Over"/"Do Again" confirmation — which routine (if any) the
-  // dialog is currently open for. null means closed.
-  const [confirmResetPeriod, setConfirmResetPeriod] = useState(null);
-  const handleConfirmReset = () => {
-    if (confirmResetPeriod) resetRoutine(RITUAL_SESSION_IDS[confirmResetPeriod]);
-    setConfirmResetPeriod(null);
+  // Completed-routine "Do Again" defect fix + stale-routine confirmation —
+  // one dialog, three distinct kinds, discriminated by `kind`:
+  //   'start-over'    — an IN-PROGRESS routine's own "Start Over" (still
+  //                      resets only that routine's active step progress).
+  //   'repeat'        — a COMPLETED routine's own "Repeat Morning/Evening
+  //                      Routine" — replaces the old, broken "Do Again"
+  //                      (which only called resetRoutine() and never
+  //                      actually launched anything). Non-destructive: the
+  //                      previous completion/reflections are preserved,
+  //                      this only starts a brand new session.
+  //   'discard-stale' — "Start Today's Routine" while a genuinely
+  //                      unfinished PRIOR-day snapshot exists for this
+  //                      routine — the one case here that is actually
+  //                      destructive (the old, unfinished snapshot is
+  //                      cleared, not archived; see discardStaleRoutine's
+  //                      own doc comment in SessionContext.jsx).
+  // null means the dialog is closed.
+  const [activeDialog, setActiveDialog] = useState(null);
+
+  const periodLabel = (period) => (period === 'morning' ? 'Morning' : 'Evening');
+
+  const dialogCopy = (() => {
+    if (!activeDialog) return null;
+    const label = periodLabel(activeDialog.period);
+    if (activeDialog.kind === 'start-over') {
+      return {
+        title: 'Start this routine again?',
+        message: 'Your current step progress will be reset. Saved history and journal entries will not be deleted.',
+        confirmLabel: 'Start Over',
+        destructive: true
+      };
+    }
+    if (activeDialog.kind === 'repeat') {
+      return {
+        title: `Repeat ${label} Routine?`,
+        message: 'Your completed routine and saved reflections will remain in your history.',
+        confirmLabel: 'Start Again',
+        destructive: false
+      };
+    }
+    return {
+      title: "Start today's routine?",
+      message: 'Your unfinished previous routine progress will be cleared.',
+      confirmLabel: "Start Today's Routine",
+      destructive: true
+    };
+  })();
+
+  const handleConfirmDialog = () => {
+    if (!activeDialog) return;
+    const { kind, period } = activeDialog;
+    const sessionId = RITUAL_SESSION_IDS[period];
+    if (kind === 'start-over') {
+      resetRoutine(sessionId);
+    } else if (kind === 'repeat') {
+      if (period === 'morning') handleBeginRiseAndReset();
+      else handleBeginEveningWindDown();
+    } else if (kind === 'discard-stale') {
+      discardStaleRoutine(sessionId);
+      if (period === 'morning') handleBeginRiseAndReset();
+      else handleBeginEveningWindDown();
+    }
+    setActiveDialog(null);
+  };
+
+  // "Resume Previous Routine" — resumes the EXACT stale snapshot (its own
+  // saved step, its own original date identity — see resumeStaleRoutine's
+  // own doc comment), then navigates straight to that same step's own
+  // route, scoped to this one sessionId only, mirroring
+  // handleMorningAction/handleEveningAction's existing pattern exactly.
+  const handleResumeStaleMorning = () => {
+    if (!resumeStaleRoutine(RITUAL_SESSION_IDS.morning)) return;
+    const session = getSessionById(RITUAL_SESSION_IDS.morning);
+    const stepIndex = morningStaleSnapshot?.stepIndex ?? 0;
+    navigate(session?.steps[stepIndex]?.route ?? '/morning-start');
+  };
+  const handleResumeStaleEvening = () => {
+    if (!resumeStaleRoutine(RITUAL_SESSION_IDS.evening)) return;
+    const session = getSessionById(RITUAL_SESSION_IDS.evening);
+    const stepIndex = eveningStaleSnapshot?.stepIndex ?? 0;
+    navigate(session?.steps[stepIndex]?.route ?? '/reflection');
   };
 
   // Derived timeState. "Before wake" is compared against the user's own
@@ -374,8 +478,10 @@ export const Home = () => {
         </div>
       )}
 
-      {/* MORNING WINDOW — not started today */}
-      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && (
+      {/* MORNING WINDOW — not started today, and no unfinished routine
+          from an earlier day either (see the stale-choice card below for
+          the other case) */}
+      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && !morningHasStaleChoice && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
@@ -395,6 +501,53 @@ export const Home = () => {
               className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
             >
               Begin Rise &amp; Reset
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MORNING WINDOW — an unfinished routine from an earlier local day
+          exists (shouldOfferStaleRoutineChoice), and nothing has been
+          recorded for TODAY yet. Never silently resumes it as today's
+          routine, deletes it, or presents it as today's own progress —
+          both explicit choices are always shown side by side. */}
+      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && morningHasStaleChoice && (
+        <div className="space-y-8">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
+            <p className="text-xs text-on-surface-variant font-medium">You have an unfinished routine waiting.</p>
+          </div>
+          <div
+            className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]"
+            role="region"
+            aria-label="Unfinished previous Rise & Reset routine"
+          >
+            <div className="space-y-1">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+                Rise &amp; Reset
+              </span>
+              <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
+                {formatStaleRoutineDate(morningStaleSnapshot?.dateKey, today)}'s Morning routine is unfinished.
+              </h3>
+              <p className="text-sm text-on-surface-variant font-medium">
+                {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResumeStaleMorning}
+              aria-label={`Resume previous Morning routine, ${resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}`}
+              className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Resume Previous Routine
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'morning' })}
+              aria-label="Start today's Morning routine and clear the unfinished previous one"
+              className="block w-full min-h-[44px] py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Start Today's Routine
             </button>
           </div>
         </div>
@@ -425,7 +578,7 @@ export const Home = () => {
             </button>
             <button
               type="button"
-              onClick={() => setConfirmResetPeriod('morning')}
+              onClick={() => setActiveDialog({ kind: 'start-over', period: 'morning' })}
               className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
             >
               Start Over
@@ -447,10 +600,10 @@ export const Home = () => {
           </div>
           <button
             type="button"
-            onClick={() => setConfirmResetPeriod('morning')}
+            onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
             className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
           >
-            Do Again
+            Repeat Morning Routine
           </button>
         </div>
       )}
@@ -475,8 +628,9 @@ export const Home = () => {
         </div>
       )}
 
-      {/* EVENING — not started today */}
-      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && (
+      {/* EVENING — not started today, and no unfinished routine from an
+          earlier day either (see the stale-choice card below) */}
+      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && !eveningHasStaleChoice && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
@@ -497,6 +651,49 @@ export const Home = () => {
             <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10">
               Sleep Soundscapes
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* EVENING — an unfinished routine from an earlier local day exists,
+          and nothing recorded for TODAY yet. Mirrors the Morning stale-
+          choice card exactly (see its own doc comment above). */}
+      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && eveningHasStaleChoice && (
+        <div className="space-y-8">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
+            <p className="text-xs text-on-surface-variant font-medium">You have an unfinished routine waiting.</p>
+          </div>
+          <div
+            className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent"
+            role="region"
+            aria-label="Unfinished previous Evening Wind-Down routine"
+          >
+            <div className="space-y-1">
+              <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
+              <h3 className="text-xl font-bold text-on-surface">
+                {formatStaleRoutineDate(eveningStaleSnapshot?.dateKey, today)}'s Evening routine is unfinished.
+              </h3>
+              <p className="text-xs text-on-surface-variant font-medium">
+                {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResumeStaleEvening}
+              aria-label={`Resume previous Evening routine, ${resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}`}
+              className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+            >
+              Resume Previous Routine
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'evening' })}
+              aria-label="Start today's Evening routine and clear the unfinished previous one"
+              className="block w-full min-h-[44px] py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+            >
+              Start Today's Routine
+            </button>
           </div>
         </div>
       )}
@@ -529,7 +726,7 @@ export const Home = () => {
             </button>
             <button
               type="button"
-              onClick={() => setConfirmResetPeriod('evening')}
+              onClick={() => setActiveDialog({ kind: 'start-over', period: 'evening' })}
               className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
             >
               Start Over
@@ -547,10 +744,10 @@ export const Home = () => {
           </div>
           <button
             type="button"
-            onClick={() => setConfirmResetPeriod('evening')}
+            onClick={() => setActiveDialog({ kind: 'repeat', period: 'evening' })}
             className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
           >
-            Do Again
+            Repeat Evening Routine
           </button>
         </div>
       )}
@@ -573,21 +770,22 @@ export const Home = () => {
         </div>
       )}
 
-      {/* "Start Over"/"Do Again" confirmation — resetRoutine(sessionId)
-          only ever touches THAT routine's own live/persisted step
-          position (see resetRoutine's own doc comment in
-          SessionContext.jsx): never the other routine's progress, never
-          journal entries/reflections/intentions/completed-session
-          history, never subscription/entitlement data. */}
+      {/* "Start Over" / "Repeat Morning/Evening Routine" / "Start Today's
+          Routine" confirmation — one dialog, driven entirely by
+          dialogCopy (see activeDialog's own doc comment above). Every
+          confirm path is scoped to exactly one routine's own sessionId:
+          never the other routine's progress, never journal entries/
+          reflections/intentions/completed-session history, never
+          subscription/entitlement data. */}
       <ConfirmDialog
-        open={confirmResetPeriod !== null}
-        title="Start this routine again?"
-        message="Your current step progress will be reset."
-        confirmLabel={confirmResetPeriod === 'morning' ? (morningCardState === 'completed' ? 'Do Again' : 'Start Over') : (eveningCardState === 'completed' ? 'Do Again' : 'Start Over')}
+        open={activeDialog !== null}
+        title={dialogCopy?.title ?? ''}
+        message={dialogCopy?.message ?? ''}
+        confirmLabel={dialogCopy?.confirmLabel ?? 'Confirm'}
         cancelLabel="Cancel"
-        destructive
-        onConfirm={handleConfirmReset}
-        onDismiss={() => setConfirmResetPeriod(null)}
+        destructive={dialogCopy?.destructive ?? false}
+        onConfirm={handleConfirmDialog}
+        onDismiss={() => setActiveDialog(null)}
       />
     </div>
   );
