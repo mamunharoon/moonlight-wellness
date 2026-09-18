@@ -78,8 +78,17 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
 
   return (
     <div className="space-y-6 w-full">
+      {/* Evening colour-contrast fix: the counter was /60 and the
+          placeholder /40 - both blend toward whatever's behind them, a
+          real WCAG AA failure against the evening gradient's light bands
+          even with Gradient.jsx's strengthened scrim (manually verified:
+          on-surface-variant at 40-60% opacity there measures ~2-3:1, well
+          under the 4.5:1 normal-text floor). This component is only ever
+          used by Reflection.jsx/Gratitude.jsx (both evening), so both are
+          fixed unconditionally to full-opacity on-surface-variant rather
+          than needing a session check like ProgressIndicator's. */}
       <div className="text-center space-y-1">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant/60 font-bold">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant font-bold">
           {activeIndex + 1} of {prompts.length}
         </p>
         <h2 className="font-serif italic text-2xl text-on-surface">{activePrompt.label}</h2>
@@ -90,14 +99,14 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
         onChange={(e) => handleValueChange(e.target.value)}
         placeholder={activePrompt.placeholder ?? ''}
         rows={4}
-        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
+        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
       />
 
       <div className="flex gap-3">
         {!isFirst && (
           <button
             onClick={goPrevious}
-            className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+            className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 !border-white/40"
           >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             <span>Previous</span>
@@ -114,7 +123,7 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
 
       <button
         onClick={handleSkip}
-        className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
       >
         Skip
       </button>

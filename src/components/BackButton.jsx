@@ -29,8 +29,19 @@ import { ConfirmDialog } from './ConfirmDialog';
  * effect reads), pressing back shows a confirmation first rather than
  * silently leaving progress behind. Ordinary browsing screens (anything
  * that isn't itself the active step) never see this dialog.
+ *
+ * confirmTitle/confirmMessage let a caller override that confirmation's
+ * exact wording (e.g. EveningSceneShell's "Leave evening routine? Your
+ * unsaved progress may be lost.") — optional, defaulting to the original
+ * generic copy so every existing caller is unaffected.
  */
-export const BackButton = ({ fallback = '/', label = 'Go back', className = '' }) => {
+export const BackButton = ({
+  fallback = '/',
+  label = 'Go back',
+  className = '',
+  confirmTitle = 'Leave this routine?',
+  confirmMessage = 'Your current progress may be paused.'
+}) => {
   const location = useLocation();
   const { goBack } = useNavigationHistory();
   const { activeRoute, leaveActiveRoutine } = useActiveRoutineStep();
@@ -65,8 +76,8 @@ export const BackButton = ({ fallback = '/', label = 'Go back', className = '' }
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Leave this routine?"
-        message="Your current progress may be paused."
+        title={confirmTitle}
+        message={confirmMessage}
         confirmLabel="Leave routine"
         cancelLabel="Stay"
         destructive

@@ -115,9 +115,25 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID }
   const steps = getVisibleStepIds(sessionId).map((id) => ({ key: id, label: STEP_LABELS[id] ?? id }));
 
   const activeIndex = steps.findIndex(step => step.key === activeStep);
+  // Evening colour-contrast fix: the original /40, /30, /20 low-opacity
+  // treatments blend toward whatever's behind them - fine against this
+  // app's normal near-black background (huge contrast margin regardless
+  // of opacity), but a real WCAG AA failure against the evening/dusk
+  // gradient's light peach/ember/lavender bands even after Gradient.jsx's
+  // own strengthened scrim (manually verified: on-surface-variant at 40%
+  // opacity there measures ~2:1, well under the 4.5:1 normal-text floor).
+  // Fixed with full-opacity, non-fragile tokens for the evening session
+  // specifically - morning's own indicator (the far more common case) is
+  // deliberately left byte-for-byte unchanged, since it never had this
+  // problem (its background is always the app's plain dark surface).
+  const isEvening = sessionId === EVENING_SESSION_ID;
 
   return (
-    <div className="w-full flex justify-between items-center px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[10px] uppercase tracking-wider font-semibold text-on-surface-variant/40">
+    <div
+      className={`w-full flex justify-between items-center px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[10px] uppercase tracking-wider font-semibold ${
+        isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/40'
+      }`}
+    >
       {steps.map((step, idx) => {
         const isCompleted = idx < activeIndex;
         const isActive = idx === activeIndex;
@@ -128,12 +144,14 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID }
               isActive
                 ? 'text-primary font-bold scale-105'
                 : isCompleted
-                ? 'text-secondary'
-                : 'text-on-surface-variant/30'
+                ? (isEvening ? 'text-on-surface' : 'text-secondary')
+                : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')
             }`}>
               {isCompleted ? '✓' : ''} {step.label}
             </span>
-            {idx < steps.length - 1 && <span className="text-on-surface-variant/20 mx-0.5">·</span>}
+            {idx < steps.length - 1 && (
+              <span className={isEvening ? 'text-on-surface-variant/70 mx-0.5' : 'text-on-surface-variant/20 mx-0.5'}>·</span>
+            )}
           </div>
         );
       })}

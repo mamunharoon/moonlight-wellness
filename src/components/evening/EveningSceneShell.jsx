@@ -48,6 +48,21 @@ import { BackButton } from '../BackButton';
  * without explicit inset handling). Opt-in (default false) since a few
  * callers (Support.jsx) manage their own back control inline instead —
  * see each page's own comments for why.
+ *
+ * Evening colour-contrast fix: BackButton's default `glass-panel`
+ * treatment (5% white background, 12% white border) is tuned for the
+ * app's normal near-black background, where it already reads clearly.
+ * The evening/dusk gradient (Gradient.jsx's PHASE_GRADIENTS) passes
+ * through a genuinely light peach/ember band and (in Moonlight) a light
+ * blue-lavender band — against those, a 5%-white panel is nearly
+ * invisible ("too faint"). `!bg-black/55 !border-white/40` overrides it
+ * with a dark, opaque panel and a clearly visible light border,
+ * regardless of which part of the gradient sits behind it — the `!`
+ * (Tailwind important) prefix is required here since glass-panel is a
+ * plain CSS class (not a Tailwind utility) with equal-or-higher
+ * cascade precedence than an appended utility class of the same
+ * specificity would otherwise have. confirmTitle/confirmMessage give
+ * the "leave routine" confirmation evening-specific wording.
  */
 export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
@@ -67,7 +82,12 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
           className="absolute left-6 z-20"
           style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
         >
-          <BackButton fallback={backFallback} />
+          <BackButton
+            fallback={backFallback}
+            confirmTitle="Leave evening routine?"
+            confirmMessage="Your unsaved progress may be lost."
+            className="!bg-black/55 !border-white/40"
+          />
         </div>
       )}
 

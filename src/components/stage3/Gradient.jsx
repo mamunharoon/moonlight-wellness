@@ -146,10 +146,24 @@ export const Gradient = ({ phase: phaseOverride, className = '', children }) => 
           />
         ))}
         {/* Legibility scrim, not an atmospheric layer — keeps overlaid
-            text at adequate contrast regardless of which phase is active. */}
+            text at adequate contrast regardless of which phase is active.
+            Evening colour-contrast fix: the original 0.05-0.22 scrim was
+            nowhere near enough over the Dusk phase's light peach/ember
+            band (--stage3-dawn #F2A785, --stage3-ember #E08A4F) or
+            Moonlight's light blue-lavender band (--stage3-moonlight-dim
+            #7C87B8) — this app's light-on-dark text tokens (on-surface,
+            on-surface-variant) need a genuinely dark backdrop to reach
+            WCAG AA (4.5:1) there. 0.55-0.65 verified (manual sRGB/WCAG
+            relative-luminance calculation) to hold 4.5:1+ for both
+            on-surface and on-surface-variant against the lightest
+            measured point of every phase, not just the darkest. Flat-ish
+            (not the original's much lighter top stop) so contrast is
+            stable regardless of where content sits, not merely "usually
+            enough" — see docs/evening-flow-contrast-fix.md for the full
+            calculation. */}
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.22))' }}
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.65))' }}
         />
       </div>
 

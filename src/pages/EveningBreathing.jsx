@@ -105,7 +105,7 @@ export const EveningBreathing = () => {
         </button>
         <button
           onClick={handleAdvance}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
         >
           Skip
         </button>
