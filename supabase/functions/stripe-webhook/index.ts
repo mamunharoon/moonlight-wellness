@@ -16,9 +16,11 @@ import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
 import {
   mapStripeStatus,
-  knownPlusPriceIds,
   mapRefundOrDisputeEventToStatus,
-  NON_TERMINAL_LEDGER_STATUSES
+  NON_TERMINAL_LEDGER_STATUSES,
+  stripeSubscriptionIdentityMismatch,
+  checkoutSessionAdmissionFailureReason,
+  refundOrDisputeQuarantineReason
 } from '../_shared/planMapping.ts';
 import { buildStripeLedgerFields, upsertStripeLedgerRow } from '../_shared/providerLedger.ts';
 
@@ -76,10 +78,11 @@ const writeProjectionFromLedgerFields = async (supabaseAdmin, fields) => {
   if (error) throw error;
 };
 
-// Duplicate-Subscription Remediation — the corrected replacement for the
-// old applySubscriptionState's unconditional upsert. Every subscription-
-// lifecycle event first writes the ledger unconditionally (above), then
-// decides whether the effective projection may change:
+// Duplicate-Subscription Remediation — every subscription-lifecycle event
+// first writes the ledger unconditionally (safe by construction: keyed on
+// (provider, stripe_subscription_id), so it can never touch a different
+// subscription's row), then decides whether the effective projection may
+// change:
 //
 //   1. If this event is about the subscription the projection ALREADY
 //      tracks, update it normally — the ordinary lifecycle path
@@ -91,16 +94,20 @@ const writeProjectionFromLedgerFields = async (supabaseAdmin, fields) => {
 //        previously-tracked subscription having just gone terminal with
 //        this being the sole survivor).
 //      - More than one: a genuine conflict between real Stripe
-//        subscriptions (exactly the historical $50/year + $7.99/month
-//        situation this remediation exists to handle). The ledger keeps
-//        recording the full truth; the projection is deliberately left
-//        untouched and the conflict is logged rather than guessed at.
+//        subscriptions. The ledger keeps recording the full truth; the
+//        projection is deliberately left untouched and the conflict is
+//        logged rather than guessed at.
 //
 // This is what makes "an event for subscription A can never cancel or
 // overwrite the row currently tracking subscription B" true regardless of
 // which order checkout.session.completed / customer.subscription.* events
 // arrive in for the same new subscription — everything is keyed off
 // stripe_subscription_id, never off event type or arrival order.
+//
+// Callers are responsible for proving trust BEFORE calling this — see
+// checkoutSessionAdmissionFailureReason (checkout.session.completed) and
+// the known-subscription-only gate (customer.subscription.updated/deleted)
+// below. This function itself performs no admission decision.
 const updateLedgerAndProjection = async (supabaseAdmin, userId, stripeSubscription, customerId, environment) => {
   const eventFields = buildStripeLedgerFields(userId, stripeSubscription, customerId);
   await upsertStripeLedgerRow(supabaseAdmin, eventFields, environment);
@@ -145,11 +152,10 @@ const updateLedgerAndProjection = async (supabaseAdmin, userId, stripeSubscripti
 // Duplicate-Subscription Remediation — marks the checkout_attempts row
 // that produced this session as consumed. checkout_attempt_id travels
 // through server-set (not client-writable) Checkout Session metadata —
-// see create-checkout-session/index.ts. The user_id match is defense in
-// depth against any mismatch, not the primary trust boundary (metadata is
-// already trustworthy). A miss here (no metadata, mismatch, already
-// terminal) is logged but never blocks the real subscription-state
-// processing above, which has already completed by the time this runs.
+// see create-checkout-session/index.ts. By the time this is called, the
+// full admission chain (checkoutSessionAdmissionFailureReason) has already
+// verified this attempt genuinely belongs to this session/user, so the
+// user_id match here is defense in depth, not the primary trust boundary.
 // Idempotent under webhook retries: the status filter makes a repeat
 // update a harmless no-op.
 const consumeCheckoutAttempt = async (supabaseAdmin, userId, checkoutAttemptId) => {
@@ -173,16 +179,20 @@ const consumeCheckoutAttempt = async (supabaseAdmin, userId, checkoutAttemptId) 
 
 // Duplicate-Subscription Remediation — releases an attempt whose Stripe
 // Checkout Session expired without completion, so the user is free to
-// start a new one. Only transitions out of 'open' — a session that
-// somehow expires after already being marked consumed (should not
-// happen, since Stripe never sends both for the same session) is left
-// alone rather than regressed.
-const releaseExpiredCheckoutAttempt = async (supabaseAdmin, checkoutAttemptId) => {
+// start a new one. Legacy-Price Webhook Remediation added the session id
+// match: an expired-session event may only release the specific attempt
+// it actually belongs to, never merely "whatever attempt this id points
+// at" — identity, not just presence of an id, is what's trusted. Only
+// transitions out of 'open' — a session that somehow expires after
+// already being marked consumed (should not happen, since Stripe never
+// sends both for the same session) is left alone rather than regressed.
+const releaseExpiredCheckoutAttempt = async (supabaseAdmin, checkoutAttemptId, sessionId) => {
   if (!checkoutAttemptId) return;
   const { error } = await supabaseAdmin
     .from('checkout_attempts')
     .update({ status: 'expired', updated_at: new Date().toISOString() })
     .eq('id', checkoutAttemptId)
+    .eq('stripe_checkout_session_id', sessionId)
     .eq('status', 'open');
 
   if (error) {
@@ -210,17 +220,25 @@ const recordTrialUsageIfStarted = async (supabaseAdmin, userId, mappedStatus) =>
   }
 };
 
-// Phase D: the confirmed missing refund/dispute handling. A minimal,
-// targeted UPDATE (not the full applySubscriptionState upsert above,
-// which needs a real Stripe Subscription object) — a charge/dispute
-// event only ever changes `status` on an existing row, never any other
-// field, and never creates a row that doesn't already exist (a refund or
-// dispute is inherently for a charge that already succeeded and was
-// already written by an earlier checkout.session.completed/
-// customer.subscription.updated event).
-const applyRefundOrDisputeStatus = async (supabaseAdmin, userId, status) => {
-  const { error } = await supabaseAdmin.from('subscriptions').update({ status }).eq('user_id', userId);
-  if (error) throw error;
+// Legacy-Price Webhook Remediation — resolves the EXACT Stripe
+// subscription a charge belongs to, via its invoice (a charge billed
+// through subscription billing always carries an invoice id; the invoice
+// itself carries the subscription id). A charge with no invoice is not
+// subscription-related at all. Deliberately never falls back to "the
+// customer's other subscription" — that fallback is exactly what let a
+// refund for one subscription risk touching an unrelated subscription
+// merely because both belonged to the same customer.
+const resolveSubscriptionIdForCharge = async (stripe, charge) => {
+  if (!charge?.invoice) return null;
+  const invoiceId = typeof charge.invoice === 'string' ? charge.invoice : charge.invoice.id;
+  try {
+    const invoice = await stripe.invoices.retrieve(invoiceId);
+    if (!invoice.subscription) return null;
+    return typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription.id;
+  } catch (retrieveError) {
+    console.error('stripe-webhook: failed to retrieve invoice for charge', retrieveError.message);
+    return null;
+  }
 };
 
 Deno.serve(async (req) => {
@@ -254,13 +272,21 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid signature' }, 400);
   }
 
-  const supabaseAdmin = createSupabaseAdminClient();
-  // Duplicate-Subscription Remediation — derived from the verified
-  // event itself (event.livemode), never hardcoded or assumed from which
-  // project this function is deployed to, mirroring how the Apple
-  // functions derive 'sandbox'/'production' from Apple's own verified
-  // environment field rather than guessing.
+  // Duplicate-Subscription Remediation — derived from the verified event
+  // itself (event.livemode), never hardcoded or assumed from which
+  // project this function is deployed to.
   const environment = event.livemode ? 'production' : 'sandbox';
+
+  // Legacy-Price Webhook Remediation — a global, event-independent
+  // guard: this endpoint is configured for DEV/Sandbox only, so a
+  // genuinely livemode event arriving here is a misconfiguration signal,
+  // never something to process. Checked before idempotency/DB access.
+  if (event.livemode) {
+    console.error('stripe-webhook: rejected a livemode event on the DEV/sandbox-only endpoint', event.id);
+    return json({ received: true, quarantined: true });
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
 
   // Idempotency: a redelivered event id is a safe no-op. Checked before
   // any processing, recorded only after processing succeeds below — a
@@ -285,27 +311,66 @@ Deno.serve(async (req) => {
         // Only subscription-mode checkouts are this app's concern —
         // Stage 3A never creates one-off payment sessions.
         if (session.mode === 'subscription' && session.subscription) {
-          const userId = await resolveUserId(supabaseAdmin, {
+          const resolvedUserId = await resolveUserId(supabaseAdmin, {
             metadataUserId: session.metadata?.supabase_user_id,
             customerId: session.customer
           });
 
-          if (!userId) {
-            console.error('checkout.session.completed: could not resolve a Solas user for session', session.id);
+          const checkoutAttemptId = session.metadata?.checkout_attempt_id ?? null;
+          let attempt = null;
+          if (checkoutAttemptId) {
+            const { data: attemptRow } = await supabaseAdmin
+              .from('checkout_attempts')
+              .select('id, user_id, stripe_checkout_session_id, expected_stripe_price_id')
+              .eq('id', checkoutAttemptId)
+              .maybeSingle();
+            attempt = attemptRow ?? null;
+          }
+
+          let stripeSubscription = null;
+          try {
+            stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+          } catch (retrieveError) {
+            console.error('checkout.session.completed: failed to retrieve subscription', retrieveError.message);
+          }
+          const priceId = stripeSubscription?.items?.data?.[0]?.price?.id ?? null;
+
+          let storedCustomerId = null;
+          if (resolvedUserId) {
+            const { data: existingRow } = await supabaseAdmin
+              .from('subscriptions')
+              .select('stripe_customer_id')
+              .eq('user_id', resolvedUserId)
+              .maybeSingle();
+            storedCustomerId = existingRow?.stripe_customer_id ?? null;
+          }
+
+          // Legacy-Price Webhook Remediation — the full admission chain.
+          // Every reason a brand-new subscription must be refused is
+          // checked here in one place (see planMapping.ts for the exact
+          // rules); critically, the price check compares against THIS
+          // attempt's own immutable expected_stripe_price_id (recorded at
+          // session-creation time), never the live current
+          // STRIPE_PRICE_PLUS_* secrets — so a rotation between session
+          // creation and completion can never break a legitimate checkout.
+          const failureReason = checkoutSessionAdmissionFailureReason({
+            isLivemode: event.livemode,
+            resolvedUserId,
+            attempt,
+            session,
+            stripeSubscription,
+            priceId,
+            storedCustomerId
+          });
+
+          if (failureReason) {
+            console.error('checkout.session.completed: admission refused', failureReason, session.id);
             break;
           }
 
-          const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
-          const priceId = stripeSubscription.items?.data?.[0]?.price?.id ?? null;
-
-          if (!priceId || !knownPlusPriceIds().includes(priceId)) {
-            console.warn('checkout.session.completed: subscription price is not a known Solas Plus price, skipping', priceId);
-            break;
-          }
-
-          await updateLedgerAndProjection(supabaseAdmin, userId, stripeSubscription, session.customer, environment);
-          await recordTrialUsageIfStarted(supabaseAdmin, userId, mapStripeStatus(stripeSubscription.status));
-          await consumeCheckoutAttempt(supabaseAdmin, userId, session.metadata?.checkout_attempt_id);
+          await updateLedgerAndProjection(supabaseAdmin, resolvedUserId, stripeSubscription, session.customer, environment);
+          await recordTrialUsageIfStarted(supabaseAdmin, resolvedUserId, mapStripeStatus(stripeSubscription.status));
+          await consumeCheckoutAttempt(supabaseAdmin, resolvedUserId, checkoutAttemptId);
         }
         break;
       }
@@ -317,13 +382,19 @@ Deno.serve(async (req) => {
       // expired session never became a subscription.
       case 'checkout.session.expired': {
         const session = event.data.object;
-        await releaseExpiredCheckoutAttempt(supabaseAdmin, session.metadata?.checkout_attempt_id);
+        await releaseExpiredCheckoutAttempt(supabaseAdmin, session.metadata?.checkout_attempt_id, session.id);
         break;
       }
 
+      // Legacy-Price Webhook Remediation — a refund/dispute may only ever
+      // affect the ONE subscription it is unambiguously for, resolved via
+      // the charge's own invoice -> subscription relationship, never
+      // "some subscription belonging to the same customer." Price is
+      // irrelevant here (it never was checked) — what matters is that the
+      // resolved subscription is already a known, admitted one.
       case 'charge.refunded':
       case 'charge.dispute.created': {
-        const charge = event.data.object;
+        const eventObject = event.data.object;
         const status = mapRefundOrDisputeEventToStatus(event.type);
         if (!status) {
           // Cannot happen for these two literal case labels, but never
@@ -332,38 +403,114 @@ Deno.serve(async (req) => {
           break;
         }
 
-        const userId = await resolveUserId(supabaseAdmin, { customerId: charge.customer });
-        if (!userId) {
-          console.error(`${event.type}: could not resolve a WakeWise user for charge`, charge.id);
+        let charge = eventObject;
+        if (event.type === 'charge.dispute.created') {
+          // A Dispute object carries the charge id, not the charge itself.
+          const chargeId = typeof eventObject.charge === 'string' ? eventObject.charge : eventObject.charge?.id;
+          if (!chargeId) {
+            console.warn('charge.dispute.created: dispute has no linked charge, quarantined');
+            break;
+          }
+          try {
+            charge = await stripe.charges.retrieve(chargeId);
+          } catch (retrieveError) {
+            console.error('charge.dispute.created: failed to retrieve charge', retrieveError.message);
+            break;
+          }
+        }
+
+        const subscriptionId = await resolveSubscriptionIdForCharge(stripe, charge);
+
+        let ledgerRow = null;
+        if (subscriptionId) {
+          const { data } = await supabaseAdmin
+            .from('provider_subscriptions')
+            .select('*')
+            .eq('provider', 'stripe')
+            .eq('stripe_subscription_id', subscriptionId)
+            .maybeSingle();
+          ledgerRow = data ?? null;
+        }
+
+        const quarantineReason = refundOrDisputeQuarantineReason(subscriptionId, ledgerRow, {
+          customerId: charge.customer,
+          environment
+        });
+
+        if (quarantineReason) {
+          console.warn(`${event.type}: quarantined (${quarantineReason})`, subscriptionId ?? charge.id);
           break;
         }
 
-        await applyRefundOrDisputeStatus(supabaseAdmin, userId, status);
+        const { error: ledgerUpdateError } = await supabaseAdmin
+          .from('provider_subscriptions')
+          .update({ status, last_verified_at: new Date().toISOString() })
+          .eq('id', ledgerRow.id);
+        if (ledgerUpdateError) throw ledgerUpdateError;
+
+        const { data: currentProjection, error: projectionFetchError } = await supabaseAdmin
+          .from('subscriptions')
+          .select('stripe_subscription_id')
+          .eq('user_id', ledgerRow.user_id)
+          .maybeSingle();
+        if (projectionFetchError) throw projectionFetchError;
+
+        // Update the projection only if it's currently tracking THIS exact
+        // subscription — a refund/dispute for subscription A must never
+        // touch a projection currently tracking a different subscription B,
+        // even for the same user.
+        if (currentProjection?.stripe_subscription_id === subscriptionId) {
+          const { error: projectionUpdateError } = await supabaseAdmin
+            .from('subscriptions')
+            .update({ status })
+            .eq('user_id', ledgerRow.user_id);
+          if (projectionUpdateError) throw projectionUpdateError;
+        }
         break;
       }
 
+      // Legacy-Price Webhook Remediation — the core fix. A lifecycle event
+      // for a subscription already present in the ledger is trusted by
+      // SUBSCRIPTION IDENTITY alone, forever, regardless of its (possibly
+      // long-retired) price — price is never consulted again once a
+      // subscription has been admitted. An event for a subscription this
+      // app has never seen is always quarantined, even on a current price:
+      // only checkout.session.completed's attempt-linked chain may admit a
+      // brand-new subscription.
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const stripeSubscription = event.data.object;
-        const priceId = stripeSubscription.items?.data?.[0]?.price?.id ?? null;
 
-        if (!priceId || !knownPlusPriceIds().includes(priceId)) {
-          console.warn(`${event.type}: subscription price is not a known Solas Plus price, skipping`, priceId);
+        const { data: ledgerRow, error: ledgerFetchError } = await supabaseAdmin
+          .from('provider_subscriptions')
+          .select('*')
+          .eq('provider', 'stripe')
+          .eq('stripe_subscription_id', stripeSubscription.id)
+          .maybeSingle();
+        if (ledgerFetchError) throw ledgerFetchError;
+
+        if (!ledgerRow) {
+          console.warn(`${event.type}: unknown subscription, quarantined for reconciliation`, stripeSubscription.id);
           break;
         }
 
-        const userId = await resolveUserId(supabaseAdmin, {
-          metadataUserId: stripeSubscription.metadata?.supabase_user_id,
-          subscriptionId: stripeSubscription.id,
-          customerId: stripeSubscription.customer
+        // Established user binding comes from the ledger row itself, not
+        // re-resolved from this event — see planMapping.ts's
+        // stripeSubscriptionIdentityMismatch: absent metadata never
+        // invalidates an otherwise-matching known subscription, but a
+        // metadata value that IS present and disagrees does.
+        const mismatch = stripeSubscriptionIdentityMismatch(ledgerRow, {
+          userId: stripeSubscription.metadata?.supabase_user_id ?? null,
+          customerId: stripeSubscription.customer,
+          environment
         });
 
-        if (!userId) {
-          console.error(`${event.type}: could not resolve a Solas user for subscription`, stripeSubscription.id);
+        if (mismatch) {
+          console.error(`${event.type}: identity mismatch (${mismatch}) for known subscription, quarantined`, stripeSubscription.id);
           break;
         }
 
-        await updateLedgerAndProjection(supabaseAdmin, userId, stripeSubscription, stripeSubscription.customer, environment);
+        await updateLedgerAndProjection(supabaseAdmin, ledgerRow.user_id, stripeSubscription, stripeSubscription.customer, environment);
         break;
       }
 

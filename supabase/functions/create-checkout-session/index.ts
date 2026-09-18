@@ -178,6 +178,14 @@ const performCheckout = async (supabaseAdmin, stripe, user, attemptId, priceId, 
         stripe_checkout_session_id: session.id,
         checkout_url: session.url,
         stripe_expires_at: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+        // Legacy-Price Webhook Remediation — the immutable, server-
+        // resolved price this session was actually created with (never
+        // the client's raw request). Recorded atomically with the rest of
+        // this row's session data so stripe-webhook can admit
+        // checkout.session.completed by comparing against THIS value,
+        // never the live current STRIPE_PRICE_PLUS_* secrets — a
+        // rotation after this point can never invalidate this checkout.
+        expected_stripe_price_id: priceId,
         updated_at: new Date().toISOString()
       })
       .eq('id', attemptId)
