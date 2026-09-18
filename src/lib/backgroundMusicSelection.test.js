@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isMusicEligibleEntry, resolvePlaybackId, shouldShowMusicToggle } from './backgroundMusicSelection';
+import { isMusicEligibleEntry, resolvePlaybackId, shouldShowMusicToggle, isInteractiveMusicEligible } from './backgroundMusicSelection';
 
 describe('isMusicEligibleEntry', () => {
   it('excludes every Sleep Soundscape id (SL prefix), regardless of whether `category` is present', () => {
@@ -81,5 +81,31 @@ describe('shouldShowMusicToggle', () => {
 
   it('is true only when the flag is on, the entry is eligible, and a variant id is present', () => {
     expect(shouldShowMusicToggle({ entry: { id: 'E02', category: 'Calm & Support', musicVariantId: 'E02-MUSIC' }, featureEnabled: true })).toBe(true);
+  });
+});
+
+describe('isInteractiveMusicEligible (Evening Breathing / Quiet Breathing - no narration to fall back to)', () => {
+  const registry = { IB01: { id: 'IB01', storagePath: 'exercises/fake-loop.mp4' } };
+  const getEntryById = (id) => registry[id];
+
+  it('is false when the feature flag is off, even with a registered id', () => {
+    expect(isInteractiveMusicEligible({ musicVariantId: 'IB01', featureEnabled: false, getEntryById })).toBe(false);
+  });
+
+  it('is false when no musicVariantId is provided at all (today\'s real state for every interactive breathing screen)', () => {
+    expect(isInteractiveMusicEligible({ musicVariantId: null, featureEnabled: true, getEntryById })).toBe(false);
+    expect(isInteractiveMusicEligible({ musicVariantId: undefined, featureEnabled: true, getEntryById })).toBe(false);
+  });
+
+  it('is false when musicVariantId is set but not actually registered in the manifest', () => {
+    expect(isInteractiveMusicEligible({ musicVariantId: 'IB99-NOT-REGISTERED', featureEnabled: true, getEntryById })).toBe(false);
+  });
+
+  it('is true only when the flag is on AND the id resolves to a real registered entry', () => {
+    expect(isInteractiveMusicEligible({ musicVariantId: 'IB01', featureEnabled: true, getEntryById })).toBe(true);
+  });
+
+  it('never throws when getEntryById is missing', () => {
+    expect(isInteractiveMusicEligible({ musicVariantId: 'IB01', featureEnabled: true })).toBe(false);
   });
 });

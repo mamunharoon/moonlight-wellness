@@ -31,7 +31,7 @@ This audit covers the one *live, playable* media catalogue: `src/lib/betaVideoMa
 
 **Morning/Evening breathing *stages* specifically (as asked for by name):**
 - **Morning** breathing stage = `/breathe` (`Breathe.jsx`) → uses `E08`, `E28`, `B01`–`B05` (all in scope below, Breathing category).
-- **Evening** breathing stage = `/evening-breathing` (`EveningBreathing.jsx`) → **has no existing video/narration asset of any kind** — confirmed by source inspection (no `useProtectedVideo`, no `BetaVideoModal` import; it's a pure animated breathing-ring timer, same as `QuietBreathing.jsx`). There is nothing to remix a music bed into and nothing to fall back to either — **not eligible, not applicable**, not a gap this phase can close (would require commissioning an entirely new narrated asset, out of scope for a music-only phase).
+- **Evening** breathing stage = `/evening-breathing` (`EveningBreathing.jsx`) and the structurally-identical `/quiet-breathing` (`QuietBreathing.jsx`) → confirmed by source inspection to have **no narration of any kind** (no `useProtectedVideo`, no `BetaVideoModal` import; both are pure animated breathing-ring timers). There is nothing to remix a music bed *into* — so instead of the pre-mixed `-MUSIC` variant pattern used everywhere else in this table, these two screens now share one dedicated ambient-loop asset and player (`InteractiveBreathingMusic.jsx`, reserved catalogue id `IB01`). Not part of the 65-id pre-mixed inventory in §3, because it's a standalone loop, not a remix of an existing narrated file — see §6 for its concrete production spec.
 
 ---
 
@@ -146,9 +146,9 @@ All proposed variants land in the same bucket/folder as everything else: **`exer
 | SL07 | Pink Noise | `WW_SL07_PinkNoise_v1.mp4.mp4` | **Never** |
 | SL08 | Brown Noise | `WW_SL08_BrownNoise_v1.mp4.mp4` | **Never** |
 
-### Evening Breathing stage — no asset exists to remix
+### Evening Breathing / Quiet Breathing — standalone loop, not a `-MUSIC` remix
 
-`/evening-breathing` (`EveningBreathing.jsx`) has no video/narration file at all today (pure animated timer). Not included above; nothing to produce for this phase.
+`/evening-breathing` (`EveningBreathing.jsx`) and `/quiet-breathing` (`QuietBreathing.jsx`) have no video/narration file to remix — pure animated timers, confirmed by source inspection. As of this phase they have a real, feature-flagged, shared interactive-breathing music player (`InteractiveBreathingMusic.jsx`) reserving catalogue id `IB01`. Not included in the 65-id table above because it isn't a remix of an existing file — see §6 for the concrete production spec for that one loop.
 
 ---
 
@@ -172,20 +172,48 @@ All proposed variants land in the same bucket/folder as everything else: **`exer
 ## 5. Engineering completion vs. asset/content completion — the explicit line
 
 **Shipped and fully tested this phase (engineering complete):**
-- `src/lib/backgroundMusicSelection.js` — `isMusicEligibleEntry`, `resolvePlaybackId`, `shouldShowMusicToggle`: pure, unit-tested selection/fallback logic. Excludes Sleep Soundscapes unconditionally (id-prefix guard, not just a `category` check — safe even for `Beta.jsx`'s raw-manifest entries, which lack a `category` field entirely).
+- `src/lib/backgroundMusicSelection.js` — `isMusicEligibleEntry`, `resolvePlaybackId`, `shouldShowMusicToggle`: pure, unit-tested selection/fallback logic for narrated exercises. Excludes Sleep Soundscapes unconditionally (id-prefix guard, not just a `category` check — safe even for `Beta.jsx`'s raw-manifest entries, which lack a `category` field entirely).
 - `src/lib/featureFlags.js` — new `backgroundMusic` flag, defaulting **off**, independent of the user's own saved preference.
 - `src/components/BetaVideoModal.jsx` — resolves `playbackId` once (before the signed-URL fetch, never mid-playback), shows an in-player "Music" toggle only pre-playback and only when the flag is on AND a real, registered `musicVariantId` exists for that entry. Falls back to the existing narration id whenever any single condition fails.
 - `src/lib/musicPreference.js` (already shipped in the prior phase) — persisted, localStorage-backed, defaults off.
+- **Phase C (this phase):** `isInteractiveMusicEligible()` (same file) — the equivalent eligibility check for screens with no narration to fall back to. `src/components/InteractiveBreathingMusic.jsx` (new) — the single dedicated `<audio>` element for `EveningBreathing.jsx` and `QuietBreathing.jsx`: defaults off, shares the same persisted preference key, starts only from a genuine toggle tap, low default volume, native looping, full teardown on every exit path (Skip, Continue, Back, route change, stage change, sign-out, unmount), a duplicate-tap/remount guard, and a silent, unobtrusive fallback on load/playback failure. Confirmed this phase (not assumed) that `Breathe.jsx` already has narration and correctly does **not** get this player, and that `MorningFlow.jsx` has no breathing cycle at all.
 
 **Not shipped, and cannot be until real assets exist (content/asset completion, not engineering):**
 - No `musicVariantId` is set on any of the 65 real manifest entries. The toggle is therefore **structurally unable to render for any real user today**, regardless of the feature flag — this is intentional, not an oversight.
 - No `-MUSIC` file exists in Storage for any id.
+- No `IB01` (or any interactive-breathing) catalogue entry exists either — `InteractiveBreathingMusic.jsx` is therefore also structurally unable to render its toggle for any real user today, for the same reason.
 - No Edge Function change — `supabase/functions/get-beta-video-url`'s `EXERCISE_PATHS` map is untouched. Nothing in this phase touches Supabase in any way.
 
-**To actually turn a produced asset on, once it exists** (unchanged from the prior spec doc's own §4, restated for clarity):
-1. Upload the finished `-MUSIC` file per §4 above.
-2. Add a new entry to `BETA_VIDEO_MANIFEST` for it (e.g. `{ id: 'E02-MUSIC', storagePath: 'exercises/WW_E02_OverwhelmedMind_MusicBed_v1.mp4', title: ..., description: ... }`) and set `musicVariantId: 'E02-MUSIC'` on the existing `E02` entry.
-3. Add that same new id to the Edge Function's `EXERCISE_PATHS` map (a genuine Supabase deploy — deliberately not done by this phase).
-4. Optionally flip `backgroundMusic: true` in `featureFlags.js` (or leave it as a per-device QA override) once ready for real users to see the toggle.
+**To actually turn a produced asset on, once it exists, is a checklist of controlled engineering and deployment actions — not "no engineering code change needed":**
+1. Produce and license the asset (per §3/§4 above for a `-MUSIC` remix, or §6 below for the new `IB01` loop).
+2. Upload it to the private `wellness-videos` bucket, `exercises/` folder — a real Storage write, reviewed per file, not automatic.
+3. Register the music variant id in the catalogue/manifest: add a new `BETA_VIDEO_MANIFEST` entry (e.g. `{ id: 'E02-MUSIC', storagePath: 'exercises/WW_E02_OverwhelmedMind_MusicBed_v1.mp4', ... }` or `{ id: 'IB01', storagePath: 'exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v1.mp4', ... }`) and, for narrated items, set `musicVariantId` on the existing entry — a genuine code change and PR.
+4. Update the signed-URL Edge Function's accepted mapping (`EXERCISE_PATHS` in `supabase/functions/get-beta-video-url`) to include the new id if not already covered — confirmed this phase to be a plain `Map<string,string>` lookup with no format validation on the key, so the new id fits without changing the function's own logic, but the map still needs the entry added.
+5. Deploy that Edge Function to DEV — a genuine Supabase deployment action, deliberately not done by this phase.
+6. Enable the feature flag (`backgroundMusic: true` in `featureFlags.js`, or a per-device override for staged QA) once ready for real users to see the toggle.
+7. Verify in both a browser session and on a physical iPhone (WKWebView autoplay/gesture behaviour cannot be fully trusted from desktop testing alone) before treating the feature as live.
 
-No step above requires touching `resolvePlaybackId`, `BetaVideoModal.jsx`, or any other engineering already shipped this phase — the fallback-safe design means turning content on is purely additive.
+The fallback-safe design shipped this phase only means a *missing or not-yet-registered* asset degrades safely — no toggle shown, no error, exercise continues normally. It does not mean turning a produced asset on is automatic; every step above is a controlled, reviewable change.
+
+---
+
+## 6. Asset-production shortlist: prioritised first batch
+
+Everything in §3 is the complete 65-item inventory; this is the prioritised subset to produce **first**, per explicit request — one loop for interactive Evening/Quiet Breathing, all five Stretching items, all five B-series breathing sessions, and an explicit check on whether any Morning Flow breathing asset exists to include. All items share the same bucket/mechanism (`exercises/` in the private `wellness-videos` bucket) and the same "do not invent asset IDs without confirming they fit the contract" rule — `IB01` was confirmed this phase, not assumed, to fit (see the note below the table); S01–S05 and B01–B05 already exist as live catalogue ids today, so only their `-MUSIC` sibling ids are new, following the exact pattern already established for every other item in §3.
+
+| # | Item | Exact existing source filename | Exact proposed output filename | Duration | Recommended background style | Target relative music level | Fade-in/fade-out | Loops? | Exact DEV Storage path |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | **IB01** — Evening/Quiet Breathing interactive loop | **N/A — new production, not a remix of any existing file** (first-ever asset for this screen) | `WW_IB01_InteractiveBreathingLoop_MusicBed_v1.mp4` | Producer's choice; recommend **45–90s single pass** (the native `loop` attribute repeats it indefinitely regardless of length — long enough that a listener doing a 64–76s breathing cycle doesn't obviously hear the seam on every repeat) | Minimal Textural Bed (same family as the Breathing category in §2 — steady drone/pad only, no rhythmic pulse) | No narration to sit "beneath" — master at the same **−16 LUFS / ≤ −1 dBTP** loudness target as every other file in this manifest; the app's own fixed **0.35 playback volume** (`InteractiveBreathingMusic.jsx`'s `DEFAULT_VOLUME`) is what makes it sit quietly, not an unusually-quiet export | **No fade at the file boundaries** — must loop seamlessly (tail flows into head with no audible click/seam), since the native `loop` attribute jumps instantly; a fade-to-silence at each boundary would create an audible dip on every repeat | **Yes** — native `loop` attribute, indefinite | `exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v1.mp4` |
+| 2 | S01 Neck Release | `WW_S01_NeckRelease_v1.mp4.mp4` | `WW_S01_NeckRelease_MusicBed_v1.mp4` | Match existing file (not yet verified — §1 duration policy) | Calm Ambient Pad | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out per spec §3 | Only if narration outlasts one pass of the source loop | `exercises/WW_S01_NeckRelease_MusicBed_v1.mp4` |
+| 3 | S02 Shoulder Release | `WW_S02_ShoulderRelease_v1.mp4.mp4` | `WW_S02_ShoulderRelease_MusicBed_v1.mp4` | Match existing file | Calm Ambient Pad | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_S02_ShoulderRelease_MusicBed_v1.mp4` |
+| 4 | S03 Upper-Back Stretch | `WW_S03_UpperBackStretch_v1.mp4.mp4` | `WW_S03_UpperBackStretch_MusicBed_v1.mp4` | Match existing file | Calm Ambient Pad | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_S03_UpperBackStretch_MusicBed_v1.mp4` |
+| 5 | S04 Morning Flow (Stretching) | `WW_S04_MorningFlow_v1.mp4.mp4` | `WW_S04_MorningFlow_MusicBed_v1.mp4` | Match existing file | Light Uplifting Acoustic Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_S04_MorningFlow_MusicBed_v1.mp4` |
+| 6 | S05 Evening Flow (Stretching) | `WW_S05_EveningFlow_v1.mp4.mp4` | `WW_S05_EveningFlow_MusicBed_v1.mp4` | Match existing file | Calm Ambient Pad | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_S05_EveningFlow_MusicBed_v1.mp4` |
+| 7 | B01 Deep Breathing Practice | `WW_B01_DeepBreathing_Mobile_Background_v1.png.mp4` | `WW_B01_DeepBreathingPractice_MusicBed_v1.mp4` | Match existing file | Minimal Textural Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_B01_DeepBreathingPractice_MusicBed_v1.mp4` |
+| 8 | B02 Box Breathing | `WW_B02_BoxBreathing_v1.mp4.mp4` | `WW_B02_BoxBreathing_MusicBed_v1.mp4` | **Verified 180s narration** | Minimal Textural Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Likely yes — 180s is long enough that a short source loop would repeat audibly otherwise | `exercises/WW_B02_BoxBreathing_MusicBed_v1.mp4` |
+| 9 | B03 4-7-8 Breathing | `WW_B03_478Breathing_v1.mp4.mp4` | `WW_B03_478Breathing_MusicBed_v1.mp4` | Match existing file | Minimal Textural Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_B03_478Breathing_MusicBed_v1.mp4` |
+| 10 | B04 Coherent Breathing | `WW_B04_CoherentBreathing_v1.mp4.mp4` | `WW_B04_CoherentBreathing_MusicBed_v1.mp4` | Match existing file | Minimal Textural Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_B04_CoherentBreathing_MusicBed_v1.mp4` |
+| 11 | B05 Alternate Nostril Breathing | `WW_B05_althernativeNostrilBreathing_v1.mp4.mp4` | `WW_B05_AlternateNostrilBreathing_MusicBed_v1.mp4` | Match existing file | Minimal Textural Bed | −18 to −24 dB relative to narration peak | 2–3s in / 3–4s out | Only if needed | `exercises/WW_B05_AlternateNostrilBreathing_MusicBed_v1.mp4` |
+| — | Morning Flow breathing asset | **Confirmed this phase: does not exist.** `MorningFlow.jsx` (the Stretching stage's own screen) has no `BreathingRing`/breathing cycle of any kind — confirmed by direct source read. Morning's actual breathing content lives at the separate `/breathe` route (`Breathe.jsx`), already narrated (E08, E28, B01–B05 — all already listed above) and out of scope for a new asset. | — | — | — | — | — | — | — |
+
+**On not inventing asset IDs:** `IB01` was confirmed this phase — by reading `supabase/functions/get-beta-video-url/index.ts` directly, not by assumption — to fit the existing lookup/signed-URL contract before being reserved anywhere in code. `EXERCISE_PATHS` there is a plain `Map<string,string>` with no format validation on the key beyond "is a string," so a new id registers with zero required changes to the function's own logic (only a new map entry plus a deploy — see §5's corrected activation checklist above). The same server-side guest-blocking that already applies to every id via that function (HTTP 403 for `user.is_anonymous`) applies automatically to `IB01` too, reinforcing the client-side guest gating already built into `InteractiveBreathingMusic.jsx`.

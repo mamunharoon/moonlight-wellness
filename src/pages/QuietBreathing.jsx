@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
+import { InteractiveBreathingMusic } from '../components/InteractiveBreathingMusic';
+
+// Background Music — same shared, reserved interactive-breathing loop id
+// as EveningBreathing.jsx (see that file's own comment, and
+// docs/background-music-asset-manifest.md). One ambient loop serves both
+// screens; there is no cadence-locked narration here for it to conflict
+// with, so the same asset works regardless of this screen's own 4-4-8
+// cycle timing.
+const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 
 /*
  * Solas — Support & Calm, Sprint 1 Phase 2: Quiet Breathing
@@ -30,7 +39,7 @@ export const QuietBreathing = () => {
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
 
-  if (EveningSceneShell && BreathingRing) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveBreathingMusic) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -69,6 +78,8 @@ export const QuietBreathing = () => {
 
         <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
       </div>
+
+      <InteractiveBreathingMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
 
       <div className="space-y-3 w-full">
         <button

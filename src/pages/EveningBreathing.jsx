@@ -4,6 +4,14 @@ import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { InteractiveBreathingMusic } from '../components/InteractiveBreathingMusic';
+
+// Background Music — reserved id for the shared interactive-breathing
+// ambient loop (see docs/background-music-asset-manifest.md). Not yet
+// registered in betaVideoManifest.js/the Edge Function's EXERCISE_PATHS
+// map, so InteractiveBreathingMusic renders nothing until it is - see
+// isInteractiveMusicEligible's own doc comment.
+const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 
 /*
  * Stage 4 Batch F6 — EveningBreathing
@@ -35,7 +43,7 @@ export const EveningBreathing = () => {
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveBreathingMusic) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -94,6 +102,8 @@ export const EveningBreathing = () => {
 
         <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
       </div>
+
+      <InteractiveBreathingMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
 
       <div className="space-y-3 w-full">
         <button

@@ -61,3 +61,23 @@ export const resolvePlaybackId = ({ entry, musicEnabled, featureEnabled, getEntr
 /** Whether the in-player "Music" toggle should even be shown for this entry. */
 export const shouldShowMusicToggle = ({ entry, featureEnabled }) =>
   Boolean(featureEnabled) && isMusicEligibleEntry(entry) && Boolean(entry?.musicVariantId);
+
+/**
+ * Interactive-breathing-screen variant of the same eligibility question,
+ * for `InteractiveBreathingMusic.jsx` (EveningBreathing.jsx/
+ * QuietBreathing.jsx). Unlike `shouldShowMusicToggle` above, there is no
+ * narration-fallback `entry` here at all — these screens have no
+ * narrated media of any kind (see backgroundMusicSelection's own top-of-
+ * file doc comment and docs/background-music-asset-manifest.md §"Evening
+ * Breathing stage"). Eligibility is therefore simpler: the feature flag,
+ * and a `musicVariantId` that actually resolves to a registered manifest
+ * entry — no manifest entry exists for any interactive-breathing id
+ * today, so this is unconditionally false in production until one is
+ * produced and registered (see the asset-manifest doc's own activation
+ * checklist).
+ */
+export const isInteractiveMusicEligible = ({ musicVariantId, featureEnabled, getEntryById }) =>
+  Boolean(featureEnabled) &&
+  Boolean(musicVariantId) &&
+  typeof getEntryById === 'function' &&
+  Boolean(getEntryById(musicVariantId));
