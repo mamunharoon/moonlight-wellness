@@ -67,3 +67,22 @@
 .scroll-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari */
 }
+
+/* iOS text-input auto-zoom fix: WebKit on iOS zooms the whole page in when
+   a focused input/textarea/select's computed font-size is under 16px, and
+   in a standalone/home-screen PWA that zoomed viewport can fail to reset
+   on blur/keyboard-dismiss, staying enlarged until the app is fully
+   reopened - several fields here (e.g. the custom intention input on
+   IntentionSetup.jsx, the gratitude textarea on Journal.jsx) use Tailwind's
+   text-xs/text-sm utilities (12px/14px), well under that threshold.
+   Scoped to WebKit touch devices via the -webkit-touch-callout feature
+   query so desktop/Android sizing is untouched, and fixed by keeping every
+   field's rendered size at the safe 16px floor rather than by disabling
+   pinch-zoom (no maximum-scale/user-scalable change here or in index.html). */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

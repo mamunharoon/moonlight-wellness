@@ -1,12 +1,14 @@
 /* eslint-disable no-unused-vars */
 import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { MORNING_DISPLAY_STEP_NUMBERS, MORNING_DISPLAY_STEP_COUNT } from '../session/sessionConstants';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { getStepIndex } from '../session/sessionRegistry';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
+import { getMorningGreeting } from '../lib/greeting';
 import { TimezoneBanner } from '../components/TimezoneBanner';
 
 // Daily Journey & Content Architecture: friendly title/route for the
@@ -28,6 +30,7 @@ const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
 export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
+  const { profile, user } = useAuth();
   const { state, currentStep, resumeSession, startSession, resetSession } = useSession();
 
   // Global timezone correctness: every "what day/time is it for this
@@ -215,7 +218,7 @@ export const Home = () => {
       {timeState === 'daytime-morning' && !isMorningActive && !isMorningDone && (
         <div className="space-y-8">
           <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Good morning, Sun</h2>
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getMorningGreeting({ profile, user })}</h2>
             <p className="text-xs text-on-surface-variant font-medium">Ready for your breath of fresh air today?</p>
           </div>
           <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
