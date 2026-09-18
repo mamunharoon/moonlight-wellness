@@ -78,7 +78,13 @@ const ROUTINE_DETAILS = {
     purpose: 'A calming end-of-day sequence to help you unwind and prepare for restful sleep.',
     startRoute: '/evening-wind-down',
     startLabel: 'Start Routine',
-    requiresAuth: false,
+    // Guest Onboarding: Evening Wind-Down starts and persists real
+    // Session Engine progress (routineProgress.js) the moment its own
+    // Begin button is tapped — guests must not be able to reach that
+    // without signing in first (same restriction Rise & Reset already
+    // has below). Gentle Reset stays unauthenticated: it never touches
+    // the Session Engine and persists nothing.
+    requiresAuth: true,
     steps: [
       { title: 'Wind Down', description: 'Settle in and shift out of your day.' },
       { title: 'Reflection', description: 'A few short prompts to reflect on your day.' },
@@ -130,7 +136,20 @@ export const RoutineDetail = () => {
       setShowSignInPrompt(true);
       return;
     }
-    beginRiseAndReset();
+    // Guest Onboarding: requiresAuth is now also true for 'wind-down', not
+    // just 'rise-reset' — but beginRiseAndReset() is Rise & Reset-specific
+    // (it always calls startSession('morning-routine', ...), which would
+    // start the wrong routine entirely for Wind-Down). Once the guest
+    // check above passes, Wind-Down gets a plain navigation instead,
+    // matching Home.jsx's own handleBeginEveningWindDown and this exact
+    // file's own doc comment above: EveningWindDown.jsx's own Begin
+    // button is what actually starts+advances that session, exactly as
+    // it already does for every other (unauthenticated) visitor today.
+    if (routineId === 'rise-reset') {
+      beginRiseAndReset();
+      return;
+    }
+    navigate(detail.startRoute);
   };
 
   const handleSignIn = () => {

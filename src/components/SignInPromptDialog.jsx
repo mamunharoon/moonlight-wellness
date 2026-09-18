@@ -62,7 +62,7 @@ export const SignInPromptDialog = ({ open, onSignIn, onCreateAccount, onDismiss 
             Sign in to continue
           </h2>
           <p id="sign-in-prompt-message" className="text-sm text-on-surface-variant leading-relaxed">
-            Create or sign in to your WakeWise account to play guided exercises and save your progress.
+            Create a free account or sign in to play this session and save your WakeWise progress.
           </p>
         </div>
 
@@ -72,19 +72,19 @@ export const SignInPromptDialog = ({ open, onSignIn, onCreateAccount, onDismiss 
             onClick={onSignIn}
             className="w-full py-3.5 bg-primary text-on-primary rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           >
-            Sign in
+            Sign In
           </button>
           <button
             onClick={onCreateAccount}
             className="w-full py-3.5 glass-panel text-on-surface rounded-full font-bold border-white/10 hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
           >
-            Create account
+            Create Free Account
           </button>
           <button
             onClick={onDismiss}
             className="w-full py-2 text-center text-xs text-on-surface-variant font-semibold hover:text-on-surface transition-colors"
           >
-            Not now
+            Continue Browsing
           </button>
         </div>
       </div>

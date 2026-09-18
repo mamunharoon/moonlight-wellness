@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
+import { markGuestEntryChosen } from '../lib/guestEntry';
 import { BackButton } from '../components/BackButton';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -21,6 +22,9 @@ const getFriendlyErrorMessage = (error) => {
   }
   if (msg.includes('Password should be at least')) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (msg.includes('Unable to validate email address') || msg.includes('invalid format') || msg.includes('Invalid email')) {
+    return 'Please enter a valid email address.';
   }
   return 'Something went wrong. Please try again.';
 };
@@ -421,7 +425,12 @@ export const Auth = () => {
         </form>
       )}
 
-      <Link to="/profile" className="block text-center text-xs text-on-surface-variant">
+      {/* Guest Onboarding: this is a second, alternate path to the same
+          "Continue as Guest" choice Welcome's own button offers — must
+          persist the exact same way (lib/guestEntry.js), or a user who
+          bailed out here would incorrectly see the Welcome screen again
+          next launch despite having already said "just let me browse". */}
+      <Link to="/profile" onClick={markGuestEntryChosen} className="block text-center text-xs text-on-surface-variant">
         Continue as guest
       </Link>
     </div>

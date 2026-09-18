@@ -15,12 +15,27 @@
 const KEY = 'moonlight_pending_content';
 const MAX_AGE_MS = 10 * 60 * 1000;
 
+// Guest Onboarding — open-redirect guard. `returnPath` normally only ever
+// comes from this same origin's own useLocation() (see every current
+// caller), but it round-trips through sessionStorage as a plain string,
+// so it's validated again here rather than trusted implicitly - a
+// malformed or externally-influenced value must never be handed to
+// navigate() as-is. A safe in-app path: starts with exactly one "/"
+// (never "//", which a browser can resolve as protocol-relative to
+// another host) and never contains "://" (rules out an absolute URL
+// smuggled in as a "path").
+export const isSafeReturnPath = (path) =>
+  typeof path === 'string' &&
+  path.startsWith('/') &&
+  !path.startsWith('//') &&
+  !path.includes('://');
+
 // `id` is optional — a routine-start prompt (e.g. Rise & Reset's Start
 // Routine while signed out) has nothing to reopen, it only needs to
 // return the user to `returnPath` itself; Auth.jsx only appends
 // `?openId=` when an id was actually given.
 export const setPendingContent = ({ id = null, returnPath }) => {
-  if (!returnPath) return;
+  if (!isSafeReturnPath(returnPath)) return;
   try {
     sessionStorage.setItem(KEY, JSON.stringify({ id, returnPath, setAt: Date.now() }));
   } catch {
@@ -48,7 +63,7 @@ export const consumePendingContent = () => {
     return null;
   }
 
-  if (!parsed || typeof parsed.returnPath !== 'string') return null;
+  if (!parsed || !isSafeReturnPath(parsed.returnPath)) return null;
   if (parsed.id !== null && typeof parsed.id !== 'string') return null;
   if (typeof parsed.setAt !== 'number' || Date.now() - parsed.setAt > MAX_AGE_MS) return null;
 

@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { migrateGuestData } from '../lib/migrateGuestData';
 import { clearAllRoutineProgress } from '../session/routineProgress';
+import { clearGuestEntryChoice } from '../lib/guestEntry';
 
 const AuthContext = createContext();
 
@@ -46,8 +47,16 @@ export const AuthProvider = ({ children }) => {
   // unconditionally on every sign-out, guest or registered, before the
   // Supabase call — never fails/blocks sign-out even if storage is
   // unavailable (clearAllRoutineProgress already no-ops safely on that).
+  //
+  // Guest Onboarding — signing out must return to the Welcome screen,
+  // never silently restore whatever guest choice was in effect before
+  // this account was signed into: clearGuestEntryChoice() resets that
+  // flag alongside routine progress, so OnboardingGate shows Welcome
+  // again on the very next render (Profile.jsx navigates to '/' right
+  // after calling signOut()).
   const signOut = async () => {
     clearAllRoutineProgress();
+    clearGuestEntryChoice();
     if (!supabase) return;
     await supabase.auth.signOut();
   };

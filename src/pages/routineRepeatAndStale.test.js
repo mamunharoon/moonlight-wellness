@@ -41,7 +41,7 @@ describe('Stale-routine choice card — "Yesterday\'s unfinished routine" (Morni
   });
 
   it('"Resume Previous Routine" is scoped to resumeStaleRoutine\\(RITUAL_SESSION_IDS.morning\\), never the live/today resume path', () => {
-    expect(homeSource).toMatch(/handleResumeStaleMorning = \(\) => \{\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.morning\)\)/);
+    expect(homeSource).toMatch(/handleResumeStaleMorning = \(\) => \{\s*\n\s*if \(isGuest\) \{ promptRoutineSignIn\(\); return; \}\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.morning\)\)/);
   });
 
   it('"Start Today\'s Routine" opens the discard-stale confirmation, scoped to morning', () => {
@@ -61,7 +61,7 @@ describe('Stale-routine choice card — "Yesterday\'s unfinished routine" (Eveni
   });
 
   it('"Resume Previous Routine" is scoped to resumeStaleRoutine\\(RITUAL_SESSION_IDS.evening\\)', () => {
-    expect(homeSource).toMatch(/handleResumeStaleEvening = \(\) => \{\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.evening\)\)/);
+    expect(homeSource).toMatch(/handleResumeStaleEvening = \(\) => \{\s*\n\s*if \(isGuest\) \{ promptRoutineSignIn\(\); return; \}\s*\n\s*if \(!resumeStaleRoutine\(RITUAL_SESSION_IDS\.evening\)\)/);
   });
 
   it('"Start Today\'s Routine" opens the discard-stale confirmation, scoped to evening', () => {
@@ -164,17 +164,21 @@ describe('"today\'s routine remains independently available" after a previous-da
 });
 
 describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind-Down Step 1 of 6, not Reflection Step 2', () => {
-  it('RoutineDetail.jsx\'s own "Start Routine" for Wind-Down is a plain navigation - it never starts the Session Engine itself, deferring entirely to EveningWindDown.jsx\'s own Begin button', () => {
-    // requiresAuth: false for 'wind-down' means handleStart's own guard
-    // (`if (!detail.requiresAuth) return;`) never intercepts the click at
-    // all - the <Link to={detail.startRoute}> fires unmodified. This is
-    // the one entry point already proven not to have "the Rise & Reset
-    // bug" (see this file's own doc comment) - the reference behaviour
-    // both Home's card and Repeat must match.
+  it('RoutineDetail.jsx\'s own "Start Routine" for Wind-Down resolves to a plain navigation once past the (Guest Onboarding) auth check - it never starts the Session Engine itself, deferring entirely to EveningWindDown.jsx\'s own Begin button', () => {
+    // Guest Onboarding revision: 'wind-down' now requires auth too (see
+    // guestOnboarding.test.js for the full guest-gating regression suite)
+    // - Evening Wind-Down persists real Session Engine progress the
+    // moment its own Begin is tapped, same as Rise & Reset. Once an
+    // authenticated tap clears that check, handleStart's own routineId
+    // branch still resolves to a bare navigate(detail.startRoute) for
+    // Wind-Down (never beginRiseAndReset(), which is Rise & Reset-
+    // specific) - the reference behaviour both Home's card and Repeat
+    // must match.
     expect(routineDetailSource).toMatch(/'wind-down': \{/);
     const windDownBlock = routineDetailSource.match(/'wind-down': \{[\s\S]*?\n {2}\},?/)?.[0] ?? '';
-    expect(windDownBlock).toMatch(/requiresAuth: false/);
+    expect(windDownBlock).toMatch(/requiresAuth: true/);
     expect(windDownBlock).toMatch(/startRoute: '\/evening-wind-down'/);
+    expect(routineDetailSource).toMatch(/if \(routineId === 'rise-reset'\) \{\s*\n\s*beginRiseAndReset\(\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*navigate\(detail\.startRoute\);/);
   });
 
   it('EveningWindDown.jsx genuinely displays "Step 1 of 6" as its own real screen, and only starts/advances the session once ITS OWN Begin button is tapped', () => {

@@ -68,6 +68,11 @@ describe('getGreeting', () => {
     expect(getGreeting('evening', {})).toBe('Good evening');
   });
 
+  it('Guest Onboarding: a genuine guest (no profile row, no user session at all) never invents a name or falls back to an email', () => {
+    expect(getGreeting('morning', { profile: null, user: null })).toBe('Good morning');
+    expect(getGreeting('evening', { profile: null, user: null })).toBe('Good evening');
+  });
+
   it('capitalises an all-lowercase stored name in the rendered greeting (regression: "Good afternoon, Mamun", not "mamun")', () => {
     expect(getGreeting('afternoon', { profile: { first_name: 'mamun' }, user: null })).toBe('Good afternoon, Mamun');
     expect(getGreeting('evening', { profile: { first_name: 'mamun' }, user: null })).toBe('Good evening, Mamun');

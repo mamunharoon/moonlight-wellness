@@ -12,6 +12,7 @@ import { SessionProvider } from './context/SessionContext';
 import { NavigationHistoryProvider } from './context/NavigationHistoryContext';
 import { Layout } from './components/Layout';
 import { AdminRoute } from './components/AdminRoute';
+import { OnboardingGate } from './components/OnboardingGate';
 import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
 
@@ -158,6 +159,11 @@ function App() {
                 <NavigationHistoryProvider>
                 <NativeDeepLinkHandler />
                 <MorningReminderTapHandler />
+                {/* Guest Onboarding: shows the Welcome screen instead of
+                    this whole tree when there's no session and no
+                    persisted "Continue as Guest" choice yet — see
+                    OnboardingGate.jsx's own doc comment. */}
+                <OnboardingGate>
                 <Routes>
                 {/* Full-Screen flows */}
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
@@ -323,6 +329,7 @@ function App() {
                 {/* Fallback to Today */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </OnboardingGate>
               </NavigationHistoryProvider>
               </Router>
               </MorningReminderProvider>

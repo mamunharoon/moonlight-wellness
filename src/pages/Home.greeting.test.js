@@ -31,7 +31,7 @@ describe('Home.jsx daypart greeting wiring', () => {
   });
 
   it('imports profile and user from useAuth so no additional profile query is introduced', () => {
-    expect(homeSource).toMatch(/const \{ profile, user \} = useAuth\(\);/);
+    expect(homeSource).toMatch(/const \{ profile, user, isGuest \} = useAuth\(\);/);
   });
 });
 

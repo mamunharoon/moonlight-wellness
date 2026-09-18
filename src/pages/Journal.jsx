@@ -1,13 +1,15 @@
 ﻿/* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { BackButton } from '../components/BackButton';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { setPendingContent } from '../lib/pendingContent';
 
 const JOURNAL_KEY = 'moonlight_journal_entries';
 const MAX_BODY_LENGTH = 500;
-const MAX_ENTRIES = 100;
 
 const isValidJournalEntry = (entry) =>
   entry !== null &&
@@ -30,11 +32,13 @@ const readGuestJournalEntries = () => {
 };
 
 export const Journal = () => {
+  const navigate = useNavigate();
   const { userId } = useAlarm();
   const { loading: authLoading, isGuest } = useAuth();
   const [gratitudeText, setGratitudeText] = useState('');
   const [entries, setEntries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   // Fetch entries securely inside useEffect to comply with exhaustive-deps
   useEffect(() => {
@@ -63,26 +67,21 @@ export const Journal = () => {
     fetchEntries();
   }, [userId, authLoading, isGuest]);
 
+  // Guest Onboarding — journal entries are explicitly one of the things a
+  // guest must not be able to persist. This used to write straight to
+  // localStorage (readGuestJournalEntries()/JOURNAL_KEY still exist and
+  // are still READ above, purely so any entries a guest saved on this
+  // device before this change shipped keep displaying, and so
+  // migrateGuestData.js can still find and migrate them) - now a guest
+  // tap opens the same sign-in prompt every other restricted action
+  // uses instead of writing anything new.
   const handleSave = async () => {
     if (authLoading) return;
     const trimmed = gratitudeText.trim().slice(0, MAX_BODY_LENGTH);
     if (!trimmed) return;
 
     if (isGuest) {
-      const newEntry = {
-        local_id: crypto.randomUUID(),
-        body: trimmed,
-        created_at: new Date().toISOString()
-      };
-      const updated = [newEntry, ...readGuestJournalEntries()].slice(0, MAX_ENTRIES);
-      try {
-        localStorage.setItem(JOURNAL_KEY, JSON.stringify(updated));
-      } catch {
-        // Storage write failed (e.g. quota exceeded) - still reflect the
-        // entry in this session's UI even if it can't persist across reload.
-      }
-      setEntries(updated);
-      setGratitudeText('');
+      setShowSignInPrompt(true);
       return;
     }
 
@@ -111,6 +110,17 @@ export const Journal = () => {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     setEntries(data || []);
+  };
+
+  const confirmSignIn = () => {
+    setPendingContent({ returnPath: '/journal' });
+    setShowSignInPrompt(false);
+    navigate('/auth');
+  };
+  const confirmCreateAccount = () => {
+    setPendingContent({ returnPath: '/journal' });
+    setShowSignInPrompt(false);
+    navigate('/auth?tab=signup');
   };
 
   const formatDate = (dateString) => {
@@ -179,6 +189,13 @@ export const Journal = () => {
           )}
         </div>
       </section>
+
+      <SignInPromptDialog
+        open={showSignInPrompt}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={() => setShowSignInPrompt(false)}
+      />
     </div>
   );
 };

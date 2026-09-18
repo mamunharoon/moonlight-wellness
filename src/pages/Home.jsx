@@ -26,6 +26,8 @@ import { getZonedParts } from '../lib/timezone';
 import { getGreeting } from '../lib/greeting';
 import { TimezoneBanner } from '../components/TimezoneBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { setPendingContent } from '../lib/pendingContent';
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
@@ -34,7 +36,7 @@ const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
 export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
-  const { profile, user } = useAuth();
+  const { profile, user, isGuest } = useAuth();
   const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
   // Global timezone correctness: every "what day/time is it for this
@@ -120,6 +122,33 @@ export const Home = () => {
     return num ? `Step ${num} of ${EVENING_DISPLAY_STEP_COUNT}` : '';
   };
 
+  // Guest Onboarding — starting, resuming, repeating, or resetting either
+  // routine all persist real progress (routineProgress.js) and eventually
+  // a completion flag, which guests must never be able to create. Every
+  // one of Home's routine-launching actions below checks this first, so
+  // a guest sees the exact same card/copy as anyone else (never hidden)
+  // but tapping the actual CTA opens this prompt instead of touching the
+  // Session Engine. Reuses pendingContent.js's existing id-less
+  // "routine-start" shape (see its own doc comment) — after signing in,
+  // Auth.jsx's redirectAfterAuth() returns the user to '/' with nothing
+  // auto-started, ready for their own fresh tap.
+  const [routineSignInPromptOpen, setRoutineSignInPromptOpen] = useState(false);
+  const promptRoutineSignIn = () => {
+    setRoutineSignInPromptOpen(true);
+    return true;
+  };
+  const dismissRoutineSignInPrompt = () => setRoutineSignInPromptOpen(false);
+  const confirmRoutineSignIn = () => {
+    setPendingContent({ returnPath: '/' });
+    setRoutineSignInPromptOpen(false);
+    navigate('/auth');
+  };
+  const confirmRoutineCreateAccount = () => {
+    setPendingContent({ returnPath: '/' });
+    setRoutineSignInPromptOpen(false);
+    navigate('/auth?tab=signup');
+  };
+
   // Completed-routine "Do Again" defect fix + stale-routine confirmation —
   // one dialog, three distinct kinds, discriminated by `kind`:
   //   'start-over'    — an IN-PROGRESS routine's own "Start Over" (still
@@ -170,6 +199,11 @@ export const Home = () => {
 
   const handleConfirmDialog = () => {
     if (!activeDialog) return;
+    if (isGuest) {
+      setActiveDialog(null);
+      promptRoutineSignIn();
+      return;
+    }
     const { kind, period } = activeDialog;
     const sessionId = RITUAL_SESSION_IDS[period];
     if (kind === 'start-over') {
@@ -191,12 +225,14 @@ export const Home = () => {
   // route, scoped to this one sessionId only, mirroring
   // handleMorningAction/handleEveningAction's existing pattern exactly.
   const handleResumeStaleMorning = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
     if (!resumeStaleRoutine(RITUAL_SESSION_IDS.morning)) return;
     const session = getSessionById(RITUAL_SESSION_IDS.morning);
     const stepIndex = morningStaleSnapshot?.stepIndex ?? 0;
     navigate(session?.steps[stepIndex]?.route ?? '/morning-start');
   };
   const handleResumeStaleEvening = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
     if (!resumeStaleRoutine(RITUAL_SESSION_IDS.evening)) return;
     const session = getSessionById(RITUAL_SESSION_IDS.evening);
     const stepIndex = eveningStaleSnapshot?.stepIndex ?? 0;
@@ -260,6 +296,7 @@ export const Home = () => {
   // the navigate() target is always computed from that SAME sessionId's
   // own registry step list — never a global currentStep read.
   const handleMorningAction = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
     if (morningCardState === 'in-progress') {
       resumeRoutine(RITUAL_SESSION_IDS.morning);
       const session = getSessionById(RITUAL_SESSION_IDS.morning);
@@ -270,6 +307,7 @@ export const Home = () => {
   };
 
   const handleEveningAction = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
     if (eveningCardState === 'in-progress') {
       resumeRoutine(RITUAL_SESSION_IDS.evening);
       const session = getSessionById(RITUAL_SESSION_IDS.evening);
@@ -799,6 +837,17 @@ export const Home = () => {
         destructive={dialogCopy?.destructive ?? false}
         onConfirm={handleConfirmDialog}
         onDismiss={() => setActiveDialog(null)}
+      />
+
+      {/* Guest Onboarding — shown instead of actually starting/resuming/
+          repeating/resetting either routine for a guest (see
+          promptRoutineSignIn's own doc comment above). Content and cards
+          stay fully visible either way; only the CTA's behaviour changes. */}
+      <SignInPromptDialog
+        open={routineSignInPromptOpen}
+        onSignIn={confirmRoutineSignIn}
+        onCreateAccount={confirmRoutineCreateAccount}
+        onDismiss={dismissRoutineSignInPrompt}
       />
     </div>
   );

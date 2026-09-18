@@ -92,7 +92,7 @@ export const Profile = () => {
                 Sign In
               </Link>
               <Link
-                to="/auth"
+                to="/auth?tab=signup"
                 className="px-4 py-2 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
               >
                 Create Account
