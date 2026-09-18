@@ -41,6 +41,13 @@
 // @property {string} description   - short, non-clinical one-liner for the beta card
 // @property {string} [durationLabel] - optional short duration badge (e.g. "5 min"), shown by
 //                                       BetaVideoRow only when provided; only SL01-SL08 set this
+// @property {string} [musicVariantId] - id of this entry's own pre-mixed "-MUSIC" sibling
+//                                        entry (see docs/background-music-specification.md),
+//                                        only when one has actually been produced and
+//                                        registered below - resolvePlaybackId/
+//                                        shouldShowMusicToggle in backgroundMusicSelection.js
+//                                        fall back to the plain id whenever this is absent
+//                                        or doesn't resolve to a real entry
 
 /** @type {BetaVideoEntry[]} */
 export const BETA_VIDEO_MANIFEST = [
@@ -363,7 +370,21 @@ export const BETA_VIDEO_MANIFEST = [
     id: 'S01',
     title: 'Neck Release',
     storagePath: 'exercises/WW_S01_NeckRelease_v1.mp4.mp4',
-    description: 'A guided video to release tension in your neck.'
+    description: 'A guided video to release tension in your neck.',
+    musicVariantId: 'S01-MUSIC'
+  },
+  {
+    // First real -MUSIC variant registered in this manifest. Verified this
+    // phase by fetching the actual object via a temporary signed URL and
+    // parsing its MP4 boxes directly (not assumed from the filename):
+    // video track 720x1280 H.264 (avc1) @ 24fps, audio track AAC (mp4a)
+    // stereo 44.1kHz, overall duration 198.09s - matches the approved S01
+    // pilot spec exactly. Content-Type served as video/mp4; byte-range
+    // requests (HTTP 206) work, matching every other entry here.
+    id: 'S01-MUSIC',
+    title: 'Neck Release (with music)',
+    storagePath: 'exercises/WW_S01_NeckRelease_MusicBed_v2.mp4',
+    description: 'A guided video to release tension in your neck, with a calming music bed.'
   },
   {
     id: 'S02',

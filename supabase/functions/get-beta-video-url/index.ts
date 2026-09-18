@@ -99,6 +99,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['M04', 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4'],
   ['M05', 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4'],
   ['S01', 'exercises/WW_S01_NeckRelease_v1.mp4.mp4'],
+  // First registered -MUSIC variant (Phase C pilot). Verified this phase by
+  // fetching the actual Storage object via a temporary signed URL and
+  // parsing its MP4 boxes directly: 720x1280 H.264/AAC, 24fps, 198.09s -
+  // matches the approved pilot spec exactly. See src/lib/betaVideoManifest.js's
+  // matching S01-MUSIC entry and docs/background-music-asset-manifest.md.
+  ['S01-MUSIC', 'exercises/WW_S01_NeckRelease_MusicBed_v2.mp4'],
   ['S02', 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4'],
   ['S03', 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4'],
   ['S04', 'exercises/WW_S04_MorningFlow_v1.mp4.mp4'],
