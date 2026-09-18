@@ -85,7 +85,7 @@ describe('shouldShowMusicToggle', () => {
 });
 
 describe('isInteractiveMusicEligible (Evening Breathing / Quiet Breathing - no narration to fall back to)', () => {
-  const registry = { IB01: { id: 'IB01', storagePath: 'exercises/fake-loop.mp4' } };
+  const registry = { IB01: { id: 'IB01', storagePath: 'exercises/fake-loop.m4a' } };
   const getEntryById = (id) => registry[id];
 
   it('is false when the feature flag is off, even with a registered id', () => {
