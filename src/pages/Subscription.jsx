@@ -15,13 +15,13 @@ import {
   trialDisclosureText
 } from '../lib/pricingConfig';
 import {
-  APPLE_PRODUCT_IDS,
   isAppleIAPSupported,
   getAppleProducts,
   purchaseAppleProduct,
   restoreApplePurchases,
   openAppleManageSubscriptions,
-  addAppleTransactionUpdateListener
+  addAppleTransactionUpdateListener,
+  resolveAppleProductDisplay
 } from '../lib/applePurchaseAdapter';
 import { verifyAppleTransaction } from '../lib/appleVerificationApi';
 
@@ -176,8 +176,8 @@ export const Subscription = () => {
     }
     setApplePurchaseState('purchasing');
     setApplePurchaseError(null);
-    const productIdentifier = interval === 'monthly' ? APPLE_PRODUCT_IDS.monthly : APPLE_PRODUCT_IDS.annual;
-    const result = await purchaseAppleProduct(productIdentifier, { appAccountToken: user?.id });
+    const { productId } = resolveAppleProductDisplay(interval, appleProducts);
+    const result = await purchaseAppleProduct(productId, { appAccountToken: user?.id });
     await handleAppleTransactionResult(result);
   };
 
@@ -460,9 +460,7 @@ export const Subscription = () => {
                 {/* Never a hard-coded price on iOS — always the exact,
                     localised string StoreKit itself returned. */}
                 <p className="text-lg font-bold text-on-surface">
-                  {interval === 'monthly'
-                    ? appleProducts[APPLE_PRODUCT_IDS.monthly]?.priceString ?? '—'
-                    : appleProducts[APPLE_PRODUCT_IDS.annual]?.priceString ?? '—'}
+                  {resolveAppleProductDisplay(interval, appleProducts).priceString ?? '—'}
                 </p>
                 <p className="text-xs text-on-surface-variant pt-1">
                   A free trial or introductory offer may be available — the App Store will show your exact eligibility

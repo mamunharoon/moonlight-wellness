@@ -15,8 +15,17 @@ const firstToken = (value) => {
   return trimmed.split(/\s+/)[0];
 };
 
-export const getFirstName = ({ profile, user } = {}) =>
-  firstToken(profile?.first_name) ?? firstToken(user?.user_metadata?.first_name) ?? null;
+// Only the first character is touched (never lowercased/uppercased as a
+// whole) so a name stored with its own internal capitalisation (e.g.
+// "McDonald") survives unchanged - this only fixes an all-lowercase
+// stored value (e.g. profiles.first_name "mamun") into the capitalised
+// form a greeting should read ("Mamun").
+const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+
+export const getFirstName = ({ profile, user } = {}) => {
+  const name = firstToken(profile?.first_name) ?? firstToken(user?.user_metadata?.first_name) ?? null;
+  return name ? capitalize(name) : null;
+};
 
 export const getMorningGreeting = ({ profile, user } = {}) => {
   const firstName = getFirstName({ profile, user });

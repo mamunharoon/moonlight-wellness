@@ -28,7 +28,8 @@ const {
   purchaseAppleProduct,
   restoreApplePurchases,
   openAppleManageSubscriptions,
-  addAppleTransactionUpdateListener
+  addAppleTransactionUpdateListener,
+  resolveAppleProductDisplay
 } = mod;
 
 beforeEach(() => {
@@ -58,6 +59,45 @@ describe('APPLE_PRODUCT_IDS', () => {
     expect(APPLE_PRODUCT_IDS).toEqual({
       monthly: 'com.zavaraai.wakewise.plus.monthly',
       annual: 'com.zavaraai.wakewise.plus.annual'
+    });
+  });
+});
+
+describe('resolveAppleProductDisplay', () => {
+  const products = {
+    [APPLE_PRODUCT_IDS.monthly]: { identifier: APPLE_PRODUCT_IDS.monthly, title: 'Monthly', priceString: 'A$7.99' },
+    [APPLE_PRODUCT_IDS.annual]: { identifier: APPLE_PRODUCT_IDS.annual, title: 'Annual', priceString: 'A$59.99' }
+  };
+
+  it('resolves the monthly product id and its own localised price for interval "monthly"', () => {
+    expect(resolveAppleProductDisplay('monthly', products)).toEqual({
+      productId: APPLE_PRODUCT_IDS.monthly,
+      priceString: 'A$7.99'
+    });
+  });
+
+  it('resolves the annual product id and its own localised price for interval "yearly"', () => {
+    expect(resolveAppleProductDisplay('yearly', products)).toEqual({
+      productId: APPLE_PRODUCT_IDS.annual,
+      priceString: 'A$59.99'
+    });
+  });
+
+  it('never mixes up which product\'s price belongs to which interval', () => {
+    const monthly = resolveAppleProductDisplay('monthly', products);
+    const yearly = resolveAppleProductDisplay('yearly', products);
+    expect(monthly.priceString).not.toBe(yearly.priceString);
+    expect(monthly.productId).not.toBe(yearly.productId);
+  });
+
+  it('returns null (never a hardcoded fallback) when that product has not loaded yet', () => {
+    expect(resolveAppleProductDisplay('monthly', {})).toEqual({
+      productId: APPLE_PRODUCT_IDS.monthly,
+      priceString: null
+    });
+    expect(resolveAppleProductDisplay('yearly', undefined)).toEqual({
+      productId: APPLE_PRODUCT_IDS.annual,
+      priceString: null
     });
   });
 });

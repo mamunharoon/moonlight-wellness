@@ -40,6 +40,19 @@ describe('getFirstName', () => {
   it('falls back to user_metadata only when no profile row is available', () => {
     expect(getFirstName({ profile: null, user: { user_metadata: { first_name: 'Bob' } } })).toBe('Bob');
   });
+
+  it('capitalises an all-lowercase stored name for display (e.g. profiles.first_name "mamun")', () => {
+    expect(getFirstName({ profile: { first_name: 'mamun' }, user: null })).toBe('Mamun');
+  });
+
+  it('capitalises only the first character, leaving the rest of the name untouched', () => {
+    expect(getFirstName({ profile: { first_name: 'mcdonald' }, user: null })).toBe('Mcdonald');
+    expect(getFirstName({ profile: { first_name: 'McDonald' }, user: null })).toBe('McDonald');
+  });
+
+  it('capitalises a lowercase name sourced from user_metadata too', () => {
+    expect(getFirstName({ profile: null, user: { user_metadata: { first_name: 'bob' } } })).toBe('Bob');
+  });
 });
 
 describe('getMorningGreeting', () => {
@@ -50,5 +63,9 @@ describe('getMorningGreeting', () => {
   it('falls back to a neutral greeting when no valid name exists', () => {
     expect(getMorningGreeting({ profile: null, user: { email: 'jane@example.com' } })).toBe('Good morning');
     expect(getMorningGreeting({})).toBe('Good morning');
+  });
+
+  it('capitalises an all-lowercase stored name in the rendered greeting (regression: "Good morning, Mamun", not "mamun")', () => {
+    expect(getMorningGreeting({ profile: { first_name: 'mamun' }, user: null })).toBe('Good morning, Mamun');
   });
 });

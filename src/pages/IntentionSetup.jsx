@@ -151,12 +151,12 @@ export const IntentionSetup = () => {
 
       {/* Unified custom input/button control */}
       <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
-        <input 
+        <input
           type="text"
           value={customIntention}
           onChange={(e) => setCustomIntention(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+          className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
           placeholder="Write your own..."
         />
         <button 

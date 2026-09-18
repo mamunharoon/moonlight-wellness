@@ -37,6 +37,23 @@ const ALLOWED_APPLE_PRODUCT_IDS = new Set(Object.values(APPLE_PRODUCT_IDS));
 
 export const isAppleIAPSupported = () => isNativePlatform() && isIOS();
 
+/**
+ * The one place `interval` ('monthly' | 'yearly') resolves to a StoreKit
+ * product id and its display price. Used for both what Subscription.jsx
+ * shows and what it purchases, so the two can never drift apart - e.g. a
+ * new interval value added to the UI without updating a second, separate
+ * mapping elsewhere. `priceString` is StoreKit's own localised, currency-
+ * inclusive string (see getAppleProducts above) - null (not a hardcoded
+ * fallback) whenever that exact product hasn't loaded yet.
+ */
+export const resolveAppleProductDisplay = (interval, appleProducts) => {
+  const productId = interval === 'monthly' ? APPLE_PRODUCT_IDS.monthly : APPLE_PRODUCT_IDS.annual;
+  return {
+    productId,
+    priceString: appleProducts?.[productId]?.priceString ?? null
+  };
+};
+
 const safeErrorMessage = (error) => (error && typeof error.message === 'string' ? error.message : 'Unknown error');
 
 /**

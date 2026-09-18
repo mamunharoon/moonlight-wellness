@@ -65,7 +65,10 @@ export const Layout = () => {
   const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/morning-start', '/affirmation', '/intention-setup', '/morning-flow', '/breathe', '/evening-wind-down', '/reflection', '/gratitude', '/evening-breathing', '/prepare-for-rest', '/evening-complete'].includes(location.pathname);
 
   return (
-    <div className="h-dvh bg-background text-on-surface flex flex-col transition-colors duration-300">
+    <div
+      className="h-dvh bg-background text-on-surface flex flex-col transition-colors duration-300"
+      style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
+    >
 
       {/* Immersive background layer */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
@@ -88,9 +91,18 @@ export const Layout = () => {
           have enough content to expose this. */}
       <div className="relative flex-1 min-h-0 flex flex-col max-w-md w-full mx-auto z-10">
         
-        {/* Global Page Header */}
+        {/* Global Page Header. iPhone safe-area repair: top padding adds
+            env(safe-area-inset-top) on top of the normal 1rem so the logo
+            never renders under the notch/Dynamic Island/status bar in
+            Safari, standalone PWA, or the Capacitor shell (see
+            capacitor.config.json's ios.contentInset: 'never' - the native
+            WKWebView no longer auto-insets itself, so this env() value is
+            the single source of truth everywhere, never doubled up). */}
         {!hideNavigation && (
-          <header className="flex justify-between items-center px-4 py-4 w-full border-b border-white/5 shrink-0 z-40">
+          <header
+            className="flex justify-between items-center px-4 pb-4 w-full border-b border-white/5 shrink-0 z-40"
+            style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}
+          >
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
               <h1 className="font-headline-md text-lg text-primary font-bold tracking-tight">
@@ -111,8 +123,20 @@ export const Layout = () => {
             that row's own scrollWidth was free to push the whole page
             wider than the viewport and produce a visible document-level
             horizontal scrollbar. This clips at the container instead,
-            without touching the chip row's own internal scrolling. */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide pt-4 px-4" style={{ paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))' }}>
+            without touching the chip row's own internal scrolling.
+            iPhone safe-area repair: on routes that hide the header
+            (hideNavigation), this div's own top padding is the first thing
+            below the notch/Dynamic Island, so it needs the same
+            env(safe-area-inset-top) addition the header gets above -
+            never both at once, since a shown header already reserves
+            that space and this div starts right after it. */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide px-4"
+          style={{
+            paddingTop: hideNavigation ? 'calc(1rem + env(safe-area-inset-top))' : '1rem',
+            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))'
+          }}
+        >
           <Outlet />
         </div>
 
