@@ -16,7 +16,17 @@ export const FEATURE_FLAGS = {
   notifications: true,
   feedback: true,
   betaChecklist: true,
-  releaseNotes: true
+  releaseNotes: true,
+  // Background Music, Phase B — defaults OFF, independent of the user's
+  // own saved musicPreference.js choice (see docs/background-music-
+  // specification.md and backgroundMusicSelection.js). No licensed
+  // pre-mixed music asset exists yet for any exercise, so the in-player
+  // "Music" toggle must never render for a real user regardless of this
+  // flag — this flag exists purely so QA can verify the toggle's own UI
+  // once a manifest entry gains a real musicVariantId, without a code
+  // deploy, via setFeatureFlagOverride('backgroundMusic', true) in the
+  // console.
+  backgroundMusic: false
 };
 
 const readOverrides = () => {

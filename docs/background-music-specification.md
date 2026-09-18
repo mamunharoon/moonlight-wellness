@@ -1,6 +1,6 @@
 # WakeWise — Background Music: Architecture Decision and Asset Specification
 
-Planning and scaffold-only document. **No music asset (licensed or placeholder) is bundled, uploaded, or streamed by this phase.** The only code shipped alongside this doc is `src/lib/musicPreference.js` — a persisted on/off preference with no audio behaviour wired to it yet (see §4).
+Planning document, now joined by real (asset-gated, feature-flagged) engineering — see §4. **No music asset (licensed or placeholder) is bundled, uploaded, or streamed by any phase of this work.** For the complete per-item media inventory, eligibility list, and the exact asset-production manifest for CapCut, see `docs/background-music-asset-manifest.md` (Phase B) — this document stays the architecture/mixing/licensing reference; that one is the concrete "what to produce, and where it goes" companion.
 
 ## 1. Architecture decision: pre-mixed, not dual-track
 
@@ -42,16 +42,22 @@ For whoever produces/licenses the music beds. Applies per exercise that gets a `
 | **Format/encoding** | Match the existing pipeline exactly: encode into the same H.264/AAC `.mp4` container every other `BETA_VIDEO_MANIFEST` entry uses — no new container/codec, no separate audio-only distribution format. |
 | **Licensing** | Every music bed needs a **commercial-use license appropriate for a paid subscription wellness app**: a royalty-free library license with an explicit commercial/app clause, or a custom work-for-hire with full buyout, in both cases **perpetual and worldwide** (matching the app's own AU-and-beyond distribution). No track may be used under a personal/non-commercial, attribution-only (unless attribution is contractually acceptable and tracked), or ambiguous license. Retain the license document/receipt per track — this is normal App Store/legal due diligence, not unique to WakeWise. |
 
-## 4. Framework shipped this phase
+## 4. Framework shipped — now includes real (asset-gated) selection logic, not just a scaffold
 
+**Phase 1 (prior):**
 - `src/lib/musicPreference.js` — `getMusicPreference()` / `setMusicPreference(enabled)`, localStorage-persisted, **defaults to off**. Mirrors `reducedMotionPreference.js`'s exact shape (independent preference — reduced motion is never read as an audio signal, and vice versa, per the explicit requirement not to conflate the two).
-- Nothing else. No UI toggle is wired into `BetaVideoModal.jsx` yet, and no manifest field for a music variant exists yet — building either now would be a non-functional control with nothing real behind it (there is no `-music` variant of anything to switch to), which is explicitly out of scope ("do not fake final validation without actual audio assets").
 
-**To finish this feature once real, licensed assets exist:**
-1. Produce `-music` variants per §3 for the chosen exercise set; upload alongside existing files in the private `wellness-videos` bucket.
-2. Add one field to each eligible `BETA_VIDEO_MANIFEST` entry, e.g. `musicStoragePath` (optional — absent means "no music variant produced for this exercise").
-3. In `BetaVideoModal.jsx`, when `entry.musicStoragePath` exists, show a small "Music" on/off row (reading `getMusicPreference()`); resolve `requestBetaVideoUrl` against `musicStoragePath` instead of `storagePath` when the preference is on, otherwise unchanged. No other player logic changes — pause/resume/stop-on-navigation/no-double-track are already correct by construction (§1).
-4. Persist the toggle change via `setMusicPreference()` immediately on tap, same as `reducedMotionPreference`'s existing toggle in `Settings.jsx`.
+**Phase B (this phase) — see `docs/background-music-asset-manifest.md` §5 for the full engineering-vs-asset completion breakdown:**
+- `src/lib/backgroundMusicSelection.js` — `resolvePlaybackId()` (the actual asset-selection switch this doc described in §2, now real code), `isMusicEligibleEntry()` (hard Sleep-Soundscape exclusion, id-prefix based so it holds even for callers that don't pass a `category` field), `shouldShowMusicToggle()`.
+- `src/lib/featureFlags.js` — a `backgroundMusic` flag, defaulting off, gating the in-player toggle independently of the user's own saved preference.
+- `src/components/BetaVideoModal.jsx` — resolves which id to request (`playbackId`) once, before the signed-URL fetch, never mid-playback; shows the "Music" toggle only pre-playback, only when the flag is on and a real `musicVariantId` is registered for that entry.
+- Still true: **no manifest entry has a `musicVariantId` yet** (renamed from this doc's original `musicStoragePath` suggestion — see the asset-manifest doc for why an id-based field fits this codebase's existing id-based Edge Function contract better than a raw path). The toggle is therefore structurally inert for every real user today, regardless of the feature flag — building the selection/fallback engineering now, ahead of real assets, is what let it be fully unit-tested without "faking final validation without actual audio assets": every test asserts behaviour *given* a hypothetical variant, never claims one exists.
+
+**To finish this feature once real, licensed assets exist** (see the asset-manifest doc's §5 for the authoritative version of this list):
+1. Produce `-MUSIC` variants per §3 above and the asset-manifest doc's per-item table; upload alongside existing files in the private `wellness-videos` bucket.
+2. Add a new `BETA_VIDEO_MANIFEST` entry for each produced variant (its own id, e.g. `E02-MUSIC`, its own `storagePath`) and set `musicVariantId` on the corresponding existing entry.
+3. Register that new id in the Edge Function's `EXERCISE_PATHS` map (`supabase/functions/get-beta-video-url`) — a genuine Supabase deploy, deliberately not done by this phase.
+4. Flip `backgroundMusic: true` in `featureFlags.js` (or use the existing per-device override) once ready for real users to see the toggle. No change to `resolvePlaybackId`, `BetaVideoModal.jsx`, or any other shipped engineering is needed — the fallback-safe design means turning content on is purely additive.
 
 ## 5. Required playback behaviour — status under this architecture
 

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { cacheDurationSeconds, getCachedDurationMinutes } from '../lib/durationCache';
+import { getBetaVideoById } from '../lib/mediaCatalog';
+import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { isFeatureEnabled } from '../lib/featureFlags';
+import { resolvePlaybackId, shouldShowMusicToggle } from '../lib/backgroundMusicSelection';
 
 // Daily Journey & Content Architecture: Sleep Soundscapes timer options.
 // 'continuous' means no auto-stop — the source loops (see the `loop`
@@ -52,6 +56,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   // for exhaustive-deps to ask for and no memoized callback whose direct,
   // synchronous setState the set-state-in-effect rule would flag.
   const [retryToken, setRetryToken] = useState(0);
+  // Background Music, Phase B — see backgroundMusicSelection.js's own doc
+  // comment for the full contract. `musicEnabled` is read once, at mount,
+  // as this instance's own initial state (never re-read from storage on
+  // every render) — combined with the feature flag and this entry's own
+  // (today, always absent) musicVariantId, it resolves to a single
+  // `playbackId` used by the fetch effect below. This is what "resolve
+  // the choice before playback, never swap during playback" means in
+  // practice: the id the fetch effect requests cannot change once
+  // hasStarted is true, because the toggle itself is hidden by then (see
+  // the JSX below) and nothing else ever calls setMusicEnabledState.
+  const [musicEnabled, setMusicEnabledState] = useState(getMusicPreference);
+  const musicFeatureOn = isFeatureEnabled('backgroundMusic');
+  const showMusicToggle = shouldShowMusicToggle({ entry, featureEnabled: musicFeatureOn });
+  const playbackId = resolvePlaybackId({ entry, musicEnabled, featureEnabled: musicFeatureOn, getEntryById: getBetaVideoById });
   // Whether the user has actually pressed "Begin Exercise" and playback
   // has genuinely started (set from the <video>'s own onPlay event, not
   // from the click itself - see handleBegin). Never set programmatically
@@ -66,9 +84,14 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   const videoRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Fetches the signed URL. Deps are entry.id/retryToken only - no ref
-  // involved here, since the <video> element (and therefore videoRef)
-  // doesn't exist yet while this is in flight.
+  // Fetches the signed URL. Deps are playbackId/retryToken - playbackId
+  // already folds in entry.id (it's always the fallback), so this effect
+  // re-fetches exactly when the actual requested id changes, whether
+  // that's a different entry entirely or a pre-playback Music toggle
+  // flip (see handleToggleMusic below) - never mid-playback, since the
+  // toggle that could change playbackId is hidden once hasStarted is
+  // true. No ref involved here, since the <video> element (and therefore
+  // videoRef) doesn't exist yet while this is in flight.
   useEffect(() => {
     let cancelled = false;
 
@@ -77,7 +100,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
       setErrorMessage('');
       setHasStarted(false);
       try {
-        const { url, expiresAt } = await requestBetaVideoUrl(entry.id);
+        const { url, expiresAt } = await requestBetaVideoUrl(playbackId);
         if (cancelled) return;
         expiresAtRef.current = expiresAt;
         setVideoUrl(url);
@@ -93,7 +116,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     return () => {
       cancelled = true;
     };
-  }, [entry.id, retryToken]);
+  }, [playbackId, retryToken]);
 
   // Owns the <video> element's lifecycle, separately from the fetch above.
   // Depends on videoUrl specifically so it re-runs (and re-captures the
@@ -150,6 +173,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     videoRef.current?.pause();
     clearTimeout(timerRef.current);
     onClose();
+  };
+
+  // Background Music, Phase B — deliberately a no-op once hasStarted is
+  // true (the toggle itself is hidden by then too; this guard is
+  // defense-in-depth, not the only thing preventing a mid-playback
+  // swap). Persists immediately via setMusicPreference so the choice
+  // sticks for every future video, not just this one, then updates local
+  // state so the fetch effect above re-resolves playbackId and loads the
+  // other variant — always still before the user has pressed Begin.
+  const handleToggleMusic = () => {
+    if (hasStarted) return;
+    const next = !musicEnabled;
+    setMusicEnabledState(next);
+    setMusicPreference(next);
   };
 
   // Sleep Soundscapes only: explicit "Stop" distinct from Close — pauses
@@ -319,6 +356,40 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                 Stop
               </button>
             )}
+          </div>
+        )}
+
+        {/* Background Music, Phase B — only ever rendered when the
+            feature flag is on AND this entry actually has a produced,
+            registered musicVariantId (shouldShowMusicToggle handles
+            both, plus the Sleep Soundscape exclusion). Today that's
+            never true for any real entry, so this row is fully inert in
+            production regardless of the flag - see
+            backgroundMusicSelection.js. Hidden once hasStarted, so it
+            can only ever change playbackId before playback begins,
+            never during it. */}
+        {showMusicToggle && status === 'ready' && !hasStarted && (
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-xs font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-lg">music_note</span>
+              Music
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={musicEnabled}
+              aria-label="Background music"
+              onClick={handleToggleMusic}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+                musicEnabled ? 'bg-primary' : 'bg-white/10'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                  musicEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         )}
 
