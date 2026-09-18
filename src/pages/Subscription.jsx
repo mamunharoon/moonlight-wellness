@@ -6,6 +6,7 @@ import { isSubscribed } from '../lib/entitlements';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getSubscriptionOverride } from '../lib/subscriptionOverride';
 import { startCheckout, openBillingPortal } from '../lib/stripeApi';
+import { getStatusExplanation, formatExpiryDate } from '../lib/subscriptionStatusMessages';
 import {
   annualEffectiveMonthly,
   annualSavingsPercent,
@@ -74,29 +75,11 @@ const PLUS_FEATURES = [
 
 const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
 const STATUS_LABELS = { trial: 'Trial', active: 'Active', cancelled: 'Cancelled', expired: 'Expired' };
-// Status explanations shown under the status row — what each state
-// actually means and, where relevant, what to do about it. A failed
-// renewal payment is not a distinct stored status here (see
-// supabase/functions/_shared/planMapping.ts's mapStripeStatus — Stripe's
-// own "past_due" is deliberately folded into "active" as a short grace
-// period, and "unpaid"/"incomplete" fold into "expired"), so payment
-// failures surface to the user as one of these two existing states
-// rather than a dedicated "payment failed" screen.
-const STATUS_EXPLANATIONS = {
-  trial: 'Your free trial is active. You will not be charged until it ends unless you cancel first.',
-  active: "Your subscription is active and will renew automatically unless you cancel. If a recent payment failed, we're still retrying it — you keep access in the meantime.",
-  cancelled: 'Your subscription is cancelled. Depending on your billing provider, you may keep access until the end of your current paid period.',
-  expired: 'Your subscription has ended, including after repeated failed payments. Subscribe again any time to restore Plus access.'
-};
 const INTERVAL_LABELS = { monthly: 'Monthly', yearly: 'Yearly' };
 
 const formatRenewalDate = (subscription) => {
   if (subscription.plan === 'free' || !subscription.expires_at) return 'No renewal date';
-  return new Date(subscription.expires_at).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  return formatExpiryDate(subscription.expires_at);
 };
 
 export const Subscription = () => {
@@ -351,8 +334,8 @@ export const Subscription = () => {
             </span>
           </div>
         </div>
-        {!loading && STATUS_EXPLANATIONS[subscription.status] && (
-          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{STATUS_EXPLANATIONS[subscription.status]}</p>
+        {!loading && getStatusExplanation(subscription) && (
+          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(subscription)}</p>
         )}
         {error && (
           <p role="alert" className="text-[10px] text-red-400 font-medium px-1">{error}</p>
