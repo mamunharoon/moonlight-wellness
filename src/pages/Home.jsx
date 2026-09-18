@@ -4,25 +4,21 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
-import { MORNING_DISPLAY_STEP_NUMBERS, MORNING_DISPLAY_STEP_COUNT } from '../session/sessionConstants';
-import { MORNING_STEP_IDS } from '../session/sessionConstants';
-import { getStepIndex } from '../session/sessionRegistry';
+import {
+  MORNING_DISPLAY_STEP_NUMBERS,
+  MORNING_DISPLAY_STEP_COUNT,
+  EVENING_DISPLAY_STEP_NUMBERS,
+  EVENING_DISPLAY_STEP_COUNT,
+  MORNING_STEP_IDS
+} from '../session/sessionConstants';
+import { getStepIndex, getSessionById } from '../session/sessionRegistry';
+import { getRoutineProgress } from '../session/routineProgress';
+import { RITUAL_SESSION_IDS, resolveRoutineCardState, resolveRoutineStepIndex, shouldShowCrossRoutineBanner } from '../lib/routineCardState';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
 import { getGreeting } from '../lib/greeting';
 import { TimezoneBanner } from '../components/TimezoneBanner';
-
-// Daily Journey & Content Architecture: friendly title/route for the
-// Session Engine's two sessions, so an in-progress routine can be
-// resumed from a single explicit Home card instead of Layout.jsx
-// silently forcing the user back into it on every render (see
-// Layout.jsx's own comment on that fix). Deliberately not imported from
-// sessionRegistry: this is just display copy for the two sessions that
-// exist today, not a general-purpose session lookup.
-const SESSION_LABELS = {
-  'morning-routine': 'Rise & Reset',
-  'evening-wind-down': 'Begin Wind-Down'
-};
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
@@ -32,7 +28,7 @@ export const Home = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
   const { profile, user } = useAuth();
-  const { state, currentStep, resumeSession, startSession, resetSession } = useSession();
+  const { state, startSession, advanceStep, resetSession, resumeRoutine, resetRoutine } = useSession();
 
   // Global timezone correctness: every "what day/time is it for this
   // user" question below goes through getZonedParts(effectiveTimezone),
@@ -52,8 +48,56 @@ export const Home = () => {
   // persistent unchecked placeholder like Morning/Evening.
   const isMeditatedToday = localStorage.getItem(MEDITATION_DONE_KEY) === today;
 
-  const isMorningActive = state.sessionId === 'morning-routine' && (state.status === 'playing' || state.status === 'interrupted');
-  const isEveningActive = state.sessionId === 'evening-wind-down' && (state.status === 'playing' || state.status === 'interrupted');
+  // Build 10 remediation — the critical "Evening selected opens Morning"
+  // defect traced back to this exact spot: isMorningActive/isEveningActive
+  // (and the single "Continue where you left off" card built from them
+  // below) only ever reflected the Session Engine's one global live slot
+  // (state.sessionId), never which routine the user actually had
+  // SELECTED on the Morning/Evening pill, and never a routine that was
+  // paused but is no longer the live one (starting the other routine
+  // requires resetSession() first — see routineProgress.js's own root-
+  // cause doc comment). Each routine's own card state is now resolved
+  // independently via routineCardState.js, reading BOTH the live reducer
+  // state AND that routine's own persisted-today snapshot — so a paused
+  // Morning session can never be shown, resumed, or navigated to from an
+  // Evening-selected card, and vice versa.
+  const morningSnapshotToday = getRoutineProgress(RITUAL_SESSION_IDS.morning);
+  const eveningSnapshotToday = getRoutineProgress(RITUAL_SESSION_IDS.evening);
+
+  const morningCardState = resolveRoutineCardState({
+    sessionId: RITUAL_SESSION_IDS.morning,
+    liveState: state,
+    snapshot: morningSnapshotToday,
+    doneToday: isMorningDone
+  });
+  const eveningCardState = resolveRoutineCardState({
+    sessionId: RITUAL_SESSION_IDS.evening,
+    liveState: state,
+    snapshot: eveningSnapshotToday,
+    doneToday: isEveningDone
+  });
+
+  const morningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.morning, liveState: state, snapshot: morningSnapshotToday });
+  const eveningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.evening, liveState: state, snapshot: eveningSnapshotToday });
+
+  const resolveStepLabel = (sessionId, stepIndex) => {
+    const session = getSessionById(sessionId);
+    const stepId = session?.steps[stepIndex]?.id;
+    if (sessionId === RITUAL_SESSION_IDS.morning) {
+      const num = MORNING_DISPLAY_STEP_NUMBERS[stepId];
+      return num ? `Step ${num} of ${MORNING_DISPLAY_STEP_COUNT}` : '';
+    }
+    const num = EVENING_DISPLAY_STEP_NUMBERS[stepId];
+    return num ? `Step ${num} of ${EVENING_DISPLAY_STEP_COUNT}` : '';
+  };
+
+  // "Start Over"/"Do Again" confirmation — which routine (if any) the
+  // dialog is currently open for. null means closed.
+  const [confirmResetPeriod, setConfirmResetPeriod] = useState(null);
+  const handleConfirmReset = () => {
+    if (confirmResetPeriod) resetRoutine(RITUAL_SESSION_IDS[confirmResetPeriod]);
+    setConfirmResetPeriod(null);
+  };
 
   // Derived timeState. "Before wake" is compared against the user's own
   // configured alarmTime (not a fixed clock band) per the required Today
@@ -100,15 +144,35 @@ export const Home = () => {
 
   const primaryIntention = intentions[0] || 'Stay calm';
 
-  // Resuming an 'interrupted' routine must flip it back to 'playing'
-  // first — every step page's own Continue/Skip guards only advance the
-  // Session Engine when status is genuinely 'playing' (see
-  // MorningStart.jsx etc.), so navigating straight to currentStep.route
-  // while still 'interrupted' would silently strand the user on that
-  // step with a Continue button that does nothing.
-  const handleContinueSession = () => {
-    if (state.status === 'interrupted') resumeSession();
-    navigate(currentStep.route);
+  // Build 10 remediation — the single source of truth for "what happens
+  // when this routine's own card CTA is tapped", replacing the old bug
+  // where a bare <Link to="/evening-wind-down"> (or the standalone
+  // "Continue where you left off" card) could launch/resume whichever
+  // routine happened to be live in the Session Engine, regardless of
+  // which pill was selected. Each handler only ever touches its OWN
+  // sessionId: resumeRoutine(sessionId) (SessionContext.jsx) only
+  // activates a routine if IT genuinely has playing/interrupted/saved
+  // state, so this can never accidentally resume the other routine, and
+  // the navigate() target is always computed from that SAME sessionId's
+  // own registry step list — never a global currentStep read.
+  const handleMorningAction = () => {
+    if (morningCardState === 'in-progress') {
+      resumeRoutine(RITUAL_SESSION_IDS.morning);
+      const session = getSessionById(RITUAL_SESSION_IDS.morning);
+      navigate(session?.steps[morningResolvedStepIndex]?.route ?? '/morning-start');
+      return;
+    }
+    handleBeginRiseAndReset();
+  };
+
+  const handleEveningAction = () => {
+    if (eveningCardState === 'in-progress') {
+      resumeRoutine(RITUAL_SESSION_IDS.evening);
+      const session = getSessionById(RITUAL_SESSION_IDS.evening);
+      navigate(session?.steps[eveningResolvedStepIndex]?.route ?? '/reflection');
+      return;
+    }
+    handleBeginEveningWindDown();
   };
 
   // Close Remaining Daily-Journey Limitations: Today's own "Begin Rise &
@@ -129,7 +193,18 @@ export const Home = () => {
     navigate('/morning-start');
   };
 
-  const morningStepNumber = isMorningActive ? MORNING_DISPLAY_STEP_NUMBERS[currentStep?.id] : null;
+  // Same reset-before-start guard, for a genuinely fresh Evening Wind-
+  // down start — mirrors EveningWindDown.jsx's own fresh-start branch
+  // (advances straight past the content-free "windDown" step to
+  // Reflection, exactly as tapping Begin on that page itself does).
+  const handleBeginEveningWindDown = () => {
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
+    }
+    startSession('evening-wind-down');
+    advanceStep();
+    navigate('/reflection');
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -138,21 +213,49 @@ export const Home = () => {
 
       {/* Morning/Evening selector — also shows each ritual's daily
           completion status (the ✓ prefix), same as before this was made
-          functional. */}
-      <div className="flex gap-2">
+          functional. Segmented-control styling fix: the previous
+          treatment gave the INACTIVE pill glass-panel's own visible
+          border while the active pill had none at all - backwards from
+          what a selected state should look like, and genuinely
+          confusing. Active now gets each option's own solid accent fill
+          (bg-primary/text-on-primary for Morning, bg-secondary/
+          text-on-secondary for Evening - the same high-contrast pairs
+          already used for this app's primary CTA buttons elsewhere, not
+          a new colour choice) with a matching border and a subtle shadow
+          for depth; inactive drops the border entirely and uses a much
+          quieter fill, so there is never any ambiguity about which one
+          is selected. role="tablist"/"tab" + aria-selected is the
+          semantically correct ARIA pattern for a mutually-exclusive
+          segmented selector like this one (replacing the previous
+          aria-pressed, which is for independent toggle buttons, not a
+          tab-like choice) - keyboard/touch/screen-reader operability is
+          unaffected, since these remain plain, fully-focusable <button>
+          elements with only their role/state attributes and visual
+          classes changed. */}
+      <div className="flex gap-2" role="tablist" aria-label="Time of day">
         <button
           type="button"
+          role="tab"
           onClick={() => setSelectedPeriod('morning')}
-          aria-pressed={activePeriod === 'morning'}
-          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all ${activePeriod === 'morning' ? 'bg-primary/15 text-primary' : 'glass-panel text-on-surface-variant/60 hover:bg-white/5'}`}
+          aria-selected={activePeriod === 'morning'}
+          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border ${
+            activePeriod === 'morning'
+              ? 'bg-primary text-on-primary border-primary shadow-sm'
+              : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
+          }`}
         >
           {isMorningDone ? '✓ Morning' : 'Morning'}
         </button>
         <button
           type="button"
+          role="tab"
           onClick={() => setSelectedPeriod('evening')}
-          aria-pressed={activePeriod === 'evening'}
-          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all ${activePeriod === 'evening' ? 'bg-secondary/15 text-secondary' : 'glass-panel text-on-surface-variant/60 hover:bg-white/5'}`}
+          aria-selected={activePeriod === 'evening'}
+          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border ${
+            activePeriod === 'evening'
+              ? 'bg-secondary text-on-secondary border-secondary shadow-sm'
+              : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
+          }`}
         >
           {isEveningDone ? '✓ Evening' : 'Evening'}
         </button>
@@ -163,27 +266,50 @@ export const Home = () => {
         )}
       </div>
 
-      {/* Continue an in-progress routine (morning OR evening) — the
-          user-initiated replacement for the forced-redirect Layout.jsx
-          used to apply on every render. Resuming is a tap the user
-          chooses, never something imposed. */}
-      {(isMorningActive || isEveningActive) && currentStep?.route && (
+      {/* Build 10 remediation — replaces the old single, session-engine-
+          global "Continue where you left off" card (see the critical
+          defect this fixes, in morningCardState/eveningCardState's own
+          doc comment above): a distinct, clearly-labelled banner for the
+          OTHER routine only, never presented as the selected routine's
+          own state, and never the thing that actually opens a route on
+          its own tap — tapping it only switches the pill, so the main
+          card below (which always matches whatever IS selected) is what
+          actually navigates. This is what keeps "the selected tab and
+          its card must always agree" true at every step, including the
+          instant right after tapping this banner. */}
+      {shouldShowCrossRoutineBanner({
+        selectedSessionId: RITUAL_SESSION_IDS[activePeriod],
+        otherSessionId: RITUAL_SESSION_IDS.evening,
+        otherCardState: eveningCardState
+      }) && (
         <button
           type="button"
-          onClick={handleContinueSession}
-          className="block w-full text-left glass-panel p-5 rounded-3xl border-l-4 border-l-primary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
+          onClick={() => setSelectedPeriod('evening')}
+          className="block w-full text-left glass-panel p-4 rounded-2xl border-l-4 border-l-secondary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
         >
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <span className="text-[10px] text-primary uppercase font-bold tracking-wider">
-                {state.status === 'interrupted' ? 'Paused — resume' : 'Continue where you left off'}
-              </span>
-              <h3 className="text-base font-bold text-on-surface mt-0.5 truncate">
-                {SESSION_LABELS[state.sessionId] || 'Your routine'}
-                {morningStepNumber ? ` — Step ${morningStepNumber} of ${MORNING_DISPLAY_STEP_COUNT}` : ''}
-              </h3>
-            </div>
-            <span className="material-symbols-outlined text-primary text-2xl shrink-0">play_circle</span>
+            <span className="text-xs font-bold text-on-surface truncate">
+              Evening routine paused — {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)}
+            </span>
+            <span className="material-symbols-outlined text-secondary text-xl shrink-0">chevron_right</span>
+          </div>
+        </button>
+      )}
+      {shouldShowCrossRoutineBanner({
+        selectedSessionId: RITUAL_SESSION_IDS[activePeriod],
+        otherSessionId: RITUAL_SESSION_IDS.morning,
+        otherCardState: morningCardState
+      }) && (
+        <button
+          type="button"
+          onClick={() => setSelectedPeriod('morning')}
+          className="block w-full text-left glass-panel p-4 rounded-2xl border-l-4 border-l-primary shadow-sm hover:bg-white/5 active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-on-surface truncate">
+              Morning routine paused — {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)}
+            </span>
+            <span className="material-symbols-outlined text-primary text-xl shrink-0">chevron_right</span>
           </div>
         </button>
       )}
@@ -248,8 +374,8 @@ export const Home = () => {
         </div>
       )}
 
-      {/* MORNING WINDOW — not started */}
-      {effectiveTimeState === 'daytime-morning' && !isMorningActive && !isMorningDone && (
+      {/* MORNING WINDOW — not started today */}
+      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
@@ -265,7 +391,7 @@ export const Home = () => {
             </div>
             <button
               type="button"
-              onClick={handleBeginRiseAndReset}
+              onClick={handleMorningAction}
               className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
             >
               Begin Rise &amp; Reset
@@ -274,8 +400,42 @@ export const Home = () => {
         </div>
       )}
 
-      {/* MORNING WINDOW — complete */}
-      {effectiveTimeState === 'daytime-morning' && isMorningDone && (
+      {/* MORNING WINDOW — paused today (Build 10: previously indistinguishable
+          from "not started" — resolveRoutineCardState/routineProgress.js
+          now track this independently of Evening's own progress). */}
+      {effectiveTimeState === 'daytime-morning' && morningCardState === 'in-progress' && (
+        <div className="space-y-8">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
+            <p className="text-xs text-on-surface-variant font-medium">Pick up right where you paused.</p>
+          </div>
+          <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+              Rise &amp; Reset — {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)}
+            </span>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold leading-tight text-on-surface">Resume Rise &amp; Reset</h3>
+            </div>
+            <button
+              type="button"
+              onClick={handleMorningAction}
+              className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+            >
+              Resume — {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmResetPeriod('morning')}
+              className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+            >
+              Start Over
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MORNING WINDOW — completed today */}
+      {effectiveTimeState === 'daytime-morning' && morningCardState === 'completed' && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Rise &amp; Reset complete</h2>
@@ -285,6 +445,13 @@ export const Home = () => {
             <p className="text-xs font-semibold uppercase tracking-wider text-secondary">Today's Intention</p>
             <p className="text-lg italic font-medium text-on-surface">"{primaryIntention}"</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setConfirmResetPeriod('morning')}
+            className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+          >
+            Do Again
+          </button>
         </div>
       )}
 
@@ -308,41 +475,83 @@ export const Home = () => {
         </div>
       )}
 
-      {/* EVENING */}
-      {effectiveTimeState === 'evening' && (
+      {/* EVENING — not started today */}
+      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && (
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">
-              {isEveningDone ? 'Tonight\'s wind-down is complete. Rest well.' : 'You\'ve done enough for today. Let\'s prepare for tomorrow.'}
-            </p>
+            <p className="text-xs text-on-surface-variant font-medium">You've done enough for today. Let's prepare for tomorrow.</p>
           </div>
-          {!isEveningDone && (
-            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
-              <div className="space-y-1">
-                <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
-                <h3 className="text-xl font-bold text-on-surface">
-                  {isEveningActive ? 'Continue your wind-down' : 'What are you grateful for today?'}
-                </h3>
-              </div>
-              {isEveningActive ? (
-                <button
-                  type="button"
-                  onClick={handleContinueSession}
-                  className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
-                >
-                  Continue Wind-Down
-                </button>
-              ) : (
-                <Link to="/evening-wind-down" className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
-                  Begin Wind-Down
-                </Link>
-              )}
-              <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
-                Sleep Soundscapes
-              </Link>
+          <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+            <div className="space-y-1">
+              <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
+              <h3 className="text-xl font-bold text-on-surface">What are you grateful for today?</h3>
             </div>
-          )}
+            <button
+              type="button"
+              onClick={handleEveningAction}
+              className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+            >
+              Begin Wind-Down
+            </button>
+            <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10">
+              Sleep Soundscapes
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* EVENING — paused today (Build 10: the exact defect reported —
+          this card previously came from whichever routine was globally
+          live, so an Evening pause could be shown/resumed while Morning
+          was selected and vice versa; both are now resolved
+          independently per sessionId, and this block only ever renders
+          for Evening's OWN in-progress state). */}
+      {effectiveTimeState === 'evening' && eveningCardState === 'in-progress' && (
+        <div className="space-y-8">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
+            <p className="text-xs text-on-surface-variant font-medium">Pick up right where you paused.</p>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+            <div className="space-y-1">
+              <p className="text-xs text-primary font-bold uppercase tracking-widest">
+                Evening Reflection — {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)}
+              </p>
+              <h3 className="text-xl font-bold text-on-surface">Continue your wind-down</h3>
+            </div>
+            <button
+              type="button"
+              onClick={handleEveningAction}
+              className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+            >
+              Resume — {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmResetPeriod('evening')}
+              className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+            >
+              Start Over
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* EVENING — completed today */}
+      {effectiveTimeState === 'evening' && eveningCardState === 'completed' && (
+        <div className="space-y-8">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
+            <p className="text-xs text-on-surface-variant font-medium">Tonight's wind-down is complete. Rest well.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmResetPeriod('evening')}
+            className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+          >
+            Do Again
+          </button>
         </div>
       )}
 
@@ -364,6 +573,22 @@ export const Home = () => {
         </div>
       )}
 
+      {/* "Start Over"/"Do Again" confirmation — resetRoutine(sessionId)
+          only ever touches THAT routine's own live/persisted step
+          position (see resetRoutine's own doc comment in
+          SessionContext.jsx): never the other routine's progress, never
+          journal entries/reflections/intentions/completed-session
+          history, never subscription/entitlement data. */}
+      <ConfirmDialog
+        open={confirmResetPeriod !== null}
+        title="Start this routine again?"
+        message="Your current step progress will be reset."
+        confirmLabel={confirmResetPeriod === 'morning' ? (morningCardState === 'completed' ? 'Do Again' : 'Start Over') : (eveningCardState === 'completed' ? 'Do Again' : 'Start Over')}
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={handleConfirmReset}
+        onDismiss={() => setConfirmResetPeriod(null)}
+      />
     </div>
   );
 };

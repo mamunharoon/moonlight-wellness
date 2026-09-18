@@ -8,6 +8,7 @@ import {
   SESSION_STATUS,
 } from '../session/sessionReducer';
 import { loadSessionState, saveSessionState } from '../session/sessionPersistence';
+import { saveRoutineProgress, getRoutineProgress, clearRoutineProgress } from '../session/routineProgress';
 
 /*
  * Stage 3C — Session Engine core, provider (Ticket Group 2)
@@ -66,6 +67,28 @@ export const SessionProvider = ({ children }) => {
     saveSessionState(state);
   }, [state]);
 
+  // Build 10 remediation — per-routine progress mirror (see
+  // routineProgress.js's own doc comment for the full root-cause
+  // explanation). This engine only ever tracks ONE session as "live" at
+  // a time; this second, additive write keeps a running, independent
+  // snapshot per sessionId, so starting a DIFFERENT routine (which
+  // requires resetSession() first, wiping the live slot back to
+  // canonical idle) never destroys the routine that was just left
+  // behind — its last real state was already durably saved here on its
+  // own last genuine state change, before the reset ever happened. Never
+  // fires for the canonical-idle state (sessionId null) — nothing
+  // routine-specific to store for "no active session".
+  useEffect(() => {
+    if (!state.sessionId) return;
+    saveRoutineProgress(state.sessionId, {
+      stepIndex: state.stepIndex,
+      status: state.status,
+      startedAt: state.startedAt,
+      updatedAt: state.updatedAt,
+      completionEventId: state.completionEventId
+    });
+  }, [state]);
+
   const currentSession = useMemo(() => getSessionById(state.sessionId), [state.sessionId]);
   const currentStep = useMemo(
     () => currentSession?.steps[state.stepIndex] ?? null,
@@ -97,6 +120,56 @@ export const SessionProvider = ({ children }) => {
   const abandonSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.ABANDON_SESSION }), []);
   const resetSession = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION }), []);
 
+  // Build 10 remediation — resumes a SPECIFIC routine by sessionId,
+  // never "whatever is currently live". If that routine is already the
+  // live one, this just un-pauses it (RESUME_SESSION); otherwise it
+  // restores that routine's own last saved snapshot (routineProgress.js,
+  // today only) as the new live state via the reducer's existing,
+  // already-validated RESTORE_SESSION action — the exact mechanism that
+  // fixes "Evening selected resumes/opens Morning": the caller always
+  // names the routine it wants, and this never falls back to reading
+  // some other routine's step. No-ops (returns false) if there is
+  // nothing valid to resume for that sessionId.
+  const resumeRoutine = useCallback((sessionId) => {
+    if (state.sessionId === sessionId) {
+      if (state.status === SESSION_STATUS.INTERRUPTED) {
+        dispatch({ type: SESSION_ACTION_TYPES.RESUME_SESSION });
+      }
+      return true;
+    }
+    const snapshot = getRoutineProgress(sessionId);
+    if (!snapshot) return false;
+    dispatch({
+      type: SESSION_ACTION_TYPES.RESTORE_SESSION,
+      payload: {
+        sessionId,
+        stepIndex: snapshot.stepIndex,
+        status: SESSION_STATUS.PLAYING,
+        startedAt: snapshot.startedAt,
+        updatedAt: snapshot.updatedAt,
+        interruptionReason: null,
+        completionEventId: null
+      }
+    });
+    return true;
+  }, [state.sessionId, state.status]);
+
+  // Build 10 remediation — "Start Over"/"Do Again": resets ONLY the named
+  // routine's progress, never the other one's, and never anything
+  // outside routine step position (journal entries, reflections,
+  // intentions, completed-session history/streaks, subscription/
+  // entitlement data are all untouched — see routineProgress.js's own
+  // doc comment). If that routine happens to be the live one, the live
+  // reducer is also reset to canonical idle so its own next Begin starts
+  // genuinely fresh; if it's a different (or no) live routine, only its
+  // stored snapshot is cleared. Idempotent either way.
+  const resetRoutine = useCallback((sessionId) => {
+    if (state.sessionId === sessionId) {
+      dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION });
+    }
+    clearRoutineProgress(sessionId);
+  }, [state.sessionId]);
+
   const value = useMemo(
     () => ({
       state,
@@ -118,6 +191,8 @@ export const SessionProvider = ({ children }) => {
       completeSession,
       abandonSession,
       resetSession,
+      resumeRoutine,
+      resetRoutine,
     }),
     [
       state,
@@ -138,6 +213,8 @@ export const SessionProvider = ({ children }) => {
       completeSession,
       abandonSession,
       resetSession,
+      resumeRoutine,
+      resetRoutine,
     ]
   );
 

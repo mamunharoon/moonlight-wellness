@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { migrateGuestData } from '../lib/migrateGuestData';
+import { clearAllRoutineProgress } from '../session/routineProgress';
 
 const AuthContext = createContext();
 
@@ -37,7 +38,16 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Build 10 remediation — sign-out/user-switch isolation: routine
+  // progress (routineProgress.js) is plain localStorage, entirely
+  // device-local and not scoped per-user, so without this a signed-out
+  // user's in-progress Morning/Evening step would otherwise still be
+  // sitting there for whoever signs in next on the same device. Cleared
+  // unconditionally on every sign-out, guest or registered, before the
+  // Supabase call — never fails/blocks sign-out even if storage is
+  // unavailable (clearAllRoutineProgress already no-ops safely on that).
   const signOut = async () => {
+    clearAllRoutineProgress();
     if (!supabase) return;
     await supabase.auth.signOut();
   };

@@ -60,3 +60,23 @@ describe('Home.jsx Morning/Evening selector wiring', () => {
     );
   });
 });
+
+describe('Home.jsx Morning/Evening selector styling (selected-state fix)', () => {
+  it('uses the semantically correct tab pattern (role="tablist"/"tab" + aria-selected), not the previous aria-pressed', () => {
+    expect(homeSource).toMatch(/role="tablist" aria-label="Time of day"/);
+    expect(homeSource).toMatch(/role="tab"/);
+    expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'morning'\}/);
+    expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'evening'\}/);
+    expect(homeSource).not.toMatch(/aria-pressed=\{/);
+  });
+
+  it('gives the active pill a solid, bordered accent fill - each option keeping its own distinct colour', () => {
+    expect(homeSource).toMatch(/'bg-primary text-on-primary border-primary shadow-sm'/);
+    expect(homeSource).toMatch(/'bg-secondary text-on-secondary border-secondary shadow-sm'/);
+  });
+
+  it('never gives the inactive pill a visible border, so it can never look stronger than the active one', () => {
+    const inactiveClassMatches = homeSource.match(/'bg-white\/5 text-on-surface-variant\/60 border-transparent hover:bg-white\/10'/g) ?? [];
+    expect(inactiveClassMatches.length).toBe(2);
+  });
+});
