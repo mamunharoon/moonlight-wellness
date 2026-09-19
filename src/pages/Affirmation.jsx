@@ -4,6 +4,7 @@ import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { getAffirmationForIntention } from '../lib/intentionAffirmations';
+import { roleForIndex } from '../lib/intentionSelection';
 import { BackButton } from '../components/BackButton';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
@@ -36,14 +37,23 @@ export const Affirmation = () => {
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - no timer, no input on this
   // screen, so leaving it never needs a confirmation; it always reflects
-  // whatever the CURRENT intention is (intentions[0] below, from
-  // AlarmContext) - including a change made via Home's "Change intention"
-  // or via reviewing/editing Intend itself, automatically, since both
-  // just read the same live context value at render time.
+  // whatever the CURRENT intentions are (below, from AlarmContext) -
+  // including a change made via Home's "Change intention" or via
+  // reviewing/editing Intend itself, automatically, since both just read
+  // the same live context value at render time.
   const { isReviewMode, isLiveStep } = useStepReviewMode('affirmation', 'morning-routine');
   const { routeForStep } = useReviewNavigation({ sessionId: 'morning-routine', isLiveStep, hasUnsavedProgress: false });
 
-  const affirmation = getAffirmationForIntention(intentions[0]);
+  // Primary then Supporting order, always - intentions is already
+  // ordered that way (index 0 = Primary, index 1 = Supporting), so this
+  // is just "map every selected intention to its own fixed affirmation
+  // in-order", never a re-sort. A custom (non-preset) intention maps to
+  // the same fixed neutral DEFAULT_AFFIRMATION getAffirmationForIntention
+  // already returns for one - never a dynamically generated claim.
+  const affirmations = intentions.map((intention) => ({
+    intention,
+    affirmation: getAffirmationForIntention(intention)
+  }));
 
   // Mirror only when the engine is genuinely playing at the 'affirmation'
   // step — a direct-route visit with no active session, or a mismatched
@@ -92,9 +102,18 @@ export const Affirmation = () => {
           <h2 className="text-3xl font-extrabold text-[#954835] leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
-          <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed font-medium">
-            "{affirmation}"
-          </p>
+          <div className="space-y-4">
+            {affirmations.map(({ intention, affirmation }, idx) => (
+              <div key={intention.toLowerCase()} className="space-y-1">
+                {affirmations.length > 1 && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-primary/70">{roleForIndex(idx)}</span>
+                )}
+                <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed font-medium">
+                  "{affirmation}"
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

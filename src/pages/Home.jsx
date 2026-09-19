@@ -41,7 +41,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
-import { saveIntentionToCloud } from '../lib/intentionPersistence';
+import { saveIntentionsToCloud } from '../lib/intentionPersistence';
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
@@ -337,21 +337,25 @@ export const Home = () => {
   // evening/night lean the Evening pill, everything else leans Morning.
   const activePeriod = selectedPeriod ?? (timeState === 'evening' || timeState === 'night' ? 'evening' : 'morning');
 
-  const primaryIntention = intentions[0] || 'Stay calm';
+  const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
   // Usability remediation — "Change intention" (ActiveIntentionCard,
   // rendered from both the Morning-complete and plain-daytime intention
   // cards below). Deliberately the ONLY thing this touches: the same
-  // setIntentions context setter + saveIntentionToCloud helper
+  // setIntentions context setter + saveIntentionsToCloud helper
   // IntentionSetup.jsx itself uses. No Session Engine call, no routine
   // start/resume/reset, no journal/history write - changing today's
-  // intention here can never create a second Morning completion, clear
+  // intentions here can never create a second Morning completion, clear
   // the existing one, or touch Evening's own progress. Guests never reach
   // this at all (ActiveIntentionCard's own isGuest check intercepts the
   // tap with the sign-in prompt before onSave could ever be called).
-  const handleSaveIntention = async (value) => {
-    setIntentions([value]);
-    await saveIntentionToCloud(userId, value);
+  // `values` is the full ordered selection (1-2 items) - always replaces
+  // the whole array, so removing a Supporting intention here genuinely
+  // removes it everywhere (local, Supabase, this banner/card) rather than
+  // leaving it stranded.
+  const handleSaveIntention = async (values) => {
+    setIntentions(values);
+    await saveIntentionsToCloud(userId, values);
   };
 
   // Build 10 remediation — the single source of truth for "what happens
@@ -593,8 +597,10 @@ export const Home = () => {
         <div className="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3">
           <span className="material-symbols-outlined text-tertiary text-lg shrink-0">spa</span>
           <p className="text-xs text-on-surface-variant min-w-0 truncate">
-            <span className="font-bold uppercase tracking-wider text-[10px] text-tertiary mr-1.5">Intention</span>
-            "{primaryIntention}"
+            <span className="font-bold uppercase tracking-wider text-[10px] text-tertiary mr-1.5">
+              {displayIntentions.length > 1 ? 'Intentions' : 'Intention'}
+            </span>
+            {displayIntentions.map((item) => `"${item}"`).join('  •  ')}
           </p>
         </div>
         <div className="grid grid-cols-4 gap-2.5">
@@ -766,7 +772,7 @@ export const Home = () => {
           <div className="glass-panel p-6 rounded-3xl shadow-sm">
             <ActiveIntentionCard
               label="Today's Intention"
-              intention={primaryIntention}
+              intentions={displayIntentions}
               isGuest={isGuest}
               onRequireSignIn={promptRoutineSignIn}
               onSave={handleSaveIntention}
@@ -792,7 +798,7 @@ export const Home = () => {
           <div className="glass-panel p-6 rounded-3xl space-y-6 shadow-sm bg-gradient-to-br from-[#ffffff]/5 to-transparent">
             <ActiveIntentionCard
               label="Active Intention"
-              intention={primaryIntention}
+              intentions={displayIntentions}
               isGuest={isGuest}
               onRequireSignIn={promptRoutineSignIn}
               onSave={handleSaveIntention}

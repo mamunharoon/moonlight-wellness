@@ -13,6 +13,7 @@ import {
   setDismissedMismatchTimezone
 } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { sanitizeIntentions } from '../lib/intentionSelection';
 
 const AlarmContext = createContext();
 
@@ -20,17 +21,20 @@ const INTENTIONS_KEY = 'moonlight_intentions';
 const LEGACY_INTENTION_KEY = 'moonlight_today_intention';
 const DEFAULT_INTENTIONS = ['Stay calm', 'Be kind to yourself'];
 
-const isValidIntentionsArray = (value) =>
-  Array.isArray(value) &&
-  value.length > 0 &&
-  value.every((item) => typeof item === 'string' && item.trim().length > 0);
-
+// One or two intentions, ordered (index 0 = Primary, index 1 =
+// Supporting), distinct case-insensitively - sanitizeIntentions is the
+// single shared source of truth for that shape (also used to validate a
+// freshly-fetched Supabase row), so a stored value with the wrong shape
+// (empty, too many items, duplicates, non-strings) is never trusted
+// as-is. A pre-existing single-intention record ([  'Stay calm'  ], from
+// before this feature) already satisfies this and loads unchanged.
 const readStoredIntentions = () => {
   try {
     const raw = localStorage.getItem(INTENTIONS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return isValidIntentionsArray(parsed) ? parsed : null;
+    const sanitized = sanitizeIntentions(parsed);
+    return sanitized.length > 0 ? sanitized : null;
   } catch {
     return null;
   }
@@ -242,14 +246,21 @@ export const AlarmProvider = ({ children }) => {
     // just re-sets the same values.
   }, [userId, migrationRevision]);
 
-  // Fetch the current authenticated user's saved intention from Supabase.
-  // No row yet is not an error - the existing local/default state is left
-  // untouched and nothing is written back during a fetch.
+  // Fetch the current authenticated user's saved intentions (one or two,
+  // ordered - Primary first) from Supabase. No row yet is not an error -
+  // the existing local/default state is left untouched and nothing is
+  // written back during a fetch. `intentions` (jsonb array) is
+  // authoritative; `intention` (the older single-value column, still
+  // mirrored to intentions[0] on every save) is only a defensive
+  // fallback for the theoretical case of a row whose `intentions` column
+  // is missing/empty - every real row was backfilled by
+  // 20260919130000_user_intentions_ordered_list.sql, so this fallback
+  // should never actually be exercised in practice.
   const fetchIntention = async (uid) => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('user_intentions')
-      .select('intention')
+      .select('intention, intentions')
       .eq('user_id', uid)
       .maybeSingle();
 
@@ -257,8 +268,12 @@ export const AlarmProvider = ({ children }) => {
       console.error('Error fetching intention:', error.message);
       return;
     }
+    if (!data) return;
 
-    if (data && typeof data.intention === 'string' && data.intention.trim().length > 0) {
+    const fetched = sanitizeIntentions(data.intentions);
+    if (fetched.length > 0) {
+      setIntentions(fetched);
+    } else if (typeof data.intention === 'string' && data.intention.trim().length > 0) {
       setIntentions([data.intention]);
     }
   };

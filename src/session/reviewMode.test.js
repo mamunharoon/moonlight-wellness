@@ -479,23 +479,23 @@ describe('Reflection/Gratitude - review-mode Continue never advances the session
   });
 });
 
-describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intention with no extra gating (same mechanism as Home\'s Change Intention)', () => {
-  it('handleSelectPreset/handleAddCustom update the live intentions[0] unconditionally - no Session Engine call gated behind isReviewMode', () => {
-    expect(intentionSetupSource).toMatch(/const handleSelectPreset = \(preset\) => \{\s*\n\s*setIntentions\(\[preset\]\);/);
-    expect(intentionSetupSource).not.toMatch(/if \(isReviewMode\)[\s\S]{0,40}setIntentions/);
+describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intentions with no extra gating (same mechanism as Home\'s Change Intention)', () => {
+  it('applySelection (used by both handleSelectPreset and handleAddCustom) updates the live intentions unconditionally via the shared toggleIntention helper - no Session Engine call gated behind isReviewMode', () => {
+    expect(intentionSetupSource).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
+    expect(intentionSetupSource).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
+    expect(intentionSetupSource).not.toMatch(/if \(isReviewMode\)[\s\S]{0,80}setIntentions/);
   });
 
   // Bug fix, found live: Continue (the only place that otherwise calls
-  // saveIntentionToCloud, in handleComplete) is replaced by "Return to
+  // saveIntentionsToCloud, in handleComplete) is replaced by "Return to
   // [step]" while reviewing and is never reachable - a preset/custom
-  // intention change made during review updated the live intentions[0]
+  // intention change made during review updated the live intentions
   // correctly but silently never reached Supabase, reverting on the next
   // reload. Reproduced live via a real browser session, fixed by saving
   // immediately when isReviewMode is true; the ordinary live-step flow
   // (isReviewMode false) is unchanged and still defers to Continue.
   it('saves to Supabase immediately when changed during review, since Continue/handleComplete is unreachable then', () => {
-    expect(intentionSetupSource).toMatch(/setIntentions\(\[preset\]\); \/\/ Allow exactly ONE primary intention as requested\s*\n\s*if \(isReviewMode\) saveIntentionToCloud\(userId, preset\);/);
-    expect(intentionSetupSource).toMatch(/setCustomIntention\(''\);\s*\n\s*if \(isReviewMode\) saveIntentionToCloud\(userId, trimmed\);/);
+    expect(intentionSetupSource).toMatch(/setIntentions\(next\);\s*\n\s*if \(isReviewMode\) saveIntentionsToCloud\(userId, next\);/);
   });
 
   it('has no ProgressIndicator of its own (Step 1 - nothing earlier to review from here)', () => {
@@ -561,9 +561,9 @@ describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wi
   });
 });
 
-describe('Affirmation.jsx - always reflects the CURRENT live intention, including one changed via review', () => {
-  it('reads intentions[0] fresh at render time - no snapshot/cache that could go stale after a reviewed intention change', () => {
-    expect(affirmationSource).toMatch(/const affirmation = getAffirmationForIntention\(intentions\[0\]\);/);
+describe('Affirmation.jsx - always reflects the CURRENT live intentions, including ones changed via review', () => {
+  it('reads intentions fresh at render time - no snapshot/cache that could go stale after a reviewed intention change', () => {
+    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention\)\s*\n\s*\}\)\);/);
   });
 });
 

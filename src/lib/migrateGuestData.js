@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { isValidTimezone } from './timezone';
+import { sanitizeIntentions } from './intentionSelection';
 
 // Stage 2B Group 5.2: guest-to-account migration service.
 //
@@ -42,21 +43,17 @@ const readGuestRhythm = () => {
   }
 };
 
-const isValidIntentionsArray = (value) =>
-  Array.isArray(value) &&
-  value.length > 0 &&
-  value.every((item) => typeof item === 'string' && item.trim().length > 0);
-
-// Reads and validates the guest's primary (first) intention only - matches
-// the single-primary-intention convention used by IntentionSetup.jsx.
-const readGuestPrimaryIntention = () => {
+// Reads and validates the guest's full ordered intentions selection (one
+// or two) - sanitizeIntentions is the same shared validator AlarmContext
+// uses to load this same key, so a guest's stored selection migrates
+// with identical shape/order guarantees.
+const readGuestIntentions = () => {
   try {
     const raw = localStorage.getItem(INTENTIONS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!isValidIntentionsArray(parsed)) return null;
-    const primary = parsed[0].trim();
-    return primary.length > 0 ? primary : null;
+    const sanitized = sanitizeIntentions(parsed);
+    return sanitized.length > 0 ? sanitized : null;
   } catch {
     return null;
   }
@@ -139,7 +136,10 @@ const migrateRhythm = async (userId) => {
 };
 
 // Intention: cloud-first check, additive-only upsert on
-// user_intentions_user_id_key. Only intentions[0] is ever migrated.
+// user_intentions_user_id_key. Migrates the guest's FULL ordered
+// selection (one or two intentions) - intention (the mirrored single
+// value) is set to intentions[0], exactly like every other write path
+// (see intentionPersistence.js's own saveIntentionsToCloud).
 const migrateIntention = async (userId) => {
   try {
     const { data, error } = await supabase
@@ -157,15 +157,15 @@ const migrateIntention = async (userId) => {
       return { migrated: 0, skipped: 1, failed: 0, reason: 'cloud intention already exists' };
     }
 
-    const guestIntention = readGuestPrimaryIntention();
-    if (!guestIntention) {
+    const guestIntentions = readGuestIntentions();
+    if (!guestIntentions) {
       return { migrated: 0, skipped: 1, failed: 0, reason: 'no valid guest intention' };
     }
 
     const { error: upsertError } = await supabase
       .from('user_intentions')
       .upsert(
-        { user_id: userId, intention: guestIntention },
+        { user_id: userId, intention: guestIntentions[0], intentions: guestIntentions },
         { onConflict: 'user_id' }
       );
 

@@ -5,7 +5,8 @@ import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
-import { saveIntentionToCloud } from '../lib/intentionPersistence';
+import { saveIntentionsToCloud } from '../lib/intentionPersistence';
+import { toggleIntention, roleForIndex, LIMIT_MESSAGE } from '../lib/intentionSelection';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
@@ -51,6 +52,7 @@ export const IntentionSetup = () => {
   // plain "Return to current step" while reviewing.
   const { isReviewMode, isLiveStep } = useStepReviewMode('intention', 'morning-routine');
   const [customIntention, setCustomIntention] = useState('');
+  const [limitMessage, setLimitMessage] = useState('');
   // A typed-but-not-yet-added custom intention is real unsaved input -
   // confirm before leaving the LIVE step via the progress bar with it
   // still sitting there.
@@ -69,24 +71,36 @@ export const IntentionSetup = () => {
 
   // Safe backward navigation ("Review Mode") fix: while reviewing this
   // step, Continue/Skip (the only place that otherwise calls
-  // saveIntentionToCloud, in handleComplete below) is replaced by "Return
-  // to [current step]" and is never reachable - so a change made here
-  // during review would update the live intentions[0] the rest of the app
-  // reads (correct), but silently never reach Supabase, reverting on the
-  // next reload/device. Saving immediately here (only in review mode)
-  // closes that gap without changing the ordinary live-step flow, which
-  // still defers to its own explicit Continue tap.
-  const handleSelectPreset = (preset) => {
-    setIntentions([preset]); // Allow exactly ONE primary intention as requested
-    if (isReviewMode) saveIntentionToCloud(userId, preset);
+  // saveIntentionsToCloud, in handleComplete below) is replaced by
+  // "Return to [current step]" and is never reachable - so a change made
+  // here during review would update the live intentions the rest of the
+  // app reads (correct), but silently never reach Supabase, reverting on
+  // the next reload/device. Saving immediately here (only in review
+  // mode) closes that gap without changing the ordinary live-step flow,
+  // which still defers to its own explicit Continue tap.
+  //
+  // One or two intentions - toggleIntention owns every rule (dedup,
+  // deselect, promote Supporting to Primary when index 0 is removed, the
+  // two-item limit). Never mutates `intentions` - always a new array.
+  const applySelection = (value) => {
+    const { intentions: next, limitReached } = toggleIntention(intentions, value);
+    if (limitReached) {
+      setLimitMessage(LIMIT_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
+    setLimitMessage('');
+    setIntentions(next);
+    if (isReviewMode) saveIntentionsToCloud(userId, next);
   };
+
+  const handleSelectPreset = (preset) => applySelection(preset);
 
   const handleAddCustom = () => {
     const trimmed = customIntention.trim();
     if (!trimmed) return;
-    setIntentions([trimmed]);
+    applySelection(trimmed);
     setCustomIntention('');
-    if (isReviewMode) saveIntentionToCloud(userId, trimmed);
   };
 
   const handleKeyDown = (e) => {
@@ -111,11 +125,17 @@ export const IntentionSetup = () => {
   const handleComplete = async () => {
     setIsSaving(true);
 
-    const primaryIntention = intentions[0] || 'Stay calm';
+    // Continue itself is disabled below whenever intentions is empty, so
+    // this fallback only ever actually applies to Skip - which, unlike
+    // Continue, deliberately lets the user move on without an explicit
+    // choice, exactly like it always has (previously a preset tap always
+    // left exactly one item selected, so intentions could never be empty
+    // here at all; now that deselection is possible, Skip keeps that
+    // same "always proceeds" behaviour by falling back to the default).
+    const toSave = intentions.length > 0 ? intentions : ['Stay calm'];
+    if (intentions.length === 0) setIntentions(toSave);
 
-    if (intentions.length > 0) {
-      await saveIntentionToCloud(userId, primaryIntention);
-    }
+    await saveIntentionsToCloud(userId, toSave);
 
     setIsSaving(false);
 
@@ -149,29 +169,59 @@ export const IntentionSetup = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose one primary intention to anchor your focus today.
+          Choose one or two intentions for today.
         </p>
+        {limitMessage && (
+          <p className="text-xs text-secondary font-semibold" role="status">{limitMessage}</p>
+        )}
       </div>
 
       {/* Preset List */}
       <div className="grid grid-cols-2 gap-3 w-full">
         {presets.map((preset, idx) => {
-          const isSelected = intentions.includes(preset);
+          const selectedIndex = intentions.findIndex((item) => item.toLowerCase() === preset.toLowerCase());
+          const isSelected = selectedIndex !== -1;
+          const role = roleForIndex(selectedIndex);
           return (
             <button
               key={idx}
               onClick={() => handleSelectPreset(preset)}
-              className={`p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
+              aria-pressed={isSelected}
+              className={`relative p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
                 isSelected
                   ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5'
                   : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
               }`}
             >
+              {role && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-primary text-on-primary text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                  {role}
+                </span>
+              )}
               {preset}
             </button>
           );
         })}
       </div>
+
+      {/* Selected summary - the only place a selected CUSTOM intention is
+          shown (it never appears in the preset grid above), and the
+          shared way to deselect either kind by role. */}
+      {intentions.length > 0 && (
+        <div className="flex flex-wrap gap-2 w-full justify-center">
+          {intentions.map((item, idx) => (
+            <button
+              key={item.toLowerCase()}
+              onClick={() => applySelection(item)}
+              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-primary-container/20 border border-primary text-primary text-xs font-semibold"
+            >
+              <span className="text-[9px] font-bold uppercase tracking-wider">{roleForIndex(idx)}</span>
+              <span>{item}</span>
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Unified custom input/button control */}
       <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
@@ -207,8 +257,8 @@ export const IntentionSetup = () => {
           <>
             <button
               onClick={handleComplete}
-              disabled={isSaving}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              disabled={isSaving || intentions.length === 0}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
             >
               <span>{isSaving ? 'Saving...' : 'Continue'}</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>

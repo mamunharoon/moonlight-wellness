@@ -8,6 +8,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
+import { roleForIndex } from '../lib/intentionSelection';
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 
@@ -61,7 +62,7 @@ export const SessionComplete = () => {
     resetSession();
   };
 
-  const primaryIntention = intentions[0] || 'Stay calm';
+  const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">
@@ -92,8 +93,17 @@ export const SessionComplete = () => {
 
       {/* Summary card */}
       <div className="glass-panel p-5 rounded-2xl text-left text-xs text-on-surface-variant w-full max-w-sm mx-auto space-y-2 shadow-sm">
-        <span className="font-semibold uppercase text-primary">Your Morning Intention</span>
-        <p className="text-on-surface font-medium italic">"{primaryIntention}"</p>
+        <span className="font-semibold uppercase text-primary">
+          {displayIntentions.length > 1 ? 'Your Morning Intentions' : 'Your Morning Intention'}
+        </span>
+        {displayIntentions.map((item, idx) => (
+          <p key={item.toLowerCase()} className="text-on-surface font-medium italic flex items-baseline gap-2">
+            {displayIntentions.length > 1 && (
+              <span className="text-[9px] not-italic font-bold uppercase tracking-wider text-primary shrink-0">{roleForIndex(idx)}</span>
+            )}
+            <span>"{item}"</span>
+          </p>
+        ))}
       </div>
 
       <div className="space-y-3 w-full">
