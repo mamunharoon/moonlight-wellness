@@ -68,8 +68,8 @@ describe.each([
     expect(body).not.toMatch(/musicPlayerRef|start\(\)/);
   });
 
-  it('renders MusicEntryChoice only while awaitingMusicChoice, wired to both handlers', () => {
-    expect(source).toMatch(/\{awaitingMusicChoice && \(\s*\n\s*<MusicEntryChoice onStartWithMusic=\{handleStartWithMusic\} onContinueWithoutMusic=\{handleContinueWithoutMusic\} \/>\s*\n\s*\)\}/);
+  it('renders MusicEntryChoice only while awaitingMusicChoice, wired to both handlers (Breathe/MorningFlow/EveningBreathing also require !isRepeatGated - see reviewMode.test.js\'s own ordering-fix coverage)', () => {
+    expect(source).toMatch(/\{(?:!isRepeatGated && )?awaitingMusicChoice && \(\s*\n\s*<MusicEntryChoice onStartWithMusic=\{handleStartWithMusic\} onContinueWithoutMusic=\{handleContinueWithoutMusic\} \/>\s*\n\s*\)\}/);
   });
 });
 

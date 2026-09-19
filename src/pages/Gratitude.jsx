@@ -55,11 +55,11 @@ export const Gratitude = () => {
 
   // Safe backward navigation ("Review Mode") - see Reflection.jsx's
   // identical block for the full rationale.
-  const { isReviewMode } = useStepReviewMode(STEP_ID);
+  const { isReviewMode, isLiveStep } = useStepReviewMode(STEP_ID, SESSION_ID);
   const [hasUnsavedText, setHasUnsavedText] = useState(false);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: SESSION_ID,
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     hasUnsavedProgress: hasUnsavedText
   });
 

@@ -40,8 +40,8 @@ export const Affirmation = () => {
   // AlarmContext) - including a change made via Home's "Change intention"
   // or via reviewing/editing Intend itself, automatically, since both
   // just read the same live context value at render time.
-  const { isReviewMode } = useStepReviewMode('affirmation');
-  const { routeForStep } = useReviewNavigation({ sessionId: 'morning-routine', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
+  const { isReviewMode, isLiveStep } = useStepReviewMode('affirmation', 'morning-routine');
+  const { routeForStep } = useReviewNavigation({ sessionId: 'morning-routine', isLiveStep, hasUnsavedProgress: false });
 
   const affirmation = getAffirmationForIntention(intentions[0]);
 

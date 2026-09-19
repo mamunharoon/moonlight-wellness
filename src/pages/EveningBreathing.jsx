@@ -56,20 +56,20 @@ export const EveningBreathing = () => {
   const { state, currentStep, advanceStep } = useSession();
   // Safe backward navigation ("Review Mode") - see Breathe.jsx's
   // identical block for the full rationale.
-  const { isReviewMode } = useStepReviewMode('breathing');
+  const { isReviewMode, isLiveStep } = useStepReviewMode('breathing', 'evening-wind-down');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
   // Pause-and-resume-exact-state fix - see Breathe.jsx's identical block
   // for the full rationale.
-  const [pausedSnapshot] = useState(() => loadPausedExerciseState('breathing'));
+  const [pausedSnapshot] = useState(() => loadPausedExerciseState('evening-wind-down', 'breathing'));
   useEffect(() => {
-    if (pausedSnapshot) clearPausedExerciseState('breathing');
+    if (pausedSnapshot) clearPausedExerciseState('evening-wind-down', 'breathing');
   }, [pausedSnapshot]);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'evening-wind-down',
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('breathing', { secondsLeft, breatheState, musicChoiceMade })
+    onLeaveLiveStep: () => savePausedExerciseState('evening-wind-down', 'breathing', { secondsLeft, breatheState, musicChoiceMade })
   });
   const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale');
   const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? TOTAL_SECONDS);
@@ -164,7 +164,10 @@ export const EveningBreathing = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {awaitingMusicChoice && (
+      {/* Review-flow ordering fix - see Breathe.jsx's identical block for
+          the full rationale. Required order is Repeat -> Music Choice ->
+          Timer. */}
+      {!isRepeatGated && awaitingMusicChoice && (
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
       )}
 

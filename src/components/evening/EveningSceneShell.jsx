@@ -73,33 +73,57 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
   );
 
   return (
-    <AtmosphereManager
-      {...atmosphere}
-      className={`fixed inset-0 z-[100] flex flex-col overflow-y-auto ${className}`.trim()}
-    >
-      {showBack && (
-        <div
-          className="absolute left-6 z-20"
-          style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
-        >
-          <BackButton
-            fallback={backFallback}
-            confirmTitle="Leave evening routine?"
-            confirmMessage="Your unsaved progress may be lost."
-            className="!bg-black/55 !border-white/40"
-          />
-        </div>
-      )}
+    <>
+      {/* Scroll-lock fix, found live: the decorative atmosphere background
+          used to double as this page's own scroll owner (AtmosphereManager
+          wrapped the real content, with `overflow-y-auto` composed onto
+          Gradient.jsx's own outer div). That div also hardcoded `relative`
+          and `overflow-hidden` of its own, both of which could silently
+          win over this caller's `fixed`/`overflow-y-auto` depending on
+          Tailwind's compiled rule order - reproduced live on Prepare for
+          Rest via getComputedStyle: `position: relative` (not `fixed`),
+          height equal to the full unscrolled content (not the viewport),
+          so nothing ever actually scrolled. Now a purely decorative,
+          non-interactive background: fixed to the viewport, pointer-
+          events-none (so it can never intercept clicks/wheel input or
+          become a scroll owner of its own), and rendered with no children
+          of its own at all - see Gradient.jsx's own doc comment for the
+          matching `position` fix this still needs regardless. */}
+      <AtmosphereManager
+        {...atmosphere}
+        className={`fixed inset-0 z-[100] pointer-events-none ${className}`.trim()}
+      />
 
-      {/* Stage 4 Batch F3 fix: min-h-screen is required here, not decorative.
-          Gradient.jsx wraps its children in a plain (non-flex) `relative`
-          div with no defined height, so without an explicit height on this
-          div, flex-1/justify-between above have nothing to distribute and
-          title/button collapse together instead of spreading across the
-          screen like AlarmActive.jsx's own fixed inset-0 container does. */}
-      <div className="relative z-10 flex flex-col justify-between min-h-screen max-w-xl w-full mx-auto px-6 py-10">
-        {content}
+      {/* The one explicit, consistent vertical scroll owner for every
+          evening routine page - a genuine sibling of the atmosphere
+          layer (never nested inside its own auto-height wrapper), so its
+          own `fixed inset-0`/`overflow-y-auto` can never be fought by
+          anything the atmosphere layer does. */}
+      <div className="fixed inset-0 z-[101] overflow-y-auto">
+        {showBack && (
+          <div
+            className="absolute left-6 z-20"
+            style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
+          >
+            <BackButton
+              fallback={backFallback}
+              confirmTitle="Leave evening routine?"
+              confirmMessage="Your unsaved progress may be lost."
+              className="!bg-black/55 !border-white/40"
+            />
+          </div>
+        )}
+
+        {/* Stage 4 Batch F3 fix: min-h-screen is required here, not
+            decorative - without an explicit height, flex-1/justify-between
+            below have nothing to distribute and title/button collapse
+            together instead of spreading across the screen. min-h-screen
+            (a viewport unit) rather than min-h-full deliberately doesn't
+            depend on any ancestor's own height being definite. */}
+        <div className="relative z-10 flex flex-col justify-between min-h-screen max-w-xl w-full mx-auto px-6 py-10">
+          {content}
+        </div>
       </div>
-    </AtmosphereManager>
+    </>
   );
 };

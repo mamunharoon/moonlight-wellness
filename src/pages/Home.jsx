@@ -196,9 +196,14 @@ export const Home = () => {
     if (!activeDialog) return null;
     const label = periodLabel(activeDialog.period);
     if (activeDialog.kind === 'start-over') {
+      // Start Over parity fix, found live: this dialog never actually
+      // named which routine it was about to reset - both Morning and
+      // Evening shared the exact same generic "Start this routine
+      // again?" copy, with no `label` interpolation at all (unlike the
+      // 'repeat' branch just below, which already did this correctly).
       return {
-        title: 'Start this routine again?',
-        message: 'Your current step progress will be reset. Saved history and journal entries will not be deleted.',
+        title: `Start ${label} Routine Over?`,
+        message: `Your current ${label} step progress will be reset. Saved history and journal entries will not be deleted.`,
         confirmLabel: 'Start Over',
         destructive: true
       };
@@ -208,6 +213,19 @@ export const Home = () => {
         title: `Repeat ${label} Routine?`,
         message: 'Your completed routine and saved reflections will remain in your history.',
         confirmLabel: 'Start Again',
+        destructive: false
+      };
+    }
+    // Safe routine switching, Section 2 — shown only when the OTHER
+    // routine is genuinely, actively running (state.status === 'playing'
+    // for a different sessionId) right when the user taps to begin/
+    // resume THIS one. Exact required wording/labels.
+    if (activeDialog.kind === 'switch-routine') {
+      return {
+        title: `Switch to the ${label} routine?`,
+        message: 'Your current routine will be paused and can be resumed later.',
+        confirmLabel: 'Switch Routine',
+        cancelLabel: 'Stay Here',
         destructive: false
       };
     }
@@ -233,6 +251,21 @@ export const Home = () => {
     } else if (kind === 'repeat') {
       if (period === 'morning') handleBeginRiseAndReset();
       else handleBeginEveningWindDown();
+    } else if (kind === 'switch-routine') {
+      // The confirmation itself is the only gate here - proceeding just
+      // re-runs the exact same routine action that would have happened
+      // immediately had the OTHER routine not been actively running.
+      // Pausing/persisting the currently-running routine and stopping
+      // its music both happen structurally: whichever page is showing
+      // it unmounts as part of this same navigation, and its own
+      // existing unmount cleanup (timer/audio) already handles both -
+      // see Breathe.jsx/MorningFlow.jsx/EveningBreathing.jsx and
+      // InteractiveAmbientMusic.jsx's own cleanup effects. That
+      // routine's own step-level progress is independently preserved by
+      // the Session Engine's per-sessionId mirror (routineProgress.js),
+      // never touched by starting/resuming a DIFFERENT sessionId.
+      if (period === 'morning') proceedWithMorningAction();
+      else proceedWithEveningAction();
     } else if (kind === 'discard-stale') {
       discardStaleRoutine(sessionId);
       if (period === 'morning') handleBeginRiseAndReset();
@@ -332,8 +365,15 @@ export const Home = () => {
   // state, so this can never accidentally resume the other routine, and
   // the navigate() target is always computed from that SAME sessionId's
   // own registry step list — never a global currentStep read.
-  const handleMorningAction = () => {
-    if (isGuest) { promptRoutineSignIn(); return; }
+  // Safe routine switching, Section 2 — true only while the OTHER
+  // routine is genuinely, actively RUNNING (a real timer could be mid-
+  // flight), never merely paused/interrupted ("Do not show this
+  // confirmation when nothing is actively running" - an interrupted
+  // session is already paused, there is nothing to interrupt further).
+  const isOtherRoutineActivelyRunning = (targetSessionId) =>
+    state.status === 'playing' && Boolean(state.sessionId) && state.sessionId !== targetSessionId;
+
+  const proceedWithMorningAction = () => {
     if (morningCardState === 'in-progress') {
       resumeRoutine(RITUAL_SESSION_IDS.morning);
       const session = getSessionById(RITUAL_SESSION_IDS.morning);
@@ -343,8 +383,7 @@ export const Home = () => {
     handleBeginRiseAndReset();
   };
 
-  const handleEveningAction = () => {
-    if (isGuest) { promptRoutineSignIn(); return; }
+  const proceedWithEveningAction = () => {
     if (eveningCardState === 'in-progress') {
       resumeRoutine(RITUAL_SESSION_IDS.evening);
       const session = getSessionById(RITUAL_SESSION_IDS.evening);
@@ -352,6 +391,24 @@ export const Home = () => {
       return;
     }
     handleBeginEveningWindDown();
+  };
+
+  const handleMorningAction = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
+    if (isOtherRoutineActivelyRunning(RITUAL_SESSION_IDS.morning)) {
+      setActiveDialog({ kind: 'switch-routine', period: 'morning' });
+      return;
+    }
+    proceedWithMorningAction();
+  };
+
+  const handleEveningAction = () => {
+    if (isGuest) { promptRoutineSignIn(); return; }
+    if (isOtherRoutineActivelyRunning(RITUAL_SESSION_IDS.evening)) {
+      setActiveDialog({ kind: 'switch-routine', period: 'evening' });
+      return;
+    }
+    proceedWithEveningAction();
   };
 
   // Close Remaining Daily-Journey Limitations: Today's own "Begin Rise &
@@ -902,7 +959,7 @@ export const Home = () => {
         title={dialogCopy?.title ?? ''}
         message={dialogCopy?.message ?? ''}
         confirmLabel={dialogCopy?.confirmLabel ?? 'Confirm'}
-        cancelLabel="Cancel"
+        cancelLabel={dialogCopy?.cancelLabel ?? 'Cancel'}
         destructive={dialogCopy?.destructive ?? false}
         onConfirm={handleConfirmDialog}
         onDismiss={() => setActiveDialog(null)}

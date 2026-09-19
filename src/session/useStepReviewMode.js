@@ -17,16 +17,50 @@ import { useSession } from '../context/SessionContext';
  * hook reads the same live currentStep either way, so there is no
  * separate "bypass" path to close.
  *
- * isReviewMode is only ever true while a session for THIS step's own
- * routine is genuinely 'playing'/'interrupted' elsewhere - a session
- * that is 'idle'/'completed'/'skipped', or an unrelated routine, is not
- * "being reviewed", it's just an ordinary standalone visit (e.g. Home's
- * "60-Second Reset" opening /breathe with no active Morning session at
- * all) - unchanged, pre-existing behaviour for that case.
+ * Cross-routine isolation fix, found live: this hook used to accept only
+ * `stepId`, never `sessionId` - so it never checked WHICH routine the
+ * Session Engine's one global live slot actually belonged to. The
+ * Session Engine only ever tracks one live session at a time
+ * (state.sessionId); if Evening was genuinely live at 'sleepPreparation'
+ * (Rest) and the user opened ANY Morning page (a direct URL, or simply
+ * because Morning was already the selected routine), `sessionIsActive`
+ * was true (Evening WAS playing) and `currentStep.id !== stepId` was
+ * also true ('sleepPreparation' !== 'breathe') - so isReviewMode
+ * resolved to true and the banner showed "Reviewing — your place is
+ * still Rest" on a MORNING screen, reading Evening's own live step as if
+ * it belonged to Morning. Reproduced live exactly this way. Fixed by
+ * requiring the CALLING PAGE'S OWN sessionId to match the live session's
+ * sessionId before ever treating it as "this routine is live" at all -
+ * Morning Review Mode may only ever read Morning's own live state and
+ * Evening Review Mode may only ever read Evening's own, never derived
+ * from whichever routine happens to occupy the global live slot. When
+ * the live session belongs to a DIFFERENT routine (or there is none),
+ * this page behaves as an ordinary standalone visit - the exact same,
+ * already-established treatment as "no active session at all" (e.g.
+ * Home's "60-Second Reset" opening /breathe with nothing live).
+ *
+ * `isLiveStep` (new): distinct from `!isReviewMode`. A page's own step
+ * is only genuinely "live" when THIS ROUTINE is the one actually running
+ * AND the engine's current step is THIS EXACT step - not merely "not
+ * reviewing", which would also (wrongly) be true while a different
+ * routine's session is live. Callers pass this into
+ * useReviewNavigation's `isLiveStep` so the "your current exercise will
+ * be paused" confirmation only ever fires for a step that is truly, live,
+ * mid-run - never for a standalone visit while the other routine plays.
  */
-export const useStepReviewMode = (stepId) => {
+export const useStepReviewMode = (stepId, sessionId) => {
   const { state, currentStep } = useSession();
-  const sessionIsActive = state.status === 'playing' || state.status === 'interrupted';
-  const isReviewMode = sessionIsActive && Boolean(currentStep) && currentStep.id !== stepId;
-  return { isReviewMode, currentStep, sessionIsActive };
+  const isThisRoutineLive = (state.status === 'playing' || state.status === 'interrupted') && state.sessionId === sessionId;
+  const isReviewMode = isThisRoutineLive && Boolean(currentStep) && currentStep.id !== stepId;
+  const isLiveStep = isThisRoutineLive && Boolean(currentStep) && currentStep.id === stepId;
+  return {
+    isReviewMode,
+    isLiveStep,
+    // Never surfaced when it doesn't genuinely belong to this routine -
+    // a caller that (incorrectly) rendered a banner off this value
+    // regardless of isReviewMode still could never display the other
+    // routine's step name.
+    currentStep: isThisRoutineLive ? currentStep : null,
+    sessionIsActive: isThisRoutineLive
+  };
 };

@@ -36,11 +36,44 @@ export const Profile = () => {
   const { alarmTime, bedTime, routineDuration, setRoutineDuration, effectiveTimezone } = useAlarm();
   const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  // Sign-out hardening fix, found live: the previous version closed the
+  // dialog and called navigate('/') unconditionally right after `await
+  // signOut()`, with no error handling at all - if the Supabase call
+  // itself rejected (a network blip, say), the exception simply propagated
+  // out of this handler, navigate('/') was never reached, and the user
+  // was left sitting on the already-dismissed-dialog Profile screen with
+  // no feedback and no indication anything had gone wrong - reproduced
+  // live as "Sign Out can leave the Profile screen visible". Now: the
+  // dialog stays open (not dismissed) and its own confirm button is
+  // disabled/relabelled while the call is in flight, so authenticated
+  // controls can't be tapped again mid-request; only a genuine SUCCESS
+  // closes the dialog and navigates (with replace, so Back can never
+  // return to a history entry that still expects to render authenticated
+  // Profile content); a failure surfaces a friendly inline error and
+  // leaves the dialog open for a retry, never silently pretending the
+  // user is signed out.
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
 
   const handleSignOut = async () => {
+    if (signingOut) return;
+    setSignOutError('');
+    setSigningOut(true);
+    try {
+      await signOut();
+      // replace: true - the authenticated Profile screen must never be
+      // reachable again via browser Back once signed out.
+      navigate('/', { replace: true });
+    } catch {
+      setSigningOut(false);
+      setSignOutError("We couldn't sign you out. Please try again.");
+    }
+  };
+
+  const dismissSignOut = () => {
+    if (signingOut) return; // never dismissable mid-request
     setConfirmSignOut(false);
-    await signOut();
-    navigate('/');
+    setSignOutError('');
   };
 
   const profileFullName = profile
@@ -216,7 +249,7 @@ export const Profile = () => {
 
       {!isGuest && (
         <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-          <button onClick={() => setConfirmSignOut(true)} className={rowClass}>
+          <button onClick={() => setConfirmSignOut(true)} disabled={signingOut} className={`${rowClass} disabled:opacity-50`}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">logout</span>
               Sign out
@@ -228,12 +261,13 @@ export const Profile = () => {
       <ConfirmDialog
         open={confirmSignOut}
         title="Sign out?"
-        message="You can always sign back in later."
-        confirmLabel="Sign out"
+        message={signOutError || 'You can always sign back in later.'}
+        confirmLabel={signingOut ? 'Signing out…' : 'Sign out'}
         cancelLabel="Cancel"
         destructive
+        confirmPending={signingOut}
         onConfirm={handleSignOut}
-        onDismiss={() => setConfirmSignOut(false)}
+        onDismiss={dismissSignOut}
       />
     </div>
   );

@@ -85,7 +85,7 @@ export const Breathe = () => {
   // by a direct URL visit while some other step is actually live).
   // Deliberately never touches stepIndex - see that hook's own doc
   // comment for the full rationale.
-  const { isReviewMode } = useStepReviewMode('breathe');
+  const { isReviewMode, isLiveStep } = useStepReviewMode('breathe', 'morning-routine');
   // A repeat, started fresh, purely local - the existing mirror-ref guard
   // below (currentStep?.id === 'breathe') already prevents this from ever
   // advancing/completing the real session while reviewing, so repeating
@@ -98,18 +98,18 @@ export const Breathe = () => {
   // session/timedExercisePause.js's own doc comment. Read once, lazily,
   // at mount; cleared right after being consumed (below) so a later
   // fresh/repeat visit never replays stale state.
-  const [pausedSnapshot] = useState(() => loadPausedExerciseState('breathe'));
+  const [pausedSnapshot] = useState(() => loadPausedExerciseState('morning-routine', 'breathe'));
   useEffect(() => {
-    if (pausedSnapshot) clearPausedExerciseState('breathe');
+    if (pausedSnapshot) clearPausedExerciseState('morning-routine', 'breathe');
   }, [pausedSnapshot]);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     // Breathe always has active timed progress while it's the live step -
     // leaving it via the progress bar (not Skip/Continue/Exit, which the
     // user is already deliberately choosing) always confirms first.
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('breathe', { secondsLeft, breatheState, musicChoiceMade })
+    onLeaveLiveStep: () => savePausedExerciseState('morning-routine', 'breathe', { secondsLeft, breatheState, musicChoiceMade })
   });
   const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? 56); // 1-minute production timer
@@ -290,7 +290,17 @@ export const Breathe = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {awaitingMusicChoice && (
+      {/* Review-flow ordering fix, found live: this used to render
+          whenever awaitingMusicChoice was true, with no regard for
+          isRepeatGated - since musicChoiceMade defaults to false on a
+          fresh review visit (no paused snapshot yet), the music-choice
+          prompt appeared immediately on landing on a completed step,
+          BEFORE "Repeat this exercise" was ever tapped. Required order
+          is Repeat -> Music Choice -> Timer; gating on !isRepeatGated
+          also fixes the follow-on symptom (dismissing that premature
+          prompt set musicChoiceMade=true, so the real repeat later
+          skipped the prompt entirely and the timer just started). */}
+      {!isRepeatGated && awaitingMusicChoice && (
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
       )}
 

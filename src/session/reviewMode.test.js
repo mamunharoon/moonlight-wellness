@@ -52,19 +52,50 @@ const REPEAT_GATED_PAGES = {
   EveningBreathing: eveningBreathingSource,
 };
 
-describe('useStepReviewMode - the single source of truth for review vs. live', () => {
+describe('useStepReviewMode - the single source of truth for review vs. live, strictly scoped to ONE routine', () => {
   it('never reads or writes stepIndex - a pure comparison of currentStep.id against this page\'s own stepId', () => {
     expect(useStepReviewModeSource).not.toMatch(/state\.stepIndex/);
     expect(useStepReviewModeSource).not.toMatch(/dispatch\(|advanceToStep\(|advanceStep\(/);
   });
 
-  it('isReviewMode is only true while the session is genuinely active (playing/interrupted) AND currentStep differs from this page', () => {
+  // Cross-routine isolation fix, found live: "Reviewing — your place is
+  // still Rest" appeared on a MORNING screen because this hook only ever
+  // checked state.status, never WHICH routine (state.sessionId) was
+  // actually live - Evening being live at 'sleepPreparation' (Rest) was
+  // enough to make isReviewMode true on Morning's Breathe.jsx too, since
+  // `currentStep.id !== stepId` is trivially true across two entirely
+  // different routines' step vocabularies. Fixed by requiring the
+  // CALLER'S OWN sessionId to match the live session's sessionId before
+  // treating anything as "this routine is live" at all.
+  it('takes sessionId as a required second argument and gates isThisRoutineLive on state.sessionId === sessionId', () => {
+    expect(useStepReviewModeSource).toMatch(/export const useStepReviewMode = \(stepId, sessionId\) => \{/);
     expect(useStepReviewModeSource).toMatch(
-      /const sessionIsActive = state\.status === 'playing' \|\| state\.status === 'interrupted';/
+      /const isThisRoutineLive = \(state\.status === 'playing' \|\| state\.status === 'interrupted'\) && state\.sessionId === sessionId;/
+    );
+  });
+
+  it('isReviewMode and isLiveStep are both derived from isThisRoutineLive - never from session status/currentStep alone', () => {
+    expect(useStepReviewModeSource).toMatch(
+      /const isReviewMode = isThisRoutineLive && Boolean\(currentStep\) && currentStep\.id !== stepId;/
     );
     expect(useStepReviewModeSource).toMatch(
-      /const isReviewMode = sessionIsActive && Boolean\(currentStep\) && currentStep\.id !== stepId;/
+      /const isLiveStep = isThisRoutineLive && Boolean\(currentStep\) && currentStep\.id === stepId;/
     );
+  });
+
+  it('never surfaces the OTHER routine\'s currentStep - the returned value is null whenever this routine is not the live one', () => {
+    expect(useStepReviewModeSource).toMatch(/currentStep: isThisRoutineLive \? currentStep : null,/);
+  });
+
+  it('a mismatched live session (a different routine, or none at all) is treated as an ordinary standalone visit - both isReviewMode and isLiveStep false, matching the pre-existing "no active session" behaviour, never guessed at', () => {
+    // Structural proof: isReviewMode/isLiveStep can only ever be true
+    // when isThisRoutineLive is true, which itself requires an exact
+    // sessionId match - there is no other code path to either flag.
+    const trueSources = useStepReviewModeSource.match(/const is(?:ReviewMode|LiveStep) = ([^;]+);/g) ?? [];
+    expect(trueSources.length).toBe(2);
+    for (const line of trueSources) {
+      expect(line).toMatch(/^const is(?:ReviewMode|LiveStep) = isThisRoutineLive && /);
+    }
   });
 });
 
@@ -110,13 +141,33 @@ describe('useReviewNavigation - shared navigation helper, never touches Session 
   });
 });
 
-describe('timedExercisePause.js - pause-and-resume-exact-state for Breathe/Stretch/Evening-Breathing', () => {
-  it('save/load/clear are keyed by stepId under a dedicated sessionStorage prefix', () => {
+describe('timedExercisePause.js - pause-and-resume-exact-state, strictly isolated per (sessionId, stepId)', () => {
+  it('the storage key is built from BOTH sessionId and stepId, never stepId alone', () => {
     expect(timedExercisePauseSource).toMatch(/const KEY_PREFIX = 'moonlight_paused_exercise_';/);
+    expect(timedExercisePauseSource).toMatch(/const keyFor = \(sessionId, stepId\) => `\$\{KEY_PREFIX\}\$\{sessionId\}__\$\{stepId\}`;/);
+  });
+
+  it('save tags the stored snapshot with its own sessionId/stepId - a fact this same module later validates on load', () => {
+    const body = timedExercisePauseSource.match(/export const savePausedExerciseState = \(sessionId, stepId, state\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/JSON\.stringify\(\{ \.\.\.state, sessionId, stepId, savedAt: Date\.now\(\) \}\)/);
+  });
+
+  // Section 1/7 requirement: a snapshot from Breathe must never be
+  // consumed by EveningBreathing, MorningFlow, or another routine/step -
+  // enforced two ways: (1) the key itself is already scoped by both
+  // sessionId and stepId, so a differently-scoped snapshot physically
+  // lives under a different key; (2) defense-in-depth, load ALSO
+  // rejects a stored value whose own recorded sessionId/stepId doesn't
+  // match what was actually requested, exactly like "no snapshot at
+  // all" - never guessed at, never partially trusted.
+  it('load rejects (returns null for) a stored snapshot whose own sessionId or stepId does not match what was requested', () => {
+    const body = timedExercisePauseSource.match(/export const loadPausedExerciseState = \(sessionId, stepId\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(!parsed \|\| parsed\.sessionId !== sessionId \|\| parsed\.stepId !== stepId\) return null;/);
   });
 
   it('load never clears - the calling page is responsible for explicitly clearing once it has consumed the value', () => {
-    const loadBody = timedExercisePauseSource.match(/export const loadPausedExerciseState = \(stepId\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    const loadBody = timedExercisePauseSource.match(/export const loadPausedExerciseState = \(sessionId, stepId\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
     expect(loadBody).not.toMatch(/removeItem/);
   });
 
@@ -235,21 +286,41 @@ describe('routineResponses.js - Reflection/Gratitude persistence, idempotent and
 });
 
 describe('Every Morning/Evening step page wires review mode consistently', () => {
-  it('imports and calls useStepReviewMode with its own exact step id', () => {
-    const expectedStepIds = {
-      Breathe: 'breathe',
-      MorningFlow: 'stretch',
-      Affirmation: 'affirmation',
-      IntentionSetup: 'intention',
-      EveningWindDown: 'windDown',
-      PrepareForRest: 'sleepPreparation',
-      EveningBreathing: 'breathing',
-      Reflection: 'reflection',
-      Gratitude: 'gratitude',
+  it('imports and calls useStepReviewMode with its own exact step id AND its own exact sessionId - never omitted, never the other routine\'s', () => {
+    const expected = {
+      Breathe: { stepId: 'breathe', sessionId: 'morning-routine' },
+      MorningFlow: { stepId: 'stretch', sessionId: 'morning-routine' },
+      Affirmation: { stepId: 'affirmation', sessionId: 'morning-routine' },
+      IntentionSetup: { stepId: 'intention', sessionId: 'morning-routine' },
+      EveningWindDown: { stepId: 'windDown', sessionId: 'evening-wind-down' },
+      PrepareForRest: { stepId: 'sleepPreparation', sessionId: 'evening-wind-down' },
+      EveningBreathing: { stepId: 'breathing', sessionId: 'evening-wind-down' },
+      Reflection: { stepId: 'reflection', sessionId: 'evening-wind-down' },
+      Gratitude: { stepId: 'gratitude', sessionId: 'evening-wind-down' },
     };
     for (const [page, source] of Object.entries(ALL_STEP_PAGES)) {
+      const { stepId, sessionId } = expected[page];
       expect(source).toMatch(/import \{ useStepReviewMode \} from '.*session\/useStepReviewMode';/);
-      expect(source).toMatch(new RegExp(`useStepReviewMode\\((STEP_ID|'${expectedStepIds[page]}')\\)`));
+      expect(source).toMatch(new RegExp(`useStepReviewMode\\((STEP_ID|'${stepId}'), (SESSION_ID|'${sessionId}')\\)`));
+    }
+  });
+
+  // Section 7 requirement: "Rest" (sleepPreparation's evening-only label)
+  // can never appear as a Morning return step - structurally impossible
+  // once every Morning page's own useStepReviewMode call is hardcoded to
+  // sessionId 'morning-routine': isThisRoutineLive (and therefore
+  // isReviewMode/currentStep) can only ever be true when the Session
+  // Engine's OWN live sessionId also equals 'morning-routine' - Evening
+  // being live at 'sleepPreparation' can never satisfy that check on a
+  // Morning page, regardless of what currentStep.id happens to be.
+  it('every Morning page hardcodes sessionId \'morning-routine\' and every Evening page hardcodes \'evening-wind-down\' - never a value that could resolve to the other routine', () => {
+    const morningPages = [breatheSource, morningFlowSource, affirmationSource, intentionSetupSource];
+    const eveningPages = [eveningWindDownSource, prepareForRestSource, eveningBreathingSource, reflectionSource, gratitudeSource];
+    for (const source of morningPages) {
+      expect(source).not.toMatch(/useStepReviewMode\([^)]*'evening-wind-down'/);
+    }
+    for (const source of eveningPages) {
+      expect(source).not.toMatch(/useStepReviewMode\([^)]*'morning-routine'/);
     }
   });
 
@@ -434,21 +505,21 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
 
 describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wiring', () => {
   const TIMED_PAGES = {
-    Breathe: { source: breatheSource, stepId: 'breathe', timeField: 'secondsLeft', extraField: 'breatheState' },
-    MorningFlow: { source: morningFlowSource, stepId: 'stretch', timeField: 'timeLeft', extraField: 'activeStep' },
-    EveningBreathing: { source: eveningBreathingSource, stepId: 'breathing', timeField: 'secondsLeft', extraField: 'breatheState' },
+    Breathe: { source: breatheSource, sessionId: 'morning-routine', stepId: 'breathe', timeField: 'secondsLeft', extraField: 'breatheState' },
+    MorningFlow: { source: morningFlowSource, sessionId: 'morning-routine', stepId: 'stretch', timeField: 'timeLeft', extraField: 'activeStep' },
+    EveningBreathing: { source: eveningBreathingSource, sessionId: 'evening-wind-down', stepId: 'breathing', timeField: 'secondsLeft', extraField: 'breatheState' },
   };
 
-  it('imports the shared timedExercisePause helpers and reads a snapshot once, lazily, at mount', () => {
-    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
+  it('imports the shared timedExercisePause helpers and reads a snapshot once, lazily, at mount, keyed by BOTH sessionId and stepId', () => {
+    for (const { source, sessionId, stepId } of Object.values(TIMED_PAGES)) {
       expect(source).toMatch(/import \{ savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState \} from '\.\.\/session\/timedExercisePause';/);
-      expect(source).toMatch(new RegExp(`const \\[pausedSnapshot\\] = useState\\(\\(\\) => loadPausedExerciseState\\('${stepId}'\\)\\);`));
+      expect(source).toMatch(new RegExp(`const \\[pausedSnapshot\\] = useState\\(\\(\\) => loadPausedExerciseState\\('${sessionId}', '${stepId}'\\)\\);`));
     }
   });
 
   it('clears the snapshot in a one-time effect once read, so a later fresh/repeat visit never replays stale state', () => {
-    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
-      expect(source).toMatch(new RegExp(`useEffect\\(\\(\\) => \\{\\s*\\n\\s*if \\(pausedSnapshot\\) clearPausedExerciseState\\('${stepId}'\\);\\s*\\n\\s*\\}, \\[pausedSnapshot\\]\\);`));
+    for (const { source, sessionId, stepId } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(new RegExp(`useEffect\\(\\(\\) => \\{\\s*\\n\\s*if \\(pausedSnapshot\\) clearPausedExerciseState\\('${sessionId}', '${stepId}'\\);\\s*\\n\\s*\\}, \\[pausedSnapshot\\]\\);`));
     }
   });
 
@@ -464,10 +535,22 @@ describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wi
     }
   });
 
-  it('onLeaveLiveStep snapshots the exact current countdown/phase/music-choice state right before leaving', () => {
-    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
-      expect(source).toMatch(new RegExp(`onLeaveLiveStep: \\(\\) => savePausedExerciseState\\('${stepId}', \\{`));
+  it('onLeaveLiveStep snapshots the exact current countdown/phase/music-choice state right before leaving, tagged with this exact sessionId+stepId', () => {
+    for (const { source, sessionId, stepId } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(new RegExp(`onLeaveLiveStep: \\(\\) => savePausedExerciseState\\('${sessionId}', '${stepId}', \\{`));
     }
+  });
+
+  // Section 7 requirement: a snapshot from one timed step must never be
+  // consumed by a different one, even within the SAME routine (e.g.
+  // Breathe vs Stretch, both Morning) - guaranteed structurally since
+  // every save/load/clear call above always passes ITS OWN literal
+  // sessionId+stepId pair, never a shared/generic key, and
+  // timedExercisePause.js itself additionally validates the snapshot's
+  // own recorded sessionId/stepId on load (see that file's own tests).
+  it('every timed page uses its own distinct (sessionId, stepId) pair - no two pages share a key', () => {
+    const pairs = Object.values(TIMED_PAGES).map(({ sessionId, stepId }) => `${sessionId}::${stepId}`);
+    expect(new Set(pairs).size).toBe(pairs.length);
   });
 
   it('EveningBreathing now has the same Pause Exercise / ExercisePausedPanel infrastructure as Breathe/MorningFlow (release-blocking consistency fix - it originally had none)', () => {

@@ -105,6 +105,24 @@ const usePrefersReducedMotion = () => {
   return reduced;
 };
 
+// Scroll-lock fix, found live: this component always hardcoded `relative`
+// on its outer container, regardless of what positioning the caller's own
+// `className` requested. EveningSceneShell (every evening routine page)
+// passes `fixed inset-0 ... overflow-y-auto` here, expecting THIS element
+// to become the page's real, viewport-pinned scroll owner - but Tailwind's
+// compiled stylesheet order let the hardcoded `.relative` rule win over
+// the caller's `.fixed` rule (both target the same `position` property, a
+// specificity tie broken by declaration order, not by className string
+// order), so the element silently stayed `position: relative` - never
+// actually pinned to the viewport, so its own `overflow-y-auto` had no
+// fixed-size box to constrain against and just grew to fit its content
+// instead of scrolling it. Reproduced live via getComputedStyle on
+// Prepare for Rest: `position: relative` (not `fixed`), height equal to
+// the full unscrolled content height, not the viewport. Fixed by only
+// ever emitting ONE position utility - the caller's own, when it
+// supplies one (fixed/absolute/sticky) - never both on the same element.
+const CALLER_SETS_OWN_POSITION = /\b(?:fixed|absolute|sticky)\b/;
+
 export const Gradient = ({ phase: phaseOverride, className = '', children }) => {
   const [autoPhase, setAutoPhase] = useState(() => resolvePhaseFromDate(new Date()));
   const reducedMotion = usePrefersReducedMotion();
@@ -126,9 +144,10 @@ export const Gradient = ({ phase: phaseOverride, className = '', children }) => 
   }, [isOverridden]);
 
   const fadeMs = reducedMotion ? FADE_MS_REDUCED : FADE_MS;
+  const positionClass = CALLER_SETS_OWN_POSITION.test(className) ? '' : 'relative';
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={`${positionClass} overflow-hidden ${className}`}>
       {/* Decorative — the four sky layers. Always mounted, cross-faded via
           opacity so a phase change never requires transitioning between
           two different gradient strings (which CSS cannot animate

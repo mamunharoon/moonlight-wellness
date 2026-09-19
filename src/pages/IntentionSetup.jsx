@@ -49,7 +49,7 @@ export const IntentionSetup = () => {
   // intention" - nothing extra to gate there. Only Continue/Skip/Exit
   // (which DO drive the Session Engine forward) need to be replaced by a
   // plain "Return to current step" while reviewing.
-  const { isReviewMode } = useStepReviewMode('intention');
+  const { isReviewMode, isLiveStep } = useStepReviewMode('intention', 'morning-routine');
   const [customIntention, setCustomIntention] = useState('');
   // A typed-but-not-yet-added custom intention is real unsaved input -
   // confirm before leaving the LIVE step via the progress bar with it
@@ -60,7 +60,7 @@ export const IntentionSetup = () => {
   // adds one; routeForStep is what "Return to current step" already uses.
   const { routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     hasUnsavedProgress: customIntention.trim().length > 0
   });
   const [isSaving, setIsSaving] = useState(false);

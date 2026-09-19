@@ -59,20 +59,20 @@ export const MorningFlow = () => {
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - see Breathe.jsx's
   // identical block for the full rationale.
-  const { isReviewMode } = useStepReviewMode('stretch');
+  const { isReviewMode, isLiveStep } = useStepReviewMode('stretch', 'morning-routine');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
   // Pause-and-resume-exact-state fix - see Breathe.jsx's identical block
   // for the full rationale (session/timedExercisePause.js).
-  const [pausedSnapshot] = useState(() => loadPausedExerciseState('stretch'));
+  const [pausedSnapshot] = useState(() => loadPausedExerciseState('morning-routine', 'stretch'));
   useEffect(() => {
-    if (pausedSnapshot) clearPausedExerciseState('stretch');
+    if (pausedSnapshot) clearPausedExerciseState('morning-routine', 'stretch');
   }, [pausedSnapshot]);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('stretch', { timeLeft, activeStep, musicChoiceMade })
+    onLeaveLiveStep: () => savePausedExerciseState('morning-routine', 'stretch', { timeLeft, activeStep, musicChoiceMade })
   });
   const [activeStep, setActiveStep] = useState(() => pausedSnapshot?.activeStep ?? 0);
   // Morning-flow redesign: set the moment any guided-video row is tapped
@@ -245,7 +245,10 @@ export const MorningFlow = () => {
         </p>
       </div>
 
-      {awaitingMusicChoice && (
+      {/* Review-flow ordering fix - see Breathe.jsx's identical block for
+          the full rationale. Required order is Repeat -> Music Choice ->
+          Timer. */}
+      {!isRepeatGated && awaitingMusicChoice && (
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
       )}
 

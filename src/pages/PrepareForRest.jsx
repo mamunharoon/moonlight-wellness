@@ -85,8 +85,8 @@ export const PrepareForRest = () => {
   // Safe backward navigation ("Review Mode") - static checklist + video
   // rows, no timer of its own - review-only, no repeat-confirmation gate
   // needed (see EveningWindDown.jsx's identical block).
-  const { isReviewMode } = useStepReviewMode('sleepPreparation');
-  const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
+  const { isReviewMode, isLiveStep } = useStepReviewMode('sleepPreparation', 'evening-wind-down');
+  const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
   const {
     openVideo,
     handleSelect,

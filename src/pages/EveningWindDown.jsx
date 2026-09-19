@@ -37,8 +37,8 @@ export const EveningWindDown = () => {
   // and no input of its own (static copy + one Begin button), so review-
   // only viewing needs no repeat-confirmation gate at all - see
   // Breathe.jsx's identical block for the general rationale.
-  const { isReviewMode } = useStepReviewMode('windDown');
-  const { routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
+  const { isReviewMode, isLiveStep } = useStepReviewMode('windDown', 'evening-wind-down');
+  const { routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
 
   if (EveningSceneShell && ReviewModeBanner) { /* no-op to satisfy blind linter */ }
 

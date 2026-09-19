@@ -51,9 +51,9 @@ describe('Home.jsx per-routine action handlers (Build 10 critical fix)', () => {
     expect(homeSource).toMatch(/eveningCardState === 'completed'/);
   });
 
-  it('in-progress Start Over is wired through resetRoutine, scoped to exactly the tapped routine', () => {
-    expect(homeSource).toMatch(/title:\s*'Start this routine again\?'/);
-    expect(homeSource).toMatch(/Your current step progress will be reset\. Saved history and journal entries will not be deleted\./);
+  it('in-progress Start Over is wired through resetRoutine, scoped to exactly the tapped routine, and clearly names it (Start Over parity fix)', () => {
+    expect(homeSource).toMatch(/title: `Start \$\{label\} Routine Over\?`/);
+    expect(homeSource).toMatch(/message: `Your current \$\{label\} step progress will be reset\. Saved history and journal entries will not be deleted\.`/);
     expect(homeSource).toMatch(/resetRoutine\(sessionId\)/);
     expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'start-over', period: 'morning' \}\)/);
     expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'start-over', period: 'evening' \}\)/);

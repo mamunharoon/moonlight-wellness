@@ -26,7 +26,12 @@ export const ConfirmDialog = ({
   cancelLabel = 'Cancel',
   onConfirm,
   onDismiss,
-  destructive = false
+  destructive = false,
+  // Sign-out hardening: an in-flight async confirm action (e.g. awaiting
+  // Supabase signOut()) disables BOTH buttons so a second tap can never
+  // fire a duplicate request and Cancel can't dismiss mid-request -
+  // optional, defaults to false, every existing caller unaffected.
+  confirmPending = false
 }) => {
   const primaryButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
@@ -81,14 +86,16 @@ export const ConfirmDialog = ({
           <div className="flex gap-3">
             <button
               onClick={onDismiss}
-              className="flex-1 py-3.5 glass-panel text-on-surface rounded-full font-bold border-white/10 hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
+              disabled={confirmPending}
+              className="flex-1 py-3.5 glass-panel text-on-surface rounded-full font-bold border-white/10 hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40"
             >
               {cancelLabel}
             </button>
             <button
               ref={primaryButtonRef}
               onClick={onConfirm}
-              className={`flex-1 py-3.5 rounded-full font-bold active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+              disabled={confirmPending}
+              className={`flex-1 py-3.5 rounded-full font-bold active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 ${
                 destructive
                   ? 'bg-red-500/90 text-white hover:opacity-90 focus-visible:ring-red-400'
                   : 'bg-primary text-on-primary hover:opacity-90 focus-visible:ring-primary'

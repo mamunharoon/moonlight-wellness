@@ -11,16 +11,28 @@
 // timer and returning showed "Exercise 1 of 4" again, not wherever the
 // timer actually was.
 //
+// Cross-routine isolation fix: keyed by BOTH sessionId and stepId (never
+// stepId alone), and the saved snapshot also carries its own sessionId
+// field, verified on load. Today's three step ids ('breathe', 'stretch',
+// 'breathing') never actually collide across Morning/Evening, but this
+// hook exists specifically so a snapshot from Breathe (Morning) can never
+// be consumed by EveningBreathing, MorningFlow, or a future step that
+// happens to reuse a stepId - by construction, not by convention. A
+// mismatched/foreign sessionId inside a stored snapshot is treated
+// exactly like no snapshot at all: rejected and cleared, never guessed
+// at or partially trusted.
+//
 // sessionStorage (not localStorage): this is a one-shot "resume exactly
 // here" handoff for the current tab's review round-trip, not state that
 // should persist across app restarts - same reasoning as
-// lib/pendingContent.js. Keyed by stepId, since only one of these three
-// screens can ever be the live step at once.
+// lib/pendingContent.js.
 const KEY_PREFIX = 'moonlight_paused_exercise_';
 
-export const savePausedExerciseState = (stepId, state) => {
+const keyFor = (sessionId, stepId) => `${KEY_PREFIX}${sessionId}__${stepId}`;
+
+export const savePausedExerciseState = (sessionId, stepId, state) => {
   try {
-    sessionStorage.setItem(`${KEY_PREFIX}${stepId}`, JSON.stringify({ ...state, savedAt: Date.now() }));
+    sessionStorage.setItem(keyFor(sessionId, stepId), JSON.stringify({ ...state, sessionId, stepId, savedAt: Date.now() }));
   } catch {
     // Storage unavailable - the exercise will simply restart fresh on
     // return, never worse than the pre-fix behaviour.
@@ -30,19 +42,26 @@ export const savePausedExerciseState = (stepId, state) => {
 // Read-only (does not clear) - the calling page reads this once, at its
 // own lazy useState initializer, then explicitly clears it itself (see
 // clearPausedExerciseState) once it has committed the values into its
-// own local state.
-export const loadPausedExerciseState = (stepId) => {
+// own local state. Validates the snapshot's own recorded sessionId/
+// stepId match what's being requested - a mismatch (which should never
+// happen given the key itself is already scoped by both, but is checked
+// anyway as defense-in-depth against a hand-edited or legacy stored
+// value) is rejected exactly like no snapshot at all, never guessed at.
+export const loadPausedExerciseState = (sessionId, stepId) => {
   try {
-    const raw = sessionStorage.getItem(`${KEY_PREFIX}${stepId}`);
-    return raw ? JSON.parse(raw) : null;
+    const raw = sessionStorage.getItem(keyFor(sessionId, stepId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.sessionId !== sessionId || parsed.stepId !== stepId) return null;
+    return parsed;
   } catch {
     return null;
   }
 };
 
-export const clearPausedExerciseState = (stepId) => {
+export const clearPausedExerciseState = (sessionId, stepId) => {
   try {
-    sessionStorage.removeItem(`${KEY_PREFIX}${stepId}`);
+    sessionStorage.removeItem(keyFor(sessionId, stepId));
   } catch {
     // no-op
   }

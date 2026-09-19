@@ -120,11 +120,11 @@ export const Reflection = () => {
   // identical block for the full rationale. Reflection has no timer, but
   // real unsaved typed input is exactly the "unsaved input" case the
   // shared leave-confirmation exists for.
-  const { isReviewMode } = useStepReviewMode(STEP_ID);
+  const { isReviewMode, isLiveStep } = useStepReviewMode(STEP_ID, SESSION_ID);
   const [hasUnsavedText, setHasUnsavedText] = useState(false);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: SESSION_ID,
-    isLiveStep: !isReviewMode,
+    isLiveStep,
     hasUnsavedProgress: hasUnsavedText
   });
 
