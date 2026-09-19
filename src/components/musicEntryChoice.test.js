@@ -75,8 +75,8 @@ describe.each([
 
 describe('Breathe.jsx / MorningFlow.jsx - the entry choice and ExercisePausedPanel never both apply to the same interruption', () => {
   for (const [name, source] of [['Breathe.jsx', breatheSource], ['MorningFlow.jsx', morningFlowSource]]) {
-    it(`${name}: ExercisePausedPanel only renders once musicChoiceMade is already true - a video opened before the initial choice resolves back to the choice on close, never the panel`, () => {
-      expect(source).toMatch(/\{musicChoiceMade && videoOpenedDuringExercise && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    it(`${name}: ExercisePausedPanel only renders once musicChoiceMade is already true - an interruption (video or manual pause) before the initial choice resolves back to the choice on close, never the panel`, () => {
+      expect(source).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
     });
 
     it(`${name}: the ordinary manual controls (Pause/Continue or Next Step) are also hidden while awaiting the initial choice, not just while the paused panel shows`, () => {

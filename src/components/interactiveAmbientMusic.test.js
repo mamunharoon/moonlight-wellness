@@ -185,13 +185,13 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
   it('Breathe.jsx (Morning grounding/breathing timer - confirmed no narration during the ring itself) renders the shared player with IB01, suspended while a guided video is open', () => {
     expect(breatheSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(breatheSource).toMatch(/const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';/);
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\) \|\| manuallyPaused\} \/>/);
   });
 
-  it('MorningFlow.jsx (interactive stretch timer) renders the shared player with a DISTINCT id (IS01), also suspended while a guided video is open', () => {
+  it('MorningFlow.jsx (interactive stretch timer) renders the shared player with a DISTINCT id (IS01), also suspended while a guided video is open or manually paused', () => {
     expect(morningFlowSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(morningFlowSource).toMatch(/const INTERACTIVE_STRETCHING_MUSIC_ID = 'IS01';/);
-    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
+    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\) \|\| manuallyPaused\} \/>/);
   });
 
   it('IS01 and IB01 are never swapped between the two screens', () => {
@@ -213,8 +213,10 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       }
     });
 
-    it(`${name}: the running timer's own effect bails out while videoOpenedDuringExercise is true - preserving the exact remaining time/phase`, () => {
-      expect(source).toMatch(/if \([^)]*videoOpenedDuringExercise[^)]*\) return;/);
+    it(`${name}: videoOpenedDuringExercise and the new manuallyPaused flag converge into one isInterrupted flag, and the running timer's own effect bails out on it - preserving the exact remaining time/phase either way`, () => {
+      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(false\);/);
+      expect(source).toMatch(/const isInterrupted = videoOpenedDuringExercise \|\| manuallyPaused;/);
+      expect(source).toMatch(/if \([^)]*isInterrupted[^)]*\) return;/);
       // handleResumeExercise itself never touches the countdown/phase state
       // (secondsLeft/breatheState on Breathe.jsx, timeLeft/activeStep on
       // MorningFlow.jsx) - only the guard above ever does, by simply not
@@ -224,8 +226,8 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(resumeBody).not.toMatch(/setSecondsLeft|setBreatheState|setTimeLeft|setActiveStep/);
     });
 
-    it(`${name}: closing the video does not clear videoOpenedDuringExercise - only handleResumeExercise/handleResumeWithMusic do, both wired only to ExercisePausedPanel's own props`, () => {
-      expect(source).toMatch(/const handleResumeExercise = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*\};/);
+    it(`${name}: closing the video does not clear videoOpenedDuringExercise/manuallyPaused - only handleResumeExercise/handleResumeWithMusic do, both wired only to ExercisePausedPanel's own props`, () => {
+      expect(source).toMatch(/const handleResumeExercise = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*setManuallyPaused\(false\);\s*\n\s*\};/);
       expect(source).toMatch(/onResumeExercise=\{handleResumeExercise\}/);
       // closeVideo (passed to BetaVideoModal's onClose) must never itself
       // reference setVideoOpenedDuringExercise - only the two dedicated
@@ -233,8 +235,20 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(source).not.toMatch(/onClose=\{[^}]*setVideoOpenedDuringExercise/);
     });
 
-    it(`${name}: the paused panel (and its two resume actions) render only while a video was opened AND none is currently open (and the initial music entry choice has already been resolved - see musicEntryChoice.test.js)`, () => {
-      expect(source).toMatch(/\{musicChoiceMade && videoOpenedDuringExercise && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    it(`${name}: the paused panel (and its two resume actions) render only while interrupted (video or manual pause) AND no video is currently open (and the initial music entry choice has already been resolved - see musicEntryChoice.test.js)`, () => {
+      expect(source).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    });
+
+    it(`${name}: a persistent "Pause Exercise" button is reachable immediately below the ring/music control whenever the exercise is actually running (not interrupted, not awaiting the music choice, no video open)`, () => {
+      expect(source).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+      expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
+      expect(source).toMatch(/Pause Exercise/);
+      // It sits before InteractiveAmbientMusic's sibling panel/video rows,
+      // i.e. it occupies the exact same slot the panel takes over once
+      // paused - never both on screen together.
+      const musicIndex = source.indexOf('<InteractiveAmbientMusic');
+      const pauseButtonIndex = source.indexOf('onClick={handlePauseExercise}');
+      expect(pauseButtonIndex).toBeGreaterThan(musicIndex);
     });
 
     it(`${name}: the panel sits immediately after InteractiveAmbientMusic and strictly before every optional-video row - visible without scrolling past the video catalogue`, () => {
@@ -246,14 +260,14 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(videoRowIndex).toBeGreaterThan(panelIndex);
     });
 
-    it(`${name}: the ordinary manual Pause/Resume (or Next Step/Continue) controls are hidden while the paused panel is showing (or the initial music choice is), so no two affordances ever appear at once`, () => {
-      expect(source).toMatch(/\{!\(videoOpenedDuringExercise && !openVideo\) && !awaitingMusicChoice && \(/);
+    it(`${name}: the ordinary "Continue"/"Next Step" control is hidden while interrupted or awaiting the music choice, so it never appears alongside the Pause button or the paused panel`, () => {
+      expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && \(/);
     });
 
     it(`${name}: "Resume with Music" starts this screen's own ambient loop via the ref InteractiveAmbientMusic exposes, only from this dedicated handler - never automatically`, () => {
       expect(source).toMatch(/const musicPlayerRef = useRef\(null\);/);
       expect(source).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\}/);
-      expect(source).toMatch(/const handleResumeWithMusic = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\};/);
+      expect(source).toMatch(/const handleResumeWithMusic = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*setManuallyPaused\(false\);\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\};/);
       expect(source).toMatch(/onResumeWithMusic=\{handleResumeWithMusic\}/);
       // No useEffect anywhere in the file calls start() on the ref - the
       // only call site is the click handler above.

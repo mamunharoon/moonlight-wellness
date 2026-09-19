@@ -39,7 +39,9 @@ import { getGreeting } from '../lib/greeting';
 import { TimezoneBanner } from '../components/TimezoneBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
+import { saveIntentionToCloud } from '../lib/intentionPersistence';
 
 const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
@@ -47,7 +49,7 @@ const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
 
 export const Home = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, intentions, effectiveTimezone } = useAlarm();
+  const { alarmTime, bedTime, intentions, setIntentions, effectiveTimezone, userId } = useAlarm();
   const { profile, user, isGuest } = useAuth();
   const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
@@ -303,6 +305,21 @@ export const Home = () => {
   const activePeriod = selectedPeriod ?? (timeState === 'evening' || timeState === 'night' ? 'evening' : 'morning');
 
   const primaryIntention = intentions[0] || 'Stay calm';
+
+  // Usability remediation — "Change intention" (ActiveIntentionCard,
+  // rendered from both the Morning-complete and plain-daytime intention
+  // cards below). Deliberately the ONLY thing this touches: the same
+  // setIntentions context setter + saveIntentionToCloud helper
+  // IntentionSetup.jsx itself uses. No Session Engine call, no routine
+  // start/resume/reset, no journal/history write - changing today's
+  // intention here can never create a second Morning completion, clear
+  // the existing one, or touch Evening's own progress. Guests never reach
+  // this at all (ActiveIntentionCard's own isGuest check intercepts the
+  // tap with the sign-in prompt before onSave could ever be called).
+  const handleSaveIntention = async (value) => {
+    setIntentions([value]);
+    await saveIntentionToCloud(userId, value);
+  };
 
   // Build 10 remediation — the single source of truth for "what happens
   // when this routine's own card CTA is tapped", replacing the old bug
@@ -689,9 +706,14 @@ export const Home = () => {
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Rise &amp; Reset complete</h2>
             <p className="text-xs text-on-surface-variant font-medium">You started today with intention.</p>
           </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-secondary">Today's Intention</p>
-            <p className="text-lg italic font-medium text-on-surface">"{primaryIntention}"</p>
+          <div className="glass-panel p-6 rounded-3xl shadow-sm">
+            <ActiveIntentionCard
+              label="Today's Intention"
+              intention={primaryIntention}
+              isGuest={isGuest}
+              onRequireSignIn={promptRoutineSignIn}
+              onSave={handleSaveIntention}
+            />
           </div>
           <button
             type="button"
@@ -711,10 +733,13 @@ export const Home = () => {
             <p className="text-xs text-on-surface-variant font-medium">One small step at a time.</p>
           </div>
           <div className="glass-panel p-6 rounded-3xl space-y-6 shadow-sm bg-gradient-to-br from-[#ffffff]/5 to-transparent">
-            <div className="space-y-2">
-              <p className="text-xs text-primary font-bold uppercase tracking-wider">Active Intention</p>
-              <p className="text-lg font-bold text-on-surface">"{primaryIntention}"</p>
-            </div>
+            <ActiveIntentionCard
+              label="Active Intention"
+              intention={primaryIntention}
+              isGuest={isGuest}
+              onRequireSignIn={promptRoutineSignIn}
+              onSave={handleSaveIntention}
+            />
             <p className="text-xs text-on-surface-variant leading-relaxed">Take a gentle 60-second breathing break to center your focus and reduce anxiety.</p>
             <Link to="/breathe" className="block w-full py-3 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
               60-Second Reset

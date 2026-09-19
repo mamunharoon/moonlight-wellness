@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
-import { supabase } from '../lib/supabaseClient';
+import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
+import { saveIntentionToCloud } from '../lib/intentionPersistence';
 
 /*
  * Morning-flow redesign — Intention step, now Step 1 of 4 (was Step 5 of
@@ -40,14 +41,7 @@ export const IntentionSetup = () => {
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const presets = [
-    'Stay calm',
-    'Be grateful',
-    'Be patient',
-    'Stay focused',
-    'Take one step forward',
-    'Be kind to yourself'
-  ];
+  const presets = INTENTION_PRESETS;
 
   const handleSelectPreset = (preset) => {
     setIntentions([preset]); // Allow exactly ONE primary intention as requested
@@ -84,27 +78,8 @@ export const IntentionSetup = () => {
 
     const primaryIntention = intentions[0] || 'Stay calm';
 
-    if (supabase && userId && intentions.length > 0) {
-      try {
-        const { error } = await supabase
-          .from('user_intentions')
-          .upsert(
-            {
-              user_id: userId,
-              intention: primaryIntention
-            },
-            { onConflict: 'user_id' }
-          );
-
-        if (error) {
-          // Cloud sync failed - the app continues locally regardless (existing
-          // UX never blocks navigation on a Supabase error), so log distinctly
-          // to avoid this ever being confused with a successful cloud save.
-          console.warn('Intention saved locally only - cloud sync failed:', error.message);
-        }
-      } catch (e) {
-        console.warn('Intention saved locally only - cloud sync skipped:', e.message);
-      }
+    if (intentions.length > 0) {
+      await saveIntentionToCloud(userId, primaryIntention);
     }
 
     setIsSaving(false);

@@ -56,6 +56,11 @@ export const MorningFlow = () => {
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
   const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
+  // Usability remediation - see Breathe.jsx's identical block for the
+  // full rationale. Same pattern, same convergent isInterrupted flag.
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const handlePauseExercise = () => setManuallyPaused(true);
+  const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
   const {
     openVideo,
     handleSelect,
@@ -75,6 +80,7 @@ export const MorningFlow = () => {
 
   const handleResumeExercise = () => {
     setVideoOpenedDuringExercise(false);
+    setManuallyPaused(false);
   };
 
   // "Resume with Music" - see Breathe.jsx's identical doc comment on its
@@ -82,6 +88,7 @@ export const MorningFlow = () => {
   const musicPlayerRef = useRef(null);
   const handleResumeWithMusic = () => {
     setVideoOpenedDuringExercise(false);
+    setManuallyPaused(false);
     musicPlayerRef.current?.start();
   };
   const musicEligible = isInteractiveMusicEligible({
@@ -141,7 +148,7 @@ export const MorningFlow = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (videoOpenedDuringExercise || awaitingMusicChoice) return;
+    if (isInterrupted || awaitingMusicChoice) return;
 
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
@@ -165,7 +172,7 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length, videoOpenedDuringExercise, awaitingMusicChoice]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
@@ -236,7 +243,7 @@ export const MorningFlow = () => {
         {steps.map((step, idx) => {
           const isCompleted = idx < activeStep;
           const isActive = idx === activeStep;
-          if (videoOpenedDuringExercise && !openVideo && !isActive) return null;
+          if (isInterrupted && !openVideo && !isActive) return null;
 
           return (
             <div
@@ -271,18 +278,31 @@ export const MorningFlow = () => {
         })}
       </div>
 
-      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
 
       {/* Immediately below the countdown/music toggle, ABOVE the
           Stretching Sessions video rows below - visible in the initial
           viewport with no scroll. See Breathe.jsx's identical panel and
           its identical musicChoiceMade gating. */}
-      {musicChoiceMade && videoOpenedDuringExercise && !openVideo && (
+      {musicChoiceMade && isInterrupted && !openVideo && (
         <ExercisePausedPanel
           onResumeExercise={handleResumeExercise}
           onResumeWithMusic={handleResumeWithMusic}
           showResumeWithMusic={musicEligible}
         />
+      )}
+
+      {/* Usability remediation - see Breathe.jsx's identical block for the
+          full rationale. */}
+      {!isInterrupted && !awaitingMusicChoice && !openVideo && (
+        <button
+          type="button"
+          onClick={handlePauseExercise}
+          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+        >
+          <span className="material-symbols-outlined text-sm">pause</span>
+          <span>Pause Exercise</span>
+        </button>
       )}
 
       <div className="space-y-3">
@@ -304,7 +324,7 @@ export const MorningFlow = () => {
       <div className="space-y-3 w-full">
         {/* Hidden while the ExercisePausedPanel above is showing its own
             two resume actions - see Breathe.jsx's identical comment. */}
-        {!(videoOpenedDuringExercise && !openVideo) && !awaitingMusicChoice && (
+        {!isInterrupted && !awaitingMusicChoice && (
           <button
             onClick={handleNextStep}
             className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"

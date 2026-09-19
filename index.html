@@ -24,7 +24,20 @@
     <!-- Stage 3 "felt" typography voice (design proposal §11) — additive -->
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
   </head>
-  <body class="m-0 p-0 overflow-x-hidden">
+  <!-- Nested-scroll-container repair: `overflow-x-hidden` alone (no
+       overflow-y) used to leave body's used overflow-y as `visible`,
+       which the CSS Overflow spec then converts to `auto` per the
+       "one axis restricted, the other still visible" propagation rule
+       (confirmed live: getComputedStyle(body).overflow reported
+       "hidden auto", not "hidden hidden") - silently turning <body> into
+       a second, independent scrollable element competing with Layout.jsx's
+       own single intended scroll container (the `overflow-y-auto` div
+       inside it). Body/html have no content of their own that should ever
+       need to scroll - Layout's root is `h-dvh` (exactly one viewport
+       tall) with all vertical overflow handled by its own inner div -
+       so both axes are explicitly hidden here now, removing the ambiguity
+       entirely rather than leaving y to fall back to a spec default. -->
+  <body class="m-0 p-0 overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

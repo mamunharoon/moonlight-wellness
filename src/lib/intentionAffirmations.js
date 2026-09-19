@@ -1,3 +1,15 @@
+// Usability remediation - Home.jsx's "Change intention" (ActiveIntentionCard)
+// reuses this exact same preset list, so the six choices offered there can
+// never drift out of sync with IntentionSetup.jsx's own list.
+export const INTENTION_PRESETS = Object.freeze([
+  'Stay calm',
+  'Be grateful',
+  'Be patient',
+  'Stay focused',
+  'Take one step forward',
+  'Be kind to yourself'
+]);
+
 // Morning-flow redesign — Affirm step: maps the user's own selected
 // Morning intention (IntentionSetup.jsx, one of six presets or a custom
 // string) to a fixed, pre-written affirmation. Deliberately a pure
