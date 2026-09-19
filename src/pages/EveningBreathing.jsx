@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
+import { setPendingContent } from '../lib/pendingContent';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -53,6 +55,18 @@ const TOTAL_SECONDS = 76;
 
 export const EveningBreathing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isGuest } = useAuth();
+  // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
+  // doc comment. This page has no guided-video rows (no useProtectedVideo
+  // instance to borrow a confirmSignIn from, unlike Breathe.jsx/
+  // MorningFlow.jsx), so it stashes/navigates directly, matching that
+  // hook's own confirmSignIn shape exactly (id: null - nothing to
+  // reopen, just return here after sign-in).
+  const confirmSignInForMusic = () => {
+    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
+    navigate('/auth');
+  };
   const { state, currentStep, advanceStep } = useSession();
   // Safe backward navigation ("Review Mode") - see Breathe.jsx's
   // identical block for the full rationale.
@@ -168,7 +182,12 @@ export const EveningBreathing = () => {
           the full rationale. Required order is Repeat -> Music Choice ->
           Timer. */}
       {!isRepeatGated && awaitingMusicChoice && (
-        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+        <MusicEntryChoice
+          onStartWithMusic={handleStartWithMusic}
+          onContinueWithoutMusic={handleContinueWithoutMusic}
+          isGuest={isGuest}
+          onSignIn={confirmSignInForMusic}
+        />
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
@@ -210,6 +229,8 @@ export const EveningBreathing = () => {
           onResumeExercise={handleResumeExercise}
           onResumeWithMusic={handleResumeWithMusic}
           showResumeWithMusic={musicEligible}
+          isGuest={isGuest}
+          onSignIn={confirmSignInForMusic}
         />
       )}
 

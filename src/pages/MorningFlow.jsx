@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
@@ -95,6 +96,7 @@ export const MorningFlow = () => {
     confirmSignIn,
     confirmCreateAccount
   } = useProtectedVideo();
+  const { isGuest } = useAuth();
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -249,7 +251,12 @@ export const MorningFlow = () => {
           the full rationale. Required order is Repeat -> Music Choice ->
           Timer. */}
       {!isRepeatGated && awaitingMusicChoice && (
-        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+        <MusicEntryChoice
+          onStartWithMusic={handleStartWithMusic}
+          onContinueWithoutMusic={handleContinueWithoutMusic}
+          isGuest={isGuest}
+          onSignIn={confirmSignIn}
+        />
       )}
 
       {isRepeatGated ? (
@@ -338,6 +345,8 @@ export const MorningFlow = () => {
               onResumeExercise={handleResumeExercise}
               onResumeWithMusic={handleResumeWithMusic}
               showResumeWithMusic={musicEligible}
+              isGuest={isGuest}
+              onSignIn={confirmSignIn}
             />
           )}
 

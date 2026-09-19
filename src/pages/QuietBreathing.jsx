@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
@@ -7,6 +7,8 @@ import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
+import { useAuth } from '../context/AuthContext';
+import { setPendingContent } from '../lib/pendingContent';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx (see that file's own comment, and
@@ -40,6 +42,14 @@ const TOTAL_SECONDS = CYCLE_SECONDS * TOTAL_CYCLES;
 
 export const QuietBreathing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isGuest } = useAuth();
+  // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
+  // doc comment and EveningBreathing.jsx's identical handler.
+  const confirmSignInForMusic = () => {
+    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
+    navigate('/auth');
+  };
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
   // See EveningBreathing.jsx's identical block for the full rationale.
@@ -94,7 +104,12 @@ export const QuietBreathing = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
       {awaitingMusicChoice && (
-        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+        <MusicEntryChoice
+          onStartWithMusic={handleStartWithMusic}
+          onContinueWithoutMusic={handleContinueWithoutMusic}
+          isGuest={isGuest}
+          onSignIn={confirmSignInForMusic}
+        />
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">

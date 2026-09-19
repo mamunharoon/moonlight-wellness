@@ -21,8 +21,16 @@
  * disabling it) when the page's own ambient loop isn't eligible right
  * now (feature flag off, or no manifest entry) — showing a button that
  * silently does nothing would be its own, different bug.
+ *
+ * Guest lock state (Build 11 RC fix): "Resume with Music" reaches the
+ * exact same InteractiveAmbientMusic.start() as MusicEntryChoice's own
+ * "Start with Music" (see that component's matching doc comment) - a
+ * guest tapping it would hit the same generic "Music unavailable right
+ * now" failure copy rather than a clear sign-in prompt. `isGuest`
+ * replaces the button with "Sign In" instead; "Resume Exercise" (timer
+ * only, no music) is unaffected either way.
  */
-export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic }) => (
+export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic, isGuest = false, onSignIn }) => (
   <div className="glass-panel rounded-2xl p-5 text-center space-y-3 border border-white/10">
     <h3 className="text-sm font-bold text-on-surface">Exercise paused</h3>
     <p className="text-xs text-on-surface-variant leading-relaxed">
@@ -38,14 +46,25 @@ export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showR
         <span>Resume Exercise</span>
       </button>
       {showResumeWithMusic && (
-        <button
-          type="button"
-          onClick={onResumeWithMusic}
-          className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
-        >
-          <span className="material-symbols-outlined text-sm">music_note</span>
-          <span>Resume with Music</span>
-        </button>
+        isGuest ? (
+          <button
+            type="button"
+            onClick={onSignIn}
+            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
+          >
+            <span className="material-symbols-outlined text-sm">music_note</span>
+            <span>Sign In for Music</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onResumeWithMusic}
+            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
+          >
+            <span className="material-symbols-outlined text-sm">music_note</span>
+            <span>Resume with Music</span>
+          </button>
+        )
       )}
     </div>
   </div>

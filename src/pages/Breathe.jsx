@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { getStepLabel } from '../lib/stepLabels';
@@ -144,6 +145,7 @@ export const Breathe = () => {
     confirmSignIn,
     confirmCreateAccount
   } = useProtectedVideo();
+  const { isGuest } = useAuth();
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
   if (BreathingRing && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
@@ -301,7 +303,12 @@ export const Breathe = () => {
           prompt set musicChoiceMade=true, so the real repeat later
           skipped the prompt entirely and the timer just started). */}
       {!isRepeatGated && awaitingMusicChoice && (
-        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+        <MusicEntryChoice
+          onStartWithMusic={handleStartWithMusic}
+          onContinueWithoutMusic={handleContinueWithoutMusic}
+          isGuest={isGuest}
+          onSignIn={confirmSignIn}
+        />
       )}
 
       <div className="text-center space-y-2">
@@ -349,6 +356,8 @@ export const Breathe = () => {
               onResumeExercise={handleResumeExercise}
               onResumeWithMusic={handleResumeWithMusic}
               showResumeWithMusic={musicEligible}
+              isGuest={isGuest}
+              onSignIn={confirmSignIn}
             />
           )}
 
