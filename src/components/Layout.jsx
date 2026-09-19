@@ -134,7 +134,18 @@ export const Layout = () => {
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide px-4"
           style={{
             paddingTop: hideNavigation ? 'calc(1rem + env(safe-area-inset-top))' : '1rem',
-            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))'
+            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))',
+            // Scroll-chaining hardening: without this, a wheel/trackpad
+            // gesture that starts right at this container's top/bottom
+            // edge (e.g. immediately after ExercisePausedPanel changes
+            // the page's height, or right after a modal closes) can hand
+            // the remaining scroll delta to an ancestor instead of
+            // stopping - the immersive `fixed inset-0` background layer
+            // above has no scroll of its own to receive it, which reads
+            // to a real trackpad/mouse-wheel user as "scrolling stopped
+            // responding". Scoping the scroll to this element only is a
+            // real, low-risk fix regardless of the exact trigger.
+            overscrollBehaviorY: 'contain'
           }}
         >
           <Outlet />

@@ -226,7 +226,20 @@ const MEDITATION_METADATA = {
   M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 212, durationGroup: 'short' }
 };
 
-export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.map((entry) => ({
+// IB01/IS01 are audio-only interactive-ambient-music loops (see their own
+// entries in betaVideoManifest.js), never narrated exercises - they must
+// stay fully resolvable via getBetaVideoById() (InteractiveAmbientMusic.jsx's
+// own eligibility check depends on it) but must NEVER appear as a
+// user-selectable "Watch" row in Library.jsx, which has no concept of an
+// audio-only, no-narration entry and would render one as if it were an
+// ordinary tappable exercise video. Library.jsx's own grouping
+// (itemsByCategory) indexes strictly by CATALOG_CATEGORIES, so simply
+// excluding these two ids from MEDIA_CATALOG - the one thing Library.jsx
+// actually iterates - is sufficient; getBetaVideoById() itself reads
+// BETA_VIDEO_MANIFEST directly and is completely unaffected by this filter.
+const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01']);
+
+export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id)).map((entry) => ({
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
   meditation: MEDITATION_METADATA[entry.id] || null,

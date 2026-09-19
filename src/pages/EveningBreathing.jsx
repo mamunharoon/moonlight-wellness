@@ -5,6 +5,10 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { isFeatureEnabled } from '../lib/featureFlags';
+import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
+import { getBetaVideoById } from '../lib/mediaCatalog';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md). Not yet
@@ -42,8 +46,29 @@ export const EveningBreathing = () => {
   const { state, currentStep, advanceStep } = useSession();
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
+  // Entry choice, asked once per visit before the countdown starts at all
+  // (see MusicEntryChoice's own doc comment). Distinct from musicEnabled
+  // itself, which InteractiveAmbientMusic owns internally.
+  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const musicPlayerRef = useRef(null);
+  const musicEligible = isInteractiveMusicEligible({
+    musicVariantId: INTERACTIVE_BREATHING_MUSIC_ID,
+    featureEnabled: isFeatureEnabled('backgroundMusic'),
+    getEntryById: getBetaVideoById
+  });
+  // Only actually blocks anything when there's a real choice to make -
+  // a screen with no eligible music (flag off / no asset) behaves exactly
+  // as before this feature existed: the timer starts immediately.
+  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
+  const handleStartWithMusic = () => {
+    setMusicChoiceMade(true);
+    musicPlayerRef.current?.start();
+  };
+  const handleContinueWithoutMusic = () => {
+    setMusicChoiceMade(true);
+  };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && MusicEntryChoice) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -58,6 +83,8 @@ export const EveningBreathing = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
+    if (awaitingMusicChoice) return;
+
     if (secondsLeft <= 0) {
       navigate('/prepare-for-rest');
       mirrorExitRef.current();
@@ -80,7 +107,7 @@ export const EveningBreathing = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate]);
+  }, [secondsLeft, navigate, awaitingMusicChoice]);
 
   const handleAdvance = () => {
     navigate('/prepare-for-rest');
@@ -91,6 +118,10 @@ export const EveningBreathing = () => {
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude">
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 6</span>
+
+      {awaitingMusicChoice && (
+        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+      )}
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
         <div className="space-y-2">
@@ -103,7 +134,7 @@ export const EveningBreathing = () => {
         <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
       </div>
 
-      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
+      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
 
       <div className="space-y-3 w-full">
         <button

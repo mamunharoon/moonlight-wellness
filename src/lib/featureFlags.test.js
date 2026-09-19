@@ -33,23 +33,23 @@ describe('isBetaProgramVisible', () => {
   });
 });
 
-describe('backgroundMusic feature flag (Background Music, Phase B)', () => {
+describe('backgroundMusic feature flag (now shipped - real, licensed v2 IB01/IS01 tracks registered and regression-tested)', () => {
   beforeEach(() => {
     store.clear();
   });
 
-  it('defaults to off - no licensed music asset exists yet, so this must never default on', () => {
-    expect(isFeatureEnabled('backgroundMusic')).toBe(false);
-  });
-
-  it('can be forced on per-device for QA, via the existing override mechanism, without a code deploy', () => {
-    setFeatureFlagOverride('backgroundMusic', true);
+  it('defaults to on - IB01/IS01 are real, registered, licensed assets; the toggle/entry-choice UX is built and tested', () => {
     expect(isFeatureEnabled('backgroundMusic')).toBe(true);
   });
 
-  it('clearing overrides restores the conservative default', () => {
-    setFeatureFlagOverride('backgroundMusic', true);
-    clearFeatureFlagOverrides();
+  it('can still be forced off per-device without a code deploy, e.g. to pull it mid-beta', () => {
+    setFeatureFlagOverride('backgroundMusic', false);
     expect(isFeatureEnabled('backgroundMusic')).toBe(false);
+  });
+
+  it('clearing overrides restores the shipped default (on)', () => {
+    setFeatureFlagOverride('backgroundMusic', false);
+    clearFeatureFlagOverrides();
+    expect(isFeatureEnabled('backgroundMusic')).toBe(true);
   });
 });

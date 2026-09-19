@@ -131,7 +131,7 @@ describe('Stop and release the element on every exit path', () => {
 
 describe('`suspended` prop - stop before an optional guided video opens (Breathe.jsx/MorningFlow.jsx)', () => {
   it('defaults to false, so EveningBreathing.jsx/QuietBreathing.jsx (which never pass it) are unaffected', () => {
-    expect(playerSource).toMatch(/export const InteractiveAmbientMusic = \(\{ musicVariantId, suspended = false \}\) => \{/);
+    expect(playerSource).toMatch(/export const InteractiveAmbientMusic = forwardRef\(\(\{ musicVariantId, suspended = false \}, ref\) => \{/);
   });
 
   it('a suspended transition only ever calls the native .pause() DOM method inside its effect - never setState in an effect', () => {
@@ -167,13 +167,13 @@ describe('Guest restrictions match the agreed onboarding policy - intercept at t
 describe('Shared by every structurally-similar interactive timed screen', () => {
   it('EveningBreathing.jsx renders the shared player with IB01, never passing `suspended` (no video rows on that page)', () => {
     expect(eveningBreathingSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
-    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
+    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
     expect(eveningBreathingSource).not.toMatch(/suspended=/);
   });
 
   it('QuietBreathing.jsx renders the same shared player with IB01, not an independent copy, and also never passes `suspended`', () => {
     expect(quietBreathingSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
-    expect(quietBreathingSource).toMatch(/<InteractiveAmbientMusic musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
+    expect(quietBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
     expect(quietBreathingSource).not.toMatch(/suspended=/);
   });
 
@@ -185,13 +185,13 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
   it('Breathe.jsx (Morning grounding/breathing timer - confirmed no narration during the ring itself) renders the shared player with IB01, suspended while a guided video is open', () => {
     expect(breatheSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(breatheSource).toMatch(/const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';/);
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
   });
 
   it('MorningFlow.jsx (interactive stretch timer) renders the shared player with a DISTINCT id (IS01), also suspended while a guided video is open', () => {
     expect(morningFlowSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(morningFlowSource).toMatch(/const INTERACTIVE_STRETCHING_MUSIC_ID = 'IS01';/);
-    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
+    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\} suspended=\{Boolean\(openVideo\)\} \/>/);
   });
 
   it('IS01 and IB01 are never swapped between the two screens', () => {
@@ -213,22 +213,95 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       }
     });
 
-    it(`${name}: the running timer's own effect bails out while videoOpenedDuringExercise is true`, () => {
+    it(`${name}: the running timer's own effect bails out while videoOpenedDuringExercise is true - preserving the exact remaining time/phase`, () => {
       expect(source).toMatch(/if \([^)]*videoOpenedDuringExercise[^)]*\) return;/);
+      // handleResumeExercise itself never touches the countdown/phase state
+      // (secondsLeft/breatheState on Breathe.jsx, timeLeft/activeStep on
+      // MorningFlow.jsx) - only the guard above ever does, by simply not
+      // running while paused. Resuming is "let the same effect start
+      // ticking again from whatever state was already there", not a reset.
+      const resumeBody = source.match(/const handleResumeExercise = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      expect(resumeBody).not.toMatch(/setSecondsLeft|setBreatheState|setTimeLeft|setActiveStep/);
     });
 
-    it(`${name}: closing the video does not clear videoOpenedDuringExercise - only handleResumeExercise does, and it is only ever wired to a button's own onClick`, () => {
+    it(`${name}: closing the video does not clear videoOpenedDuringExercise - only handleResumeExercise/handleResumeWithMusic do, both wired only to ExercisePausedPanel's own props`, () => {
       expect(source).toMatch(/const handleResumeExercise = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*\};/);
-      expect(source).toMatch(/onClick=\{handleResumeExercise\}/);
+      expect(source).toMatch(/onResumeExercise=\{handleResumeExercise\}/);
       // closeVideo (passed to BetaVideoModal's onClose) must never itself
-      // reference setVideoOpenedDuringExercise - only the dedicated Resume
-      // Exercise button may.
+      // reference setVideoOpenedDuringExercise - only the two dedicated
+      // resume actions may.
       expect(source).not.toMatch(/onClose=\{[^}]*setVideoOpenedDuringExercise/);
     });
 
-    it(`${name}: "Resume Exercise" is shown only while a video was opened AND none is currently open`, () => {
-      expect(source).toMatch(/videoOpenedDuringExercise && !openVideo \? \(/);
-      expect(source).toMatch(/Resume Exercise/);
+    it(`${name}: the paused panel (and its two resume actions) render only while a video was opened AND none is currently open (and the initial music entry choice has already been resolved - see musicEntryChoice.test.js)`, () => {
+      expect(source).toMatch(/\{musicChoiceMade && videoOpenedDuringExercise && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    });
+
+    it(`${name}: the panel sits immediately after InteractiveAmbientMusic and strictly before every optional-video row - visible without scrolling past the video catalogue`, () => {
+      const musicIndex = source.indexOf('<InteractiveAmbientMusic');
+      const panelIndex = source.indexOf('<ExercisePausedPanel');
+      const videoRowIndex = source.indexOf('<BetaVideoRow');
+      expect(musicIndex).toBeGreaterThan(-1);
+      expect(panelIndex).toBeGreaterThan(musicIndex);
+      expect(videoRowIndex).toBeGreaterThan(panelIndex);
+    });
+
+    it(`${name}: the ordinary manual Pause/Resume (or Next Step/Continue) controls are hidden while the paused panel is showing (or the initial music choice is), so no two affordances ever appear at once`, () => {
+      expect(source).toMatch(/\{!\(videoOpenedDuringExercise && !openVideo\) && !awaitingMusicChoice && \(/);
+    });
+
+    it(`${name}: "Resume with Music" starts this screen's own ambient loop via the ref InteractiveAmbientMusic exposes, only from this dedicated handler - never automatically`, () => {
+      expect(source).toMatch(/const musicPlayerRef = useRef\(null\);/);
+      expect(source).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\}/);
+      expect(source).toMatch(/const handleResumeWithMusic = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\};/);
+      expect(source).toMatch(/onResumeWithMusic=\{handleResumeWithMusic\}/);
+      // No useEffect anywhere in the file calls start() on the ref - the
+      // only call site is the click handler above.
+      const effectBodies = source.match(/useEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[[^\]]*\]\);/g) ?? [];
+      for (const body of effectBodies) {
+        expect(body).not.toMatch(/musicPlayerRef/);
+      }
+    });
+
+    it(`${name}: "Resume with Music" is hidden (not merely disabled) when this screen's ambient loop isn't currently eligible - never a button that would silently do nothing`, () => {
+      expect(source).toMatch(/const musicEligible = isInteractiveMusicEligible\(\{/);
+      expect(source).toMatch(/showResumeWithMusic=\{musicEligible\}/);
     });
   }
+});
+
+describe('ExercisePausedPanel.jsx - the shared paused-for-video panel itself', () => {
+  const panelSource = read('./ExercisePausedPanel.jsx');
+
+  it('renders the exact required copy, never framed as an error', () => {
+    expect(panelSource).toMatch(/Exercise paused/);
+    expect(panelSource).toMatch(/Your timer and background music were stopped while you viewed the guided session\./);
+  });
+
+  it('Resume Exercise is always rendered; Resume with Music only when showResumeWithMusic is true', () => {
+    expect(panelSource).toMatch(/onClick=\{onResumeExercise\}[\s\S]*?Resume Exercise/);
+    expect(panelSource).toMatch(/\{showResumeWithMusic && \(/);
+    expect(panelSource).toMatch(/onClick=\{onResumeWithMusic\}[\s\S]*?Resume with Music/);
+  });
+});
+
+describe('InteractiveAmbientMusic.jsx exposes start() via ref, and re-checks `suspended` after its own async gap', () => {
+  it('is wrapped in forwardRef and exposes exactly { start } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
+    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start \}\)\);/);
+    const imperativeIndex = playerSource.indexOf('useImperativeHandle(ref');
+    const eligibleReturnIndex = playerSource.indexOf('if (!eligible) return null;');
+    expect(imperativeIndex).toBeGreaterThan(-1);
+    expect(eligibleReturnIndex).toBeGreaterThan(imperativeIndex);
+  });
+
+  it('start() re-checks a suspended-mirroring ref AFTER its await, before ever touching the <audio> element - the actual fix for music starting under/after a video opened mid-fetch', () => {
+    expect(playerSource).toMatch(/const suspendedRef = useRef\(suspended\);\s*\n\s*suspendedRef\.current = suspended;/);
+    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const awaitIndex = startBody.indexOf('await requestBetaVideoUrl');
+    const suspendedCheckIndex = startBody.indexOf('if (suspendedRef.current) return;');
+    const audioSrcIndex = startBody.indexOf('audio.src = url;');
+    expect(awaitIndex).toBeGreaterThan(-1);
+    expect(suspendedCheckIndex).toBeGreaterThan(awaitIndex);
+    expect(audioSrcIndex).toBeGreaterThan(suspendedCheckIndex);
+  });
 });

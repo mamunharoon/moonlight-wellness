@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { requestBetaVideoUrl } from '../lib/betaVideoAccess';
@@ -56,7 +56,13 @@ import { SignInPromptDialog } from './SignInPromptDialog';
 // *auto-applied* as playback on this specific surface.
 const DEFAULT_VOLUME = 0.35;
 
-export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) => {
+// Exposed via ref (see useImperativeHandle below) so Breathe.jsx/
+// MorningFlow.jsx's own "Resume with Music" button — part of their
+// paused-for-guided-video panel — can trigger a fresh, deliberate start()
+// after the timer resumes, without duplicating this component's network/
+// element-management logic in two page files. EveningBreathing.jsx/
+// QuietBreathing.jsx (no ref passed) are completely unaffected.
+export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false }, ref) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGuest } = useAuth();
@@ -66,6 +72,18 @@ export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) =
   // race or repeated rapid taps can never issue two overlapping
   // requests/play() calls against the same element.
   const isBusyRef = useRef(false);
+  // Mirrors the `suspended` prop for start()'s own async gap below (a
+  // plain render-time assignment, not an effect — refs are exempt from
+  // the state-derived-in-effect rule specifically for this "let an
+  // in-flight async callback read the latest prop" case). Fixes a real
+  // bug: without this, opening a guided video WHILE start()'s signed-URL
+  // fetch is still in flight had no way to notice - the fetch would
+  // resolve after the video was already open (or already closed) and
+  // call audio.play() regardless, leaving the ambient loop audibly
+  // playing under/after the video with the toggle stuck showing the
+  // stale "on" state from a play() that should never have happened.
+  const suspendedRef = useRef(suspended);
+  suspendedRef.current = suspended;
 
   const featureOn = isFeatureEnabled('backgroundMusic');
   const eligible = isInteractiveMusicEligible({ musicVariantId, featureEnabled: featureOn, getEntryById: getBetaVideoById });
@@ -117,8 +135,6 @@ export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) =
     audioRef.current?.pause();
   }, [suspended]);
 
-  if (!eligible) return null;
-
   // musicEnabled itself is never set from here — the <audio> element's own
   // onPlay/onPause handlers (below, in the JSX) are the single source of
   // truth for it, since they're real event-handler callbacks reacting to
@@ -136,6 +152,11 @@ export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) =
     setLoadError(false);
     try {
       const { url } = await requestBetaVideoUrl(musicVariantId);
+      // Re-check here, not just at the top of start() - a guided video
+      // can open while this fetch is in flight. Bail before ever touching
+      // the element so nothing plays under/after the video (see
+      // suspendedRef's own doc comment above).
+      if (suspendedRef.current) return;
       const audio = audioRef.current;
       if (!audio) return;
       audio.src = url;
@@ -173,6 +194,17 @@ export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) =
       start();
     }
   };
+
+  // "Resume with Music" (Breathe.jsx/MorningFlow.jsx's paused-for-video
+  // panel) calls this directly, bypassing handleToggle - by the time that
+  // button exists at all, the video is already closed (suspended is
+  // already false), and the button tap itself is the required deliberate
+  // gesture, exactly like a direct toggle tap. Called unconditionally
+  // (not gated on eligible/hooks-order below) since useImperativeHandle
+  // must run on every render regardless of `eligible`.
+  useImperativeHandle(ref, () => ({ start }));
+
+  if (!eligible) return null;
 
   const confirmSignIn = () => {
     setPendingContent({ returnPath: `${location.pathname}${location.search}` });
@@ -244,4 +276,4 @@ export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) =
       />
     </div>
   );
-};
+});

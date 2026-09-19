@@ -6,12 +6,16 @@ import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingRing } from '../components/BreathingRing';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
+import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+import { isFeatureEnabled } from '../lib/featureFlags';
+import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment). Not
@@ -105,6 +109,48 @@ export const Breathe = () => {
     setVideoOpenedDuringExercise(false);
   };
 
+  // "Resume with Music" - a second, distinct deliberate gesture from
+  // "Resume Exercise": also starts this screen's own ambient loop, via
+  // the ref InteractiveAmbientMusic exposes (see its own doc comment).
+  // By the time this button exists at all, the video is already closed
+  // (openVideo is null), so `suspended` is already false - start() runs
+  // exactly as if the toggle itself had just been tapped. A failed start
+  // is handled entirely inside InteractiveAmbientMusic (loadError,
+  // toggle stays off) - nothing here needs to know or react to that.
+  const musicPlayerRef = useRef(null);
+  const handleResumeWithMusic = () => {
+    setVideoOpenedDuringExercise(false);
+    musicPlayerRef.current?.start();
+  };
+  // Mirrors InteractiveAmbientMusic's own eligibility check so
+  // ExercisePausedPanel can hide "Resume with Music" entirely rather than
+  // show a button that would silently do nothing (feature flag off, or
+  // no IB01 manifest entry) - see that component's own eligible check.
+  const musicEligible = isInteractiveMusicEligible({
+    musicVariantId: INTERACTIVE_BREATHING_MUSIC_ID,
+    featureEnabled: isFeatureEnabled('backgroundMusic'),
+    getEntryById: getBetaVideoById
+  });
+
+  // Entry choice, asked once per visit before the countdown starts at all
+  // (see MusicEntryChoice's own doc comment) - only when there's a real
+  // choice to make (musicEligible); otherwise this never blocks anything
+  // and the timer starts immediately, exactly as before this feature
+  // existed. Deliberately a SEPARATE flag from videoOpenedDuringExercise:
+  // if a video is opened before this choice is ever made, closing it
+  // shows this same initial choice again (not ExercisePausedPanel) - see
+  // the panel's own render condition below, which requires
+  // musicChoiceMade to already be true.
+  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
+  const handleStartWithMusic = () => {
+    setMusicChoiceMade(true);
+    musicPlayerRef.current?.start();
+  };
+  const handleContinueWithoutMusic = () => {
+    setMusicChoiceMade(true);
+  };
+
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
   // reach the mirror close together, and this ensures it dispatches at
@@ -128,7 +174,7 @@ export const Breathe = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isPaused || videoOpenedDuringExercise) return;
+    if (isPaused || videoOpenedDuringExercise || awaitingMusicChoice) return;
 
     if (secondsLeft <= 0) {
       setJourneyStep('affirmation');
@@ -153,7 +199,7 @@ export const Breathe = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, isPaused, videoOpenedDuringExercise, navigate, setJourneyStep]);
+  }, [secondsLeft, isPaused, videoOpenedDuringExercise, awaitingMusicChoice, navigate, setJourneyStep]);
 
   const handleComplete = () => {
     setJourneyStep('affirmation');
@@ -180,6 +226,10 @@ export const Breathe = () => {
       </div>
       <ProgressIndicator activeStep="breathe" />
 
+      {awaitingMusicChoice && (
+        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+      )}
+
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise</span>
         <h2 className="text-2xl font-bold text-on-surface">Center Yourself</h2>
@@ -191,7 +241,22 @@ export const Breathe = () => {
       {/* Breathing Ring Visualizer — extracted to components/BreathingRing.jsx (Stage 4 Batch F2) */}
       <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
 
-      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+
+      {/* Immediately below the ring/music toggle, ABOVE every optional
+          video row below - visible in the initial viewport with no
+          scroll, unlike the old bottom-of-page single button it replaces.
+          Gated on musicChoiceMade already being true: a video opened
+          before that initial choice was ever made resolves back to
+          MusicEntryChoice above on close, never this panel - one relevant
+          prompt at a time. */}
+      {musicChoiceMade && videoOpenedDuringExercise && !openVideo && (
+        <ExercisePausedPanel
+          onResumeExercise={handleResumeExercise}
+          onResumeWithMusic={handleResumeWithMusic}
+          showResumeWithMusic={musicEligible}
+        />
+      )}
 
       <div className="text-center space-y-2">
         <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
@@ -230,15 +295,12 @@ export const Breathe = () => {
 
       {/* Controls */}
       <div className="space-y-3 w-full">
-        {videoOpenedDuringExercise && !openVideo ? (
-          <button
-            onClick={handleResumeExercise}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span className="material-symbols-outlined text-sm">play_arrow</span>
-            <span>Resume Exercise</span>
-          </button>
-        ) : (
+        {/* Hidden while the ExercisePausedPanel above is showing its own
+            two resume actions - avoids two conflicting "what happens if I
+            tap this" affordances on screen at once. The ordinary manual
+            Pause/Resume toggle is otherwise completely unrelated to that
+            panel's state and unaffected by it. */}
+        {!(videoOpenedDuringExercise && !openVideo) && !awaitingMusicChoice && (
           <div className="flex gap-3">
             <button
               onClick={() => setIsPaused(!isPaused)}

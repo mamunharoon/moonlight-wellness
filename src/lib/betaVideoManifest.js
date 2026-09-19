@@ -3,9 +3,14 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because sixty-five videos (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04,
-// M01-M05, S01-S05, SL01-SL08) are live in Storage today and need a
-// minimal, typed, isolated place to map an id -> title -> object path. When a real "exercises" table exists, replace this file with a
+// because sixty-five narrated exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08) are live in Storage
+// today and need a minimal, typed, isolated place to map an id -> title ->
+// object path, plus two audio-only interactive-ambient-music loops
+// (IB01, IS01 - see their own entries below) that share this exact same
+// id/storagePath/signed-URL mechanism but are never narrated exercises
+// and are deliberately excluded from Library (mediaCatalog.js's
+// INTERACTIVE_ONLY_IDS). When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
@@ -295,6 +300,36 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'A guided video for alternate nostril breathing.'
   },
   {
+    // Interactive-ambient-music loop, not a narrated exercise - audio-only
+    // (.m4a, no video track), used exclusively by
+    // InteractiveAmbientMusic.jsx as the shared background bed for
+    // EveningBreathing.jsx/QuietBreathing.jsx/Breathe.jsx's own silent
+    // Inhale/Hold/Exhale timers (see docs/background-music-specification.md
+    // §3a and docs/background-music-asset-manifest.md for the full audit -
+    // "audio-only AAC/.m4a" was confirmed safe end-to-end there).
+    // v2 (replaces the v1 synthetic pad): a real musical source, provided
+    // as MP3 (192kbps/48kHz/stereo, measured -17.0 LUFS/-6.2 dBFS true
+    // peak) and converted to AAC-LC/.m4a in one pass - a single static
+    // +1.0 dB gain (no dynamics processing, no fades, duration untouched)
+    // to land at exactly -16.0 LUFS, AAC-encoded at ~195kbps. Final
+    // measured: AAC-LC, stereo, 48kHz, 60.048s (unchanged from source),
+    // -16.0 LUFS integrated, -5.2 dBFS true peak. The MP4 container's own
+    // edit list preserves the exact source sample count (2,882,304 @
+    // 48kHz) with no encoder priming/padding audible at the boundary at
+    // the file level - native <audio loop> gapless behavior at that
+    // boundary is still browser/engine-dependent and was not verified
+    // against real hardware playback; treat perceptual loop-seam
+    // smoothness as unconfirmed until checked on a physical device.
+    // Deliberately excluded from MEDIA_CATALOG/Library (see
+    // mediaCatalog.js's own INTERACTIVE_ONLY_IDS) - this is never a
+    // user-selectable "Watch" row, only an internal getBetaVideoById()
+    // lookup target for eligibility-checking.
+    id: 'IB01',
+    title: 'Interactive Breathing Loop',
+    storagePath: 'exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v2.m4a',
+    description: 'Ambient background loop for interactive breathing/grounding timers.'
+  },
+  {
     id: 'F01',
     title: 'Deep Work',
     storagePath: 'exercises/WW_F01_DeepWork_v1.mp4.mp4',
@@ -367,24 +402,18 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'A guided meditation for quiet reflection.'
   },
   {
+    // S01-MUSIC (the pre-mixed narrated+music variant) was removed here -
+    // that approach no longer represents the approved architecture
+    // (interactive-only ambient loops, IB01/IS01, never mixed into a
+    // narrated video). The original, narration-only entry below is exactly
+    // what it was before S01-MUSIC ever existed - untouched storagePath,
+    // no musicVariantId. WW_S01_NeckRelease_MusicBed_v2.mp4 itself is left
+    // in Storage, unreferenced by any code path, per the explicit
+    // instruction not to delete it.
     id: 'S01',
     title: 'Neck Release',
     storagePath: 'exercises/WW_S01_NeckRelease_v1.mp4.mp4',
-    description: 'A guided video to release tension in your neck.',
-    musicVariantId: 'S01-MUSIC'
-  },
-  {
-    // First real -MUSIC variant registered in this manifest. Verified this
-    // phase by fetching the actual object via a temporary signed URL and
-    // parsing its MP4 boxes directly (not assumed from the filename):
-    // video track 720x1280 H.264 (avc1) @ 24fps, audio track AAC (mp4a)
-    // stereo 44.1kHz, overall duration 198.09s - matches the approved S01
-    // pilot spec exactly. Content-Type served as video/mp4; byte-range
-    // requests (HTTP 206) work, matching every other entry here.
-    id: 'S01-MUSIC',
-    title: 'Neck Release (with music)',
-    storagePath: 'exercises/WW_S01_NeckRelease_MusicBed_v2.mp4',
-    description: 'A guided video to release tension in your neck, with a calming music bed.'
+    description: 'A guided video to release tension in your neck.'
   },
   {
     id: 'S02',
@@ -409,6 +438,26 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Evening Flow',
     storagePath: 'exercises/WW_S05_EveningFlow_v1.mp4.mp4',
     description: 'A guided evening stretching flow.'
+  },
+  {
+    // Interactive-ambient-music loop for MorningFlow.jsx's own silent
+    // 4-exercise stretch timer - same role as IB01 above, distinct asset
+    // (slightly brighter/warmer track), never mixed into any narrated
+    // S01-S05 video. v2 (replaces the v1 synthetic pad): source MP3
+    // measured -13.8 LUFS/-1.6 dBFS true peak, converted to AAC-LC/.m4a in
+    // one pass with a single static -2.2 dB gain (no dynamics processing,
+    // no fades, duration untouched) to land at exactly -16.0 LUFS. Final
+    // measured: AAC-LC, stereo, 48kHz, 60.072s (unchanged from source),
+    // -16.0 LUFS integrated, -3.9 dBFS true peak, exact source sample
+    // count preserved via the MP4 edit list. See IB01's own comment above
+    // for the shared caveat on native <audio loop> gapless behavior at the
+    // boundary - not verified against real hardware playback. Also
+    // excluded from MEDIA_CATALOG/Library - see mediaCatalog.js's
+    // INTERACTIVE_ONLY_IDS.
+    id: 'IS01',
+    title: 'Interactive Stretching Loop',
+    storagePath: 'exercises/WW_IS01_InteractiveStretchingLoop_MusicBed_v2.m4a',
+    description: 'Ambient background loop for the interactive stretching timer.'
   },
   {
     id: 'SL01',

@@ -5,12 +5,16 @@ import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
+import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+import { isFeatureEnabled } from '../lib/featureFlags';
+import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Not yet registered in the manifest/
@@ -73,6 +77,31 @@ export const MorningFlow = () => {
     setVideoOpenedDuringExercise(false);
   };
 
+  // "Resume with Music" - see Breathe.jsx's identical doc comment on its
+  // own copy of this handler; same pattern, distinct asset id (IS01).
+  const musicPlayerRef = useRef(null);
+  const handleResumeWithMusic = () => {
+    setVideoOpenedDuringExercise(false);
+    musicPlayerRef.current?.start();
+  };
+  const musicEligible = isInteractiveMusicEligible({
+    musicVariantId: INTERACTIVE_STRETCHING_MUSIC_ID,
+    featureEnabled: isFeatureEnabled('backgroundMusic'),
+    getEntryById: getBetaVideoById
+  });
+
+  // Entry choice - see Breathe.jsx's identical block for the full
+  // rationale.
+  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
+  const handleStartWithMusic = () => {
+    setMusicChoiceMade(true);
+    musicPlayerRef.current?.start();
+  };
+  const handleContinueWithoutMusic = () => {
+    setMusicChoiceMade(true);
+  };
+
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
     { title: 'Shoulder Rolls', desc: 'Roll your shoulders backward gently.', icon: 'rotate_right' },
@@ -112,7 +141,7 @@ export const MorningFlow = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (videoOpenedDuringExercise) return;
+    if (videoOpenedDuringExercise || awaitingMusicChoice) return;
 
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
@@ -136,7 +165,7 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length, videoOpenedDuringExercise]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length, videoOpenedDuringExercise, awaitingMusicChoice]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
@@ -177,6 +206,10 @@ export const MorningFlow = () => {
         </p>
       </div>
 
+      {awaitingMusicChoice && (
+        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+      )}
+
       {/* Progress visual bar */}
       <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
@@ -191,11 +224,19 @@ export const MorningFlow = () => {
         </div>
       </div>
 
-      {/* Steps List */}
+      {/* Steps List - collapsed to just the active step while paused for a
+          guided video. All four full-detail cards together are taller than
+          an iPhone's own viewport on this screen (measured directly: the
+          back button + step tabs + title + progress bar alone already fill
+          it), which would push ExercisePausedPanel below the fold no matter
+          where in the DOM it sits relative to the video rows. The other
+          three exercises aren't relevant while paused anyway - the user
+          already knows which one they were on. */}
       <div className="space-y-4">
         {steps.map((step, idx) => {
           const isCompleted = idx < activeStep;
           const isActive = idx === activeStep;
+          if (videoOpenedDuringExercise && !openVideo && !isActive) return null;
 
           return (
             <div
@@ -230,7 +271,19 @@ export const MorningFlow = () => {
         })}
       </div>
 
-      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+
+      {/* Immediately below the countdown/music toggle, ABOVE the
+          Stretching Sessions video rows below - visible in the initial
+          viewport with no scroll. See Breathe.jsx's identical panel and
+          its identical musicChoiceMade gating. */}
+      {musicChoiceMade && videoOpenedDuringExercise && !openVideo && (
+        <ExercisePausedPanel
+          onResumeExercise={handleResumeExercise}
+          onResumeWithMusic={handleResumeWithMusic}
+          showResumeWithMusic={musicEligible}
+        />
+      )}
 
       <div className="space-y-3">
         <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
@@ -249,15 +302,9 @@ export const MorningFlow = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        {videoOpenedDuringExercise && !openVideo ? (
-          <button
-            onClick={handleResumeExercise}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span className="material-symbols-outlined text-sm">play_arrow</span>
-            <span>Resume Exercise</span>
-          </button>
-        ) : (
+        {/* Hidden while the ExercisePausedPanel above is showing its own
+            two resume actions - see Breathe.jsx's identical comment. */}
+        {!(videoOpenedDuringExercise && !openVideo) && !awaitingMusicChoice && (
           <button
             onClick={handleNextStep}
             className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"

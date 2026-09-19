@@ -86,6 +86,13 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['B03', 'exercises/WW_B03_478Breathing_v1.mp4.mp4'],
   ['B04', 'exercises/WW_B04_CoherentBreathing_v1.mp4.mp4'],
   ['B05', 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4'],
+  // Interactive-ambient-music loops (audio-only .m4a, no video track) -
+  // shared background beds for the silent interactive timers on
+  // Breathe.jsx/EveningBreathing.jsx/QuietBreathing.jsx (IB01) and
+  // MorningFlow.jsx (IS01). Confirmed this Map has no format/extension
+  // validation on the key or path, so .m4a works identically to every
+  // .mp4 entry here. See src/lib/betaVideoManifest.js's matching entries.
+  ['IB01', 'exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v2.m4a'],
   ['F01', 'exercises/WW_F01_DeepWork_v1.mp4.mp4'],
   ['F02', 'exercises/WW_F02_Study.mp4.mp4'],
   ['F03', 'exercises/WW_F03_Concentration_v1.mp4.mp4'],
@@ -98,17 +105,16 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['M03', 'exercises/WW_M03_LovingKindness_v1.mp4.mp4'],
   ['M04', 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4'],
   ['M05', 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4'],
+  // S01-MUSIC (the pre-mixed narrated+music variant) removed - that
+  // approach no longer represents the approved architecture. The original
+  // S01 mapping below is untouched. WW_S01_NeckRelease_MusicBed_v2.mp4
+  // itself is left in Storage, unreferenced by any id here.
   ['S01', 'exercises/WW_S01_NeckRelease_v1.mp4.mp4'],
-  // First registered -MUSIC variant (Phase C pilot). Verified this phase by
-  // fetching the actual Storage object via a temporary signed URL and
-  // parsing its MP4 boxes directly: 720x1280 H.264/AAC, 24fps, 198.09s -
-  // matches the approved pilot spec exactly. See src/lib/betaVideoManifest.js's
-  // matching S01-MUSIC entry and docs/background-music-asset-manifest.md.
-  ['S01-MUSIC', 'exercises/WW_S01_NeckRelease_MusicBed_v2.mp4'],
   ['S02', 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4'],
   ['S03', 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4'],
   ['S04', 'exercises/WW_S04_MorningFlow_v1.mp4.mp4'],
   ['S05', 'exercises/WW_S05_EveningFlow_v1.mp4.mp4'],
+  ['IS01', 'exercises/WW_IS01_InteractiveStretchingLoop_MusicBed_v2.m4a'],
   ['SL01', 'exercises/WW_SL01_Rain_v1.mp4'],
   ['SL02', 'exercises/WW_SL02_OceanWaves_Preview_v1.mp4'],
   ['SL03', 'exercises/WW_SL03_ForestAmbience_v1.mp4'],

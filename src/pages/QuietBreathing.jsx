@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { isFeatureEnabled } from '../lib/featureFlags';
+import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
+import { getBetaVideoById } from '../lib/mediaCatalog';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx (see that file's own comment, and
@@ -38,10 +42,28 @@ export const QuietBreathing = () => {
   const navigate = useNavigate();
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
+  // See EveningBreathing.jsx's identical block for the full rationale.
+  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const musicPlayerRef = useRef(null);
+  const musicEligible = isInteractiveMusicEligible({
+    musicVariantId: INTERACTIVE_BREATHING_MUSIC_ID,
+    featureEnabled: isFeatureEnabled('backgroundMusic'),
+    getEntryById: getBetaVideoById
+  });
+  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
+  const handleStartWithMusic = () => {
+    setMusicChoiceMade(true);
+    musicPlayerRef.current?.start();
+  };
+  const handleContinueWithoutMusic = () => {
+    setMusicChoiceMade(true);
+  };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
+    if (awaitingMusicChoice) return;
+
     if (secondsLeft <= 0) {
       navigate('/support-complete');
       return;
@@ -63,7 +85,7 @@ export const QuietBreathing = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate]);
+  }, [secondsLeft, navigate, awaitingMusicChoice]);
 
   const handleAdvance = () => {
     navigate('/support-complete');
@@ -71,6 +93,10 @@ export const QuietBreathing = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
+      {awaitingMusicChoice && (
+        <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
+      )}
+
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           Just breathe. There is nowhere else to be.
@@ -79,7 +105,7 @@ export const QuietBreathing = () => {
         <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
       </div>
 
-      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
+      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
 
       <div className="space-y-3 w-full">
         <button

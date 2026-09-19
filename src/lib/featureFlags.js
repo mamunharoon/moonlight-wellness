@@ -17,16 +17,19 @@ export const FEATURE_FLAGS = {
   feedback: true,
   betaChecklist: true,
   releaseNotes: true,
-  // Background Music, Phase B — defaults OFF, independent of the user's
-  // own saved musicPreference.js choice (see docs/background-music-
-  // specification.md and backgroundMusicSelection.js). No licensed
-  // pre-mixed music asset exists yet for any exercise, so the in-player
-  // "Music" toggle must never render for a real user regardless of this
-  // flag — this flag exists purely so QA can verify the toggle's own UI
-  // once a manifest entry gains a real musicVariantId, without a code
-  // deploy, via setFeatureFlagOverride('backgroundMusic', true) in the
-  // console.
-  backgroundMusic: false
+  // Background Music — now shipped by default. IB01/IS01 (real, licensed
+  // v2 tracks - see betaVideoManifest.js's own entries) are registered in
+  // both the manifest and the DEV get-beta-video-url Edge Function, and
+  // the full interactive-timed-screen UX (entry choice, suspend-before-
+  // video, paused-panel with two distinct resume actions) is built and
+  // regression-tested. This flag being true only makes the toggle/entry
+  // choice possible to reach at all - it is independent of the user's own
+  // saved musicPreference.js choice and of InteractiveAmbientMusic's own
+  // per-mount "always starts off" gesture rule, so no existing user is
+  // ever auto-opted into audible playback by this flip alone. Per-device
+  // override still available via setFeatureFlagOverride('backgroundMusic',
+  // false) if this ever needs to be pulled mid-beta without a deploy.
+  backgroundMusic: true
 };
 
 const readOverrides = () => {
