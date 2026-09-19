@@ -1,6 +1,9 @@
 /* eslint-disable no-unused-vars */
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { useAuth } from '../context/AuthContext';
+import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { PromptStepper } from '../components/evening/PromptStepper';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -9,6 +12,16 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
+import { getPinnedRoutineDate } from '../session/routineProgress';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
+import { loadRoutineResponses, upsertRoutineResponse, deleteRoutineResponse } from '../lib/routineResponses';
+import { setPendingContent } from '../lib/pendingContent';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E10
@@ -81,9 +94,18 @@ const REFLECTION_PROMPTS = [
 // entirely unaffected. Access was originally gated on
 // profiles.beta_access; that gate was removed once these videos were
 // approved for general availability in this environment.
+const SESSION_ID = 'evening-wind-down';
+const STEP_ID = 'reflection';
+
 export const Reflection = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
+  const { isGuest } = useAuth();
+  // useAuth() itself exposes no userId field (only the full `user` object)
+  // - useAlarm() is the context that already derives a real, non-anonymous
+  // userId from it (see AlarmContext.jsx), and this page already needs it
+  // for effectiveTimezone anyway.
+  const { effectiveTimezone, userId } = useAlarm();
   const {
     openVideo,
     handleSelect,
@@ -94,10 +116,89 @@ export const Reflection = () => {
     confirmCreateAccount
   } = useProtectedVideo();
 
-  if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
+  // Safe backward navigation ("Review Mode") - see Breathe.jsx's
+  // identical block for the full rationale. Reflection has no timer, but
+  // real unsaved typed input is exactly the "unsaved input" case the
+  // shared leave-confirmation exists for.
+  const { isReviewMode } = useStepReviewMode(STEP_ID);
+  const [hasUnsavedText, setHasUnsavedText] = useState(false);
+  const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
+    sessionId: SESSION_ID,
+    isLiveStep: !isReviewMode,
+    hasUnsavedProgress: hasUnsavedText
+  });
 
-  const handleComplete = () => {
-    if (state.status === 'playing' && currentStep?.id === 'reflection') {
+  // A stale/pinned routine (resumed from an earlier local day - see
+  // routineProgress.js's own pinRoutineDate) keeps writing under its
+  // ORIGINAL date, never silently today's - the exact same rule
+  // routineProgress.js itself already applies to step-position snapshots.
+  const localDate = getPinnedRoutineDate(SESSION_ID) ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
+
+  // null = still loading; {} = loaded (possibly empty) or guest (never
+  // loaded/persisted at all - guests get a blank stepper every time, per
+  // the approved guest restriction).
+  const [responses, setResponses] = useState(() => (isGuest ? {} : null));
+  useEffect(() => {
+    // Guests already resolved to {} at initial state above - no load, no
+    // Supabase call, nothing to seed here.
+    if (isGuest) return;
+    let cancelled = false;
+    loadRoutineResponses({ userId, sessionId: SESSION_ID, stepId: STEP_ID, localDate }).then((loaded) => {
+      if (!cancelled) setResponses(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuest, userId, localDate]);
+
+  const [guestPromptOpen, setGuestPromptOpen] = useState(false);
+  const dismissGuestPrompt = () => setGuestPromptOpen(false);
+  const confirmGuestSignIn = () => {
+    setPendingContent({ returnPath: '/reflection' });
+    setGuestPromptOpen(false);
+    navigate('/auth');
+  };
+  const confirmGuestCreateAccount = () => {
+    setPendingContent({ returnPath: '/reflection' });
+    setGuestPromptOpen(false);
+    navigate('/auth?tab=signup');
+  };
+
+  const handlePromptChange = (promptId, value) => {
+    if (isGuest) {
+      setGuestPromptOpen(true);
+      return;
+    }
+    setHasUnsavedText(value.trim().length > 0);
+    upsertRoutineResponse({ userId, sessionId: SESSION_ID, stepId: STEP_ID, promptId, localDate, response: value });
+  };
+
+  const handlePromptClear = (promptId) => {
+    if (isGuest) return;
+    deleteRoutineResponse({ userId, sessionId: SESSION_ID, stepId: STEP_ID, promptId, localDate });
+  };
+
+  if (EveningSceneShell && PromptStepper && ProgressIndicator && BetaVideoModal && BetaVideoRow && ReviewModeBanner) { /* no-op to satisfy blind linter */ }
+
+  const handleComplete = (answers) => {
+    setHasUnsavedText(false);
+    if (!isGuest) {
+      // Final flush - idempotent upsert on the same conflict target the
+      // per-keystroke save already used, so this can never create a
+      // duplicate row even if a debounce/save above already covered it.
+      Object.entries(answers ?? {}).forEach(([promptId, value]) => {
+        upsertRoutineResponse({ userId, sessionId: SESSION_ID, stepId: STEP_ID, promptId, localDate, response: value });
+      });
+    }
+    // Reviewing: edits are saved (above), but "Continue" here must never
+    // advance the real session or navigate forward into Gratitude as if
+    // this were the live routine - it returns to wherever the engine
+    // actually still is instead.
+    if (isReviewMode) {
+      if (currentStep) navigate(routeForStep(currentStep.id));
+      return;
+    }
+    if (state.status === 'playing' && currentStep?.id === STEP_ID) {
       advanceStep();
     }
     navigate('/gratitude');
@@ -116,11 +217,28 @@ export const Reflection = () => {
     // crossing that boundary — only the deliberate Wind-Down -> Reflection
     // transition remains.
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-wind-down">
-      <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" />
+      <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 2 of 6</span>
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
+
       <div className="flex-1 flex flex-col justify-center space-y-4">
         <div className="glass-panel rounded-3xl p-6">
-          <PromptStepper prompts={REFLECTION_PROMPTS} onComplete={handleComplete} />
+          {/* Wait for the saved-response load (guests resolve instantly to
+              {}) before ever mounting PromptStepper - it only seeds
+              initialAnswers once, at its own mount, so mounting it before
+              real data arrives would show a blank stepper forever. */}
+          {responses !== null && (
+            <PromptStepper
+              prompts={REFLECTION_PROMPTS}
+              initialAnswers={responses}
+              onChange={handlePromptChange}
+              onClear={handlePromptClear}
+              onComplete={handleComplete}
+            />
+          )}
         </div>
 
         {REFLECTION_VIDEOS.map(({ id, blurb }) => {
@@ -159,6 +277,21 @@ export const Reflection = () => {
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}
+      <SignInPromptDialog
+        open={guestPromptOpen}
+        onSignIn={confirmGuestSignIn}
+        onCreateAccount={confirmGuestCreateAccount}
+        onDismiss={dismissGuestPrompt}
+      />
+      <ConfirmDialog
+        open={isConfirming}
+        title="Review an earlier step?"
+        message="Your unsaved progress on this step may be lost."
+        confirmLabel="Review"
+        cancelLabel="Stay here"
+        onConfirm={confirmLeave}
+        onDismiss={cancelLeave}
+      />
       <SignInPromptDialog
         open={promptOpen}
         onSignIn={confirmSignIn}

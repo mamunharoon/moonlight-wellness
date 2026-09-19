@@ -4,12 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { getStepLabel } from '../lib/stepLabels';
 import { BreathingRing } from '../components/BreathingRing';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -73,6 +78,27 @@ export const Breathe = () => {
   // Pause/resume deliberately never calls interruptSession()/resumeSession()
   // — it only ever toggles the pre-existing local isPaused state.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
+  // Safe backward navigation ("Review Mode") - true whenever the engine's
+  // real current step is something other than 'breathe' (this page was
+  // reached by tapping an earlier completed step in the progress bar, or
+  // by a direct URL visit while some other step is actually live).
+  // Deliberately never touches stepIndex - see that hook's own doc
+  // comment for the full rationale.
+  const { isReviewMode } = useStepReviewMode('breathe');
+  // A repeat, started fresh, purely local - the existing mirror-ref guard
+  // below (currentStep?.id === 'breathe') already prevents this from ever
+  // advancing/completing the real session while reviewing, so repeating
+  // here can never unlock a future step or record a second completion.
+  const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
+  const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
+    sessionId: 'morning-routine',
+    isLiveStep: !isReviewMode,
+    // Breathe always has active timed progress while it's the live step -
+    // leaving it via the progress bar (not Skip/Continue/Exit, which the
+    // user is already deliberately choosing) always confirms first.
+    hasUnsavedProgress: true
+  });
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   // Morning-flow redesign: set the moment any guided-video row is tapped
@@ -186,7 +212,7 @@ export const Breathe = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isInterrupted || awaitingMusicChoice) return;
+    if (isInterrupted || awaitingMusicChoice || isRepeatGated) return;
 
     if (secondsLeft <= 0) {
       setJourneyStep('affirmation');
@@ -211,7 +237,7 @@ export const Breathe = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, isInterrupted, awaitingMusicChoice, navigate, setJourneyStep]);
+  }, [secondsLeft, isInterrupted, awaitingMusicChoice, isRepeatGated, navigate, setJourneyStep]);
 
   const handleComplete = () => {
     setJourneyStep('affirmation');
@@ -236,7 +262,11 @@ export const Breathe = () => {
       <div className="flex items-center gap-3">
         <BackButton fallback="/morning-flow" />
       </div>
-      <ProgressIndicator activeStep="breathe" />
+      <ProgressIndicator activeStep="breathe" onReviewStep={requestReview} />
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
 
       {awaitingMusicChoice && (
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
@@ -250,42 +280,64 @@ export const Breathe = () => {
         </p>
       </div>
 
-      {/* Breathing Ring Visualizer — extracted to components/BreathingRing.jsx (Stage 4 Batch F2) */}
-      <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+      {/* Reviewing an already-completed visit to this step: the ring never
+          auto-starts - repeating this exercise is always a fresh,
+          deliberate tap, never implied by just viewing the step. Once
+          tapped, everything below (ring, music, pause, video rows) works
+          exactly as it would live - only the bottom controls differ (see
+          below). */}
+      {isRepeatGated ? (
+        <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10">
+          <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts a fresh 1-minute breathing exercise.</p>
+          <button
+            type="button"
+            onClick={() => setHasStartedRepeat(true)}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span className="material-symbols-outlined text-sm">replay</span>
+            <span>Repeat this exercise</span>
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Breathing Ring Visualizer — extracted to components/BreathingRing.jsx (Stage 4 Batch F2) */}
+          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
 
-      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
+          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
 
-      {/* Immediately below the ring/music toggle, ABOVE every optional
-          video row below - visible in the initial viewport with no
-          scroll, unlike the old bottom-of-page single button it replaces.
-          Gated on musicChoiceMade already being true: an interruption
-          (video or manual pause) before that initial choice was ever made
-          resolves back to MusicEntryChoice above on close, never this
-          panel - one relevant prompt at a time. */}
-      {musicChoiceMade && isInterrupted && !openVideo && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-        />
-      )}
+          {/* Immediately below the ring/music toggle, ABOVE every optional
+              video row below - visible in the initial viewport with no
+              scroll, unlike the old bottom-of-page single button it replaces.
+              Gated on musicChoiceMade already being true: an interruption
+              (video or manual pause) before that initial choice was ever made
+              resolves back to MusicEntryChoice above on close, never this
+              panel - one relevant prompt at a time. */}
+          {musicChoiceMade && isInterrupted && !openVideo && (
+            <ExercisePausedPanel
+              onResumeExercise={handleResumeExercise}
+              onResumeWithMusic={handleResumeWithMusic}
+              showResumeWithMusic={musicEligible}
+            />
+          )}
 
-      {/* Usability remediation: a persistent, always-reachable way to
-          pause the exercise, immediately below the ring/music control -
-          same slot ExercisePausedPanel occupies once paused, so tapping it
-          replaces itself with that exact panel rather than adding a second
-          affordance on screen. Hidden during the music entry choice and
-          while a video is open (both already have their own, different
-          controls for what happens next). */}
-      {!isInterrupted && !awaitingMusicChoice && !openVideo && (
-        <button
-          type="button"
-          onClick={handlePauseExercise}
-          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-        >
-          <span className="material-symbols-outlined text-sm">pause</span>
-          <span>Pause Exercise</span>
-        </button>
+          {/* Usability remediation: a persistent, always-reachable way to
+              pause the exercise, immediately below the ring/music control -
+              same slot ExercisePausedPanel occupies once paused, so tapping it
+              replaces itself with that exact panel rather than adding a second
+              affordance on screen. Hidden during the music entry choice and
+              while a video is open (both already have their own, different
+              controls for what happens next). */}
+          {!isInterrupted && !awaitingMusicChoice && !openVideo && (
+            <button
+              type="button"
+              onClick={handlePauseExercise}
+              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+            >
+              <span className="material-symbols-outlined text-sm">pause</span>
+              <span>Pause Exercise</span>
+            </button>
+          )}
+        </>
       )}
 
       <div className="text-center space-y-2">
@@ -325,32 +377,51 @@ export const Breathe = () => {
 
       {/* Controls */}
       <div className="space-y-3 w-full">
-        {/* Hidden while the ExercisePausedPanel above is showing its own
-            two resume actions - avoids two conflicting "what happens if I
-            tap this" affordances on screen at once. Pause Exercise itself
-            (above) is a completely separate action from Continue - it must
-            never complete, skip, or abandon the routine. */}
-        {!isInterrupted && !awaitingMusicChoice && (
-          <button
-            onClick={handleComplete}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span>Continue</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
+        {/* Reviewing: the only way out is back to the real current step -
+            Continue/Skip/Exit all belong to the LIVE routine, not a
+            review of an earlier one (their own existing guards already
+            no-op the Session Engine side of Skip/Exit here regardless,
+            but showing them at all would be confusing). */}
+        {isReviewMode ? (
+          currentStep && (
+            <button
+              onClick={() => navigate(routeForStep(currentStep.id))}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )
+        ) : (
+          <>
+            {/* Hidden while the ExercisePausedPanel above is showing its own
+                two resume actions - avoids two conflicting "what happens if I
+                tap this" affordances on screen at once. Pause Exercise itself
+                (above) is a completely separate action from Continue - it must
+                never complete, skip, or abandon the routine. */}
+            {!isInterrupted && !awaitingMusicChoice && (
+              <button
+                onClick={handleComplete}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              >
+                <span>Continue</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            )}
+            <button
+              onClick={handleSkip}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+            >
+              Skip this step
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </>
         )}
-        <button
-          onClick={handleSkip}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-        >
-          Skip this step
-        </button>
-        <button
-          onClick={handleExitRoutine}
-          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
-        >
-          Exit routine
-        </button>
       </div>
 
       {/* Closing this leaves the user right here on the breathing screen -
@@ -365,6 +436,18 @@ export const Breathe = () => {
         onSignIn={confirmSignIn}
         onCreateAccount={confirmCreateAccount}
         onDismiss={dismissPrompt}
+      />
+      {/* Leaving the LIVE breathing timer via the progress bar (not an
+          explicit Skip/Continue/Exit tap) - confirm first, since real
+          timed progress would otherwise be silently abandoned. */}
+      <ConfirmDialog
+        open={isConfirming}
+        title="Review an earlier step?"
+        message="Your unsaved progress on this step may be lost."
+        confirmLabel="Review"
+        cancelLabel="Stay here"
+        onConfirm={confirmLeave}
+        onDismiss={cancelLeave}
       />
     </div>
   );

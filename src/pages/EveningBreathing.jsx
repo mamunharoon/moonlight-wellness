@@ -9,6 +9,11 @@ import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md). Not yet
@@ -44,6 +49,16 @@ const TOTAL_SECONDS = 76;
 export const EveningBreathing = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
+  // Safe backward navigation ("Review Mode") - see Breathe.jsx's
+  // identical block for the full rationale.
+  const { isReviewMode } = useStepReviewMode('breathing');
+  const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
+  const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
+    sessionId: 'evening-wind-down',
+    isLiveStep: !isReviewMode,
+    hasUnsavedProgress: true
+  });
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
   // Entry choice, asked once per visit before the countdown starts at all
@@ -68,7 +83,7 @@ export const EveningBreathing = () => {
     setMusicChoiceMade(true);
   };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && MusicEntryChoice) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && MusicEntryChoice && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -83,7 +98,7 @@ export const EveningBreathing = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (awaitingMusicChoice) return;
+    if (awaitingMusicChoice || isRepeatGated) return;
 
     if (secondsLeft <= 0) {
       navigate('/prepare-for-rest');
@@ -107,7 +122,7 @@ export const EveningBreathing = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, awaitingMusicChoice]);
+  }, [secondsLeft, navigate, awaitingMusicChoice, isRepeatGated]);
 
   const handleAdvance = () => {
     navigate('/prepare-for-rest');
@@ -116,8 +131,12 @@ export const EveningBreathing = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude">
-      <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" />
+      <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 6</span>
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
 
       {awaitingMusicChoice && (
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
@@ -131,26 +150,65 @@ export const EveningBreathing = () => {
           </p>
         </div>
 
-        <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+        {isRepeatGated ? (
+          <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10 w-full">
+            <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the breathing exercise from the beginning.</p>
+            <button
+              type="button"
+              onClick={() => setHasStartedRepeat(true)}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span className="material-symbols-outlined text-sm">replay</span>
+              <span>Repeat this exercise</span>
+            </button>
+          </div>
+        ) : (
+          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+        )}
       </div>
 
-      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
+      {!isRepeatGated && (
+        <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
+      )}
 
       <div className="space-y-3 w-full">
-        <button
-          onClick={handleAdvance}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-        >
-          <span>Continue</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
-        <button
-          onClick={handleAdvance}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
-        >
-          Skip
-        </button>
+        {isReviewMode ? (
+          currentStep && (
+            <button
+              onClick={() => navigate(routeForStep(currentStep.id))}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )
+        ) : (
+          <>
+            <button
+              onClick={handleAdvance}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Continue</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            <button
+              onClick={handleAdvance}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+            >
+              Skip
+            </button>
+          </>
+        )}
       </div>
+      <ConfirmDialog
+        open={isConfirming}
+        title="Review an earlier step?"
+        message="Your unsaved progress on this step may be lost."
+        confirmLabel="Review"
+        cancelLabel="Stay here"
+        onConfirm={confirmLeave}
+        onDismiss={cancelLeave}
+      />
     </EveningSceneShell>
   );
 };

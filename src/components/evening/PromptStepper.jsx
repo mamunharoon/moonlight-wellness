@@ -1,4 +1,18 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+
+// Reflection/Gratitude persistence race fix: firing onChange (an async
+// Supabase upsert - see routineResponses.js) on every single keystroke,
+// with no ordering guarantee between overlapping requests, let a SLOWER
+// earlier request's write land in the database AFTER a faster later
+// one's - reproduced live typing "A calm walk outside" then reviewing
+// back to it: the saved/reloaded value was truncated to "A calm walk
+// outsi". Debouncing the onChange call (never the local `answers`
+// state, which still updates synchronously on every keystroke so
+// handleComplete's own final flush always has the true latest value
+// regardless) collapses a burst of keystrokes into one save, which both
+// fixes the race in the overwhelming common case and cuts the number of
+// writes drastically.
+const CHANGE_DEBOUNCE_MS = 400;
 
 /*
  * Stage 4 Batch F2 — PromptStepper
@@ -18,22 +32,43 @@ import { useState } from 'react';
  * screen yet — this batch is shared infrastructure only.
  *
  * PROPS
- *   prompts     array of { id, label, placeholder? } — rendered one at
- *               a time, in order.
- *   onChange    (promptId, value) => void, optional. Called on every
- *               keystroke for the currently active prompt.
- *   onComplete  (answers) => void, optional. Called once, when Next or
- *               Skip is pressed on the final prompt. `answers` is a
- *               { [promptId]: value } map of everything entered —
- *               skipped prompts are simply absent from the map.
+ *   prompts         array of { id, label, placeholder? } — rendered one
+ *                   at a time, in order.
+ *   initialAnswers  { [promptId]: value } map, optional. Seeds the
+ *                   stepper's own local state ONCE, at mount (e.g.
+ *                   previously-saved Reflection/Gratitude responses
+ *                   loaded from routine_responses). Since the load is
+ *                   async, the calling page must wait for it to resolve
+ *                   before ever rendering this component (e.g. behind
+ *                   its own `responsesLoaded &&` guard) - this component
+ *                   itself never re-seeds after mount (which would fight
+ *                   the user's own typing, and calling setState directly
+ *                   in an effect is a pattern this codebase avoids).
+ *   onChange        (promptId, value) => void, optional. Called on every
+ *                   keystroke for the currently active prompt.
+ *   onComplete      (answers) => void, optional. Called once, when Next
+ *                   or Skip is pressed on the final prompt. `answers` is
+ *                   a { [promptId]: value } map of everything entered —
+ *                   skipped prompts are simply absent from the map.
+ *   onClear         (promptId) => void, optional. Called only after the
+ *                   user has explicitly confirmed clearing an existing
+ *                   answer (see the inline confirm below) - the parent
+ *                   owns the actual delete (routineResponses.js's
+ *                   deleteRoutineResponse). Cancelling never calls this.
  *
  * Previous/Next/Skip reuse the same button styling already established
  * by every existing morning page (glass-panel for secondary actions,
  * bg-primary for the primary action) — no new visual language invented.
  */
-export const PromptStepper = ({ prompts, onChange, onComplete }) => {
+export const PromptStepper = ({ prompts, initialAnswers, onChange, onComplete, onClear }) => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState(initialAnswers ?? {});
+  // Confirm-before-clear (a review-mode-only affordance, but harmless if
+  // ever shown elsewhere) - reset whenever the active prompt changes so
+  // a stray tap can never confirm-clear the WRONG prompt after Next/
+  // Previous.
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const debounceTimersRef = useRef({});
 
   const activePrompt = prompts[activeIndex];
   const isFirst = activeIndex === 0;
@@ -41,13 +76,32 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
 
   if (!activePrompt) return null;
 
+  const hasExistingAnswer = Boolean(answers[activePrompt.id]?.trim());
+
+  const handleRequestClear = () => setConfirmingClear(true);
+  const handleCancelClear = () => setConfirmingClear(false);
+  const handleConfirmClear = () => {
+    setAnswers((prev) => {
+      const rest = { ...prev };
+      delete rest[activePrompt.id];
+      return rest;
+    });
+    setConfirmingClear(false);
+    onClear?.(activePrompt.id);
+  };
+
   const handleValueChange = (value) => {
     setAnswers((prev) => ({ ...prev, [activePrompt.id]: value }));
-    onChange?.(activePrompt.id, value);
+    const promptId = activePrompt.id;
+    clearTimeout(debounceTimersRef.current[promptId]);
+    debounceTimersRef.current[promptId] = setTimeout(() => {
+      onChange?.(promptId, value);
+    }, CHANGE_DEBOUNCE_MS);
   };
 
   const goPrevious = () => {
     if (isFirst) return;
+    setConfirmingClear(false);
     setActiveIndex((i) => i - 1);
   };
 
@@ -58,6 +112,7 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
       onComplete?.(answers);
       return;
     }
+    setConfirmingClear(false);
     setActiveIndex((i) => i + 1);
   };
 
@@ -101,6 +156,43 @@ export const PromptStepper = ({ prompts, onChange, onComplete }) => {
         rows={4}
         className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
       />
+
+      {/* Explicit clear confirmation - only offered when this prompt
+          already has a real answer (nothing to clear otherwise).
+          Cancelling leaves the existing response completely untouched;
+          only the confirm tap calls onClear, which is the parent's own
+          signal to delete the stored row (routineResponses.js). */}
+      {hasExistingAnswer && (
+        confirmingClear ? (
+          <div className="flex items-center justify-between gap-3 px-1">
+            <span className="text-xs text-on-surface-variant">Clear this response?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancelClear}
+                className="px-3 py-1.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClear}
+                className="px-3 py-1.5 rounded-full bg-primary text-on-primary text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleRequestClear}
+            className="text-xs text-on-surface-variant/70 hover:text-on-surface-variant transition-colors px-1"
+          >
+            Clear response
+          </button>
+        )
+      )}
 
       <div className="flex gap-3">
         {!isFirst && (

@@ -1,59 +1,21 @@
 ﻿/* eslint-disable no-unused-vars */
-import React, { useEffect, useRef } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
-import { useAlarm } from '../context/AlarmContext';
-import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 
 export const Layout = () => {
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
-  const { isRinging } = useAlarm();
-  // Back-navigation repair: activeRoute now comes from the shared
-  // useActiveRoutineStep hook (extracted from this exact effect) so this
-  // effect and BackButton's "leave this routine?" guard can never drift
-  // out of sync about what counts as an active session step.
-  const { activeRoute } = useActiveRoutineStep();
   const location = useLocation();
-  const navigate = useNavigate();
 
-  // Mobile navigation repair, Phase 1: this effect used to re-run on every
-  // location.pathname change and unconditionally shove the user back to
-  // currentStep.route whenever a session was 'playing' — including right
-  // after a deliberate bottom-nav tap to Home/Routines/Library/Profile,
-  // since that tap itself changes location.pathname and re-triggered the
-  // effect. A morning-routine or evening-wind-down session can stay
-  // 'playing' in localStorage for up to 12 hours after the user last
-  // touched it (see session/sessionPersistence.js's SESSION_STALE_AFTER_MS)
-  // and both sessions start automatically (AlarmContext.jsx on alarm ring,
-  // EveningWindDown.jsx on Begin) — so this was not a rare edge case, it
-  // fired for any user who started a routine and stepped away before
-  // finishing it. That is the root cause behind "navigation feels
-  // unresponsive"/"the journey feels circular": the tap DID navigate: this
-  // effect silently reverted it on the very next render.
-  //
-  // Fix: only force a redirect once per distinct target path (tracked in
-  // lastForcedPathRef), not once per pathname change. This still restores
-  // the user into their in-progress step on first load / refresh / right
-  // when a session starts or advances (activePath actually changes), but
-  // it no longer fights a deliberate navigation away from that step — the
-  // ref simply won't re-trigger for the same activePath twice in a row.
-  // Home now offers an explicit "Continue" card instead (see Home.jsx) —
-  // resuming an interrupted routine is the user's choice, not something
-  // forced on every render.
-  const lastForcedPathRef = useRef(null);
-  useEffect(() => {
-    if (isRinging) {
-      navigate('/alarm-trigger');
-      return;
-    }
-
-    if (activeRoute && lastForcedPathRef.current !== activeRoute) {
-      lastForcedPathRef.current = activeRoute;
-      if (location.pathname !== activeRoute) {
-        navigate(activeRoute);
-      }
-    }
-  }, [isRinging, activeRoute, navigate]);
+  // Mobile navigation repair / Safe backward navigation ("Review Mode")
+  // fix: the "restore the user into their in-progress step" forced-
+  // redirect effect that used to live here now lives in
+  // RoutineRestoreGuard.jsx, mounted once directly inside <Router>
+  // (App.jsx) instead of inside this component — see that file's own doc
+  // comment for why a Layout-scoped effect was fighting Review Mode
+  // navigation whenever a review crossed the Layout/non-Layout route
+  // boundary (only breathe/morning-flow, of the nine Morning/Evening step
+  // routes, are actually nested under <Layout> in App.jsx's route tree).
 
   const navItems = [
     { label: 'Home', path: '/', icon: 'home_health' },

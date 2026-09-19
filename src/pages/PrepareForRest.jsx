@@ -8,6 +8,10 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E05
@@ -78,6 +82,11 @@ const REST_ITEMS = [
 export const PrepareForRest = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
+  // Safe backward navigation ("Review Mode") - static checklist + video
+  // rows, no timer of its own - review-only, no repeat-confirmation gate
+  // needed (see EveningWindDown.jsx's identical block).
+  const { isReviewMode } = useStepReviewMode('sleepPreparation');
+  const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
   const {
     openVideo,
     handleSelect,
@@ -99,8 +108,12 @@ export const PrepareForRest = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing">
-      <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" />
+      <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 5 of 6</span>
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
 
       <div className="flex-1 flex flex-col justify-center space-y-8">
         <h1 className="font-serif italic text-3xl text-on-surface text-center">Prepare for Rest</h1>
@@ -147,13 +160,25 @@ export const PrepareForRest = () => {
         </div>
       </div>
 
-      <button
-        onClick={handleContinue}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-      >
-        <span>Continue</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
+      {isReviewMode ? (
+        currentStep && (
+          <button
+            onClick={() => navigate(routeForStep(currentStep.id))}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span>Return to {getStepLabel(currentStep.id)}</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        )
+      ) : (
+        <button
+          onClick={handleContinue}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span>Continue</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+      )}
 
       {/* Closing this leaves the user right here on Prepare for Rest —
           already "Evening Wind-down", no navigation needed for a return

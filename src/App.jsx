@@ -13,6 +13,7 @@ import { NavigationHistoryProvider } from './context/NavigationHistoryContext';
 import { Layout } from './components/Layout';
 import { AdminRoute } from './components/AdminRoute';
 import { OnboardingGate } from './components/OnboardingGate';
+import { RoutineRestoreGuard } from './components/RoutineRestoreGuard';
 import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
 
@@ -158,6 +159,13 @@ function App() {
                 <NavigationHistoryProvider>
                 <NativeDeepLinkHandler />
                 <MorningReminderTapHandler />
+                {/* Safe backward navigation ("Review Mode") fix: mounted
+                    once here, outside <Layout>, so it survives for the
+                    whole app session instead of resetting every time
+                    Layout unmounts/remounts crossing the Layout/non-Layout
+                    route boundary — see RoutineRestoreGuard.jsx's own doc
+                    comment. */}
+                <RoutineRestoreGuard />
                 {/* Guest Onboarding: shows the Welcome screen instead of
                     this whole tree when there's no session and no
                     persisted "Continue as Guest" choice yet — see

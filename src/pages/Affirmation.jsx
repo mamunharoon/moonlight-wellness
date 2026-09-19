@@ -5,6 +5,10 @@ import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { getAffirmationForIntention } from '../lib/intentionAffirmations';
 import { BackButton } from '../components/BackButton';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
 
 /*
  * Morning-flow redesign — Affirm step (now Step 4 of 4, after Breathe).
@@ -30,6 +34,14 @@ export const Affirmation = () => {
   const navigate = useNavigate();
   const { setJourneyStep, intentions } = useAlarm();
   const { state, currentStep, advanceStep, abandonSession } = useSession();
+  // Safe backward navigation ("Review Mode") - no timer, no input on this
+  // screen, so leaving it never needs a confirmation; it always reflects
+  // whatever the CURRENT intention is (intentions[0] below, from
+  // AlarmContext) - including a change made via Home's "Change intention"
+  // or via reviewing/editing Intend itself, automatically, since both
+  // just read the same live context value at render time.
+  const { isReviewMode } = useStepReviewMode('affirmation');
+  const { routeForStep } = useReviewNavigation({ sessionId: 'morning-routine', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
 
   const affirmation = getAffirmationForIntention(intentions[0]);
 
@@ -64,7 +76,11 @@ export const Affirmation = () => {
       <div className="flex items-center gap-3">
         <BackButton fallback="/breathe" />
       </div>
-      <ProgressIndicator activeStep="affirmation" />
+      <ProgressIndicator activeStep="affirmation" onReviewStep={(stepId) => navigate(routeForStep(stepId))} />
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
 
       <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] border border-primary/10 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
         <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -83,25 +99,39 @@ export const Affirmation = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        <button
-          onClick={handleNext}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
-        >
-          <span>Continue</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
-        <button
-          onClick={handleSkip}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-        >
-          Skip this step
-        </button>
-        <button
-          onClick={handleExitRoutine}
-          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
-        >
-          Exit routine
-        </button>
+        {isReviewMode ? (
+          currentStep && (
+            <button
+              onClick={() => navigate(routeForStep(currentStep.id))}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )
+        ) : (
+          <>
+            <button
+              onClick={handleNext}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+            >
+              <span>Continue</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            <button
+              onClick={handleSkip}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+            >
+              Skip this step
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

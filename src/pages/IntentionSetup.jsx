@@ -6,6 +6,10 @@ import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
 import { saveIntentionToCloud } from '../lib/intentionPersistence';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
 
 /*
  * Morning-flow redesign — Intention step, now Step 1 of 4 (was Step 5 of
@@ -38,13 +42,43 @@ export const IntentionSetup = () => {
   const navigate = useNavigate();
   const { userId, intentions, setIntentions, setJourneyStep, routineDuration } = useAlarm();
   const { state, currentStep, advanceStep, advanceToStep, abandonSession } = useSession();
+  // Safe backward navigation ("Review Mode") - handleSelectPreset/
+  // handleAddCustom below already only ever call setIntentions (no
+  // Session Engine call at all), so changing today's intention while
+  // reviewing this step is already exactly as safe as Home's own "Change
+  // intention" - nothing extra to gate there. Only Continue/Skip/Exit
+  // (which DO drive the Session Engine forward) need to be replaced by a
+  // plain "Return to current step" while reviewing.
+  const { isReviewMode } = useStepReviewMode('intention');
   const [customIntention, setCustomIntention] = useState('');
+  // A typed-but-not-yet-added custom intention is real unsaved input -
+  // confirm before leaving the LIVE step via the progress bar with it
+  // still sitting there.
+  // No ProgressIndicator is rendered on this page today (Intend is Step
+  // 1 - nothing before it to review from here), so confirmLeave/
+  // cancelLeave/isConfirming below are dormant unless a future change
+  // adds one; routeForStep is what "Return to current step" already uses.
+  const { routeForStep } = useReviewNavigation({
+    sessionId: 'morning-routine',
+    isLiveStep: !isReviewMode,
+    hasUnsavedProgress: customIntention.trim().length > 0
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   const presets = INTENTION_PRESETS;
 
+  // Safe backward navigation ("Review Mode") fix: while reviewing this
+  // step, Continue/Skip (the only place that otherwise calls
+  // saveIntentionToCloud, in handleComplete below) is replaced by "Return
+  // to [current step]" and is never reachable - so a change made here
+  // during review would update the live intentions[0] the rest of the app
+  // reads (correct), but silently never reach Supabase, reverting on the
+  // next reload/device. Saving immediately here (only in review mode)
+  // closes that gap without changing the ordinary live-step flow, which
+  // still defers to its own explicit Continue tap.
   const handleSelectPreset = (preset) => {
     setIntentions([preset]); // Allow exactly ONE primary intention as requested
+    if (isReviewMode) saveIntentionToCloud(userId, preset);
   };
 
   const handleAddCustom = () => {
@@ -52,6 +86,7 @@ export const IntentionSetup = () => {
     if (!trimmed) return;
     setIntentions([trimmed]);
     setCustomIntention('');
+    if (isReviewMode) saveIntentionToCloud(userId, trimmed);
   };
 
   const handleKeyDown = (e) => {
@@ -106,6 +141,10 @@ export const IntentionSetup = () => {
         <BackButton fallback="/routines/rise-reset" />
       </div>
 
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
+
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
@@ -154,27 +193,41 @@ export const IntentionSetup = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        <button
-          onClick={handleComplete}
-          disabled={isSaving}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-        >
-          <span>{isSaving ? 'Saving...' : 'Continue'}</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
-        <button
-          onClick={handleComplete}
-          disabled={isSaving}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-        >
-          Skip this step
-        </button>
-        <button
-          onClick={handleExitRoutine}
-          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
-        >
-          Exit routine
-        </button>
+        {isReviewMode ? (
+          currentStep && (
+            <button
+              onClick={() => navigate(routeForStep(currentStep.id))}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )
+        ) : (
+          <>
+            <button
+              onClick={handleComplete}
+              disabled={isSaving}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>{isSaving ? 'Saving...' : 'Continue'}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            <button
+              onClick={handleComplete}
+              disabled={isSaving}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+            >
+              Skip this step
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

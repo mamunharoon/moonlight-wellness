@@ -7,14 +7,19 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
+import { getStepLabel } from '../lib/stepLabels';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Not yet registered in the manifest/
@@ -51,6 +56,16 @@ export const MorningFlow = () => {
   // auto-advance, manual Next/Continue on the final exercise, Skip
   // Stretching). See mirrorStretchExitRef below.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
+  // Safe backward navigation ("Review Mode") - see Breathe.jsx's
+  // identical block for the full rationale.
+  const { isReviewMode } = useStepReviewMode('stretch');
+  const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
+  const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
+    sessionId: 'morning-routine',
+    isLiveStep: !isReviewMode,
+    hasUnsavedProgress: true
+  });
   const [activeStep, setActiveStep] = useState(0);
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
@@ -148,7 +163,7 @@ export const MorningFlow = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isInterrupted || awaitingMusicChoice) return;
+    if (isInterrupted || awaitingMusicChoice || isRepeatGated) return;
 
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
@@ -172,7 +187,7 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice, isRepeatGated]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
@@ -203,7 +218,11 @@ export const MorningFlow = () => {
       <div className="flex items-center gap-3">
         <BackButton fallback="/intention-setup" />
       </div>
-      <ProgressIndicator activeStep="stretch" />
+      <ProgressIndicator activeStep="stretch" onReviewStep={requestReview} />
+
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
 
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Awakening</span>
@@ -217,92 +236,108 @@ export const MorningFlow = () => {
         <MusicEntryChoice onStartWithMusic={handleStartWithMusic} onContinueWithoutMusic={handleContinueWithoutMusic} />
       )}
 
-      {/* Progress visual bar */}
-      <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-        <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
-          <span>Stretching Progress</span>
-          <span>Exercise {activeStep + 1} of {steps.length}</span>
+      {isRepeatGated ? (
+        <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10">
+          <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the 4-exercise stretch sequence from the beginning.</p>
+          <button
+            type="button"
+            onClick={() => setHasStartedRepeat(true)}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span className="material-symbols-outlined text-sm">replay</span>
+            <span>Repeat this exercise</span>
+          </button>
         </div>
-        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
-            style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Steps List - collapsed to just the active step while paused for a
-          guided video. All four full-detail cards together are taller than
-          an iPhone's own viewport on this screen (measured directly: the
-          back button + step tabs + title + progress bar alone already fill
-          it), which would push ExercisePausedPanel below the fold no matter
-          where in the DOM it sits relative to the video rows. The other
-          three exercises aren't relevant while paused anyway - the user
-          already knows which one they were on. */}
-      <div className="space-y-4">
-        {steps.map((step, idx) => {
-          const isCompleted = idx < activeStep;
-          const isActive = idx === activeStep;
-          if (isInterrupted && !openVideo && !isActive) return null;
-
-          return (
-            <div
-              key={idx}
-              className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
-                isActive ? 'border-primary/30 opacity-100 shadow-md shadow-primary/5 bg-primary/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
-              }`}
-            >
-              <div className="flex gap-4 items-center">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  isActive ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'
-                }`}>
-                  <span className="material-symbols-outlined text-2xl">{step.icon}</span>
-                </div>
-                <div>
-                  <h4 className="font-label-md text-sm text-on-surface font-bold flex items-center gap-2">
-                    {step.title}
-                    {isCompleted && <span className="material-symbols-outlined text-secondary text-sm">check_circle</span>}
-                  </h4>
-                  <p className="text-xs text-on-surface-variant mt-1">{step.desc}</p>
-                </div>
-              </div>
-
-              {isActive && (
-                <div className="text-right shrink-0">
-                  <p className="text-xl font-bold text-primary">0:{timeLeft.toString().padStart(2, '0')}</p>
-                  <p className="text-[10px] text-on-surface-variant uppercase font-semibold">Remaining</p>
-                </div>
-              )}
+      ) : (
+        <>
+          {/* Progress visual bar */}
+          <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+            <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
+              <span>Stretching Progress</span>
+              <span>Exercise {activeStep + 1} of {steps.length}</span>
             </div>
-          );
-        })}
-      </div>
+            <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
+                style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
 
-      <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
+          {/* Steps List - collapsed to just the active step while paused for a
+              guided video. All four full-detail cards together are taller than
+              an iPhone's own viewport on this screen (measured directly: the
+              back button + step tabs + title + progress bar alone already fill
+              it), which would push ExercisePausedPanel below the fold no matter
+              where in the DOM it sits relative to the video rows. The other
+              three exercises aren't relevant while paused anyway - the user
+              already knows which one they were on. */}
+          <div className="space-y-4">
+            {steps.map((step, idx) => {
+              const isCompleted = idx < activeStep;
+              const isActive = idx === activeStep;
+              if (isInterrupted && !openVideo && !isActive) return null;
 
-      {/* Immediately below the countdown/music toggle, ABOVE the
-          Stretching Sessions video rows below - visible in the initial
-          viewport with no scroll. See Breathe.jsx's identical panel and
-          its identical musicChoiceMade gating. */}
-      {musicChoiceMade && isInterrupted && !openVideo && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-        />
-      )}
+              return (
+                <div
+                  key={idx}
+                  className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
+                    isActive ? 'border-primary/30 opacity-100 shadow-md shadow-primary/5 bg-primary/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
+                  }`}
+                >
+                  <div className="flex gap-4 items-center">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      isActive ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'
+                    }`}>
+                      <span className="material-symbols-outlined text-2xl">{step.icon}</span>
+                    </div>
+                    <div>
+                      <h4 className="font-label-md text-sm text-on-surface font-bold flex items-center gap-2">
+                        {step.title}
+                        {isCompleted && <span className="material-symbols-outlined text-secondary text-sm">check_circle</span>}
+                      </h4>
+                      <p className="text-xs text-on-surface-variant mt-1">{step.desc}</p>
+                    </div>
+                  </div>
 
-      {/* Usability remediation - see Breathe.jsx's identical block for the
-          full rationale. */}
-      {!isInterrupted && !awaitingMusicChoice && !openVideo && (
-        <button
-          type="button"
-          onClick={handlePauseExercise}
-          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-        >
-          <span className="material-symbols-outlined text-sm">pause</span>
-          <span>Pause Exercise</span>
-        </button>
+                  {isActive && (
+                    <div className="text-right shrink-0">
+                      <p className="text-xl font-bold text-primary">0:{timeLeft.toString().padStart(2, '0')}</p>
+                      <p className="text-[10px] text-on-surface-variant uppercase font-semibold">Remaining</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
+
+          {/* Immediately below the countdown/music toggle, ABOVE the
+              Stretching Sessions video rows below - visible in the initial
+              viewport with no scroll. See Breathe.jsx's identical panel and
+              its identical musicChoiceMade gating. */}
+          {musicChoiceMade && isInterrupted && !openVideo && (
+            <ExercisePausedPanel
+              onResumeExercise={handleResumeExercise}
+              onResumeWithMusic={handleResumeWithMusic}
+              showResumeWithMusic={musicEligible}
+            />
+          )}
+
+          {/* Usability remediation - see Breathe.jsx's identical block for the
+              full rationale. */}
+          {!isInterrupted && !awaitingMusicChoice && !openVideo && (
+            <button
+              type="button"
+              onClick={handlePauseExercise}
+              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+            >
+              <span className="material-symbols-outlined text-sm">pause</span>
+              <span>Pause Exercise</span>
+            </button>
+          )}
+        </>
       )}
 
       <div className="space-y-3">
@@ -322,29 +357,43 @@ export const MorningFlow = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        {/* Hidden while the ExercisePausedPanel above is showing its own
-            two resume actions - see Breathe.jsx's identical comment. */}
-        {!isInterrupted && !awaitingMusicChoice && (
-          <button
-            onClick={handleNextStep}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
+        {isReviewMode ? (
+          currentStep && (
+            <button
+              onClick={() => navigate(routeForStep(currentStep.id))}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )
+        ) : (
+          <>
+            {/* Hidden while the ExercisePausedPanel above is showing its own
+                two resume actions - see Breathe.jsx's identical comment. */}
+            {!isInterrupted && !awaitingMusicChoice && (
+              <button
+                onClick={handleNextStep}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              >
+                <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            )}
+            <button
+              onClick={handleSkip}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+            >
+              Skip this step
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </>
         )}
-        <button
-          onClick={handleSkip}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-        >
-          Skip this step
-        </button>
-        <button
-          onClick={handleExitRoutine}
-          className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
-        >
-          Exit routine
-        </button>
       </div>
 
       {/* Closing this leaves the user right here on the stretching screen
@@ -359,6 +408,15 @@ export const MorningFlow = () => {
         onSignIn={confirmSignIn}
         onCreateAccount={confirmCreateAccount}
         onDismiss={dismissPrompt}
+      />
+      <ConfirmDialog
+        open={isConfirming}
+        title="Review an earlier step?"
+        message="Your unsaved progress on this step may be lost."
+        confirmLabel="Review"
+        cancelLabel="Stay here"
+        onConfirm={confirmLeave}
+        onDismiss={cancelLeave}
       />
     </div>
   );

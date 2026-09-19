@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { useStepReviewMode } from '../session/useStepReviewMode';
+import { useReviewNavigation } from '../session/useReviewNavigation';
+import { getStepLabel } from '../lib/stepLabels';
 
 /*
  * Stage 4 Batch F3/F4 (fixed in F7 validation) — EveningWindDown
@@ -29,8 +33,14 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 export const EveningWindDown = () => {
   const navigate = useNavigate();
   const { state, currentStep, startSession, advanceStep, resetSession, resumeSession } = useSession();
+  // Safe backward navigation ("Review Mode") - this screen has no timer
+  // and no input of its own (static copy + one Begin button), so review-
+  // only viewing needs no repeat-confirmation gate at all - see
+  // Breathe.jsx's identical block for the general rationale.
+  const { isReviewMode } = useStepReviewMode('windDown');
+  const { routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep: !isReviewMode, hasUnsavedProgress: false });
 
-  if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && ReviewModeBanner) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
     if (state.status === 'playing' && state.sessionId === 'evening-wind-down' && currentStep) {
@@ -65,6 +75,10 @@ export const EveningWindDown = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/">
+      {isReviewMode && currentStep && (
+        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+      )}
+
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>
         <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 6</span>
@@ -74,13 +88,25 @@ export const EveningWindDown = () => {
         </p>
       </div>
 
-      <button
-        onClick={handleBegin}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-      >
-        <span>Begin</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
+      {isReviewMode ? (
+        currentStep && (
+          <button
+            onClick={() => navigate(routeForStep(currentStep.id))}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span>Return to {getStepLabel(currentStep.id)}</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        )
+      ) : (
+        <button
+          onClick={handleBegin}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span>Begin</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+      )}
     </EveningSceneShell>
   );
 };

@@ -1,4 +1,5 @@
 import { getSessionById } from '../session/sessionRegistry';
+import { getStepLabel } from '../lib/stepLabels';
 
 /*
  * Stage 3C — ProgressIndicator, Session Registry migration (Ticket Group 3B1)
@@ -70,23 +71,6 @@ import { getSessionById } from '../session/sessionRegistry';
 const MORNING_SESSION_ID = 'morning-routine';
 const EVENING_SESSION_ID = 'evening-wind-down';
 
-const STEP_LABELS = {
-  // morning-routine
-  alarm: 'Alarm',
-  affirmation: 'Affirm',
-  stretch: 'Stretch',
-  breathe: 'Breathe',
-  intention: 'Intend',
-  complete: 'Done',
-  // evening-wind-down
-  windDown: 'Wind Down',
-  reflection: 'Reflect',
-  gratitude: 'Gratitude',
-  breathing: 'Breathe',
-  sleepPreparation: 'Rest',
-  completion: 'Done',
-};
-
 // Morning-flow redesign: 'start' removed (the former /morning-start
 // video-selection screen is no longer part of the routine at all — see
 // sessionConstants.js's MORNING_STEP_IDS). Order is derived from the
@@ -110,8 +94,16 @@ const getVisibleStepIds = (sessionId) => {
   return ids.length > 0 ? ids : fallbackIds;
 };
 
-export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID }) => {
-  const steps = getVisibleStepIds(sessionId).map((id) => ({ key: id, label: STEP_LABELS[id] ?? id }));
+// Safe backward navigation ("Review Mode") - completed steps become real,
+// focusable buttons; the current step stays highlighted-but-inert (you're
+// already there); future/incomplete steps stay inert too (never
+// reachable ahead of the engine's own furthest progress). `onReviewStep`
+// is optional and completely additive: every existing caller that omits
+// it keeps rendering plain, non-interactive spans exactly as before -
+// only Morning/Evening pages that opt in by passing it get clickable
+// completed steps.
+export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, onReviewStep }) => {
+  const steps = getVisibleStepIds(sessionId).map((id) => ({ key: id, label: getStepLabel(id) }));
 
   const activeIndex = steps.findIndex(step => step.key === activeStep);
   // Evening colour-contrast fix: the original /40, /30, /20 low-opacity
@@ -137,17 +129,30 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID }
         const isCompleted = idx < activeIndex;
         const isActive = idx === activeIndex;
 
+        const labelClassName = `transition-all duration-300 ${
+          isActive
+            ? 'text-primary font-bold scale-105'
+            : isCompleted
+            ? (isEvening ? 'text-on-surface' : 'text-secondary')
+            : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')
+        }`;
+
         return (
           <div key={step.key} className="flex items-center gap-1">
-            <span className={`transition-all duration-300 ${
-              isActive
-                ? 'text-primary font-bold scale-105'
-                : isCompleted
-                ? (isEvening ? 'text-on-surface' : 'text-secondary')
-                : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')
-            }`}>
-              {isCompleted ? '✓' : ''} {step.label}
-            </span>
+            {isCompleted && onReviewStep ? (
+              <button
+                type="button"
+                onClick={() => onReviewStep(step.key)}
+                aria-label={`Review completed ${step.label} step`}
+                className={`${labelClassName} min-w-[24px] min-h-[24px] -my-1.5 py-1.5 hover:opacity-80 active:scale-95 transition-transform`}
+              >
+                ✓ {step.label}
+              </button>
+            ) : (
+              <span className={labelClassName}>
+                {isCompleted ? '✓' : ''} {step.label}
+              </span>
+            )}
             {idx < steps.length - 1 && (
               <span className={isEvening ? 'text-on-surface-variant/70 mx-0.5' : 'text-on-surface-variant/20 mx-0.5'}>·</span>
             )}
