@@ -13,6 +13,7 @@ import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
+import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -61,19 +62,28 @@ export const MorningFlow = () => {
   const { isReviewMode } = useStepReviewMode('stretch');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  // Pause-and-resume-exact-state fix - see Breathe.jsx's identical block
+  // for the full rationale (session/timedExercisePause.js).
+  const [pausedSnapshot] = useState(() => loadPausedExerciseState('stretch'));
+  useEffect(() => {
+    if (pausedSnapshot) clearPausedExerciseState('stretch');
+  }, [pausedSnapshot]);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
     isLiveStep: !isReviewMode,
-    hasUnsavedProgress: true
+    hasUnsavedProgress: true,
+    onLeaveLiveStep: () => savePausedExerciseState('stretch', { timeLeft, activeStep, musicChoiceMade })
   });
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState(() => pausedSnapshot?.activeStep ?? 0);
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
   const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
   // Usability remediation - see Breathe.jsx's identical block for the
   // full rationale. Same pattern, same convergent isInterrupted flag.
-  const [manuallyPaused, setManuallyPaused] = useState(false);
+  // Also true immediately on mount when resuming from a review-paused
+  // snapshot - see Breathe.jsx's identical block.
+  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
   const {
@@ -114,7 +124,7 @@ export const MorningFlow = () => {
 
   // Entry choice - see Breathe.jsx's identical block for the full
   // rationale.
-  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const [musicChoiceMade, setMusicChoiceMade] = useState(() => Boolean(pausedSnapshot?.musicChoiceMade));
   const awaitingMusicChoice = musicEligible && !musicChoiceMade;
   const handleStartWithMusic = () => {
     setMusicChoiceMade(true);
@@ -136,7 +146,7 @@ export const MorningFlow = () => {
     return 20; // Default to 20s for standard routine mode
   };
 
-  const [timeLeft, setTimeLeft] = useState(getStepDuration());
+  const [timeLeft, setTimeLeft] = useState(() => pausedSnapshot?.timeLeft ?? getStepDuration());
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -163,7 +173,10 @@ export const MorningFlow = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isInterrupted || awaitingMusicChoice || isRepeatGated) return;
+    // Pause-during-review fix - see Breathe.jsx's identical block for the
+    // full rationale: freeze the countdown the instant the confirmation
+    // dialog opens, not only after the user confirms.
+    if (isInterrupted || awaitingMusicChoice || isRepeatGated || isConfirming) return;
 
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
@@ -187,7 +200,7 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice, isRepeatGated]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice, isRepeatGated, isConfirming]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
@@ -412,9 +425,9 @@ export const MorningFlow = () => {
       <ConfirmDialog
         open={isConfirming}
         title="Review an earlier step?"
-        message="Your unsaved progress on this step may be lost."
-        confirmLabel="Review"
-        cancelLabel="Stay here"
+        message="Your current exercise will be paused."
+        confirmLabel="Review Step"
+        cancelLabel="Cancel"
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
       />

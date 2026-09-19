@@ -71,9 +71,14 @@ describe('Playback cleanup — stop on close/back/route-change/unmount (already 
 });
 
 describe('Guest authentication gating is identical for both variants (entirely upstream of this component)', () => {
-  it('BetaVideoModal itself has no isGuest/auth logic at all - the gate already happened in useProtectedVideo before this component ever mounts', () => {
-    expect(modalSource).not.toMatch(/isGuest/);
-    expect(modalSource).not.toMatch(/useAuth/);
+  it('BetaVideoModal\'s only isGuest/auth logic is a defensive sign-out guard (pause immediately if a session expires mid-playback) - the actual entry gate already happened in useProtectedVideo before this component ever mounts', () => {
+    const guardBody = modalSource.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isGuest\) return;[\s\S]*?\n {2}\}, \[isGuest\]\);/)?.[0] ?? '';
+    expect(guardBody).not.toBe('');
+    expect(guardBody).toMatch(/videoRef\.current\?\.pause\(\);/);
+    // that one defensive effect is the ONLY isGuest/useAuth reference -
+    // no gating logic of its own beyond it.
+    const isGuestOccurrences = modalSource.match(/isGuest/g) ?? [];
+    expect(isGuestOccurrences.length).toBe(3); // the destructure + the guard's own check (twice: condition and dependency array)
   });
 
   it('useProtectedVideo\'s guest check happens on selection (handleSelect), before BetaVideoModal is ever rendered - so which variant would have been requested is irrelevant to whether a guest can open it at all', () => {

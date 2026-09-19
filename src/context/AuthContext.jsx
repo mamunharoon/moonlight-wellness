@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { migrateGuestData } from '../lib/migrateGuestData';
 import { clearAllRoutineProgress } from '../session/routineProgress';
 import { clearGuestEntryChoice } from '../lib/guestEntry';
+import { clearPendingContent } from '../lib/pendingContent';
 
 const AuthContext = createContext();
 
@@ -54,9 +55,16 @@ export const AuthProvider = ({ children }) => {
   // flag alongside routine progress, so OnboardingGate shows Welcome
   // again on the very next render (Profile.jsx navigates to '/' right
   // after calling signOut()).
+  //
+  // Routing policy fix: a pending sign-in return destination
+  // (lib/pendingContent.js - set by a protected-content/routine gate)
+  // must not survive a sign-out either, or the NEXT ordinary sign-in on
+  // this device/tab could be silently redirected to wherever a PREVIOUS
+  // session's protected action last pointed, instead of Home.
   const signOut = async () => {
     clearAllRoutineProgress();
     clearGuestEntryChoice();
+    clearPendingContent();
     if (!supabase) return;
     await supabase.auth.signOut();
   };

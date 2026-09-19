@@ -44,6 +44,18 @@ export const setPendingContent = ({ id = null, returnPath }) => {
   }
 };
 
+// Sign-out routing fix: a pending destination (or a protected-action's
+// mid-flight continuation) must never survive a sign-out and silently
+// redirect whoever signs in next on this device/tab. Idempotent and
+// safe to call even when nothing is pending.
+export const clearPendingContent = () => {
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    // Storage unavailable - nothing to clear.
+  }
+};
+
 // Reads and clears in one step — a pending redirect is only ever
 // consumed once, immediately after a successful auth.
 export const consumePendingContent = () => {

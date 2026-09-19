@@ -22,6 +22,7 @@ const routineResponsesSource = read('../lib/routineResponses.js');
 const layoutSource = read('../components/Layout.jsx');
 const routineRestoreGuardSource = read('../components/RoutineRestoreGuard.jsx');
 const appSource = read('../App.jsx');
+const timedExercisePauseSource = read('./timedExercisePause.js');
 
 const breatheSource = read('../pages/Breathe.jsx');
 const morningFlowSource = read('../pages/MorningFlow.jsx');
@@ -91,7 +92,40 @@ describe('useReviewNavigation - shared navigation helper, never touches Session 
 
   it('confirmLeave navigates to the pending target and clears it, so a second call cannot re-fire the same navigation', () => {
     const body = useReviewNavigationSource.match(/const confirmLeave = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/const target = pendingStepId;\s*\n\s*setPendingStepId\(null\);\s*\n\s*if \(target\) navigate\(routeForStep\(target\)\);/);
+    expect(body).toMatch(/const target = pendingStepId;\s*\n\s*setPendingStepId\(null\);\s*\n\s*if \(target\) \{\s*\n\s*onLeaveLiveStep\?\.\(\);\s*\n\s*navigate\(routeForStep\(target\)\);\s*\n\s*\}/);
+  });
+
+  // Pause-and-resume-exact-state fix, found live: reviewing an earlier
+  // step away from a running Breathe/Stretch/Evening-Breathing timer
+  // unmounts that page, destroying its local countdown state - returning
+  // showed "Exercise 1 of 4" again instead of resuming where it was.
+  // onLeaveLiveStep lets those three pages snapshot their exact timer
+  // state right before the navigate() that would otherwise lose it.
+  it('onLeaveLiveStep is called synchronously before navigate() in confirmLeave, never in the immediate/no-confirmation path, never in cancelLeave', () => {
+    expect(useReviewNavigationSource).toMatch(/onLeaveLiveStep\?\.\(\);\s*\n\s*navigate\(routeForStep\(target\)\);/);
+    const requestReviewBody = useReviewNavigationSource.match(/const requestReview = \(stepId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(requestReviewBody).not.toMatch(/onLeaveLiveStep/);
+    const cancelLeaveLine = useReviewNavigationSource.match(/const cancelLeave = .*/)?.[0] ?? '';
+    expect(cancelLeaveLine).not.toMatch(/onLeaveLiveStep/);
+  });
+});
+
+describe('timedExercisePause.js - pause-and-resume-exact-state for Breathe/Stretch/Evening-Breathing', () => {
+  it('save/load/clear are keyed by stepId under a dedicated sessionStorage prefix', () => {
+    expect(timedExercisePauseSource).toMatch(/const KEY_PREFIX = 'moonlight_paused_exercise_';/);
+  });
+
+  it('load never clears - the calling page is responsible for explicitly clearing once it has consumed the value', () => {
+    const loadBody = timedExercisePauseSource.match(/export const loadPausedExerciseState = \(stepId\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(loadBody).not.toMatch(/removeItem/);
+  });
+
+  it('save/load/clear all fail silently (never throw) when storage is unavailable', () => {
+    const fns = ['savePausedExerciseState', 'loadPausedExerciseState', 'clearPausedExerciseState'];
+    for (const fn of fns) {
+      const body = timedExercisePauseSource.match(new RegExp(`export const ${fn} = [\\s\\S]*?\\n\\};`))?.[0] ?? '';
+      expect(body).toMatch(/catch/);
+    }
   });
 });
 
@@ -107,6 +141,17 @@ describe('ProgressIndicator.jsx - completed steps become real, focusable review 
 
   it('tapping a completed step calls onReviewStep with that step\'s own key, nothing else', () => {
     expect(progressIndicatorSource).toMatch(/onClick=\{\(\) => onReviewStep\(step\.key\)\}/);
+  });
+
+  // Touch-target fix, found in live DEV testing: a real click reliably
+  // missed this button because its hit area (~44x27 CSS px - min-w/
+  // min-h were already overridden by the actual text+padding size, which
+  // never reached the declared minimums) was well under a usable ~44x44
+  // mobile tap target - the button was always correctly wired (an
+  // accessibility-tree-resolved click worked every time), just too
+  // small/tightly packed to reliably hit.
+  it('the review button has a real ~44x44 tap target via invisible padding offset by matching negative margins, not just min-w/min-h (which the content already exceeded)', () => {
+    expect(progressIndicatorSource).toMatch(/min-w-\[44px\] min-h-\[44px\] flex items-center justify-center -my-3\.5 py-3\.5 -mx-1 px-1/);
   });
 
   it('onReviewStep is optional and purely additive - omitting it keeps the original plain, non-interactive span for every caller that does not opt in', () => {
@@ -238,9 +283,9 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) r
     }
   });
 
-  it('the timer effect never runs while gated - isRepeatGated is in the effect\'s own early-return guard and dependency array', () => {
+  it('the timer effect never runs while gated - isRepeatGated is in the effect\'s own early-return guard and dependency array, alongside isConfirming (pause-during-review fix)', () => {
     for (const source of Object.values(REPEAT_GATED_PAGES)) {
-      expect(source).toMatch(/if \((?:isInterrupted \|\| )?awaitingMusicChoice \|\| isRepeatGated\) return;/);
+      expect(source).toMatch(/if \((?:isInterrupted|manuallyPaused)(?: \|\| )?awaitingMusicChoice \|\| isRepeatGated \|\| isConfirming\) return;/);
     }
   });
 
@@ -283,18 +328,38 @@ describe('Leave-confirmation ConfirmDialog - exact required wording, only on pag
     Gratitude: gratitudeSource,
   };
 
-  it('renders ConfirmDialog wired to confirmLeave/cancelLeave with the exact required title and message', () => {
+  it('every page renders ConfirmDialog wired to confirmLeave/cancelLeave with the same title', () => {
     for (const source of Object.values(CONFIRM_DIALOG_PAGES)) {
       expect(source).toMatch(/title="Review an earlier step\?"/);
-      expect(source).toMatch(/message="Your unsaved progress on this step may be lost\."/);
       expect(source).toMatch(/onConfirm=\{confirmLeave\}/);
       expect(source).toMatch(/onDismiss=\{cancelLeave\}/);
     }
   });
 
-  it('Breathe/MorningFlow/EveningBreathing pass hasUnsavedProgress: true (always-active timed progress)', () => {
+  // Wording fix, required for the three TIMED exercise screens
+  // specifically: reviewing away from a running timer pauses it (and
+  // resumes it exactly where it was, via timedExercisePause.js) rather
+  // than losing anything, so "Your unsaved progress...may be lost" was
+  // inaccurate there - "Cancel"/"Review Step" also replace the generic
+  // "Stay here"/"Review" labels for this specific, higher-stakes choice.
+  it('Breathe/MorningFlow/EveningBreathing use the timed-exercise wording ("will be paused") and Cancel/Review Step labels, and pass hasUnsavedProgress: true', () => {
     for (const source of [breatheSource, morningFlowSource, eveningBreathingSource]) {
+      expect(source).toMatch(/message="Your current exercise will be paused\."/);
+      expect(source).toMatch(/confirmLabel="Review Step"/);
+      expect(source).toMatch(/cancelLabel="Cancel"/);
+      expect(source).not.toMatch(/Your unsaved progress on this step may be lost/);
       expect(source).toMatch(/hasUnsavedProgress: true/);
+    }
+  });
+
+  // Reflection/Gratitude are about unsaved TEXT, not a running timer -
+  // the original wording stays accurate for them and is deliberately
+  // left unchanged.
+  it('Reflection/Gratitude keep the original unsaved-progress wording and Stay here/Review labels', () => {
+    for (const source of [reflectionSource, gratitudeSource]) {
+      expect(source).toMatch(/message="Your unsaved progress on this step may be lost\."/);
+      expect(source).toMatch(/confirmLabel="Review"/);
+      expect(source).toMatch(/cancelLabel="Stay here"/);
     }
   });
 
@@ -364,6 +429,52 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
 
   it('has no ProgressIndicator of its own (Step 1 - nothing earlier to review from here)', () => {
     expect(intentionSetupSource).not.toMatch(/<ProgressIndicator/);
+  });
+});
+
+describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wiring', () => {
+  const TIMED_PAGES = {
+    Breathe: { source: breatheSource, stepId: 'breathe', timeField: 'secondsLeft', extraField: 'breatheState' },
+    MorningFlow: { source: morningFlowSource, stepId: 'stretch', timeField: 'timeLeft', extraField: 'activeStep' },
+    EveningBreathing: { source: eveningBreathingSource, stepId: 'breathing', timeField: 'secondsLeft', extraField: 'breatheState' },
+  };
+
+  it('imports the shared timedExercisePause helpers and reads a snapshot once, lazily, at mount', () => {
+    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(/import \{ savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState \} from '\.\.\/session\/timedExercisePause';/);
+      expect(source).toMatch(new RegExp(`const \\[pausedSnapshot\\] = useState\\(\\(\\) => loadPausedExerciseState\\('${stepId}'\\)\\);`));
+    }
+  });
+
+  it('clears the snapshot in a one-time effect once read, so a later fresh/repeat visit never replays stale state', () => {
+    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(new RegExp(`useEffect\\(\\(\\) => \\{\\s*\\n\\s*if \\(pausedSnapshot\\) clearPausedExerciseState\\('${stepId}'\\);\\s*\\n\\s*\\}, \\[pausedSnapshot\\]\\);`));
+    }
+  });
+
+  it('seeds its own countdown/phase state from the snapshot when present, defaulting otherwise', () => {
+    for (const { source, timeField } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(new RegExp(`useState\\(\\(\\) => pausedSnapshot\\?\\.${timeField} \\?\\?`));
+    }
+  });
+
+  it('seeds manuallyPaused to true when resuming from a snapshot - never auto-resumes the countdown, always shows the paused panel first', () => {
+    for (const { source } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
+    }
+  });
+
+  it('onLeaveLiveStep snapshots the exact current countdown/phase/music-choice state right before leaving', () => {
+    for (const { source, stepId } of Object.values(TIMED_PAGES)) {
+      expect(source).toMatch(new RegExp(`onLeaveLiveStep: \\(\\) => savePausedExerciseState\\('${stepId}', \\{`));
+    }
+  });
+
+  it('EveningBreathing now has the same Pause Exercise / ExercisePausedPanel infrastructure as Breathe/MorningFlow (release-blocking consistency fix - it originally had none)', () => {
+    expect(eveningBreathingSource).toMatch(/import \{ ExercisePausedPanel \} from '\.\.\/components\/ExercisePausedPanel';/);
+    expect(eveningBreathingSource).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+    expect(eveningBreathingSource).toMatch(/<ExercisePausedPanel/);
+    expect(eveningBreathingSource).toMatch(/Pause Exercise/);
   });
 });
 

@@ -16,7 +16,7 @@ afterAll(() => {
   globalThis.sessionStorage = originalSessionStorage;
 });
 
-const { setPendingContent, consumePendingContent, isSafeReturnPath } = await import('./pendingContent');
+const { setPendingContent, consumePendingContent, clearPendingContent, isSafeReturnPath } = await import('./pendingContent');
 
 describe('isSafeReturnPath — open-redirect guard', () => {
   it('accepts an ordinary in-app relative path', () => {
@@ -83,6 +83,26 @@ describe('setPendingContent / consumePendingContent', () => {
   });
 
   it('returns null when nothing was ever set', () => {
+    expect(consumePendingContent()).toBeNull();
+  });
+});
+
+describe('clearPendingContent — sign-out routing fix', () => {
+  beforeEach(() => {
+    store.clear();
+  });
+
+  // Routing policy: a stale pending destination (e.g. from a protected
+  // action started in an earlier session) must not survive sign-out and
+  // silently redirect the NEXT ordinary sign-in on this device/tab.
+  it('removes a pending destination so a later consume returns null', () => {
+    setPendingContent({ returnPath: '/profile' });
+    clearPendingContent();
+    expect(consumePendingContent()).toBeNull();
+  });
+
+  it('is a safe no-op when nothing is pending', () => {
+    expect(() => clearPendingContent()).not.toThrow();
     expect(consumePendingContent()).toBeNull();
   });
 });

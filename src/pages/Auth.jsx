@@ -53,9 +53,21 @@ export const Auth = () => {
 
   // Guest access repair: if this sign-in/sign-up was reached via a
   // locked-content sign-in prompt (Library, Support, Prepare for Rest,
-  // any contextual exercise row), return the user to that exact page
-  // with the tapped item ready to open — see lib/pendingContent.js and
-  // hooks/useProtectedVideo.js. Otherwise, unchanged existing behaviour.
+  // any contextual exercise row) or a protected-routine gate
+  // (RoutineDetail.jsx), return the user to that exact page with the
+  // tapped item ready to open — see lib/pendingContent.js,
+  // hooks/useProtectedVideo.js and RoutineDetail.jsx's own handleSignIn.
+  //
+  // Routing policy fix: an ORDINARY sign-in (no pending destination) must
+  // land on Home, never Profile. This previously fell back to
+  // navigate('/profile') unconditionally, which is what a plain
+  // Welcome/Auth sign-in with nothing pending was silently landing on -
+  // reproduced live (sign out, sign back in as an ordinary user, land on
+  // /profile instead of Home). consumePendingContent() already discards
+  // anything invalid/expired/unsafe (see its own isSafeReturnPath guard)
+  // and reads-and-clears in one step, so an external/invalid or already-
+  // consumed destination naturally falls through to this same Home
+  // fallback - no separate handling needed here.
   const redirectAfterAuth = () => {
     const pending = consumePendingContent();
     if (pending) {
@@ -67,7 +79,7 @@ export const Auth = () => {
       navigate(`${pending.returnPath}${separator}openId=${encodeURIComponent(pending.id)}`);
       return;
     }
-    navigate('/profile');
+    navigate('/');
   };
 
   const handleSignIn = async (e) => {

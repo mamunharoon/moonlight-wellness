@@ -18,8 +18,18 @@ import { getSessionById } from './sessionRegistry';
  * it was. Any music/timer belonging to the step being left is cleaned up
  * by that component's own existing unmount effect once React Router
  * actually swaps the route — nothing extra to trigger here.
+ *
+ * `onLeaveLiveStep` (optional): called synchronously right before the
+ * navigate() in confirmLeave, only ever on the path that actually leaves
+ * a live step with real unsaved progress (never on the immediate/no-
+ * confirmation path, and never on cancelLeave). The three timed exercise
+ * screens (Breathe/MorningFlow/EveningBreathing) use this to snapshot
+ * their exact countdown/phase state (session/timedExercisePause.js)
+ * before their own unmount would otherwise destroy it, so returning to
+ * the live step later resumes exactly where it was paused instead of
+ * restarting from the beginning.
  */
-export const useReviewNavigation = ({ sessionId, isLiveStep, hasUnsavedProgress }) => {
+export const useReviewNavigation = ({ sessionId, isLiveStep, hasUnsavedProgress, onLeaveLiveStep }) => {
   const navigate = useNavigate();
   const [pendingStepId, setPendingStepId] = useState(null);
 
@@ -36,7 +46,10 @@ export const useReviewNavigation = ({ sessionId, isLiveStep, hasUnsavedProgress 
   const confirmLeave = () => {
     const target = pendingStepId;
     setPendingStepId(null);
-    if (target) navigate(routeForStep(target));
+    if (target) {
+      onLeaveLiveStep?.();
+      navigate(routeForStep(target));
+    }
   };
 
   const cancelLeave = () => setPendingStepId(null);

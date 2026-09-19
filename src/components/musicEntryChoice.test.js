@@ -39,8 +39,8 @@ describe.each([
   ['EveningBreathing.jsx', eveningBreathingSource, 'secondsLeft'],
   ['QuietBreathing.jsx', quietBreathingSource, 'secondsLeft']
 ])('%s - the entry choice gates the countdown effect itself', (name, source) => {
-  it('has its own musicChoiceMade state, defaulting to false (never true on a fresh mount)', () => {
-    expect(source).toMatch(/const \[musicChoiceMade, setMusicChoiceMade\] = useState\(false\);/);
+  it('has its own musicChoiceMade state, defaulting to false on a fresh mount (Breathe/MorningFlow/EveningBreathing seed it from a review-pause snapshot instead, when one exists - see timedExercisePause.js)', () => {
+    expect(source).toMatch(/const \[musicChoiceMade, setMusicChoiceMade\] = useState\((?:false|\(\) => Boolean\(pausedSnapshot\?\.musicChoiceMade\))\);/);
   });
 
   it('awaitingMusicChoice is true only when music is actually eligible AND no choice has been made yet - a screen with no eligible music never blocks its timer', () => {

@@ -165,10 +165,9 @@ describe('Guest restrictions match the agreed onboarding policy - intercept at t
 });
 
 describe('Shared by every structurally-similar interactive timed screen', () => {
-  it('EveningBreathing.jsx renders the shared player with IB01, never passing `suspended` (no video rows on that page)', () => {
+  it('EveningBreathing.jsx renders the shared player with IB01, passing suspended={manuallyPaused} (Pause Exercise consistency fix - see reviewMode.test.js)', () => {
     expect(eveningBreathingSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
-    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
-    expect(eveningBreathingSource).not.toMatch(/suspended=/);
+    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{manuallyPaused\} \/>/);
   });
 
   it('QuietBreathing.jsx renders the same shared player with IB01, not an independent copy, and also never passes `suspended`', () => {
@@ -214,7 +213,10 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     });
 
     it(`${name}: videoOpenedDuringExercise and the new manuallyPaused flag converge into one isInterrupted flag, and the running timer's own effect bails out on it - preserving the exact remaining time/phase either way`, () => {
-      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(false\);/);
+      // manuallyPaused now also seeds true when resuming from a review-
+      // pause snapshot (timedExercisePause.js) - still false on any
+      // ordinary fresh mount.
+      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
       expect(source).toMatch(/const isInterrupted = videoOpenedDuringExercise \|\| manuallyPaused;/);
       expect(source).toMatch(/if \([^)]*isInterrupted[^)]*\) return;/);
       // handleResumeExercise itself never touches the countdown/phase state

@@ -15,6 +15,7 @@ import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
+import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -91,16 +92,27 @@ export const Breathe = () => {
   // here can never unlock a future step or record a second completion.
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  // Pause-and-resume-exact-state fix: reviewing an earlier step away from
+  // a running Breathe timer unmounts this page, which would otherwise
+  // destroy secondsLeft/breatheState entirely - see
+  // session/timedExercisePause.js's own doc comment. Read once, lazily,
+  // at mount; cleared right after being consumed (below) so a later
+  // fresh/repeat visit never replays stale state.
+  const [pausedSnapshot] = useState(() => loadPausedExerciseState('breathe'));
+  useEffect(() => {
+    if (pausedSnapshot) clearPausedExerciseState('breathe');
+  }, [pausedSnapshot]);
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
     isLiveStep: !isReviewMode,
     // Breathe always has active timed progress while it's the live step -
     // leaving it via the progress bar (not Skip/Continue/Exit, which the
     // user is already deliberately choosing) always confirms first.
-    hasUnsavedProgress: true
+    hasUnsavedProgress: true,
+    onLeaveLiveStep: () => savePausedExerciseState('breathe', { secondsLeft, breatheState, musicChoiceMade })
   });
-  const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
-  const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
+  const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale'); // 'Inhale', 'Hold', 'Exhale'
+  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? 56); // 1-minute production timer
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
@@ -111,7 +123,11 @@ export const Breathe = () => {
   // its own flag (not reusing videoOpenedDuringExercise) so the two
   // trigger paths stay independently readable/testable even though they
   // converge on the same panel/suspended/timer-gate behaviour below.
-  const [manuallyPaused, setManuallyPaused] = useState(false);
+  // Pause-and-resume-exact-state fix: also true immediately on mount when
+  // resuming from a review-paused snapshot - returning from reviewing an
+  // earlier step must show the paused panel and offer Resume Exercise/
+  // Resume with Music, never auto-resume the countdown.
+  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   // True whenever ExercisePausedPanel is (or should be) showing - either
   // trigger, video already closed. Computed once so the timer guard, the
@@ -179,7 +195,7 @@ export const Breathe = () => {
   // shows this same initial choice again (not ExercisePausedPanel) - see
   // the panel's own render condition below, which requires
   // musicChoiceMade to already be true.
-  const [musicChoiceMade, setMusicChoiceMade] = useState(false);
+  const [musicChoiceMade, setMusicChoiceMade] = useState(() => Boolean(pausedSnapshot?.musicChoiceMade));
   const awaitingMusicChoice = musicEligible && !musicChoiceMade;
   const handleStartWithMusic = () => {
     setMusicChoiceMade(true);
@@ -212,7 +228,13 @@ export const Breathe = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isInterrupted || awaitingMusicChoice || isRepeatGated) return;
+    // Pause-during-review fix: freeze the countdown the instant the
+    // "Review an earlier step? Your current exercise will be paused."
+    // confirmation opens, not only after the user confirms - the value
+    // captured into the paused snapshot (onLeaveLiveStep above) must be
+    // exactly what the user saw when they made that choice, not whatever
+    // it ticked down to while they were still deciding.
+    if (isInterrupted || awaitingMusicChoice || isRepeatGated || isConfirming) return;
 
     if (secondsLeft <= 0) {
       setJourneyStep('affirmation');
@@ -237,7 +259,7 @@ export const Breathe = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, isInterrupted, awaitingMusicChoice, isRepeatGated, navigate, setJourneyStep]);
+  }, [secondsLeft, isInterrupted, awaitingMusicChoice, isRepeatGated, isConfirming, navigate, setJourneyStep]);
 
   const handleComplete = () => {
     setJourneyStep('affirmation');
@@ -438,14 +460,15 @@ export const Breathe = () => {
         onDismiss={dismissPrompt}
       />
       {/* Leaving the LIVE breathing timer via the progress bar (not an
-          explicit Skip/Continue/Exit tap) - confirm first, since real
-          timed progress would otherwise be silently abandoned. */}
+          explicit Skip/Continue/Exit tap) - confirm first, since the
+          running exercise is about to be paused (not lost - the exact
+          countdown/phase resumes on return, see timedExercisePause.js). */}
       <ConfirmDialog
         open={isConfirming}
         title="Review an earlier step?"
-        message="Your unsaved progress on this step may be lost."
-        confirmLabel="Review"
-        cancelLabel="Stay here"
+        message="Your current exercise will be paused."
+        confirmLabel="Review Step"
+        cancelLabel="Cancel"
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
       />

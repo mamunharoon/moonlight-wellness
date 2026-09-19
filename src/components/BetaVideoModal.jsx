@@ -5,16 +5,28 @@ import { getBetaVideoById } from '../lib/mediaCatalog';
 import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { resolvePlaybackId, shouldShowMusicToggle } from '../lib/backgroundMusicSelection';
+import { useAuth } from '../context/AuthContext';
 
-// Daily Journey & Content Architecture: Sleep Soundscapes timer options.
-// 'continuous' means no auto-stop — the source loops (see the `loop`
-// attribute below) until the user presses Stop or closes the modal.
-const SLEEP_TIMER_OPTIONS = [
-  { id: 15, label: '15 min' },
-  { id: 30, label: '30 min' },
-  { id: 60, label: '60 min' },
-  { id: 'continuous', label: 'Continuous' }
-];
+// Sleep Soundscapes timer options, minutes only - release-blocking fix:
+// the previous no-auto-stop option is removed entirely, no indefinite-
+// playback choice remains. 15 is the required default.
+const SLEEP_TIMER_MINUTES_OPTIONS = [10, 15, 30, 60];
+const DEFAULT_SLEEP_TIMER_MINUTES = 15;
+
+// Gentle fade-then-stop, never a hard cut. Volume is a pure function of
+// remainingMs once inside this window (see the fade effect below) -
+// tied directly to the same countdown that only ever advances while the
+// element is actually playing, so an iOS interruption (a real `pause`
+// event) freezes the fade exactly where it was, never drifting ahead on
+// wall-clock time while genuinely paused.
+const FADE_DURATION_MS = 8000;
+
+const formatRemaining = (ms) => {
+  const totalSeconds = Math.max(Math.ceil(ms / 1000), 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
 
 /*
  * WakeWise — Beta Video Preview — playback modal.
@@ -46,6 +58,7 @@ const SLEEP_TIMER_OPTIONS = [
  * keep the label on its own standalone admin/QA catalogue.
  */
 export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
+  const { isGuest } = useAuth();
   const isSleepSound = entry.category === 'Sleep Soundscapes';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
@@ -76,13 +89,23 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   // to true on load: this is what keeps autoplay off even though the
   // signed URL is fetched as soon as the modal opens.
   const [hasStarted, setHasStarted] = useState(false);
-  // Sleep Soundscapes only: selected auto-stop duration (minutes, or
-  // 'continuous' for none) and whether that timer has since elapsed.
-  const [sleepTimer, setSleepTimer] = useState('continuous');
+  // Sleep Soundscapes only: selected auto-stop duration (minutes -
+  // always a fixed choice, never indefinite - see
+  // SLEEP_TIMER_MINUTES_OPTIONS above), the actual remaining countdown,
+  // and whether that timer has since elapsed. remainingMs is the single
+  // source of truth the countdown display, the volume fade, and the
+  // auto-stop itself all derive from - see the effects below.
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState(DEFAULT_SLEEP_TIMER_MINUTES);
+  const [remainingMs, setRemainingMs] = useState(DEFAULT_SLEEP_TIMER_MINUTES * 60 * 1000);
   const [timerEnded, setTimerEnded] = useState(false);
+  // Mirrors the <video> element's own native play/pause events (never a
+  // click handler's assumption) - this is what makes the countdown
+  // freeze correctly during a real iOS audio-session interruption, not
+  // just an explicit Stop/pause tap: any native `pause` event, whatever
+  // its cause, stops the countdown from advancing.
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const expiresAtRef = useRef(null);
   const videoRef = useRef(null);
-  const timerRef = useRef(null);
 
   // Fetches the signed URL. Deps are playbackId/retryToken - playbackId
   // already folds in entry.id (it's always the fallback), so this effect
@@ -99,6 +122,16 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
       setStatus('loading');
       setErrorMessage('');
       setHasStarted(false);
+      // Duplicate-player/timer guard: this effect re-runs whenever the
+      // requested id actually changes (a genuinely different entry, not
+      // just a re-render) - resetting the sleep-timer state here too
+      // means even a same-instance prop swap (parent changes `entry`
+      // without unmounting) can never carry over a stale countdown/
+      // fade/timerEnded state from whatever was open before.
+      setRemainingMs(DEFAULT_SLEEP_TIMER_MINUTES * 60 * 1000);
+      setSleepTimerMinutes(DEFAULT_SLEEP_TIMER_MINUTES);
+      setTimerEnded(false);
+      setIsVideoPlaying(false);
       try {
         const { url, expiresAt } = await requestBetaVideoUrl(playbackId);
         if (cancelled) return;
@@ -143,19 +176,60 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Sleep Soundscapes auto-stop timer. Only ever starts once playback has
-  // genuinely begun (hasStarted) — picking a timer before pressing Begin
-  // just records the choice, it doesn't start any countdown early.
-  // 'continuous' never sets a timer at all — the source keeps looping
-  // (see the <video loop> attribute below) until Stop or Close.
+  // Sleep Soundscapes auto-stop countdown. Only ever ticks while playback
+  // has genuinely begun (hasStarted) AND the element is actually playing
+  // right now (isVideoPlaying, from its own native play/pause events) -
+  // picking a timer before pressing Begin just records the choice, and a
+  // real pause (explicit, or an iOS interruption) freezes remainingMs
+  // exactly where it is rather than continuing to count down while
+  // nothing is audible.
   useEffect(() => {
-    if (!isSleepSound || !hasStarted || sleepTimer === 'continuous') return;
-    timerRef.current = setTimeout(() => {
-      videoRef.current?.pause();
-      setTimerEnded(true);
-    }, sleepTimer * 60 * 1000);
-    return () => clearTimeout(timerRef.current);
-  }, [isSleepSound, hasStarted, sleepTimer]);
+    if (!isSleepSound || !hasStarted || !isVideoPlaying || timerEnded) return;
+    const interval = setInterval(() => {
+      setRemainingMs((prev) => {
+        const next = Math.max(prev - 1000, 0);
+        // The actual stop, once the countdown reaches zero, happens
+        // here - inside the timer's own async tick, never as a bare
+        // setState in a reactive effect body. Reads/mutates the DOM
+        // element directly (never the source asset itself).
+        if (next <= 0) {
+          const video = videoRef.current;
+          if (video) {
+            video.pause();
+            video.volume = 1; // restored for the next "Play again"/Begin
+          }
+          setTimerEnded(true);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSleepSound, hasStarted, isVideoPlaying, timerEnded]);
+
+  // Gentle fade - volume is a pure function of remainingMs (never a
+  // separate wall-clock timer of its own), so it can only ever advance
+  // in step with the countdown above: frozen during any real pause,
+  // resuming exactly where it left off. A plain DOM mutation only (no
+  // state to set here) - the real stop, once remainingMs reaches zero,
+  // is handled inside the countdown interval's own tick above. Source
+  // asset itself is never touched - this only ever adjusts the <video>
+  // element's own .volume.
+  useEffect(() => {
+    if (!isSleepSound || !hasStarted || remainingMs <= 0) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = remainingMs <= FADE_DURATION_MS ? Math.max(remainingMs / FADE_DURATION_MS, 0) : 1;
+  }, [remainingMs, isSleepSound, hasStarted]);
+
+  // Sign-out defensive guard - same pattern as
+  // InteractiveAmbientMusic.jsx's own equivalent: if this modal somehow
+  // stayed mounted through an auth-state transition to guest (e.g. a
+  // session expiring mid-playback), stop immediately rather than let a
+  // guest continue hearing audio they were never allowed to start.
+  useEffect(() => {
+    if (!isGuest) return;
+    videoRef.current?.pause();
+  }, [isGuest]);
 
   const handleVideoError = () => {
     // A playback error once a URL is already loaded most likely means the
@@ -171,7 +245,6 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
 
   const handleClose = () => {
     videoRef.current?.pause();
-    clearTimeout(timerRef.current);
     onClose();
   };
 
@@ -189,21 +262,29 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     setMusicPreference(next);
   };
 
-  // Sleep Soundscapes only: explicit "Stop" distinct from Close — pauses
-  // and resets to the Begin overlay (so resuming starts from a clean
-  // state rather than mid-loop) without leaving the modal, and cancels
-  // any pending auto-stop timer, "do not create multiple simultaneous
-  // audio instances" is already structural (one <video> element, one
-  // BetaVideoModal instance ever mounted) — this just stops the one.
+  // Sleep Soundscapes only: explicit "Stop" distinct from Close — ends
+  // playback immediately (never a fade - that's only for the timer's own
+  // natural expiry) and resets the remaining timer back to the full
+  // selected duration, so resuming starts completely fresh rather than
+  // mid-countdown. "do not create multiple simultaneous audio instances"
+  // is already structural (one <video> element, one BetaVideoModal
+  // instance ever mounted) — this just stops the one.
   const handleStop = () => {
     const video = videoRef.current;
     if (video) {
       video.pause();
-      video.currentTime = 0;
+      // Guarded: assigning currentTime before the element has any
+      // buffered metadata (readyState 0, HAVE_NOTHING - e.g. Stop tapped
+      // while the very first play() is still resolving) throws
+      // InvalidStateError. Found live: that exception can abort the
+      // still-pending play() promise, surfacing as a spurious "Couldn't
+      // start playback" error even though the user only asked to Stop.
+      if (video.readyState > 0) video.currentTime = 0;
+      video.volume = 1;
     }
-    clearTimeout(timerRef.current);
     setTimerEnded(false);
     setHasStarted(false);
+    setRemainingMs(sleepTimerMinutes * 60 * 1000);
   };
 
   // The ONLY place playback is ever started. Called directly from the
@@ -275,7 +356,15 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                 loop={isSleepSound}
                 preload="metadata"
                 onError={handleVideoError}
-                onPlay={() => { setHasStarted(true); setTimerEnded(false); }}
+                onPlay={() => {
+                  setHasStarted(true);
+                  setIsVideoPlaying(true);
+                  // "Play again" after the timer ended - a completely
+                  // fresh countdown, never continuing from 0.
+                  if (timerEnded) setRemainingMs(sleepTimerMinutes * 60 * 1000);
+                  setTimerEnded(false);
+                }}
+                onPause={() => setIsVideoPlaying(false)}
                 onLoadedMetadata={(e) => cacheDurationSeconds(entry.id, e.currentTarget.duration)}
                 className="w-full h-full object-contain bg-black"
               >
@@ -322,31 +411,44 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
           )}
         </div>
 
-        {/* Sleep Soundscapes only: timer picker + source duration + Stop.
-            The source file loops seamlessly (native <video loop>) rather
-            than requiring separately-uploaded 30/60-minute files. */}
+        {/* Sleep Soundscapes only: timer picker + source duration + live
+            remaining-time + Stop. The source file loops seamlessly
+            (native <video loop>) rather than requiring separately-
+            uploaded per-duration files - "loops until the timer ends" is
+            accurate copy now that there is no continuous/indefinite
+            option at all. */}
         {isSleepSound && status === 'ready' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Timer</span>
               <span className="text-[10px] text-on-surface-variant/70">
-                Source: {getCachedDurationMinutes(entry.id) ? `~${getCachedDurationMinutes(entry.id)} min, loops` : 'loops automatically'}
+                Source: {getCachedDurationMinutes(entry.id) ? `~${getCachedDurationMinutes(entry.id)} min, loops until the timer ends` : 'Loops until the timer ends.'}
               </span>
             </div>
             <div className="flex gap-2">
-              {SLEEP_TIMER_OPTIONS.map((opt) => (
+              {SLEEP_TIMER_MINUTES_OPTIONS.map((minutes) => (
                 <button
-                  key={opt.id}
+                  key={minutes}
                   type="button"
-                  onClick={() => setSleepTimer(opt.id)}
+                  onClick={() => {
+                    setSleepTimerMinutes(minutes);
+                    setRemainingMs(minutes * 60 * 1000);
+                    setTimerEnded(false);
+                  }}
                   className={`flex-1 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all min-h-[36px] ${
-                    sleepTimer === opt.id ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+                    sleepTimerMinutes === minutes ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
                   }`}
                 >
-                  {opt.label}
+                  {minutes} Min
                 </button>
               ))}
             </div>
+            {/* Required: remaining time displayed clearly while playing. */}
+            {hasStarted && !timerEnded && (
+              <p className="text-center text-xs text-on-surface-variant font-semibold" aria-live="polite">
+                {formatRemaining(remainingMs)} remaining
+              </p>
+            )}
             {hasStarted && (
               <button
                 type="button"

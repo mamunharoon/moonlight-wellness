@@ -102,6 +102,22 @@ const getVisibleStepIds = (sessionId) => {
 // it keeps rendering plain, non-interactive spans exactly as before -
 // only Morning/Evening pages that opt in by passing it get clickable
 // completed steps.
+//
+// Touch-target fix, found in live DEV testing: the review button's
+// original hit area was only ~44x27 CSS px (min-w/min-h were already
+// overridden by the actual text+padding size, which never reached the
+// declared minimums) - well under a usable ~44x44 mobile tap target,
+// same class of defect Layout.jsx's own bottom nav was fixed for
+// earlier ("the audit found the previous inactive-tab className had *no*
+// padding at all, so its hit area was just the bare icon glyph").
+// Reproduced live: a real click landed a few px off this tiny target and
+// silently did nothing, while the identical action via an accessibility-
+// tree-resolved click (which finds the element's true center) worked
+// every time - i.e. the button was always correctly wired, just too
+// small/tightly packed to reliably hit. Fixed with invisible py-3.5/px-1
+// padding offset by matching negative margins, so the clickable area
+// grows to ~44x44 without changing the progress bar's own visual height
+// or the tight horizontal spacing between steps.
 export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, onReviewStep }) => {
   const steps = getVisibleStepIds(sessionId).map((id) => ({ key: id, label: getStepLabel(id) }));
 
@@ -144,7 +160,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
                 type="button"
                 onClick={() => onReviewStep(step.key)}
                 aria-label={`Review completed ${step.label} step`}
-                className={`${labelClassName} min-w-[24px] min-h-[24px] -my-1.5 py-1.5 hover:opacity-80 active:scale-95 transition-transform`}
+                className={`${labelClassName} min-w-[44px] min-h-[44px] flex items-center justify-center -my-3.5 py-3.5 -mx-1 px-1 hover:opacity-80 active:scale-95 transition-transform`}
               >
                 ✓ {step.label}
               </button>
