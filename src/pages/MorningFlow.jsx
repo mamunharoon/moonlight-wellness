@@ -1,9 +1,10 @@
-﻿/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
@@ -11,11 +12,15 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 
+// Background Music — the interactive stretching timer's own loop, distinct
+// from IB01 (breathing/grounding). Not yet registered in the manifest/
+// Edge Function, so InteractiveAmbientMusic renders nothing until it is —
+// see isInteractiveMusicEligible's own doc comment.
+const INTERACTIVE_STRETCHING_MUSIC_ID = 'IS01';
+
 // S01-S05: a "Stretching Sessions" collection, matching the pattern
 // already established for the A-, B-, G- and M-series sections. Shown to
-// any signed-in user (guests excluded); the existing steps/timer/
-// Next-Step/Skip Stretching logic below is entirely unaffected by
-// whether a row is shown or watched.
+// any signed-in user (guests excluded).
 const STRETCHING_SESSION_VIDEOS = [
   { id: 'S01', blurb: 'A guided video to release tension in your neck.' },
   { id: 'S02', blurb: 'A guided video to release tension in your shoulders.' },
@@ -24,6 +29,16 @@ const STRETCHING_SESSION_VIDEOS = [
   { id: 'S05', blurb: 'A guided evening stretching flow.' }
 ];
 
+// Morning-flow redesign — interactive timer vs. optional guided video:
+// this screen's own 4-exercise countdown has no narration or audio of its
+// own (confirmed by direct audit - the rows below open a completely
+// separate, same-page BetaVideoModal, never mixed with the countdown
+// itself). Selecting any row now: (1) marks videoOpenedDuringExercise so
+// the timer stops advancing and background music is suspended (via
+// InteractiveAmbientMusic's own `suspended` prop, driven by openVideo
+// directly), and (2) requires a deliberate "Resume Exercise" tap to
+// continue afterward — closing the video alone never restarts the timer
+// or the music, exactly as required. Same pattern as Breathe.jsx.
 export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
@@ -33,6 +48,10 @@ export const MorningFlow = () => {
   // Stretching). See mirrorStretchExitRef below.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   const [activeStep, setActiveStep] = useState(0);
+  // Morning-flow redesign: set the moment any guided-video row is tapped
+  // (from that same click handler, never from an effect), never cleared
+  // automatically — only the deliberate "Resume Exercise" tap clears it.
+  const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
   const {
     openVideo,
     handleSelect,
@@ -44,6 +63,15 @@ export const MorningFlow = () => {
   } = useProtectedVideo();
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
+
+  const handleSelectVideo = (id) => {
+    setVideoOpenedDuringExercise(true);
+    handleSelect(id);
+  };
+
+  const handleResumeExercise = () => {
+    setVideoOpenedDuringExercise(false);
+  };
 
   const steps = [
     { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
@@ -84,6 +112,8 @@ export const MorningFlow = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
+    if (videoOpenedDuringExercise) return;
+
     const stepDur = routineDuration === 'extended' ? 40 : 20;
 
     const timer = setInterval(() => {
@@ -106,7 +136,7 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length]);
+  }, [navigate, setJourneyStep, routineDuration, steps.length, videoOpenedDuringExercise]);
 
   const handleNextStep = () => {
     const stepDur = routineDuration === 'extended' ? 40 : 20;
@@ -135,7 +165,7 @@ export const MorningFlow = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/affirmation" />
+        <BackButton fallback="/intention-setup" />
       </div>
       <ProgressIndicator activeStep="stretch" />
 
@@ -154,8 +184,8 @@ export const MorningFlow = () => {
           <span>Exercise {activeStep + 1} of {steps.length}</span>
         </div>
         <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000" 
+          <div
+            className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
             style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
           ></div>
         </div>
@@ -168,7 +198,7 @@ export const MorningFlow = () => {
           const isActive = idx === activeStep;
 
           return (
-            <div 
+            <div
               key={idx}
               className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
                 isActive ? 'border-primary/30 opacity-100 shadow-md shadow-primary/5 bg-primary/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
@@ -200,6 +230,8 @@ export const MorningFlow = () => {
         })}
       </div>
 
+      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+
       <div className="space-y-3">
         <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
         {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
@@ -210,20 +242,30 @@ export const MorningFlow = () => {
               key={id}
               title={entry.title}
               description={blurb}
-              onClick={() => handleSelect(id)}
+              onClick={() => handleSelectVideo(id)}
             />
           );
         })}
       </div>
 
       <div className="space-y-3 w-full">
-        <button
-          onClick={handleNextStep}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-        >
-          <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
+        {videoOpenedDuringExercise && !openVideo ? (
+          <button
+            onClick={handleResumeExercise}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span className="material-symbols-outlined text-sm">play_arrow</span>
+            <span>Resume Exercise</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleNextStep}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        )}
         <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
@@ -239,10 +281,9 @@ export const MorningFlow = () => {
       </div>
 
       {/* Closing this leaves the user right here on the stretching screen
-          - no navigation needed for a return path. The steps/timer/
-          Next-Step/Skip above are entirely unaffected by whether this is
-          open (the countdown keeps running in the background, exactly as
-          it already does behind any other interruption on this screen). */}
+          - no navigation needed for a return path. The timer stays paused
+          (videoOpenedDuringExercise) until a deliberate Resume Exercise
+          tap - see the doc comment above. */}
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}

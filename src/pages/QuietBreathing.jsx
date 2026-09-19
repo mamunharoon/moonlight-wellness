@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
-import { InteractiveBreathingMusic } from '../components/InteractiveBreathingMusic';
+import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx (see that file's own comment, and
@@ -39,7 +39,7 @@ export const QuietBreathing = () => {
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
 
-  if (EveningSceneShell && BreathingRing && InteractiveBreathingMusic) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -79,7 +79,7 @@ export const QuietBreathing = () => {
         <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
       </div>
 
-      <InteractiveBreathingMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
+      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />
 
       <div className="space-y-3 w-full">
         <button

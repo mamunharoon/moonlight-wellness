@@ -21,32 +21,39 @@ export const SESSION_CATEGORIES = Object.freeze({
 // that vocabulary, but does not migrate any of those three existing
 // consumers onto it yet — that migration is Group 3 scope, not this
 // group's. Nothing outside src/session/ reads this constant yet.
+// Morning-flow redesign: START ('start', formerly /morning-start's
+// video-selection screen) is removed — it no longer corresponds to any
+// step in MORNING_ROUTINE_SESSION (sessionDefinitions.js). Approved order
+// is now Intend -> Stretch -> Breathe -> Affirm -> Complete. See
+// morningFlowMigration.js for the one-time storage migration this
+// removal requires.
 export const MORNING_STEP_IDS = Object.freeze({
   ALARM: 'alarm',
-  START: 'start',
-  AFFIRMATION: 'affirmation',
+  INTENTION: 'intention',
   STRETCH: 'stretch',
   BREATHE: 'breathe',
-  INTENTION: 'intention',
+  AFFIRMATION: 'affirmation',
   COMPLETE: 'complete',
 });
 
-// Daily Journey & Content Architecture: the user-facing "Step X of 5"
-// numbering for Rise & Reset (MorningStart.jsx already shows "Step 1 of
-// 5", Affirmation.jsx "Step 2 of 5", etc.) — deliberately excludes
-// 'alarm' (the ringing-alarm screen, not a routine step the user
+// Daily Journey & Content Architecture: the user-facing "Step X of 4"
+// numbering for Rise & Reset (Home.jsx's own "Continue" card is the one
+// consumer — see resolveRoutineCardState usage there) — deliberately
+// excludes 'alarm' (the ringing-alarm screen, not a routine step the user
 // experiences as "Step 0") and 'complete' (its own terminal screen, not
-// counted). Exported here, the same registry-adjacent module every step
-// page and Home.jsx already imports from, so "Step X of 5" can never
+// counted). Morning-flow redesign: 'start' is gone (see MORNING_STEP_IDS'
+// own comment) and the order is now Intend -> Stretch -> Breathe ->
+// Affirm, so the count drops from 5 to 4 and every number shifts
+// accordingly. Exported here, the same registry-adjacent module every
+// step page and Home.jsx already imports from, so "Step X of 4" can never
 // silently drift between the two.
 export const MORNING_DISPLAY_STEP_NUMBERS = Object.freeze({
-  start: 1,
-  affirmation: 2,
-  stretch: 3,
-  breathe: 4,
-  intention: 5,
+  intention: 1,
+  stretch: 2,
+  breathe: 3,
+  affirmation: 4,
 });
-export const MORNING_DISPLAY_STEP_COUNT = 5;
+export const MORNING_DISPLAY_STEP_COUNT = 4;
 
 // Same role as MORNING_DISPLAY_STEP_NUMBERS above, for the evening-wind-
 // down session — includes 'completion' (unlike morning's 'complete',

@@ -97,15 +97,18 @@ describe('Guests can still browse catalogue screens - no new per-route guard add
 });
 
 describe('Every audio/video entry point invokes the same authentication gate (useProtectedVideo)', () => {
+  // Morning-flow redesign: Affirmation.jsx and IntentionSetup.jsx no longer
+  // show any guided-video rows at all (removed per the approved redesign -
+  // see mediaCatalog.js's own MORNING-FLOW REDESIGN REACHABILITY UPDATE
+  // comment), so useProtectedVideo is no longer imported by either.
+  // MorningStart.jsx is deleted entirely (the former /morning-start
+  // video-selection screen is removed from the routine).
   const VIDEO_GATED_PAGES = [
-    '../pages/Affirmation.jsx',
     '../pages/Breathe.jsx',
     '../pages/Grounding.jsx',
-    '../pages/IntentionSetup.jsx',
     '../pages/Library.jsx',
     '../pages/Meditate.jsx',
     '../pages/MorningFlow.jsx',
-    '../pages/MorningStart.jsx',
     '../pages/PrepareForRest.jsx',
     '../pages/Reflection.jsx',
     '../pages/Support.jsx'

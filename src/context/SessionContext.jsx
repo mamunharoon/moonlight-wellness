@@ -16,6 +16,19 @@ import {
   pinRoutineDate,
   unpinRoutineDate
 } from '../session/routineProgress';
+import { runMorningFlowMigration } from '../session/morningFlowMigration';
+
+// Morning-flow reorder migration — run once, at module-evaluation time,
+// deliberately NOT inside a React effect. ES module evaluation is
+// synchronous and completes before main.jsx ever calls ReactDOM's
+// render(), so this always finishes before the first render of anything
+// — including Home.jsx, which reads routineProgress.js's stores directly
+// during render, not just through this provider's own restore effect
+// below. Running it any later (e.g. in SessionProvider's mount effect)
+// would still be too late for that direct read, since React fires child
+// effects before parent effects. See morningFlowMigration.js's own doc
+// comment for the full migration behaviour.
+runMorningFlowMigration();
 
 /*
  * Stage 3C — Session Engine core, provider (Ticket Group 2)

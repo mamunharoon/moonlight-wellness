@@ -200,17 +200,20 @@ describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind
     expect(occurrences.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('Morning already has full parity - handleBeginRiseAndReset and RoutineDetail.jsx\'s beginRiseAndReset both start at getStepIndex(\'morning-routine\', MORNING_STEP_IDS.START), with no equivalent skip', () => {
+  it('Morning already has full parity - handleBeginRiseAndReset and RoutineDetail.jsx\'s beginRiseAndReset both start at getStepIndex(\'morning-routine\', MORNING_STEP_IDS.INTENTION), with no equivalent skip', () => {
+    // Morning-flow redesign: Step 1 is now Set Your Intention
+    // (/intention-setup) - the former /morning-start video-selection
+    // screen (and MORNING_STEP_IDS.START) is removed entirely.
     for (const source of [homeSource, routineDetailSource]) {
-      expect(source).toMatch(/startSession\('morning-routine', \{ startIndex: getStepIndex\('morning-routine', MORNING_STEP_IDS\.START\) \}\);/);
+      expect(source).toMatch(/startSession\('morning-routine', \{ startIndex: getStepIndex\('morning-routine', MORNING_STEP_IDS\.INTENTION\) \}\);/);
     }
     // Home.jsx navigates to the literal route; RoutineDetail.jsx navigates
-    // to the same route via its own detail.startRoute ('/morning-start'
+    // to the same route via its own detail.startRoute ('/intention-setup'
     // for 'rise-reset') - same destination, different but equally valid
     // spelling, so each is checked in its own terms rather than forcing
     // an identical literal string match.
-    expect(homeSource).toMatch(/navigate\('\/morning-start'\);/);
-    expect(routineDetailSource).toMatch(/startRoute: '\/morning-start'/);
+    expect(homeSource).toMatch(/navigate\('\/intention-setup'\);/);
+    expect(routineDetailSource).toMatch(/startRoute: '\/intention-setup'/);
     expect(routineDetailSource).toMatch(/navigate\(detail\.startRoute\);/);
   });
 });

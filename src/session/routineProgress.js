@@ -41,8 +41,13 @@ import { getZonedParts, getCachedTimezone } from '../lib/timezone';
  * rather than silently carrying it into today or silently discarding it.
  */
 
-const ROUTINE_PROGRESS_KEY = 'moonlight_routine_progress';
-const ROUTINE_PROGRESS_VERSION = 1;
+// Exported (not just module-local) so morningFlowMigration.js can perform
+// its own targeted, selective read/rewrite of this exact store without
+// duplicating these literals — see that module's own doc comment for why
+// a blunt version-mismatch rejection here would be wrong for this store
+// (it would discard a perfectly valid Evening entry alongside Morning's).
+export const ROUTINE_PROGRESS_KEY = 'moonlight_routine_progress';
+export const ROUTINE_PROGRESS_VERSION = 2;
 
 // "Resume Previous Routine" remediation — a small, separate store mapping
 // sessionId -> the ORIGINAL local dateKey a stale routine was resumed
@@ -57,7 +62,8 @@ const ROUTINE_PROGRESS_VERSION = 1;
 // failure this whole mechanism exists to prevent). Cleared the moment
 // that particular run ends (completed, abandoned, or reset) - see
 // SessionContext.jsx's resetSession/abandonSession/resetRoutine.
-const PINNED_DATE_KEY = 'moonlight_routine_progress_pinned_date';
+// Exported for the same reason as ROUTINE_PROGRESS_KEY/VERSION above.
+export const PINNED_DATE_KEY = 'moonlight_routine_progress_pinned_date';
 
 const readPinnedDates = () => {
   try {

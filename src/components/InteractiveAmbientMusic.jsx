@@ -10,13 +10,28 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { setPendingContent } from '../lib/pendingContent';
 import { SignInPromptDialog } from './SignInPromptDialog';
 
-// Background Music — interactive breathing screens (EveningBreathing.jsx,
-// QuietBreathing.jsx). Shared by both rather than duplicated — see this
-// codebase's own media audit (docs/background-music-asset-manifest.md):
-// both screens are structurally identical non-narrated uses of
-// BreathingRing (no useProtectedVideo, no BetaVideoModal, no narration
-// of any kind), so both get exactly this one component rather than two
-// independent, inevitably-drifting copies.
+// Background Music — every interactive timed screen (EveningBreathing.jsx,
+// QuietBreathing.jsx, Breathe.jsx, MorningFlow.jsx). Renamed from
+// InteractiveBreathingMusic.jsx (Morning-flow redesign audit): it was
+// never actually breathing-specific — MorningFlow.jsx's stretch timer
+// uses the exact same component with a different musicVariantId (IS01
+// instead of IB01). Shared by all four rather than duplicated: each is a
+// structurally similar non-narrated interactive timer, so one component
+// serves all of them rather than independent, inevitably-drifting copies.
+//
+// `suspended` (Morning-flow redesign): Breathe.jsx/MorningFlow.jsx are the
+// two screens that also offer optional guided-video rows on the SAME
+// page (opened via a same-page BetaVideoModal, no route change) —
+// EveningBreathing.jsx/QuietBreathing.jsx have none, so they simply never
+// pass this prop (defaults to false, zero behaviour change for them).
+// When the parent's own openVideo becomes truthy, it passes
+// suspended={true}; this component immediately pauses/releases the
+// element AND resets its own toggle to Off — never merely masks the
+// visual state while leaving the underlying "on" flag true, which would
+// make the toggle silently flip back to ON the moment the video closes
+// even though nothing new was ever actually started. Returning from the
+// video (suspended -> false) does nothing further: per the approved
+// requirement, resuming needs a real tap, exactly like a fresh mount.
 //
 // WHY NOT THE SAME "resolvePlaybackId" SHAPE AS BetaVideoModal.jsx:
 // that mechanism always has a safe narration-only fallback id to resolve
@@ -41,7 +56,7 @@ import { SignInPromptDialog } from './SignInPromptDialog';
 // *auto-applied* as playback on this specific surface.
 const DEFAULT_VOLUME = 0.35;
 
-export const InteractiveBreathingMusic = ({ musicVariantId }) => {
+export const InteractiveAmbientMusic = ({ musicVariantId, suspended = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGuest } = useAuth();
@@ -82,22 +97,37 @@ export const InteractiveBreathingMusic = ({ musicVariantId }) => {
 
   // Sign-out defensive guard: if this component somehow stayed mounted
   // through an auth-state transition to guest (e.g. a session expiring
-  // while this screen is open), stop immediately rather than let a
-  // guest continue hearing audio they were never allowed to start. Only
-  // ever touches the external <audio> element here (an effect's proper
-  // job) - never calls setState synchronously from inside an effect
-  // body; the render below already treats a guest as unable to have
-  // music genuinely playing regardless of this state's own value.
+  // while this screen is open), stop immediately rather than let a guest
+  // continue hearing audio they were never allowed to start. Only ever
+  // calls the native .pause() DOM method here (an effect's proper job,
+  // per react-hooks/set-state-in-effect) — musicEnabled itself is kept in
+  // sync by the <audio> element's own onPause handler below, a real
+  // event-handler callback, never a setState call from inside an effect.
   useEffect(() => {
     if (!isGuest) return;
     audioRef.current?.pause();
   }, [isGuest]);
 
+  // Stop-before-guided-video: see the `suspended` doc comment above. Same
+  // pattern as the guest guard - only ever calls .pause() here; the
+  // resulting native `pause` event (fired by the browser itself) is what
+  // actually resets musicEnabled, via onPause below.
+  useEffect(() => {
+    if (!suspended) return;
+    audioRef.current?.pause();
+  }, [suspended]);
+
   if (!eligible) return null;
 
+  // musicEnabled itself is never set from here — the <audio> element's own
+  // onPlay/onPause handlers (below, in the JSX) are the single source of
+  // truth for it, since they're real event-handler callbacks reacting to
+  // the browser's own native media events, not a value this code has to
+  // remember to keep in sync by hand in every place that calls .pause()/
+  // .play(). Calling .pause() when already paused (or .play() when
+  // already playing) is a safe native no-op either way.
   const stop = () => {
     audioRef.current?.pause();
-    setMusicEnabledState(false);
   };
 
   const start = async () => {
@@ -113,21 +143,23 @@ export const InteractiveBreathingMusic = ({ musicVariantId }) => {
       audio.volume = DEFAULT_VOLUME;
       // Called synchronously within handleToggle's own click handler (a
       // real user gesture) via this same call chain — never from an
-      // effect, never on mount.
+      // effect, never on mount. A successful play() fires the element's
+      // own `play` event, which is what actually flips musicEnabled on.
       await audio.play();
-      setMusicEnabledState(true);
     } catch {
       // Loading/playback failed - continue the breathing exercise
       // silently. loadError only ever shows a small, unobtrusive line;
-      // it never blocks or interrupts the breathing cycle itself.
+      // it never blocks or interrupts the breathing cycle itself. A
+      // rejected play() never fires a `play` event, so musicEnabled is
+      // already still false - nothing else to reset here.
       setLoadError(true);
-      setMusicEnabledState(false);
     } finally {
       isBusyRef.current = false;
     }
   };
 
   const handleToggle = () => {
+    if (suspended) return; // a guided video is open on this same page - see the doc comment above
     if (isGuest) {
       setShowSignInPrompt(true);
       return;
@@ -154,16 +186,26 @@ export const InteractiveBreathingMusic = ({ musicVariantId }) => {
   };
 
   // A guest can never genuinely have music playing (see the sign-out/
-  // guest defensive effect above) - computed directly in render rather
-  // than mirrored into state, so the toggle can never visually show
-  // "on" for a guest even for one stale render after an auth transition.
-  const isChecked = musicEnabled && !isGuest;
+  // guest defensive effect above), and neither can a suspended screen
+  // (see the suspend effect above) - computed directly in render as a
+  // second, immediate guard on top of that effect, so the toggle can
+  // never visually show "on" even for one stale render before the
+  // effect runs.
+  const isChecked = musicEnabled && !isGuest && !suspended;
 
   return (
     <div className="space-y-1.5">
       {/* Not narration - hidden, no visible player chrome of its own;
           the toggle below is the only visible control. */}
-      <audio ref={audioRef} preload="none" aria-hidden="true" className="hidden" onError={() => setLoadError(true)} />
+      <audio
+        ref={audioRef}
+        preload="none"
+        aria-hidden="true"
+        className="hidden"
+        onError={() => setLoadError(true)}
+        onPlay={() => setMusicEnabledState(true)}
+        onPause={() => setMusicEnabledState(false)}
+      />
 
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">

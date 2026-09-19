@@ -1,46 +1,44 @@
-﻿/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
-import { getBetaVideoById } from '../lib/betaVideoManifest';
-import { useProtectedVideo } from '../hooks/useProtectedVideo';
-import { BetaVideoModal } from '../components/BetaVideoModal';
-import { BetaVideoRow } from '../components/BetaVideoRow';
-import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 import { supabase } from '../lib/supabaseClient';
 
-// F01-F03: a "Focus Sessions" collection - this page is the app's own
-// dedicated focus/intention-setting step ("Set your intention... anchor
-// your focus today"), the natural home for Deep Work/Study/Concentration
-// content, distinct from A03 "Focus Affirmations" (Affirmation.jsx) and
-// E13 "Morning Focus" (MorningStart.jsx).
-const FOCUS_SESSION_VIDEOS = [
-  { id: 'F01', blurb: 'A guided video to help you settle into deep, focused work.' },
-  { id: 'F02', blurb: 'A guided video to help you focus while studying.' },
-  { id: 'F03', blurb: 'A guided video to help you sharpen your concentration.' }
-];
-
+/*
+ * Morning-flow redesign — Intention step, now Step 1 of 4 (was Step 5 of
+ * 5, immediately before Complete). Home's "Begin Rise & Reset",
+ * RoutineDetail's "Start Routine", and AlarmActive's slide-to-unlock all
+ * now start the Session Engine directly at this step (see each file's
+ * own updated startSession(..., { startIndex: getStepIndex(...,
+ * MORNING_STEP_IDS.INTENTION) }) call) - the former /morning-start
+ * video-selection screen is removed from the routine entirely.
+ *
+ * F01-F03 "Focus Sessions" video rows are removed from this in-routine
+ * step per the approved redesign (guided-video catalogues must not
+ * interrupt the core routine) - not deleted from the catalogue or
+ * Storage, still fully browsable via Library (see mediaCatalog.js's own
+ * MORNING-FLOW REDESIGN REACHABILITY UPDATE comment).
+ *
+ * "Start Your Journey" renamed to "Continue" (this is no longer the last
+ * screen before Complete - Stretch/Breathe/Affirm still follow).
+ *
+ * Quick-routine branch relocated here from Affirmation.jsx: this step
+ * used to be immediately before Complete, so Affirmation.jsx (immediately
+ * before Stretch/Breathe in the old order) owned the "skip Stretching
+ * entirely for a quick routine" decision. Now Intention is immediately
+ * before Stretch, so this screen owns that decision instead - the
+ * destination step is the only thing that changed; the branch logic
+ * itself (advanceToStep('breathe') vs advanceStep()) is copied verbatim
+ * from Affirmation.jsx's own previous handleNext/handleSkip.
+ */
 export const IntentionSetup = () => {
   const navigate = useNavigate();
-  const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
-  // Stage 3C Group 3D Batch C: mirrors the intention -> complete transition
-  // into the Session Engine. See handleComplete below.
-  const { state, currentStep, advanceStep, abandonSession } = useSession();
+  const { userId, intentions, setIntentions, setJourneyStep, routineDuration } = useAlarm();
+  const { state, currentStep, advanceStep, advanceToStep, abandonSession } = useSession();
   const [customIntention, setCustomIntention] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const {
-    openVideo,
-    handleSelect,
-    closeVideo,
-    promptOpen,
-    dismissPrompt,
-    confirmSignIn,
-    confirmCreateAccount
-  } = useProtectedVideo();
-
-  if (BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
   const presets = [
     'Stay calm',
@@ -69,16 +67,20 @@ export const IntentionSetup = () => {
     }
   };
 
-  const handleComplete = async () => {
-    setIsSaving(true);
-    setJourneyStep('complete');
-
-    // Stage 3C Group 3D Batch C: mirror only when the engine is genuinely
-    // playing at the 'intention' step — a direct-route visit with no
-    // active session, or a mismatched mirror, silently does nothing here.
-    if (state.status === 'playing' && currentStep?.id === 'intention') {
+  // Mirror only when the engine is genuinely playing at the 'intention'
+  // step — a direct-route visit with no active session, or a mismatched
+  // mirror, silently does nothing here.
+  const mirrorTransition = () => {
+    if (state.status !== 'playing' || currentStep?.id !== 'intention') return;
+    if (routineDuration === 'quick') {
+      advanceToStep('breathe');
+    } else {
       advanceStep();
     }
+  };
+
+  const handleComplete = async () => {
+    setIsSaving(true);
 
     const primaryIntention = intentions[0] || 'Stay calm';
 
@@ -106,7 +108,15 @@ export const IntentionSetup = () => {
     }
 
     setIsSaving(false);
-    navigate('/session-complete');
+
+    if (routineDuration === 'quick') {
+      setJourneyStep('breathe');
+      navigate('/breathe'); // Quick routine skips stretching entirely
+    } else {
+      setJourneyStep('stretch');
+      navigate('/morning-flow');
+    }
+    mirrorTransition();
   };
 
   const handleExitRoutine = () => {
@@ -118,7 +128,7 @@ export const IntentionSetup = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/breathe" />
+        <BackButton fallback="/routines/rise-reset" />
       </div>
 
       <div className="text-center space-y-2">
@@ -134,12 +144,12 @@ export const IntentionSetup = () => {
         {presets.map((preset, idx) => {
           const isSelected = intentions.includes(preset);
           return (
-            <button 
+            <button
               key={idx}
               onClick={() => handleSelectPreset(preset)}
               className={`p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
-                isSelected 
-                  ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5' 
+                isSelected
+                  ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5'
                   : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
               }`}
             >
@@ -159,7 +169,7 @@ export const IntentionSetup = () => {
           className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
           placeholder="Write your own..."
         />
-        <button 
+        <button
           onClick={handleAddCustom}
           disabled={!customIntention.trim()}
           className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
@@ -168,29 +178,13 @@ export const IntentionSetup = () => {
         </button>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Focus Sessions</h3>
-        {FOCUS_SESSION_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelect(id)}
-            />
-          );
-        })}
-      </div>
-
       <div className="space-y-3 w-full">
         <button
           onClick={handleComplete}
           disabled={isSaving}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
-          <span>{isSaving ? 'Saving...' : 'Start Your Journey'}</span>
+          <span>{isSaving ? 'Saving...' : 'Continue'}</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
         <button
@@ -207,19 +201,6 @@ export const IntentionSetup = () => {
           Exit routine
         </button>
       </div>
-
-      {/* Closing this leaves the user right here on Set Your Intention -
-          no navigation needed for a return path. Start Your Journey above
-          is entirely unaffected by whether this is open. */}
-      {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
-      )}
-      <SignInPromptDialog
-        open={promptOpen}
-        onSignIn={confirmSignIn}
-        onCreateAccount={confirmCreateAccount}
-        onDismiss={dismissPrompt}
-      />
     </div>
   );
 };

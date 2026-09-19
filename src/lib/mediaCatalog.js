@@ -41,6 +41,18 @@
 // ids genuinely appear on more than one page today (e.g. E09 on both
 // /support and /grounding); this field names the more prominent one and
 // is not meant to enumerate every occurrence.
+//
+// MORNING-FLOW REDESIGN REACHABILITY UPDATE
+// E06/E07/E11-E15/E21/E22/E24/E26/A01-A06/F01-F03 lost their `page`
+// reference (now null, same convention as E16/E17 above) when their
+// guided-video rows were removed from the in-routine Intention/Stretch/
+// Breathe/Affirm screens (Set Your Intention, Affirmation.jsx) — those
+// screens now show only their own core content, never a video-selection
+// list, so background music and narrated video can never compete for the
+// user's attention on the same screen. No catalogue entry, id, title,
+// description, or Storage asset was touched or deleted — every one of
+// these ids remains exactly as fully browsable and playable via Library
+// as it always was, same as E16/E17's own precedent above.
 import { BETA_VIDEO_MANIFEST, getBetaVideoById } from './betaVideoManifest';
 
 export const CATALOG_CATEGORIES = [
@@ -70,21 +82,21 @@ export const getCategoryIcon = (category) => CATEGORY_ICONS[category] || 'catego
 // id -> { category, timeOfDay, page, feelings? }
 const METADATA = {
   // Morning
-  E06: { category: 'Morning', timeOfDay: 'morning', page: '/morning-start' },
-  E07: { category: 'Morning', timeOfDay: 'morning', page: '/affirmation' },
-  E13: { category: 'Morning', timeOfDay: 'morning', page: '/morning-start' },
-  E15: { category: 'Morning', timeOfDay: 'morning', page: '/morning-start' },
-  F01: { category: 'Morning', timeOfDay: 'morning', page: '/intention-setup' },
-  F02: { category: 'Morning', timeOfDay: 'morning', page: '/intention-setup' },
-  F03: { category: 'Morning', timeOfDay: 'morning', page: '/intention-setup' },
+  E06: { category: 'Morning', timeOfDay: 'morning', page: null },
+  E07: { category: 'Morning', timeOfDay: 'morning', page: null },
+  E13: { category: 'Morning', timeOfDay: 'morning', page: null },
+  E15: { category: 'Morning', timeOfDay: 'morning', page: null },
+  F01: { category: 'Morning', timeOfDay: 'morning', page: null },
+  F02: { category: 'Morning', timeOfDay: 'morning', page: null },
+  F03: { category: 'Morning', timeOfDay: 'morning', page: null },
 
   // Positive Energy & Confidence
-  E11: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: '/morning-start', feelings: ['low-energy'] },
-  E12: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: '/affirmation', feelings: ['confidence'] },
-  E14: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: '/morning-start' },
-  E24: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: '/affirmation' },
-  A01: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: '/affirmation' },
-  A04: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: '/affirmation' },
+  E11: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: null, feelings: ['low-energy'] },
+  E12: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: null, feelings: ['confidence'] },
+  E14: { category: 'Positive Energy & Confidence', timeOfDay: 'morning', page: null },
+  E24: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: null },
+  A01: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: null },
+  A04: { category: 'Positive Energy & Confidence', timeOfDay: 'any', page: null },
 
   // Calm & Support
   E02: { category: 'Calm & Support', timeOfDay: 'any', page: '/support', feelings: ['overwhelmed'] },
@@ -110,16 +122,16 @@ const METADATA = {
 
   // Gratitude & Reflection
   E04: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/support', feelings: ['stressed'] },
-  E21: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: '/affirmation' },
-  E22: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: '/affirmation' },
+  E21: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: null },
+  E22: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: null },
   E23: { category: 'Gratitude & Reflection', timeOfDay: 'evening', page: '/reflection' },
   E25: { category: 'Gratitude & Reflection', timeOfDay: 'evening', page: '/reflection' },
-  E26: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: '/affirmation' },
+  E26: { category: 'Gratitude & Reflection', timeOfDay: 'morning', page: null },
   E29: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/grounding' },
-  A02: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/affirmation' },
-  A03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/affirmation' },
-  A05: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/affirmation' },
-  A06: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: '/affirmation' },
+  A02: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  A03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  A05: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  A06: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
 
   // Evening Wind-Down (video content — distinct from Sleep Soundscapes)
   E05: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/prepare-for-rest' },

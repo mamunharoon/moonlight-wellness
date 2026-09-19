@@ -25,7 +25,7 @@ export const AlarmActive = () => {
   // One-shot guard for the new mirror call only (see handleUnlock) — the
   // rapid mousemove events that can accumulate mid-drag would otherwise be
   // able to call advanceStep() more than once before any re-render occurs,
-  // over-advancing the Session Engine past 'start'. The existing legacy
+  // over-advancing the Session Engine past 'intention'. The existing legacy
   // statements (dismissAlarm/setJourneyStep/navigate) are already safe
   // against repeated calls today (idempotent same-value writes, harmless
   // repeated navigation to the same route) and are deliberately left
@@ -56,8 +56,11 @@ export const AlarmActive = () => {
   const handleUnlock = useCallback(() => {
     isDragging.current = false;
     dismissAlarm();
-    setJourneyStep('start');
-    navigate('/morning-start');
+    // Morning-flow redesign: Step 1 is now Set Your Intention — the former
+    // /morning-start video-selection screen is removed from the routine
+    // entirely (see MORNING_STEP_IDS' own comment in sessionConstants.js).
+    setJourneyStep('intention');
+    navigate('/intention-setup');
 
     // Begin Rise & Reset: the one and only place a morning session is
     // created. Guarded by a one-shot ref so rapid mousemove events within
@@ -73,7 +76,7 @@ export const AlarmActive = () => {
       if (state.status === 'playing' || state.status === 'interrupted') {
         resetSession();
       }
-      startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
+      startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.INTENTION) });
     }
   }, [dismissAlarm, navigate, setJourneyStep, state.status, resetSession, startSession]);
 

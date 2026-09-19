@@ -42,7 +42,15 @@ import { SESSION_STATUS } from './sessionReducer';
  */
 
 export const SESSION_STORAGE_KEY = 'moonlight_session_progress';
-export const SESSION_STORAGE_VERSION = 1;
+// Bumped 1 -> 2 for the Morning-flow reorder (Intend/Stretch/Breathe/
+// Affirm/Complete, 'start' removed) — see morningFlowMigration.js for the
+// one-time, targeted migration that runs before this module's own
+// version-mismatch check ever sees a v1 blob. That migration selectively
+// discards only a live Morning-routine snapshot and rewrites a live
+// Evening snapshot byte-for-byte under the new version wrapper, so by the
+// time loadSessionState() below runs, an Evening session in progress is
+// never lost to this bump — only Morning's now-stale step positions are.
+export const SESSION_STORAGE_VERSION = 2;
 export const SESSION_STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12 hours — provisional, see doc comment above
 
 const VALID_STATUSES = Object.values(SESSION_STATUS);

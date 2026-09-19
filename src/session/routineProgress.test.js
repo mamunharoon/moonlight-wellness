@@ -85,7 +85,7 @@ describe('routineProgress — independent per-routine snapshots (Build 10 remedi
 
   it('daily lifecycle: an entry stamped with a previous local day is invisible to getRoutineProgress (never silently carried into today)', () => {
     store.set(ROUTINE_PROGRESS_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       routines: { [MORNING]: { stepIndex: 2, status: SESSION_STATUS.INTERRUPTED, startedAt: null, updatedAt: null, completionEventId: null, dateKey: '2000-01-01' } }
     }));
     expect(getRoutineProgress(MORNING)).toBeNull();
@@ -93,7 +93,7 @@ describe('routineProgress — independent per-routine snapshots (Build 10 remedi
 
   it('daily lifecycle: getRoutineProgressIncludingStale still surfaces yesterday\'s entry, tagged isStale', () => {
     store.set(ROUTINE_PROGRESS_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       routines: { [EVENING]: { stepIndex: 1, status: SESSION_STATUS.INTERRUPTED, startedAt: null, updatedAt: null, completionEventId: null, dateKey: '2000-01-01' } }
     }));
     const stale = getRoutineProgressIncludingStale(EVENING);
@@ -107,7 +107,7 @@ describe('routineProgress — independent per-routine snapshots (Build 10 remedi
 
   it('rejects a stepIndex out of range for that routine\'s own registry definition - fails safely (null), never a crash or a clamp', () => {
     store.set(ROUTINE_PROGRESS_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       routines: { [MORNING]: { stepIndex: 999, status: SESSION_STATUS.PLAYING, startedAt: null, updatedAt: null, completionEventId: null, dateKey: '2000-01-01' } }
     }));
     expect(getRoutineProgress(MORNING)).toBeNull();
@@ -116,7 +116,7 @@ describe('routineProgress — independent per-routine snapshots (Build 10 remedi
 
   it('rejects an unknown sessionId outright - never invents a routine that isn\'t registered', () => {
     store.set(ROUTINE_PROGRESS_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       routines: { 'not-a-real-routine': { stepIndex: 0, status: SESSION_STATUS.PLAYING, startedAt: null, updatedAt: null, completionEventId: null, dateKey: '2000-01-01' } }
     }));
     expect(getRoutineProgress('not-a-real-routine')).toBeNull();

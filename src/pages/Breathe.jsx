@@ -1,16 +1,23 @@
-﻿/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingRing } from '../components/BreathingRing';
+import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+
+// Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
+// MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment). Not
+// yet registered in the manifest/Edge Function, so this renders nothing
+// until it is — see isInteractiveMusicEligible's own doc comment.
+const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E08
@@ -38,15 +45,25 @@ const BREATHING_SESSION_VIDEOS = [
 // "Mindful Breathing" alongside the morning routine's own breathing step
 // - reuses this exact page rather than adding a parallel breathing
 // screen, since its own copy ("Deep Belly Breath") already matches both
-// videos' subject. Shown to any signed-in user (guests excluded); the
-// countdown/Pause/Continue/Skip below are entirely unaffected by whether
-// a row is shown or watched. Access was originally gated on
-// profiles.beta_access; that gate was removed once these videos were
-// approved for general availability in this environment.
+// videos' subject. Shown to any signed-in user (guests excluded). Access
+// was originally gated on profiles.beta_access; that gate was removed
+// once these videos were approved for general availability in this
+// environment.
+//
+// Morning-flow redesign — interactive timer vs. optional guided video:
+// this screen's own Inhale/Hold/Exhale ring has no narration or audio of
+// its own (confirmed by direct audit - the rows below open a completely
+// separate, same-page BetaVideoModal, never mixed with the ring itself).
+// Selecting any row now: (1) marks videoOpenedDuringExercise so the timer
+// stops advancing and background music is suspended (via
+// InteractiveAmbientMusic's own `suspended` prop, driven by openVideo
+// directly), and (2) requires a deliberate "Resume Exercise" tap to
+// continue afterward — closing the video alone never restarts the timer
+// or the music, exactly as required.
 export const Breathe = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
-  // Stage 3C Group 3D Batch B: mirrors the breathe -> intention transition
+  // Stage 3C Group 3D Batch B: mirrors the breathe -> affirmation transition
   // into the Session Engine from all three genuine exits (timer expiry,
   // Complete/Continue, Skip Breathing). See mirrorBreathingExitRef below.
   // Pause/resume deliberately never calls interruptSession()/resumeSession()
@@ -55,6 +72,13 @@ export const Breathe = () => {
   const [breatheState, setBreatheState] = useState('Inhale'); // 'Inhale', 'Hold', 'Exhale'
   const [secondsLeft, setSecondsLeft] = useState(56); // 1-minute production timer
   const [isPaused, setIsPaused] = useState(false);
+  // Morning-flow redesign: set the moment any guided-video row is tapped
+  // (from that same click handler, never from an effect), never cleared
+  // automatically — only the deliberate "Resume Exercise" tap clears it.
+  // Distinct from `isPaused` (the ordinary manual Pause/Resume toggle)
+  // so the UI can show a clearly different "Resume Exercise" affordance
+  // only when a video was actually opened.
+  const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
   const {
     openVideo,
     handleSelect,
@@ -67,6 +91,19 @@ export const Breathe = () => {
 
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
   if (BreathingRing && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
+
+  // A real click-handler state update (see handleSelectVideo below), never
+  // an effect — setting isPaused/videoOpenedDuringExercise here is exactly
+  // the sanctioned "respond to a user gesture" pattern, not a derived-state
+  // synchronization the linter would flag.
+  const handleSelectVideo = (id) => {
+    setVideoOpenedDuringExercise(true);
+    handleSelect(id);
+  };
+
+  const handleResumeExercise = () => {
+    setVideoOpenedDuringExercise(false);
+  };
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -91,11 +128,11 @@ export const Breathe = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || videoOpenedDuringExercise) return;
 
     if (secondsLeft <= 0) {
-      setJourneyStep('intention');
-      navigate('/intention-setup');
+      setJourneyStep('affirmation');
+      navigate('/affirmation');
       mirrorBreathingExitRef.current();
       return;
     }
@@ -116,17 +153,17 @@ export const Breathe = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, isPaused, navigate, setJourneyStep]);
+  }, [secondsLeft, isPaused, videoOpenedDuringExercise, navigate, setJourneyStep]);
 
   const handleComplete = () => {
-    setJourneyStep('intention');
-    navigate('/intention-setup');
+    setJourneyStep('affirmation');
+    navigate('/affirmation');
     mirrorBreathingExitRef.current();
   };
 
   const handleSkip = () => {
-    setJourneyStep('intention');
-    navigate('/intention-setup');
+    setJourneyStep('affirmation');
+    navigate('/affirmation');
     mirrorBreathingExitRef.current();
   };
 
@@ -154,6 +191,8 @@ export const Breathe = () => {
       {/* Breathing Ring Visualizer — extracted to components/BreathingRing.jsx (Stage 4 Batch F2) */}
       <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
 
+      <InteractiveAmbientMusic musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo)} />
+
       <div className="text-center space-y-2">
         <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
           Deep Belly Breath (4-4-6)
@@ -168,7 +207,7 @@ export const Breathe = () => {
             key={id}
             title={entry.title}
             description={blurb}
-            onClick={() => handleSelect(id)}
+            onClick={() => handleSelectVideo(id)}
           />
         );
       })}
@@ -183,7 +222,7 @@ export const Breathe = () => {
               key={id}
               title={entry.title}
               description={blurb}
-              onClick={() => handleSelect(id)}
+              onClick={() => handleSelectVideo(id)}
             />
           );
         })}
@@ -191,22 +230,32 @@ export const Breathe = () => {
 
       {/* Controls */}
       <div className="space-y-3 w-full">
-        <div className="flex gap-3">
-          <button 
-            onClick={() => setIsPaused(!isPaused)}
-            className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+        {videoOpenedDuringExercise && !openVideo ? (
+          <button
+            onClick={handleResumeExercise}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
           >
-            <span className="material-symbols-outlined text-sm">{isPaused ? 'play_arrow' : 'pause'}</span>
-            <span>{isPaused ? 'Resume' : 'Pause'}</span>
+            <span className="material-symbols-outlined text-sm">play_arrow</span>
+            <span>Resume Exercise</span>
           </button>
-          <button 
-            onClick={handleComplete}
-            className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span>Continue</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
-        </div>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsPaused(!isPaused)}
+              className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+            >
+              <span className="material-symbols-outlined text-sm">{isPaused ? 'play_arrow' : 'pause'}</span>
+              <span>{isPaused ? 'Resume' : 'Pause'}</span>
+            </button>
+            <button
+              onClick={handleComplete}
+              className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Continue</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          </div>
+        )}
         <button
           onClick={handleSkip}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
@@ -222,10 +271,9 @@ export const Breathe = () => {
       </div>
 
       {/* Closing this leaves the user right here on the breathing screen -
-          no navigation needed for a return path. The countdown/Pause/
-          Continue/Skip above are entirely unaffected by whether this is
-          open (the countdown keeps running in the background, exactly as
-          it already does behind any other interruption on this screen). */}
+          no navigation needed for a return path. The timer stays paused
+          (videoOpenedDuringExercise) until a deliberate Resume Exercise
+          tap - see the doc comment above. */}
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}

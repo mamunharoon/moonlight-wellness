@@ -12,6 +12,18 @@ import {
   MORNING_STEP_IDS
 } from '../session/sessionConstants';
 import { getStepIndex, getSessionById } from '../session/sessionRegistry';
+import { consumeMorningFlowMigrationNotice } from '../session/morningFlowMigration';
+
+// Morning-flow redesign — one-time migration notice, read at MODULE
+// EVALUATION time (a plain top-level statement), not inside the component
+// or an effect. This module is only ever evaluated once per page load no
+// matter how many times <Home> itself later mounts/unmounts/re-renders
+// (ES module caching) - unlike a lazy useState initializer or a mount
+// effect, it is never subject to React 18 StrictMode's dev-only double-
+// invocation, which would otherwise call this read-and-clear function
+// twice and silently swallow the notice (the first call sees "pending"
+// and clears it; a second, discarded call sees it already cleared).
+const shouldShowMorningFlowMigrationNoticeOnLoad = consumeMorningFlowMigrationNotice();
 import { getRoutineProgress, getRoutineProgressIncludingStale } from '../session/routineProgress';
 import {
   RITUAL_SESSION_IDS,
@@ -132,6 +144,14 @@ export const Home = () => {
   // "routine-start" shape (see its own doc comment) — after signing in,
   // Auth.jsx's redirectAfterAuth() returns the user to '/' with nothing
   // auto-started, ready for their own fresh tap.
+  // Morning-flow redesign — one-time migration notice. The actual read
+  // (consumeMorningFlowMigrationNotice) already happened once, at module
+  // load time, above - see that constant's own doc comment for why. This
+  // is a plain, ordinary (non-lazy) initial state value, safe under
+  // StrictMode double-rendering like any other.
+  const [showMorningFlowMigrationNotice, setShowMorningFlowMigrationNotice] = useState(
+    shouldShowMorningFlowMigrationNoticeOnLoad
+  );
   const [routineSignInPromptOpen, setRoutineSignInPromptOpen] = useState(false);
   const promptRoutineSignIn = () => {
     setRoutineSignInPromptOpen(true);
@@ -229,7 +249,7 @@ export const Home = () => {
     if (!resumeStaleRoutine(RITUAL_SESSION_IDS.morning)) return;
     const session = getSessionById(RITUAL_SESSION_IDS.morning);
     const stepIndex = morningStaleSnapshot?.stepIndex ?? 0;
-    navigate(session?.steps[stepIndex]?.route ?? '/morning-start');
+    navigate(session?.steps[stepIndex]?.route ?? '/intention-setup');
   };
   const handleResumeStaleEvening = () => {
     if (isGuest) { promptRoutineSignIn(); return; }
@@ -300,7 +320,7 @@ export const Home = () => {
     if (morningCardState === 'in-progress') {
       resumeRoutine(RITUAL_SESSION_IDS.morning);
       const session = getSessionById(RITUAL_SESSION_IDS.morning);
-      navigate(session?.steps[morningResolvedStepIndex]?.route ?? '/morning-start');
+      navigate(session?.steps[morningResolvedStepIndex]?.route ?? '/intention-setup');
       return;
     }
     handleBeginRiseAndReset();
@@ -318,21 +338,20 @@ export const Home = () => {
   };
 
   // Close Remaining Daily-Journey Limitations: Today's own "Begin Rise &
-  // Reset" card used to be a bare Link straight to /morning-start, which
-  // is now just Step 1 of the routine (see MorningStart.jsx's own doc
-  // comment) and assumes the Session Engine was already started by
-  // whoever navigated here — a real entry point (RoutineDetail.jsx's own
-  // Start Routine) already does this, but Today's card didn't, so a
-  // routine begun from here never actually engaged the Session Engine
-  // (no step tracking, no resume, no "Continue where you left off").
-  // Mirrors RoutineDetail.jsx's beginRiseAndReset exactly: reset-before-
-  // start guard, then start fresh at Step 1.
+  // Reset" card starts the Session Engine itself before navigating, same
+  // as RoutineDetail.jsx's own Start Routine, so a routine begun from here
+  // always engages step tracking/resume/"Continue where you left off".
+  // Morning-flow redesign: Step 1 is now Set Your Intention
+  // (/intention-setup) — the former /morning-start video-selection screen
+  // is removed from the routine entirely. Mirrors RoutineDetail.jsx's
+  // beginRiseAndReset exactly: reset-before-start guard, then start fresh
+  // at Step 1.
   const handleBeginRiseAndReset = () => {
     if (state.status === 'playing' || state.status === 'interrupted') {
       resetSession();
     }
-    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
-    navigate('/morning-start');
+    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.INTENTION) });
+    navigate('/intention-setup');
   };
 
   // Build 10 fresh-start parity fix — this used to call
@@ -348,8 +367,8 @@ export const Home = () => {
   // screen first, and only starts/advances to Reflection once THAT
   // button is tapped). It was also inconsistent with Morning's own
   // parity: handleBeginRiseAndReset below and RoutineDetail.jsx's
-  // beginRiseAndReset already always land on MorningStart.jsx's genuine
-  // "Step 1 of 5" — no equivalent skip exists for Morning. Fixed by
+  // beginRiseAndReset already always land on IntentionSetup.jsx's genuine
+  // "Step 1 of 4" — no equivalent skip exists for Morning. Fixed by
   // matching RoutineDetail.jsx's own already-correct pattern exactly: a
   // plain navigation, nothing more. This is what makes both "Begin
   // Wind-Down" (this card's ordinary not-started CTA) and "Repeat
@@ -363,6 +382,31 @@ export const Home = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+
+      {/* Morning-flow redesign — one-time migration notice. Required exact
+          copy: "Your Morning routine has been refreshed. Start today's
+          updated routine from the beginning." Shown only when Build 10
+          left unfinished Morning progress that this deploy could not
+          safely resume (see morningFlowMigration.js) - never framed as an
+          error, and never shown again once dismissed (the underlying flag
+          is consumed, not just hidden, the moment this component mounted). */}
+      {showMorningFlowMigrationNotice && (
+        <div className="glass-panel p-5 rounded-2xl space-y-3 border-primary/20 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-primary text-xl shrink-0">wb_sunny</span>
+            <p className="text-sm font-semibold text-on-surface leading-relaxed">
+              Your Morning routine has been refreshed. Start today's updated routine from the beginning.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMorningFlowMigrationNotice(false)}
+            className="px-4 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
+          >
+            Got it
+          </button>
+        </div>
+      )}
 
       <TimezoneBanner />
 
@@ -544,7 +588,7 @@ export const Home = () => {
             </span>
             <div className="space-y-2">
               <h3 className="text-2xl font-bold leading-tight text-on-surface">Ready when you are</h3>
-              <p className="text-sm text-on-surface-variant font-medium">A short 5-step sequence to start your day grounded.</p>
+              <p className="text-sm text-on-surface-variant font-medium">A short 4-step sequence to start your day grounded.</p>
             </div>
             <button
               type="button"

@@ -45,7 +45,6 @@ const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.L
 const Journey = lazy(() => import('./pages/Journey').then((m) => ({ default: m.Journey })));
 const SessionComplete = lazy(() => import('./pages/SessionComplete').then((m) => ({ default: m.SessionComplete })));
 const IntentionSetup = lazy(() => import('./pages/IntentionSetup').then((m) => ({ default: m.IntentionSetup })));
-const MorningStart = lazy(() => import('./pages/MorningStart').then((m) => ({ default: m.MorningStart })));
 const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ default: m.Affirmation })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
@@ -169,7 +168,6 @@ function App() {
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
                 <Route path="onboarding" element={withFallback(<Onboarding />)} />
                 <Route path="session-complete" element={withFallback(<SessionComplete />)} />
-                <Route path="morning-start" element={withFallback(<MorningStart />)} />
                 <Route path="affirmation" element={withFallback(<Affirmation />)} />
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />

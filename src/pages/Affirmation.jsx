@@ -1,104 +1,57 @@
-﻿/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars */
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
-import { getBetaVideoById } from '../lib/betaVideoManifest';
-import { useProtectedVideo } from '../hooks/useProtectedVideo';
-import { BetaVideoModal } from '../components/BetaVideoModal';
-import { BetaVideoRow } from '../components/BetaVideoRow';
-import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { getAffirmationForIntention } from '../lib/intentionAffirmations';
 import { BackButton } from '../components/BackButton';
 
-// Each { id, blurb } pairs a manifest entry with this page's own short,
-// contextual line, matching the pattern already established for E07
-// here. E07 first since it was already here, E11-E12 appended in the
-// order they were assigned to this screen.
-const AFFIRMATION_VIDEOS = [
-  { id: 'E07', blurb: 'A short guided moment of gratitude.' },
-  { id: 'E11', blurb: 'A guided video to lift your energy and mood.' },
-  { id: 'E12', blurb: 'A guided video to help you feel steady and self-assured.' },
-  { id: 'E21', blurb: 'A guided video for gentle self-compassion.' },
-  { id: 'E22', blurb: 'A guided video to help you feel your own inner strength.' },
-  { id: 'E24', blurb: 'A guided video to help you feel confident and capable.' },
-  { id: 'E26', blurb: 'A guided video to help you feel accepted, just as you are.' }
-];
-
-// A01-A06: a distinct "Affirmation Sessions" series, kept in its own
-// array/section (with its own heading) rather than merged into
-// AFFIRMATION_VIDEOS above, specifically so titles like "Confidence
-// Affirmations" read as their own thing next to the existing E-series
-// rows (e.g. E24 "Confidence") on this same page, not as duplicates of
-// them.
-const AFFIRMATION_SERIES_VIDEOS = [
-  { id: 'A01', blurb: 'A guided affirmation video to help you feel confident and capable.' },
-  { id: 'A02', blurb: 'A guided affirmation video to help you feel calm and settled.' },
-  { id: 'A03', blurb: 'A guided affirmation video to help sharpen your focus.' },
-  { id: 'A04', blurb: 'A guided affirmation video to help you find momentum.' },
-  { id: 'A05', blurb: 'A guided affirmation video for a grateful moment.' },
-  { id: 'A06', blurb: 'A guided affirmation video to help you feel worthy, just as you are.' }
-];
-
-// Video Integration: this is the morning session's own moment of
-// positive reflection - the closest existing analogue to a "morning
-// gratitude" stage (Gratitude.jsx/Reflection.jsx are evening-only steps)
-// - so these videos live here as additional rows, shown to any signed-in
-// user (guests excluded). No "Beta" label on any row - each presents as
-// an ordinary WakeWise exercise. Access was originally gated on
-// profiles.beta_access; that gate was removed once these videos were
-// approved for general availability in this environment.
+/*
+ * Morning-flow redesign — Affirm step (now Step 4 of 4, after Breathe).
+ *
+ * Previously this screen showed one fixed generic quote plus optional
+ * guided-video rows (E07/E11/E12/E21/E22/E24/E26, A01-A06) requiring a
+ * video choice before continuing. Per the approved redesign: the screen
+ * now automatically shows one affirmation matched to the user's own
+ * selected Morning intention (IntentionSetup.jsx, now Step 1) - no video
+ * choice, nothing to tap before Continue. The removed videos are not
+ * deleted (see docs/... none needed - lib/mediaCatalog.js's own
+ * MORNING-FLOW REDESIGN REACHABILITY UPDATE comment): every one of them
+ * remains fully browsable and playable via Library, exactly like every
+ * other id whose `page` metadata is null.
+ *
+ * Also previously branched to skip Stretching for routineDuration ===
+ * 'quick' - that branch point moved to IntentionSetup.jsx's own
+ * handleComplete now that Intention comes before Stretch instead of
+ * after it. This screen (the last content step before Complete, in every
+ * routine duration) now always advances straight to Complete.
+ */
 export const Affirmation = () => {
   const navigate = useNavigate();
-  const { setJourneyStep, routineDuration } = useAlarm();
-  // Stage 3C Group 3D Batch A: mirrors the affirmation -> stretch (standard
-  // and gentle) or affirmation -> breathe (quick, an atomic forward jump)
-  // transition into the Session Engine. See handleNext/handleSkip below.
-  const { state, currentStep, advanceStep, advanceToStep, abandonSession } = useSession();
-  const {
-    openVideo,
-    handleSelect,
-    closeVideo,
-    promptOpen,
-    dismissPrompt,
-    confirmSignIn,
-    confirmCreateAccount
-  } = useProtectedVideo();
+  const { setJourneyStep, intentions } = useAlarm();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
 
-  if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
+  const affirmation = getAffirmationForIntention(intentions[0]);
 
-  // Stage 3C Group 3D Batch A: mirror only when the engine is genuinely
-  // playing at the 'affirmation' step — a direct-route visit with no
-  // active session, or a mismatched mirror, silently does nothing here.
+  // Mirror only when the engine is genuinely playing at the 'affirmation'
+  // step — a direct-route visit with no active session, or a mismatched
+  // mirror, silently does nothing here.
   const mirrorTransition = () => {
     if (state.status !== 'playing' || currentStep?.id !== 'affirmation') return;
-    if (routineDuration === 'quick') {
-      advanceToStep('breathe');
-    } else {
-      advanceStep();
-    }
+    advanceStep();
   };
 
   const handleNext = () => {
-    if (routineDuration === 'quick') {
-      setJourneyStep('breathe');
-      navigate('/breathe'); // Quick routine skips stretching entirely
-    } else {
-      setJourneyStep('stretch');
-      navigate('/morning-flow');
-    }
+    setJourneyStep('complete');
+    navigate('/session-complete');
     mirrorTransition();
   };
 
-  const handleSkip = () => {
-    if (routineDuration === 'quick') {
-      setJourneyStep('breathe');
-      navigate('/breathe');
-    } else {
-      setJourneyStep('stretch');
-      navigate('/morning-flow');
-    }
-    mirrorTransition();
-  };
+  // Same real action as Continue — this step has no separate content to
+  // skip past (an automatically-shown affirmation, read at a glance),
+  // matching this routine's own established Skip-equals-Continue pattern
+  // (IntentionSetup.jsx's own Skip button behaves identically).
+  const handleSkip = handleNext;
 
   const handleExitRoutine = () => {
     setJourneyStep('');
@@ -109,7 +62,7 @@ export const Affirmation = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/morning-start" />
+        <BackButton fallback="/breathe" />
       </div>
       <ProgressIndicator activeStep="affirmation" />
 
@@ -117,47 +70,16 @@ export const Affirmation = () => {
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <span className="material-symbols-outlined text-9xl">wb_sunny</span>
         </div>
-        
+
         <div className="space-y-6 relative z-10">
           <span className="material-symbols-outlined text-primary text-4xl animate-pulse">auto_awesome</span>
           <h2 className="text-3xl font-extrabold text-[#954835] leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
           <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed font-medium">
-            "Your pace is enough. Move gently and intentionally."
+            "{affirmation}"
           </p>
         </div>
-      </div>
-
-      <div className="space-y-3">
-        {AFFIRMATION_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelect(id)}
-            />
-          );
-        })}
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Affirmation Sessions</h3>
-        {AFFIRMATION_SERIES_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelect(id)}
-            />
-          );
-        })}
       </div>
 
       <div className="space-y-3 w-full">
@@ -181,19 +103,6 @@ export const Affirmation = () => {
           Exit routine
         </button>
       </div>
-
-      {/* Closing this leaves the user right here on the affirmation screen
-          - no navigation needed for a return path. Continue/Skip above are
-          entirely unaffected by whether this is open. */}
-      {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
-      )}
-      <SignInPromptDialog
-        open={promptOpen}
-        onSignIn={confirmSignIn}
-        onCreateAccount={confirmCreateAccount}
-        onDismiss={dismissPrompt}
-      />
     </div>
   );
 };

@@ -21,16 +21,18 @@ import { useState } from 'react';
  *
  * Rise & Reset ('rise-reset') is the one routine whose Start Routine
  * button does more than a plain link: it starts the Session Engine
- * itself (startSession('morning-routine', { startIndex: <the 'start'
- * step> })) before navigating, so MorningStart.jsx opens directly as a
- * real, tracked "Step 1 of 5" — not a second, separate "Begin your
- * morning" decision screen the way it did before (MorningStart.jsx used
- * to own its own duration/steps summary and its own Begin button,
- * duplicating exactly what this screen already shows, which read as
- * "Start Routine did nothing"). Session Engine tracking is what lets
+ * itself (startSession('morning-routine', { startIndex: <the 'intention'
+ * step> })) before navigating, so IntentionSetup.jsx opens directly as a
+ * real, tracked "Step 1 of 4". Session Engine tracking is what lets
  * Home's "Continue Rise & Reset" card, per-step Back/Skip/Exit, and
- * accurate step numbering all work consistently — see MorningStart.jsx,
- * Affirmation.jsx, MorningFlow.jsx, Breathe.jsx, IntentionSetup.jsx.
+ * accurate step numbering all work consistently — see IntentionSetup.jsx,
+ * MorningFlow.jsx, Breathe.jsx, Affirmation.jsx.
+ *
+ * Morning-flow redesign: the former /morning-start video-selection screen
+ * (once "Step 1 of 5") is removed from the routine entirely — Set Your
+ * Intention is now Step 1. See sessionConstants.js's MORNING_STEP_IDS/
+ * MORNING_DISPLAY_STEP_NUMBERS and morningFlowMigration.js for the
+ * corresponding registry and storage-migration changes.
  *
  * Gentle Reset and Wind-Down are audited and do NOT have this bug:
  * Gentle Reset's Start Routine already goes straight to the one real
@@ -53,15 +55,17 @@ import { useState } from 'react';
 const ROUTINE_DETAILS = {
   'rise-reset': {
     purpose: 'A short morning sequence to help you start the day grounded and clear-headed.',
-    startRoute: '/morning-start',
+    // Morning-flow redesign: Step 1 is now Set Your Intention — the former
+    // /morning-start video-selection screen is removed from the routine
+    // entirely (see MORNING_STEP_IDS' own comment in sessionConstants.js).
+    startRoute: '/intention-setup',
     startLabel: 'Start Routine',
     requiresAuth: true,
     steps: [
-      { title: 'Gentle Awakening / Morning Start', description: 'A short guided welcome into your morning.' },
-      { title: 'Morning Affirmation', description: 'A guided affirmation video to set your tone for the day.' },
+      { title: 'Set Intention', description: 'Choose the intention you want to carry through today.' },
       { title: 'Stretching', description: 'A brief, gentle stretching sequence.' },
       { title: 'Deep Breathing', description: 'A one-minute guided breathing exercise.' },
-      { title: 'Set Intention', description: 'Choose the intention you want to carry through today.' },
+      { title: 'Morning Affirmation', description: 'An affirmation matched to your intention.' },
       { title: 'Completion', description: 'Your morning routine is complete.' }
     ]
   },
@@ -125,7 +129,7 @@ export const RoutineDetail = () => {
     if (state.status === 'playing' || state.status === 'interrupted') {
       resetSession();
     }
-    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.START) });
+    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.INTENTION) });
     navigate(detail.startRoute);
   };
 

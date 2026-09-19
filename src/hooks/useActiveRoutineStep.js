@@ -14,9 +14,11 @@ import { useSession } from '../context/SessionContext';
  * fallback — and must never be allowed to drift out of sync with each
  * other.
  */
+// Morning-flow redesign: 'start' removed — morningFlowMigration.js clears
+// any pre-existing 'start' value from moonlight_journey_step on first
+// load after this deploy, so this map never needs to resolve it.
 const LEGACY_STEP_PATHS = {
   alarm: '/alarm-trigger',
-  start: '/morning-start',
   affirmation: '/affirmation',
   stretch: '/morning-flow',
   breathe: '/breathe',

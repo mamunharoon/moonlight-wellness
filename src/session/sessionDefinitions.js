@@ -85,18 +85,17 @@ export const MORNING_ROUTINE_SESSION = {
       atmosphereRequest: null,
       audioCue: null,
     },
+    // Morning-flow redesign: 'start' (the former /morning-start
+    // video-selection screen) is removed from the routine entirely — Home's
+    // "Begin Rise & Reset", RoutineDetail's "Start Routine", and
+    // AlarmActive's slide-to-unlock all now start the session directly at
+    // 'intention' (see morningFlowMigration.js for the corresponding
+    // storage migration this reorder requires). Approved order: Intend ->
+    // Stretch -> Breathe -> Affirm -> Complete.
     {
-      id: MORNING_STEP_IDS.START,
-      route: '/morning-start',
-      skippable: true, // "Skip Routine" button
-      durationSeconds: null,
-      atmosphereRequest: null,
-      audioCue: null,
-    },
-    {
-      id: MORNING_STEP_IDS.AFFIRMATION,
-      route: '/affirmation',
-      skippable: true, // "Skip" button (currently identical to Continue)
+      id: MORNING_STEP_IDS.INTENTION,
+      route: '/intention-setup',
+      skippable: false, // "Continue" only (renamed from "Start Your Journey"); no Skip affordance
       durationSeconds: null,
       atmosphereRequest: null,
       audioCue: null,
@@ -118,9 +117,9 @@ export const MORNING_ROUTINE_SESSION = {
       audioCue: null,
     },
     {
-      id: MORNING_STEP_IDS.INTENTION,
-      route: '/intention-setup',
-      skippable: false, // only "Start Your Journey" submit; no Skip affordance
+      id: MORNING_STEP_IDS.AFFIRMATION,
+      route: '/affirmation',
+      skippable: true, // "Skip" button (currently identical to Continue)
       durationSeconds: null,
       atmosphereRequest: null,
       audioCue: null,
