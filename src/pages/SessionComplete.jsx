@@ -87,7 +87,7 @@ export const SessionComplete = () => {
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-extrabold text-on-surface leading-tight">You started today with intention.</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          "Carry this feeling into your day." One small step at a time.
+          Your direction is set. Take this feeling with you into the day.
         </p>
       </div>
 

@@ -243,7 +243,7 @@ export const MorningFlow = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Awakening</span>
         <h2 className="text-2xl font-bold text-on-surface">Light Morning Stretching</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-          Wake up your body with gentle, slow stretches.
+          Gently wake your body and release overnight tension.
         </p>
       </div>
 

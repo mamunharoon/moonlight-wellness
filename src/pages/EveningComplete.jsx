@@ -71,19 +71,27 @@ export const EveningComplete = () => {
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">bedtime</span>
         <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 6 of 6</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">You have done enough for today.</h1>
+        <h1 className="font-serif italic text-3xl text-on-surface">Your wind-down is complete</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          Allow yourself to rest.
+          You can finish here, or choose a sleep experience to help you settle gently into rest.
         </p>
       </div>
 
-      <button
-        onClick={handleReturnHome}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-      >
-        <span>Return Home</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
+      <div className="space-y-3 w-full">
+        <button
+          onClick={() => navigate('/library?category=sleep-soundscapes')}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span>Choose a Sleep Experience</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
+        <button
+          onClick={handleReturnHome}
+          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Finish for Tonight
+        </button>
+      </div>
     </EveningSceneShell>
   );
 };

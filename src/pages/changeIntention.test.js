@@ -47,7 +47,7 @@ describe('IntentionSetup.jsx now imports the shared preset list, selection helpe
   });
 
   it('the instruction copy asks for one or two intentions, never "exactly one"', () => {
-    expect(intentionSetupSource).toMatch(/Choose one or two intentions for today\./);
+    expect(intentionSetupSource).toMatch(/Choose one or two qualities you want to carry into today\./);
     expect(intentionSetupSource).not.toMatch(/Choose one primary intention/);
   });
 

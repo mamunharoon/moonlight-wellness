@@ -92,6 +92,10 @@ export const Affirmation = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
+      <p className="text-xs text-on-surface-variant text-center max-w-xs mx-auto leading-relaxed">
+        Begin with a supportive thought to shape how you meet the day.
+      </p>
+
       <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] border border-primary/10 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <span className="material-symbols-outlined text-9xl">wb_sunny</span>

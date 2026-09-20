@@ -82,9 +82,12 @@ export const EveningWindDown = () => {
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>
         <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 6</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-down</h1>
+        <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-Down</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          The day is done. Let's ease gently into the evening, together.
+          Together, we'll reflect on your day, notice something positive, release what's weighing on you, breathe slowly, and prepare for rest.
+        </p>
+        <p className="text-xs text-on-surface-variant/80 max-w-xs mx-auto leading-relaxed">
+          There are no right answers. Take what helps tonight and skip anything you don't need.
         </p>
       </div>
 
@@ -103,7 +106,7 @@ export const EveningWindDown = () => {
           onClick={handleBegin}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
-          <span>Begin</span>
+          <span>Begin My Wind-Down</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
       )}

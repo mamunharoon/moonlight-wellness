@@ -660,7 +660,8 @@ export const Home = () => {
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Ready for your breath of fresh air today?</p>
+            <p className="text-xs text-on-surface-variant font-medium">Take a few minutes to wake your body, settle your mind, and choose how you want to approach the day.</p>
+            <p className="text-xs text-on-surface-variant">Your morning routine brings together setting an intention, gentle movement, grounding, and a closing affirmation.</p>
           </div>
           <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
             <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
@@ -675,7 +676,7 @@ export const Home = () => {
               onClick={handleMorningAction}
               className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
             >
-              Begin Rise &amp; Reset
+              Begin My Morning
             </button>
           </div>
         </div>
@@ -817,7 +818,8 @@ export const Home = () => {
         <div className="space-y-8">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">You've done enough for today. Let's prepare for tomorrow.</p>
+            <p className="text-xs text-on-surface-variant font-medium">Take a few minutes to reflect on your day, release what you no longer need, and gently prepare your mind and body for rest.</p>
+            <p className="text-xs text-on-surface-variant">Follow the guided wind-down, choose a calming practice, or go directly to sleep sounds when you're ready.</p>
           </div>
           <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
             <div className="space-y-1">
@@ -829,10 +831,10 @@ export const Home = () => {
               onClick={handleEveningAction}
               className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
             >
-              Begin Wind-Down
+              Begin Evening Wind-Down
             </button>
             <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10">
-              Sleep Soundscapes
+              Go to Sleep Sounds
             </Link>
           </div>
         </div>

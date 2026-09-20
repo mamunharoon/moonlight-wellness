@@ -66,6 +66,53 @@ export const IntentionSetup = () => {
     hasUnsavedProgress: customIntention.trim().length > 0
   });
   const [isSaving, setIsSaving] = useState(false);
+  // Morning Introduction (two-phase render, same route/component - every
+  // real entry point already pre-starts the Session Engine directly at
+  // this step before navigating here, so a distinct intro route/step
+  // would require touching three separate callers; a local phase flag
+  // reuses this screen instead). Skipped entirely in Review Mode -
+  // ReviewModeBanner below already orients a returning user, and this
+  // phase has nothing to add for a step already complete.
+  //
+  // Audit fix: a bare useState(!isReviewMode) re-showed the intro on
+  // every remount of the LIVE step too - e.g. the user backs out at the
+  // intro (BackButton's "Leave routine?" interrupts the session, per
+  // useActiveRoutineStep's leaveActiveRoutine) and later taps "Begin My
+  // Morning" on Home again; Home's handleBeginRiseAndReset calls
+  // startSession() again, which the reducer silently no-ops (a session
+  // already 'playing'/'interrupted' rejects a second START_SESSION) but
+  // still navigates here - remounting with isReviewMode still false
+  // (currentStep.id === 'intention' still matches). A sessionStorage flag
+  // keyed to this specific live session's own startedAt (unique per
+  // genuine START_SESSION dispatch, never reused across a later fresh
+  // start) remembers "already dismissed" across that remount without any
+  // new persistence layer or database change - cleared automatically the
+  // moment a new session starts (new startedAt = new key).
+  const introSeenKey = isLiveStep && state.startedAt ? `moonlight_morning_intro_seen:${state.startedAt}` : null;
+  const [showIntro, setShowIntro] = useState(() => {
+    if (isReviewMode) return false;
+    if (introSeenKey) {
+      try {
+        if (sessionStorage.getItem(introSeenKey) === '1') return false;
+      } catch {
+        // sessionStorage unavailable - fall through to showing the intro.
+      }
+    }
+    return true;
+  });
+
+  const dismissIntro = () => {
+    if (introSeenKey) {
+      try {
+        sessionStorage.setItem(introSeenKey, '1');
+      } catch {
+        // storage unavailable - the intro may reappear on a later remount,
+        // same as any other sessionStorage-unavailable environment; never
+        // blocks the user from proceeding.
+      }
+    }
+    setShowIntro(false);
+  };
 
   const presets = INTENTION_PRESETS;
 
@@ -165,11 +212,42 @@ export const IntentionSetup = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
+      {showIntro ? (
+        <>
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+            <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_sunny</span>
+            <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 4</span>
+            <h1 className="font-serif italic text-3xl text-on-surface">Start Your Day with Intention</h1>
+            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              We'll begin by setting an intention for today, then move gently through stretching, grounding, and a closing affirmation to carry with you.
+            </p>
+            <p className="text-xs text-on-surface-variant/80 max-w-xs mx-auto leading-relaxed">
+              Move at your own pace and skip anything that doesn't feel right this morning.
+            </p>
+          </div>
+          <div className="space-y-3 w-full">
+            <button
+              onClick={dismissIntro}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            >
+              <span>Begin My Morning</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
         <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose one or two intentions for today.
+          Choose one or two qualities you want to carry into today.
         </p>
         {limitMessage && (
           <p className="text-xs text-secondary font-semibold" role="status">{limitMessage}</p>
@@ -279,6 +357,8 @@ export const IntentionSetup = () => {
           </>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

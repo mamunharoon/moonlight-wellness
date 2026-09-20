@@ -34,6 +34,18 @@ const REFLECTION_VIDEOS = [
   { id: 'E25', blurb: 'A guided video for hope and healing.' }
 ];
 
+// Display-only relabeling for this screen's guidance section - overrides
+// the manifest's own entry.title purely at render time, never touching
+// betaVideoManifest.js itself (ids/storagePath/description untouched, so
+// Supabase Storage lookups and any other screen using these same ids are
+// completely unaffected).
+const REFLECTION_VIDEO_DISPLAY_TITLES = {
+  E10: 'Reflect on My Day',
+  E19: 'Let Go of Today',
+  E23: 'Practise Gratitude',
+  E25: 'Find Hope and Reassurance'
+};
+
 // M01-M05: a distinct "Meditation Sessions" collection, kept in its own
 // array/section (with its own heading) rather than merged into
 // REFLECTION_VIDEOS above, matching the pattern already established for
@@ -241,13 +253,20 @@ export const Reflection = () => {
           )}
         </div>
 
+        <div className="space-y-1 px-1 pt-2">
+          <h3 className="text-sm font-bold text-on-surface">Would some guidance help?</h3>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Answer the reflection question above, or choose any one of these short guided practices. You don't need to complete them all&mdash;select what feels most helpful tonight.
+          </p>
+        </div>
+
         {REFLECTION_VIDEOS.map(({ id, blurb }) => {
           const entry = getBetaVideoById(id);
           if (!entry) return null;
           return (
             <BetaVideoRow
               key={id}
-              title={entry.title}
+              title={REFLECTION_VIDEO_DISPLAY_TITLES[id] ?? entry.title}
               description={blurb}
               onClick={() => handleSelect(id)}
             />

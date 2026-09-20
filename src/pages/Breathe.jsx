@@ -315,7 +315,7 @@ export const Breathe = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise</span>
         <h2 className="text-2xl font-bold text-on-surface">Center Yourself</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          Take a deep breath. Let the world fade away for just a minute.
+          Bring your attention to the present before the day becomes busy.
         </p>
       </div>
 
