@@ -1,9 +1,11 @@
 // "How WakeWise works" — small, permanent Introduction replay link on
-// Home.jsx, placed beneath the four quick-action cards and above the main
-// Morning/Evening content. No DOM/component rendering is available in
-// this repo's Vitest (see Home.routineState.test.js's own note) -
-// source-level checks, matching every other regression guard in this
-// codebase.
+// Home.jsx. Home redesign: the approved page order now places this link
+// LAST (item 8 of 8 - selector, greeting, recommended card, primary
+// button, active intentions, "Or choose something quick", quick-action
+// cards, then this link), after the main Morning/Evening recommendation
+// rather than before it. No DOM/component rendering is available in this
+// repo's Vitest (see Home.routineState.test.js's own note) - source-level
+// checks, matching every other regression guard in this codebase.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -14,13 +16,15 @@ const homeSource = read('./Home.jsx');
 const profileSource = read('./Profile.jsx');
 
 describe('Home.jsx — "How WakeWise works" Introduction replay link', () => {
-  it('is placed after the four quick-action cards grid and before the main Morning/Evening content', () => {
+  it('is placed after the four quick-action cards grid, which is itself after the recommended "Your Next Step" card/button and the Active Intention section (the approved Home order)', () => {
+    const nextStepIndex = homeSource.indexOf("activePeriod === 'morning' && (");
+    const activeIntentionIndex = homeSource.indexOf('<ActiveIntentionCard');
     const gridIndex = homeSource.indexOf('<div className="grid grid-cols-4 gap-2.5">');
     const linkIndex = homeSource.indexOf('to="/introduction"');
-    const beforeWakeIndex = homeSource.indexOf("{/* BEFORE WAKE TIME */}");
-    expect(gridIndex).toBeGreaterThan(-1);
+    expect(nextStepIndex).toBeGreaterThan(-1);
+    expect(activeIntentionIndex).toBeGreaterThan(nextStepIndex);
+    expect(gridIndex).toBeGreaterThan(activeIntentionIndex);
     expect(linkIndex).toBeGreaterThan(gridIndex);
-    expect(beforeWakeIndex).toBeGreaterThan(linkIndex);
   });
 
   it('uses the exact required label and a subtle info icon, never a large quick-action card treatment', () => {
@@ -67,7 +71,9 @@ describe('Home.jsx — "How WakeWise works" Introduction replay link', () => {
     }
   });
 
-  it('does not introduce a second Introduction persistence/version-write path - Home.jsx has no introduction_completed_version write of its own', () => {
-    expect(homeSource).not.toMatch(/introduction_completed_version/);
+  it('does not introduce a second Introduction persistence/version-write path - Home.jsx never writes introduction_completed_version (a read-only reference, for the first-time/returning distinction, is expected and fine)', () => {
+    expect(homeSource).not.toMatch(/\.update\(\{ introduction_completed_version/);
+    expect(homeSource).not.toMatch(/\.upsert\([^)]*introduction_completed_version/);
+    expect(homeSource).not.toMatch(/setIntroductionCompletedVersion/);
   });
 });

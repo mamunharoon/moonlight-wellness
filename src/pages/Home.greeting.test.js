@@ -41,17 +41,27 @@ describe('Home.jsx Morning/Evening selector wiring', () => {
     expect(homeSource).toMatch(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}/);
   });
 
-  it('lets a manual selection override which ritual card renders during daytime-morning/daytime/evening', () => {
-    expect(homeSource).toMatch(/effectiveTimeState === 'daytime-morning'/);
-    expect(homeSource).toMatch(/effectiveTimeState === 'daytime'/);
-    expect(homeSource).toMatch(/effectiveTimeState === 'evening'/);
+  it('Home redesign — a manual pill selection always decides which routine\'s card renders, at any real clock time (activePeriod, not a timeState-gated effectiveTimeState)', () => {
+    expect(homeSource).toMatch(/activePeriod === 'morning' && \(/);
+    expect(homeSource).toMatch(/activePeriod === 'evening' && \(/);
+    // The old effectiveTimeState/overridableTimeStates gating is fully
+    // retired - every state now maps to an actionable "Your Next Step"
+    // card (see nextStepCard.js), so there is no longer a timeState band
+    // a manual selection can be blocked by.
+    expect(homeSource).not.toMatch(/effectiveTimeState/);
+    expect(homeSource).not.toMatch(/overridableTimeStates/);
   });
 
-  it('never lets a manual selection override the before-wake or night screens (real time constraints, not a ritual choice)', () => {
-    expect(homeSource).toMatch(/\{timeState === 'before-wake' && \(/);
-    expect(homeSource).toMatch(/\{timeState === 'night' && \(/);
-    expect(homeSource).not.toMatch(/effectiveTimeState === 'before-wake'/);
-    expect(homeSource).not.toMatch(/effectiveTimeState === 'night'/);
+  it('Home redesign — Morning is now reachable/actionable during evening AND night (the approved "Not started during the evening/night while Morning is selected" state), and Evening is reachable at any time too - both retired full-page before-wake/night takeovers are gone', () => {
+    expect(homeSource).not.toMatch(/\{timeState === 'before-wake' && \(/);
+    expect(homeSource).not.toMatch(/\{timeState === 'night' && \(/);
+    expect(homeSource).not.toMatch(/Still resting/);
+    expect(homeSource).not.toMatch(/Rest Well/);
+    // Morning's own not-started copy varies by real daypart via
+    // resolveMorningDaypart(timeState) - before-wake and night both fold
+    // into a real, actionable variant (see nextStepCard.test.js for the
+    // exhaustive copy coverage), never a dead end.
+    expect(homeSource).toMatch(/const morningDaypart = resolveMorningDaypart\(timeState\);/);
   });
 
   it('defaults the pill highlight from the real clock (existing daypart rules) until the user actually picks one', () => {

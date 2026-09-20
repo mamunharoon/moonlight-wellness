@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getFirstName, getGreeting, GREETING_PERIOD_BY_TIME_STATE } from './greeting';
+import { getFirstName, getGreeting } from './greeting';
 
 describe('getFirstName', () => {
   it('uses a valid profile first name', () => {
@@ -80,20 +80,5 @@ describe('getGreeting', () => {
 
   it('returns null for a period with no known greeting, rather than guessing', () => {
     expect(getGreeting('midnight-snack', { profile: { first_name: 'Jane' }, user: null })).toBeNull();
-  });
-});
-
-describe('GREETING_PERIOD_BY_TIME_STATE', () => {
-  it('maps exactly the three greeted Home.jsx timeState buckets to their daypart, and no others', () => {
-    expect(GREETING_PERIOD_BY_TIME_STATE).toEqual({
-      'daytime-morning': 'morning',
-      daytime: 'afternoon',
-      evening: 'evening'
-    });
-  });
-
-  it('never maps the before-wake or night timeState buckets to a greeting', () => {
-    expect(GREETING_PERIOD_BY_TIME_STATE['before-wake']).toBeUndefined();
-    expect(GREETING_PERIOD_BY_TIME_STATE.night).toBeUndefined();
   });
 });

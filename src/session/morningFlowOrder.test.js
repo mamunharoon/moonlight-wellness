@@ -50,8 +50,7 @@ describe('Approved Morning order: Intend -> Stretch -> Breathe -> Affirm -> Comp
     expect(MORNING_DISPLAY_STEP_COUNT).toBe(4);
   });
 
-  it('Home.jsx\'s "Begin Rise & Reset" card copy says 4-step, not the stale 5-step count', () => {
-    expect(homeSource).toMatch(/A short 4-step sequence to start your day grounded\./);
+  it('Home.jsx\'s "Your Next Step" card never claims the stale 5-step count (Home redesign replaced step-counting copy with a duration estimate - see nextStepCard.js)', () => {
     expect(homeSource).not.toMatch(/5-step sequence/);
   });
 

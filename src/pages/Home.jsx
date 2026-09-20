@@ -12,6 +12,7 @@ import {
   MORNING_STEP_IDS
 } from '../session/sessionConstants';
 import { getStepIndex, getSessionById } from '../session/sessionRegistry';
+import { getStepLabel } from '../lib/stepLabels';
 import { consumeMorningFlowMigrationNotice } from '../session/morningFlowMigration';
 
 // Morning-flow redesign — one-time migration notice, read at MODULE
@@ -33,6 +34,7 @@ import {
   shouldOfferStaleRoutineChoice,
   formatStaleRoutineDate
 } from '../lib/routineCardState';
+import { resolveNextStepCard, resolveMorningDaypart } from '../lib/nextStepCard';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
 import { getGreeting } from '../lib/greeting';
@@ -137,6 +139,20 @@ export const Home = () => {
     }
     const num = EVENING_DISPLAY_STEP_NUMBERS[stepId];
     return num ? `Step ${num} of ${EVENING_DISPLAY_STEP_COUNT}` : '';
+  };
+
+  // Home redesign — plain current-step NAME (e.g. "Stretch", "Reflect"),
+  // for the new unified "You're on {stepName}—your next step is ready."
+  // copy - always resolved from the existing canonical session registry
+  // (sessionRegistry.js's own step ids, via stepLabels.js's shared
+  // STEP_LABELS map - the same source ProgressIndicator.jsx/
+  // ReviewModeBanner already use), never hard-coded here. Distinct from
+  // resolveStepLabel above (kept, unchanged, "Step X of Y" format) which
+  // the stale-routine choice card and the cross-routine banner still use.
+  const resolveCurrentStepName = (sessionId, stepIndex) => {
+    const session = getSessionById(sessionId);
+    const stepId = session?.steps[stepIndex]?.id;
+    return getStepLabel(stepId);
   };
 
   // Guest Onboarding — starting, resuming, repeating, or resetting either
@@ -319,32 +335,87 @@ export const Home = () => {
     timeState = 'night';
   }
 
+  // Home redesign — every timeState band now maps to a real, actionable
+  // "Your Next Step" card (see nextStepCard.js): 'before-wake' folds into
+  // the ordinary morning daypart (still chronologically morning, just
+  // ahead of the user's own alarm - a clear next step here is exactly
+  // this redesign's own goal, replacing the old passive "still resting"
+  // screen with no action to take), and 'night' folds into the same
+  // combined evening/night variant Morning's own copy explicitly calls
+  // for. This is the one deliberate architecture change from the
+  // previous design - see the implementation report for the full
+  // rationale (both retired full-page states offered no actionable next
+  // step, which is exactly what this redesign exists to fix).
+  const morningDaypart = resolveMorningDaypart(timeState);
+
   // Morning/Evening selector: null means "automatic" (the timeState
-  // logic above decides, unchanged) - only becomes 'morning'/'evening'
-  // once the user actually taps a pill, and then stays that way for the
-  // rest of this page view (component state, not persisted - a fresh
-  // visit re-derives from the real clock again). Only overrides during
-  // daytime-morning/daytime/evening: before-wake and night are real
-  // time-based constraints (before your alarm; late enough that winding
-  // down further doesn't make sense), not a ritual choice to toggle.
+  // logic above decides) - only becomes 'morning'/'evening' once the user
+  // actually taps a pill, and then stays that way for the rest of this
+  // page view (component state, not persisted - a fresh visit re-derives
+  // from the real clock again). Home redesign: both routines are now
+  // reachable/actionable at any real time once selected (or by default,
+  // per the fallback below) - Morning's own copy already varies by
+  // daypart via morningDaypart above; Evening's copy is intentionally
+  // constant regardless of clock time, per the approved design.
   const [selectedPeriod, setSelectedPeriod] = useState(null);
-  const overridableTimeStates = timeState === 'daytime-morning' || timeState === 'daytime' || timeState === 'evening';
-  const effectiveTimeState =
-    overridableTimeStates && selectedPeriod === 'morning'
-      ? 'daytime-morning'
-      : overridableTimeStates && selectedPeriod === 'evening'
-        ? 'evening'
-        : timeState;
-  // Which pill looks active. Once the user has picked one, show that
-  // choice; otherwise reflect the real clock (existing daypart rules) -
-  // evening/night lean the Evening pill, everything else leans Morning.
+  // Which pill looks active, and which routine's card actually renders.
+  // Once the user has picked one, show that choice; otherwise reflect the
+  // real clock (existing daypart rules) - evening/night lean the Evening
+  // pill, everything else leans Morning.
   const activePeriod = selectedPeriod ?? (timeState === 'evening' || timeState === 'night' ? 'evening' : 'morning');
 
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
+  // Home redesign — single greeting line, shown once regardless of which
+  // period is selected (Greeting is its own fixed item in the approved
+  // Home order, independent of the Morning/Evening pill). Every timeState
+  // band now maps to one of the three greeted dayparts (see morningDaypart
+  // above for why before-wake/night are folded the way they are) -
+  // getGreeting itself, and its own neutral/no-name fallback, are
+  // completely unchanged.
+  const greetingText =
+    timeState === 'daytime-morning' || timeState === 'before-wake'
+      ? getGreeting('morning', { profile, user })
+      : timeState === 'daytime'
+        ? getGreeting('afternoon', { profile, user })
+        : getGreeting('evening', { profile, user });
+
+  // Home redesign — the six possible "Your Next Step" card contents,
+  // precomputed up front (cheap, pure - resolveNextStepCard does no I/O)
+  // exactly like morningCardState/eveningCardState above already are.
+  // Only the one matching the routine's own resolved cardState is ever
+  // actually rendered, per the JSX below.
+  const morningNotStartedCard = resolveNextStepCard({
+    period: 'morning',
+    cardState: 'not-started',
+    morningDaypart
+  });
+  const morningInProgressCard = resolveNextStepCard({
+    period: 'morning',
+    cardState: 'in-progress',
+    stepName: resolveCurrentStepName(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)
+  });
+  const morningCompletedCard = resolveNextStepCard({
+    period: 'morning',
+    cardState: 'completed'
+  });
+  const eveningNotStartedCard = resolveNextStepCard({
+    period: 'evening',
+    cardState: 'not-started'
+  });
+  const eveningInProgressCard = resolveNextStepCard({
+    period: 'evening',
+    cardState: 'in-progress',
+    stepName: resolveCurrentStepName(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)
+  });
+  const eveningCompletedCard = resolveNextStepCard({
+    period: 'evening',
+    cardState: 'completed'
+  });
+
   // Usability remediation — "Change intention" (ActiveIntentionCard,
-  // rendered from both the Morning-complete and plain-daytime intention
-  // cards below). Deliberately the ONLY thing this touches: the same
+  // rendered from the single, always-visible Active Intentions section
+  // below). Deliberately the ONLY thing this touches: the same
   // setIntentions context setter + saveIntentionsToCloud helper
   // IntentionSetup.jsx itself uses. No Session Engine call, no routine
   // start/resume/reset, no journal/history write - changing today's
@@ -461,6 +532,31 @@ export const Home = () => {
     navigate('/evening-wind-down');
   };
 
+  // Home redesign — the unified "Your Next Step" card's inner content
+  // (eyebrow/title/supporting text/duration), shared by every state/
+  // period so the visual shape can never drift between them. The card
+  // SHELL (gradient, primary button, optional secondary) stays inline per
+  // branch below, not extracted here, so each branch's own onClick stays
+  // a literal, directly-grep-able reference to that routine's own handler
+  // (handleMorningAction/handleEveningAction/setActiveDialog(...)) - never
+  // a generically-named prop indirection.
+  const nextStepCardBody = (card) => (
+    <>
+      <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+        {card.eyebrow}
+      </span>
+      <div className="space-y-2">
+        <h3 className="text-2xl font-bold leading-tight text-on-surface">{card.title}</h3>
+        {card.supportingText && (
+          <p className="text-sm text-on-surface-variant font-medium">{card.supportingText}</p>
+        )}
+        {card.duration && (
+          <p className="text-xs text-on-surface-variant/70 font-semibold">{card.duration}</p>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
 
@@ -491,7 +587,7 @@ export const Home = () => {
 
       <TimezoneBanner />
 
-      {/* Morning/Evening selector — also shows each ritual's daily
+      {/* 1. Morning/Evening selector — also shows each ritual's daily
           completion status (the ✓ prefix), same as before this was made
           functional. Segmented-control styling fix: the previous
           treatment gave the INACTIVE pill glass-panel's own visible
@@ -594,18 +690,226 @@ export const Home = () => {
         </button>
       )}
 
-      {/* Persistent, always-reachable actions — never gated on having
-          set an intention, regardless of time of day. */}
+      {/* 2. Greeting — one line, always shown, independent of which
+          period is selected. */}
+      {greetingText && (
+        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
+      )}
+
+      {/* 3-4. Recommended "Your Next Step" card + its one primary action
+          button, for whichever period (activePeriod) is currently
+          selected. The "yesterday's unfinished routine" stale-choice card
+          (an existing, distinct two-choice feature - Resume Previous /
+          Start Today's, never silently resumed/deleted/relabelled) takes
+          priority over the ordinary not-started card, exactly as before -
+          only its position in the page has moved, not its own logic. */}
+      {activePeriod === 'morning' && (
+        <>
+          {/* MORNING — an unfinished routine from an earlier local day
+              exists (shouldOfferStaleRoutineChoice), and nothing has been
+              recorded for TODAY yet. Never silently resumes it as today's
+              routine, deletes it, or presents it as today's own progress —
+              both explicit choices are always shown side by side. */}
+          {morningCardState === 'not-started' && morningHasStaleChoice && (
+            <div
+              className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]"
+              role="region"
+              aria-label="Unfinished previous Rise & Reset routine"
+            >
+              <div className="space-y-1">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+                  Rise &amp; Reset
+                </span>
+                <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
+                  {formatStaleRoutineDate(morningStaleSnapshot?.dateKey, today)}'s Morning routine is unfinished.
+                </h3>
+                <p className="text-sm text-on-surface-variant font-medium">
+                  {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResumeStaleMorning}
+                aria-label={`Resume previous Morning routine, ${resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}`}
+                className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Resume Previous Routine
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'morning' })}
+                aria-label="Start today's Morning routine and clear the unfinished previous one"
+                className="block w-full min-h-[44px] py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Start Today's Routine
+              </button>
+            </div>
+          )}
+
+          {/* MORNING — not started, no stale choice: the ordinary
+              recommended card, copy varying by the real time of day
+              (morning/afternoon/evening-night) per nextStepCard.js. */}
+          {morningCardState === 'not-started' && !morningHasStaleChoice && (
+            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+              {nextStepCardBody(morningNotStartedCard)}
+              <button
+                type="button"
+                onClick={handleMorningAction}
+                className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+              >
+                {morningNotStartedCard.buttonLabel}
+              </button>
+            </div>
+          )}
+
+          {/* MORNING — paused today. */}
+          {morningCardState === 'in-progress' && (
+            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+              {nextStepCardBody(morningInProgressCard)}
+              <button
+                type="button"
+                onClick={handleMorningAction}
+                className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+              >
+                {morningInProgressCard.buttonLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'start-over', period: 'morning' })}
+                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+              >
+                Start Over
+              </button>
+            </div>
+          )}
+
+          {/* MORNING — completed today. */}
+          {morningCardState === 'completed' && (
+            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+              {nextStepCardBody(morningCompletedCard)}
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
+                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+              >
+                {morningCompletedCard.buttonLabel}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {activePeriod === 'evening' && (
+        <>
+          {/* EVENING — an unfinished routine from an earlier local day
+              exists, and nothing recorded for TODAY yet. Mirrors the
+              Morning stale-choice card exactly. */}
+          {eveningCardState === 'not-started' && eveningHasStaleChoice && (
+            <div
+              className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent"
+              role="region"
+              aria-label="Unfinished previous Evening Wind-Down routine"
+            >
+              <div className="space-y-1">
+                <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
+                <h3 className="text-xl font-bold text-on-surface">
+                  {formatStaleRoutineDate(eveningStaleSnapshot?.dateKey, today)}'s Evening routine is unfinished.
+                </h3>
+                <p className="text-xs text-on-surface-variant font-medium">
+                  {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResumeStaleEvening}
+                aria-label={`Resume previous Evening routine, ${resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}`}
+                className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+              >
+                Resume Previous Routine
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'evening' })}
+                aria-label="Start today's Evening routine and clear the unfinished previous one"
+                className="block w-full min-h-[44px] py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+              >
+                Start Today's Routine
+              </button>
+            </div>
+          )}
+
+          {/* EVENING — not started, no stale choice. */}
+          {eveningCardState === 'not-started' && !eveningHasStaleChoice && (
+            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+              {nextStepCardBody(eveningNotStartedCard)}
+              <button
+                type="button"
+                onClick={handleEveningAction}
+                className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+              >
+                {eveningNotStartedCard.buttonLabel}
+              </button>
+            </div>
+          )}
+
+          {/* EVENING — paused today. */}
+          {eveningCardState === 'in-progress' && (
+            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+              {nextStepCardBody(eveningInProgressCard)}
+              <button
+                type="button"
+                onClick={handleEveningAction}
+                className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+              >
+                {eveningInProgressCard.buttonLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'start-over', period: 'evening' })}
+                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+              >
+                Start Over
+              </button>
+            </div>
+          )}
+
+          {/* EVENING — completed today. */}
+          {eveningCardState === 'completed' && (
+            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+              {nextStepCardBody(eveningCompletedCard)}
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'repeat', period: 'evening' })}
+                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+              >
+                {eveningCompletedCard.buttonLabel}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* 5. Active intentions — always visible, one fixed position, right
+          below the recommended card+button, for both guests (gated on
+          tap, not on visibility - onRequireSignIn) and registered users. */}
+      <div className="glass-panel p-6 rounded-3xl shadow-sm">
+        <ActiveIntentionCard
+          label="Active Intention"
+          intentions={displayIntentions}
+          isGuest={isGuest}
+          onRequireSignIn={promptRoutineSignIn}
+          onSave={handleSaveIntention}
+        />
+      </div>
+
+      {/* 6-7. "Or choose something quick" + the four existing shortcut
+          cards - unchanged destinations/behaviour, only their position
+          (now after the recommended journey, never before it) and this
+          new label are new. */}
       <div className="space-y-3">
-        <div className="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3">
-          <span className="material-symbols-outlined text-tertiary text-lg shrink-0">spa</span>
-          <p className="text-xs text-on-surface-variant min-w-0 truncate">
-            <span className="font-bold uppercase tracking-wider text-[10px] text-tertiary mr-1.5">
-              {displayIntentions.length > 1 ? 'Intentions' : 'Intention'}
-            </span>
-            {displayIntentions.map((item) => `"${item}"`).join('  •  ')}
-          </p>
-        </div>
+        <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 text-center">
+          Or choose something quick
+        </p>
         <div className="grid grid-cols-4 gap-2.5">
           <Link
             to="/support"
@@ -639,341 +943,25 @@ export const Home = () => {
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
           </Link>
         </div>
-        {/* Small, permanent replay entry point for the Introduction screen -
-            visually secondary (plain text row, no glass-panel/card
-            treatment, unlike the four quick-action cards above), reachable
-            by both guests and registered users, exactly mirroring Profile's
-            own "About WakeWise" row (same destination, same replay
-            behaviour - Introduction.jsx's own persistAndContinue already
-            short-circuits to Home without any write for an already-
-            completed registered user, and never writes at all for a
-            guest). min-h-[44px] keeps a real touch target without the row
-            itself needing extra visual height. */}
-        <Link
-          to="/introduction"
-          className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
-          <span>How WakeWise works</span>
-        </Link>
       </div>
 
-      {/* BEFORE WAKE TIME */}
-      {timeState === 'before-wake' && (
-        <div className="space-y-8 text-center py-4">
-          <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-            <span className="material-symbols-outlined text-secondary text-3xl">bedtime</span>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-on-surface">Still resting</h2>
-            <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Next wake reminder at {alarmTime}. Bedtime was set for {bedTime}.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* MORNING WINDOW — not started today, and no unfinished routine
-          from an earlier day either (see the stale-choice card below for
-          the other case) */}
-      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && !morningHasStaleChoice && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Take a few minutes to wake your body, settle your mind, and choose how you want to approach the day.</p>
-            <p className="text-xs text-on-surface-variant">Your morning routine brings together setting an intention, gentle movement, grounding, and a closing affirmation.</p>
-          </div>
-          <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
-              Rise &amp; Reset
-            </span>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold leading-tight text-on-surface">Ready when you are</h3>
-              <p className="text-sm text-on-surface-variant font-medium">A short 4-step sequence to start your day grounded.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleMorningAction}
-              className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
-            >
-              Begin My Morning
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MORNING WINDOW — an unfinished routine from an earlier local day
-          exists (shouldOfferStaleRoutineChoice), and nothing has been
-          recorded for TODAY yet. Never silently resumes it as today's
-          routine, deletes it, or presents it as today's own progress —
-          both explicit choices are always shown side by side. */}
-      {effectiveTimeState === 'daytime-morning' && morningCardState === 'not-started' && morningHasStaleChoice && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">You have an unfinished routine waiting.</p>
-          </div>
-          <div
-            className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]"
-            role="region"
-            aria-label="Unfinished previous Rise & Reset routine"
-          >
-            <div className="space-y-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
-                Rise &amp; Reset
-              </span>
-              <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
-                {formatStaleRoutineDate(morningStaleSnapshot?.dateKey, today)}'s Morning routine is unfinished.
-              </h3>
-              <p className="text-sm text-on-surface-variant font-medium">
-                {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleResumeStaleMorning}
-              aria-label={`Resume previous Morning routine, ${resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}`}
-              className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Resume Previous Routine
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'morning' })}
-              aria-label="Start today's Morning routine and clear the unfinished previous one"
-              className="block w-full min-h-[44px] py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Start Today's Routine
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MORNING WINDOW — paused today (Build 10: previously indistinguishable
-          from "not started" — resolveRoutineCardState/routineProgress.js
-          now track this independently of Evening's own progress). */}
-      {effectiveTimeState === 'daytime-morning' && morningCardState === 'in-progress' && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('morning', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Pick up right where you paused.</p>
-          </div>
-          <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
-              Rise &amp; Reset — {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)}
-            </span>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold leading-tight text-on-surface">Resume Rise &amp; Reset</h3>
-            </div>
-            <button
-              type="button"
-              onClick={handleMorningAction}
-              className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
-            >
-              Resume — {resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex)}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveDialog({ kind: 'start-over', period: 'morning' })}
-              className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
-            >
-              Start Over
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MORNING WINDOW — completed today */}
-      {effectiveTimeState === 'daytime-morning' && morningCardState === 'completed' && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Rise &amp; Reset complete</h2>
-            <p className="text-xs text-on-surface-variant font-medium">You started today with intention.</p>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl shadow-sm">
-            <ActiveIntentionCard
-              label="Today's Intention"
-              intentions={displayIntentions}
-              isGuest={isGuest}
-              onRequireSignIn={promptRoutineSignIn}
-              onSave={handleSaveIntention}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
-            className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
-          >
-            Repeat Morning Routine
-          </button>
-        </div>
-      )}
-
-      {/* DAYTIME */}
-      {effectiveTimeState === 'daytime' && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{getGreeting('afternoon', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">One small step at a time.</p>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-6 shadow-sm bg-gradient-to-br from-[#ffffff]/5 to-transparent">
-            <ActiveIntentionCard
-              label="Active Intention"
-              intentions={displayIntentions}
-              isGuest={isGuest}
-              onRequireSignIn={promptRoutineSignIn}
-              onSave={handleSaveIntention}
-            />
-            <p className="text-xs text-on-surface-variant leading-relaxed">Take a gentle 60-second breathing break to center your focus and reduce anxiety.</p>
-            <Link to="/breathe" className="block w-full py-3 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md">
-              60-Second Reset
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* EVENING — not started today, and no unfinished routine from an
-          earlier day either (see the stale-choice card below) */}
-      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && !eveningHasStaleChoice && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Take a few minutes to reflect on your day, release what you no longer need, and gently prepare your mind and body for rest.</p>
-            <p className="text-xs text-on-surface-variant">Follow the guided wind-down, choose a calming practice, or go directly to sleep sounds when you're ready.</p>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
-            <div className="space-y-1">
-              <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
-              <h3 className="text-xl font-bold text-on-surface">What are you grateful for today?</h3>
-            </div>
-            <button
-              type="button"
-              onClick={handleEveningAction}
-              className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
-            >
-              Begin Evening Wind-Down
-            </button>
-            <Link to="/library?category=sleep-soundscapes" className="block w-full py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10">
-              Go to Sleep Sounds
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* EVENING — an unfinished routine from an earlier local day exists,
-          and nothing recorded for TODAY yet. Mirrors the Morning stale-
-          choice card exactly (see its own doc comment above). */}
-      {effectiveTimeState === 'evening' && eveningCardState === 'not-started' && eveningHasStaleChoice && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">You have an unfinished routine waiting.</p>
-          </div>
-          <div
-            className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent"
-            role="region"
-            aria-label="Unfinished previous Evening Wind-Down routine"
-          >
-            <div className="space-y-1">
-              <p className="text-xs text-primary font-bold uppercase tracking-widest">Evening Reflection</p>
-              <h3 className="text-xl font-bold text-on-surface">
-                {formatStaleRoutineDate(eveningStaleSnapshot?.dateKey, today)}'s Evening routine is unfinished.
-              </h3>
-              <p className="text-xs text-on-surface-variant font-medium">
-                {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleResumeStaleEvening}
-              aria-label={`Resume previous Evening routine, ${resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}`}
-              className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-            >
-              Resume Previous Routine
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'evening' })}
-              aria-label="Start today's Evening routine and clear the unfinished previous one"
-              className="block w-full min-h-[44px] py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-            >
-              Start Today's Routine
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* EVENING — paused today (Build 10: the exact defect reported —
-          this card previously came from whichever routine was globally
-          live, so an Evening pause could be shown/resumed while Morning
-          was selected and vice versa; both are now resolved
-          independently per sessionId, and this block only ever renders
-          for Evening's OWN in-progress state). */}
-      {effectiveTimeState === 'evening' && eveningCardState === 'in-progress' && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Pick up right where you paused.</p>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
-            <div className="space-y-1">
-              <p className="text-xs text-primary font-bold uppercase tracking-widest">
-                Evening Reflection — {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)}
-              </p>
-              <h3 className="text-xl font-bold text-on-surface">Continue your wind-down</h3>
-            </div>
-            <button
-              type="button"
-              onClick={handleEveningAction}
-              className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
-            >
-              Resume — {resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex)}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveDialog({ kind: 'start-over', period: 'evening' })}
-              className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
-            >
-              Start Over
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* EVENING — completed today */}
-      {effectiveTimeState === 'evening' && eveningCardState === 'completed' && (
-        <div className="space-y-8">
-          <div className="space-y-1">
-            <h2 className="text-3xl font-extrabold text-[#ffc5b7] tracking-tight">{getGreeting('evening', { profile, user })}</h2>
-            <p className="text-xs text-on-surface-variant font-medium">Tonight's wind-down is complete. Rest well.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActiveDialog({ kind: 'repeat', period: 'evening' })}
-            className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
-          >
-            Repeat Evening Routine
-          </button>
-        </div>
-      )}
-
-      {/* LATE NIGHT */}
-      {timeState === 'night' && (
-        <div className="space-y-8 text-center py-8">
-          <div className="w-16 h-16 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-            <span className="material-symbols-outlined text-secondary text-3xl">dark_mode</span>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-on-surface">Rest Well</h2>
-            <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Circadian rhythms are settling. Tomorrow's wake reminder is set for {alarmTime}. Sleep soundly.
-            </p>
-          </div>
-          <Link to="/library?category=sleep-soundscapes" className="inline-block px-6 py-3 rounded-full glass-panel text-on-surface-variant text-sm font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10">
-            Sleep Soundscapes
-          </Link>
-        </div>
-      )}
+      {/* 8. Small, permanent replay entry point for the Introduction
+          screen - visually secondary (plain text row, no glass-panel/
+          card treatment, unlike the four quick-action cards above),
+          reachable by both guests and registered users, exactly
+          mirroring Profile's own "About WakeWise" row (same destination,
+          same replay behaviour - Introduction.jsx's own
+          persistAndContinue already short-circuits to Home without any
+          write for an already-completed registered user, and never
+          writes at all for a guest). min-h-[44px] keeps a real touch
+          target without the row itself needing extra visual height. */}
+      <Link
+        to="/introduction"
+        className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
+        <span>How WakeWise works</span>
+      </Link>
 
       {/* "Start Over" / "Repeat Morning/Evening Routine" / "Start Today's
           Routine" confirmation — one dialog, driven entirely by

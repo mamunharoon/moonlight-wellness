@@ -37,7 +37,8 @@ import { useSession } from '../context/SessionContext';
  * the live session belongs to a DIFFERENT routine (or there is none),
  * this page behaves as an ordinary standalone visit - the exact same,
  * already-established treatment as "no active session at all" (e.g.
- * Home's "60-Second Reset" opening /breathe with nothing live).
+ * Support's mood picker opening /quiet-breathing directly, with nothing
+ * live).
  *
  * `isLiveStep` (new): distinct from `!isReviewMode`. A page's own step
  * is only genuinely "live" when THIS ROUTINE is the one actually running

@@ -108,26 +108,23 @@ describe('Home.jsx wires ActiveIntentionCard into both places intentions are sho
     expect(body).not.toMatch(/startSession|resumeRoutine|resetRoutine|resetSession|advanceStep|abandonSession/);
   });
 
-  it('both the Morning-complete "Today\'s Intention" card and the plain-daytime "Active Intention" card render ActiveIntentionCard with the same isGuest/onRequireSignIn/onSave wiring and the full intentions array', () => {
+  it('Home redesign — Active Intentions is now a single, always-visible section (item 5 of the approved Home order), rendered via exactly one ActiveIntentionCard with the same isGuest/onRequireSignIn/onSave wiring and the full intentions array', () => {
     const cardUsages = homeSource.match(/<ActiveIntentionCard[\s\S]*?\/>/g) ?? [];
-    expect(cardUsages.length).toBe(2);
-    for (const usage of cardUsages) {
-      expect(usage).toMatch(/intentions=\{displayIntentions\}/);
-      expect(usage).toMatch(/isGuest=\{isGuest\}/);
-      expect(usage).toMatch(/onRequireSignIn=\{promptRoutineSignIn\}/);
-      expect(usage).toMatch(/onSave=\{handleSaveIntention\}/);
-    }
-    expect(cardUsages.some((u) => /label="Today's Intention"/.test(u))).toBe(true);
-    expect(cardUsages.some((u) => /label="Active Intention"/.test(u))).toBe(true);
+    expect(cardUsages.length).toBe(1);
+    const usage = cardUsages[0];
+    expect(usage).toMatch(/intentions=\{displayIntentions\}/);
+    expect(usage).toMatch(/isGuest=\{isGuest\}/);
+    expect(usage).toMatch(/onRequireSignIn=\{promptRoutineSignIn\}/);
+    expect(usage).toMatch(/onSave=\{handleSaveIntention\}/);
+    expect(usage).toMatch(/label="Active Intention"/);
   });
 
   it('displayIntentions falls back to the same default only when genuinely empty, never silently dropping a real second intention', () => {
     expect(homeSource).toMatch(/const displayIntentions = intentions\.length > 0 \? intentions : \['Stay calm'\];/);
   });
 
-  it('the persistent Home banner shows every selected intention, pluralising the label only when there are two', () => {
-    expect(homeSource).toMatch(/\{displayIntentions\.length > 1 \? 'Intentions' : 'Intention'\}/);
-    expect(homeSource).toMatch(/\{displayIntentions\.map\(\(item\) => `"\$\{item\}"`\)\.join\(' {2}• {2}'\)\}/);
+  it('Home redesign — the old, separate read-only "Intentions/Intention" pill banner is retired (ActiveIntentionCard alone now shows and pluralises the selection - see its own describe block below, unchanged)', () => {
+    expect(homeSource).not.toMatch(/\{displayIntentions\.length > 1 \? 'Intentions' : 'Intention'\}/);
   });
 });
 

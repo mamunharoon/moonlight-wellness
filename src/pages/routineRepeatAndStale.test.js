@@ -111,9 +111,12 @@ describe('Completed-routine "Repeat" fix (the "Do Again does nothing" defect)', 
     expect(homeSource).not.toMatch(/>\s*Do Again\s*</);
   });
 
-  it('a completed Morning routine shows "Repeat Morning Routine", a completed Evening routine shows "Repeat Evening Routine"', () => {
-    expect(homeSource).toMatch(/Repeat Morning Routine/);
-    expect(homeSource).toMatch(/Repeat Evening Routine/);
+  it('a completed Morning routine shows "Repeat Morning Routine", a completed Evening routine shows "Repeat Evening Routine" (Home redesign - the literal copy now lives in nextStepCard.js, rendered here via {morningCompletedCard.buttonLabel}/{eveningCompletedCard.buttonLabel})', () => {
+    const nextStepCardSource = read('../lib/nextStepCard.js');
+    expect(nextStepCardSource).toMatch(/buttonLabel: 'Repeat Morning Routine'/);
+    expect(nextStepCardSource).toMatch(/buttonLabel: 'Repeat Evening Routine'/);
+    expect(homeSource).toMatch(/\{morningCompletedCard\.buttonLabel\}/);
+    expect(homeSource).toMatch(/\{eveningCompletedCard\.buttonLabel\}/);
   });
 
   it('tapping Repeat opens the repeat dialog, scoped to that one period', () => {

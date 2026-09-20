@@ -33,17 +33,6 @@ const GREETING_BASE_BY_PERIOD = {
   evening: 'Good evening'
 };
 
-// Home.jsx's own timeState buckets ('before-wake'/'night' included) that
-// map to a personalised daypart greeting - the other two buckets
-// deliberately have no entry here (and so render no greeting at all),
-// matching the product spec: only morning/afternoon/evening ever greet
-// the user by name.
-export const GREETING_PERIOD_BY_TIME_STATE = {
-  'daytime-morning': 'morning',
-  daytime: 'afternoon',
-  evening: 'evening'
-};
-
 // The one place a daypart + name become the actual greeting string shown
 // on Home - used for all three greeted dayparts so "Good afternoon"/
 // "Good evening" can never drift out of sync with how "Good morning"

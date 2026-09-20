@@ -125,6 +125,14 @@ describe('Introduction.jsx — Start/Skip both call the same persistAndContinue 
     expect(introductionSource).not.toMatch(/localStorage\.setItem/);
     expect(introductionSource).not.toMatch(/onboarding_complete|onboardingComplete|tutorial_seen|onboarding_seen/i);
   });
+
+  it('goes straight from the version update to setSaving(false) - no cached-profile refresh in between, since nothing reads that cached field anymore', () => {
+    const body = introductionSource.match(/const persistAndContinue = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const updateCallIndex = body.indexOf('.update({');
+    const setSavingFalseIndex = body.indexOf('setSaving(false);', updateCallIndex);
+    const between = body.slice(updateCallIndex, setSavingFalseIndex);
+    expect(between).not.toMatch(/refreshProfile/);
+  });
 });
 
 describe('Introduction.jsx — guest behaviour is explicit: no Supabase write is ever attempted for a guest', () => {
