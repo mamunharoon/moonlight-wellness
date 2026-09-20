@@ -1,5 +1,6 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { onSignOutBroadcast } from '../lib/signOutCleanup';
 
 const AudioContext = createContext();
 
@@ -44,6 +45,27 @@ export const AudioProvider = ({ children }) => {
     const audio = audioRef.current;
     audio.volume = volume;
   }, [volume]);
+
+  // Logout / cross-user client-state audit — a signed-out user's track
+  // was otherwise left genuinely playing (not just visible: the real
+  // underlying <audio> element kept running), showing the next signed-in
+  // identity someone else's now-playing track. Stops playback and fully
+  // releases the element (removeAttribute + load(), not just pause()) so
+  // it can't silently resume or keep buffering, then clears the
+  // now-stale track/progress state.
+  useEffect(() => {
+    return onSignOutBroadcast(() => {
+      const audio = audioRef.current;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      setIsPlaying(false);
+      setCurrentTrack(null);
+      setProgress(0);
+      setCurrentTime(0);
+      setDuration(0);
+    });
+  }, []);
 
   const playTrack = (track) => {
     const audio = audioRef.current;

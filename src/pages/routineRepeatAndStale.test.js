@@ -140,8 +140,8 @@ describe('Completed-routine "Repeat" fix (the "Do Again does nothing" defect)', 
 
 describe('Same-day repeat completion — no double daily-streak credit', () => {
   it('SessionComplete.jsx and EveningComplete.jsx both gate their completion-date write behind shouldWriteCompletionDate', () => {
-    expect(sessionCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(MORNING_DONE_KEY\), attributionDateKey\)/);
-    expect(eveningCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(EVENING_DONE_KEY\), attributionDateKey\)/);
+    expect(sessionCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(morningDoneKey\), attributionDateKey\)/);
+    expect(eveningCompleteSource).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(eveningDoneKey\), attributionDateKey\)/);
   });
 
   it('both attribute completion to a pinned (original) date when one exists, falling back to "now" only when it does not', () => {

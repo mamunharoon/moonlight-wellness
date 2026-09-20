@@ -1,5 +1,5 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useAudio } from './AudioContext';
 import { useAuth } from './AuthContext';
 import { useSession } from './SessionContext';
@@ -14,6 +14,7 @@ import {
 } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { sanitizeIntentions } from '../lib/intentionSelection';
+import { onSignOutBroadcast } from '../lib/signOutCleanup';
 
 const AlarmContext = createContext();
 
@@ -136,6 +137,19 @@ export const AlarmProvider = ({ children }) => {
     localStorage.setItem('moonlight_journey_step', journeyStep);
   }, [journeyStep]);
 
+  // Logout / cross-user client-state audit — journeyStep is this legacy
+  // tracker's own React state, initialized once at mount and otherwise
+  // never resynced on sign-out (unlike intentions/rhythm below, which
+  // already re-sync per userId). A non-empty leftover value here feeds
+  // useActiveRoutineStep's legacy-string fallback and could force the
+  // next signed-in identity into a route that was never theirs. Resetting
+  // it to '' also clears moonlight_journey_step via the persist effect
+  // just above (it fires on every journeyStep change) — no separate
+  // localStorage call needed.
+  useEffect(() => {
+    return onSignOutBroadcast(() => setJourneyStep(''));
+  }, []);
+
   // Tracks the userId that `alarmTime`/`bedTime` currently reflect. On the
   // render where an authenticated user signs out, that state still briefly
   // holds their cloud rhythm before the identity-sync effect below corrects
@@ -214,7 +228,11 @@ export const AlarmProvider = ({ children }) => {
   // values. Authenticated users are reset to the neutral defaults before
   // fetching their own row, so switching between two accounts never briefly
   // shows the prior account's rhythm.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect): the synchronous reset to a neutral
+  // value below must commit before the browser paints, so a mounted Home
+  // can never paint even one frame of the outgoing identity's rhythm
+  // while this identity's own fetch is still in flight.
+  useLayoutEffect(() => {
     const syncRhythm = async () => {
       if (!userId) {
         const guestAlarm = localStorage.getItem('moonlight_wake_up_time') || '07:30';
@@ -283,7 +301,10 @@ export const AlarmProvider = ({ children }) => {
   // source, never from a previous session's cloud data. Authenticated users
   // are reset to the default before fetching their own row, so switching
   // between two accounts never briefly shows the prior account's intention.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect): User A's intentions must never paint
+  // for even one frame while User B's own fetch is in flight - the
+  // synchronous reset below must commit before the browser paints.
+  useLayoutEffect(() => {
     const syncIntentions = async () => {
       // Mark this identity as settled before touching state, so the guest
       // persist-write effect above never captures the outgoing identity's

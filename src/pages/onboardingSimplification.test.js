@@ -92,11 +92,11 @@ describe('Onboarding.jsx - no persisted partial-onboarding step state exists to 
 });
 
 describe('Existing/fresh-signup users are never forced through onboarding', () => {
-  it('Auth.jsx sends both sign-in and sign-up straight to Home via redirectAfterAuth, never to /onboarding', () => {
-    expect(authSource).toMatch(/const redirectAfterAuth = \(\) => \{/);
+  it('Auth.jsx sends both sign-in and sign-up through redirectAfterAuth (Home, or the new first-login Introduction gate), never to the legacy /onboarding wizard', () => {
+    expect(authSource).toMatch(/const redirectAfterAuth = async \(authUser\) => \{/);
     expect(authSource).not.toMatch(/navigate\('\/onboarding'\)/);
     const signUpBody = authSource.match(/const handleSignUp = async \(e\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(signUpBody).toMatch(/redirectAfterAuth\(\);/);
+    expect(signUpBody).toMatch(/await redirectAfterAuth\(data\.user\);/);
   });
 
   it('OnboardingGate (the guest Welcome screen) has no concept of the /onboarding wizard or any "has completed onboarding" flag - it gates only on auth/guest-choice state', () => {

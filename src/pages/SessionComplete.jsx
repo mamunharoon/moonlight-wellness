@@ -9,12 +9,11 @@ import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
 import { roleForIndex } from '../lib/intentionSelection';
-
-const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
+import { getMorningCompletionKey } from '../lib/dailyCompletion';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
-  const { intentions, setJourneyStep, effectiveTimezone } = useAlarm();
+  const { intentions, setJourneyStep, effectiveTimezone, userId } = useAlarm();
   // Stage 3C Group 3D Batch C: mirrors the final intention -> complete
   // completion into the Session Engine on mount, and resets the mirror on
   // Return Home. COMPLETE_SESSION is idempotent in the reducer itself (a
@@ -50,8 +49,12 @@ export const SessionComplete = () => {
     // comment on shouldWriteCompletionDate) - repeating Rise & Reset a
     // second time today must not create a second "credit", so the write
     // is skipped entirely once the flag already holds this exact value.
-    if (shouldWriteCompletionDate(localStorage.getItem(MORNING_DONE_KEY), attributionDateKey)) {
-      localStorage.setItem(MORNING_DONE_KEY, attributionDateKey);
+    // User-scoped daily completion audit — writes to the CURRENT
+    // identity's own key (see dailyCompletion.js's own doc comment), so
+    // this completion is never later read back as a different user's.
+    const morningDoneKey = getMorningCompletionKey(userId);
+    if (shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
+      localStorage.setItem(morningDoneKey, attributionDateKey);
     }
     if (state.sessionId) {
       unpinRoutineDate(state.sessionId);

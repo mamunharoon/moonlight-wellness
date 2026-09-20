@@ -24,19 +24,19 @@ const routineDetailSource = read('./RoutineDetail.jsx');
 
 describe('Auth.jsx redirectAfterAuth — ordinary sign-in goes Home, never Profile', () => {
   it('falls back to navigate(\'/\') when nothing is pending - the exact fixed line', () => {
-    const body = authSource.match(/const redirectAfterAuth = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/navigate\('\/'\);\s*\n {2}\};$/);
     expect(body).not.toMatch(/navigate\('\/profile'\)/);
   });
 
   it('an explicit pending destination with no id navigates straight to its returnPath (protected-routine flow)', () => {
-    const body = authSource.match(/const redirectAfterAuth = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(!pending\.id\) \{\s*\n\s*navigate\(pending\.returnPath\);\s*\n\s*return;\s*\n\s*\}/);
   });
 
   it('an explicit pending destination WITH an id (protected-media flow) navigates to returnPath with ?openId= attached', () => {
-    const body = authSource.match(/const redirectAfterAuth = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/navigate\(`\$\{pending\.returnPath\}\$\{separator\}openId=\$\{encodeURIComponent\(pending\.id\)\}`\);/);
   });
 
@@ -45,8 +45,8 @@ describe('Auth.jsx redirectAfterAuth — ordinary sign-in goes Home, never Profi
     expect(authSource).toMatch(/const pending = consumePendingContent\(\);/);
   });
 
-  it('both handleSignIn and handleSignUp call redirectAfterAuth on success - one routing decision, not two', () => {
-    const occurrences = authSource.match(/redirectAfterAuth\(\);/g) ?? [];
+  it('both handleSignIn and handleSignUp await redirectAfterAuth on success, passing the freshly-returned auth user - one routing decision, not two, never a stale context read', () => {
+    const occurrences = authSource.match(/await redirectAfterAuth\((signInData\?\.user|data\.user)\);/g) ?? [];
     expect(occurrences.length).toBe(2);
   });
 

@@ -17,6 +17,7 @@ import {
   unpinRoutineDate
 } from '../session/routineProgress';
 import { runMorningFlowMigration } from '../session/morningFlowMigration';
+import { onSignOutBroadcast } from '../lib/signOutCleanup';
 
 // Morning-flow reorder migration — run once, at module-evaluation time,
 // deliberately NOT inside a React effect. ES module evaluation is
@@ -75,6 +76,21 @@ export const SessionProvider = ({ children }) => {
     if (restored) {
       dispatch({ type: SESSION_ACTION_TYPES.RESTORE_SESSION, payload: restored });
     }
+  }, []);
+
+  // Logout / cross-user client-state audit — a signed-out user's live
+  // 'playing'/'interrupted' session was otherwise left exactly as-is in
+  // this reducer's own in-memory state (nothing outside this provider can
+  // dispatch to it — AuthContext.signOut() cannot reach useSession()
+  // directly, see signOutCleanup.js's own doc comment), surviving into
+  // the very next signed-in identity on the same tab with no refresh
+  // required, and also driving a stale RoutineRestoreGuard redirect.
+  // RESET_SESSION returns canonical idle synchronously, so the write-
+  // through persist effect below fires right after and overwrites
+  // moonlight_session_progress with that same idle state — no separate
+  // localStorage clear needed for this key.
+  useEffect(() => {
+    return onSignOutBroadcast(() => dispatch({ type: SESSION_ACTION_TYPES.RESET_SESSION }));
   }, []);
 
   // Write-through persistence. Fires once per genuine state change.

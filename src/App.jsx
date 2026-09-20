@@ -34,6 +34,7 @@ const Home = lazy(() => import('./pages/Home').then((m) => ({ default: m.Home })
 const Breathe = lazy(() => import('./pages/Breathe').then((m) => ({ default: m.Breathe })));
 const Journal = lazy(() => import('./pages/Journal').then((m) => ({ default: m.Journal })));
 const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding })));
+const Introduction = lazy(() => import('./pages/Introduction').then((m) => ({ default: m.Introduction })));
 const AlarmActive = lazy(() => import('./pages/AlarmActive').then((m) => ({ default: m.AlarmActive })));
 const MorningFlow = lazy(() => import('./pages/MorningFlow').then((m) => ({ default: m.MorningFlow })));
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
@@ -175,6 +176,12 @@ function App() {
                 {/* Full-Screen flows */}
                 <Route path="alarm-trigger" element={withFallback(<AlarmActive />)} />
                 <Route path="onboarding" element={withFallback(<Onboarding />)} />
+                {/* First-use WakeWise introduction — reached today only via
+                    Profile's "About WakeWise" row (see Introduction.jsx's
+                    own doc comment for why it isn't yet auto-shown after
+                    signup/first login). Full-bleed, same placement as
+                    onboarding/auth above. */}
+                <Route path="introduction" element={withFallback(<Introduction />)} />
                 <Route path="session-complete" element={withFallback(<SessionComplete />)} />
                 <Route path="affirmation" element={withFallback(<Affirmation />)} />
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />

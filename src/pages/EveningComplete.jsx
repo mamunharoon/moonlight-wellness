@@ -7,8 +7,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
-
-const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
+import { getEveningCompletionKey } from '../lib/dailyCompletion';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -27,7 +26,7 @@ const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
 export const EveningComplete = () => {
   const navigate = useNavigate();
   const { state, currentStep, completeSession, resetSession } = useSession();
-  const { effectiveTimezone } = useAlarm();
+  const { effectiveTimezone, userId } = useAlarm();
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
@@ -55,8 +54,12 @@ export const EveningComplete = () => {
     // increment in the first place.
     const pinnedDateKey = getPinnedRoutineDate(state.sessionId);
     const attributionDateKey = pinnedDateKey ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
-    if (shouldWriteCompletionDate(localStorage.getItem(EVENING_DONE_KEY), attributionDateKey)) {
-      localStorage.setItem(EVENING_DONE_KEY, attributionDateKey);
+    // User-scoped daily completion audit — writes to the CURRENT
+    // identity's own key (see dailyCompletion.js's own doc comment), so
+    // this completion is never later read back as a different user's.
+    const eveningDoneKey = getEveningCompletionKey(userId);
+    if (shouldWriteCompletionDate(localStorage.getItem(eveningDoneKey), attributionDateKey)) {
+      localStorage.setItem(eveningDoneKey, attributionDateKey);
     }
     if (state.sessionId) {
       unpinRoutineDate(state.sessionId);

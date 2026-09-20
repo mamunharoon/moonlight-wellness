@@ -24,6 +24,12 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
  * AlarmContext since the original morning-flow batches, but no UI
  * anywhere ever let a user change it — this row is a small, self
  * contained three-way toggle, not a rebuild of anything.
+ *
+ * First-use introduction, Part 5 — "About WakeWise" added directly before
+ * Help and Support, letting anyone (guest or registered) replay the
+ * first-use introduction screen (Introduction.jsx) on demand. Deliberately
+ * a plain navigation, never a reset of any kind — replaying it must not
+ * touch routine progress, intentions, or account data.
  */
 const DURATION_OPTIONS = [
   { id: 'quick', label: 'Quick' },
@@ -234,6 +240,14 @@ export const Profile = () => {
           <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
             <span className="material-symbols-outlined text-on-surface-variant text-xl">shield_person</span>
             Privacy and Account
+          </span>
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+        </Link>
+
+        <Link to="/introduction" className={rowClass}>
+          <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">info</span>
+            About WakeWise
           </span>
           <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
         </Link>

@@ -1,15 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { migrateGuestData } from '../lib/migrateGuestData';
 import { clearAllRoutineProgress } from '../session/routineProgress';
 import { clearGuestEntryChoice } from '../lib/guestEntry';
 import { clearPendingContent } from '../lib/pendingContent';
+import { broadcastSignOut, clearAppSessionStorage } from '../lib/signOutCleanup';
+import { performSupabaseSignOut } from '../lib/signOutFlow';
 
 const AuthContext = createContext();
 
-const PROFILE_COLUMNS = 'id, first_name, last_name, avatar_url';
-const MIGRATION_MARKER_PREFIX = 'moonlight_migration_v1_';
+// introduction_completed_version — added by
+// 20260920120000_profiles_introduction_completed_version.sql, now live in
+// DEV. Included here so AuthContext's own `profile` is a complete
+// representation of the row; the first-login gate (Auth.jsx) and
+// Introduction.jsx's own Start/Skip persistence each still query it
+// directly rather than trusting this possibly-stale context value, per
+// the explicit "do not rely on stale profile context" requirement.
+const PROFILE_COLUMNS = 'id, first_name, last_name, avatar_url, introduction_completed_version';
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
@@ -18,9 +25,14 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(null);
-  // Bumped only after a successful guest-to-account migration. Group 5.4
-  // will consume this to know when to re-fetch rhythm/intention state.
-  const [migrationRevision, setMigrationRevision] = useState(0);
+  // Was bumped after a successful guest-to-account migration (Stage 2B
+  // Group 5.3/5.4) to trigger AlarmContext's rhythm/intention re-fetch.
+  // That automatic migration is now permanently disabled (see the removal
+  // rationale where the migration effect used to live, below) as the
+  // confirmed root cause of a cross-user privacy defect - kept as a
+  // constant, never incremented, purely so AlarmContext's existing effect
+  // dependency arrays need no change.
+  const migrationRevision = 0;
 
   useEffect(() => {
     if (!supabase) return;
@@ -61,12 +73,36 @@ export const AuthProvider = ({ children }) => {
   // must not survive a sign-out either, or the NEXT ordinary sign-in on
   // this device/tab could be silently redirected to wherever a PREVIOUS
   // session's protected action last pointed, instead of Home.
+  //
+  // Logout / cross-user client-state audit — two more device-local
+  // things a signed-out user was leaving behind for whoever signs in
+  // next: every other 'moonlight_'-prefixed sessionStorage key, and — via
+  // broadcastSignOut() — the live Session Engine session, the legacy
+  // journeyStep tracker, and any active audio/video playback, each reset
+  // by its own provider (AudioContext/SessionContext/AlarmContext/
+  // OnboardingGate all listen for this signal; none of them are
+  // reachable directly from here — see signOutCleanup.js's own doc
+  // comment for why). All of this runs before the Supabase call, same as
+  // the existing clears above, so it can never fail/block sign-out and so
+  // the app already looks fully signed-out the instant this function is
+  // called, never mid-transition. This is safe even if the Supabase call
+  // below ultimately fails: OnboardingGate's own `!user` check means
+  // Welcome can only ever actually render once a genuine SIGNED_OUT auth
+  // event fires (user set to null) — resetting local UI state early never
+  // by itself claims the user is logged out.
+  //
+  // Sign-out failure semantics — see signOutFlow.js's own doc comment for
+  // the full rationale (extracted there, rather than inlined here, so it
+  // can be exercised with a real behaviour test against a fake Supabase
+  // client instead of only a source-level regex check).
   const signOut = async () => {
     clearAllRoutineProgress();
     clearGuestEntryChoice();
     clearPendingContent();
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    clearAppSessionStorage();
+    broadcastSignOut();
+
+    await performSupabaseSignOut(supabase);
   };
 
   const isGuest = !user || user.is_anonymous === true;
@@ -152,57 +188,37 @@ export const AuthProvider = ({ children }) => {
 
   const refreshProfile = () => loadProfile(user);
 
-  // Stage 2B Group 5.3: one-time guest-to-account data migration. Runs only
-  // for a permanent (non-anonymous) authenticated user who hasn't already
-  // completed this migration version, per the moonlight_migration_v1_<id>
-  // marker. Guest localStorage is never cleared here (retained per the
-  // approved Group 5 data-retention policy) and the marker is written only
-  // on full success, so a partial failure retries safely on the next
-  // sign-in/refresh without risking duplicate or overwritten cloud data -
-  // migrateGuestData.js's own cloud-first checks and the client_id unique
-  // constraint are what make that retry safe.
-  useEffect(() => {
-    const runMigration = async () => {
-      if (loading) return;
-      if (!user || user.is_anonymous || !user.id) return;
-
-      const markerKey = `${MIGRATION_MARKER_PREFIX}${user.id}`;
-
-      let alreadyMigrated;
-      try {
-        alreadyMigrated = localStorage.getItem(markerKey);
-      } catch {
-        // localStorage unavailable this session - skip rather than risk a
-        // migration attempt with no way to record completion.
-        return;
-      }
-      if (alreadyMigrated) return;
-
-      const result = await migrateGuestData(user.id);
-
-      if (!result.success) {
-        console.warn('migrateGuestData: migration did not complete successfully, will retry next sign-in', {
-          rhythm: result.rhythm,
-          intention: result.intention,
-          journal: result.journal
-        });
-        return;
-      }
-
-      try {
-        localStorage.setItem(markerKey, new Date().toISOString());
-      } catch (e) {
-        // Migration itself succeeded and cloud data is safe, but without a
-        // recorded marker this will simply be retried (safely) next time.
-        console.warn('migrateGuestData: migration succeeded but marker write failed:', e.message);
-        return;
-      }
-
-      setMigrationRevision((prev) => prev + 1);
-    };
-
-    runMigration();
-  }, [user, loading]);
+  // Stage 2B Group 5.3 guest-to-account migration (migrateGuestData,
+  // triggered from here on every first sign-in of a new account on a
+  // device) has been PERMANENTLY REMOVED — confirmed root cause of a
+  // release-blocking cross-user privacy defect.
+  //
+  // This app has no real Supabase anonymous session anywhere (no
+  // `supabase.auth.signInAnonymously()` call exists in this codebase) -
+  // "guest" simply means "no session at all", so device-local guest data
+  // (moonlight_intentions, moonlight_wake_up_time/bedtime/timezone,
+  // moonlight_journal_entries) has no actual link to whichever account
+  // later signs in on that device. The old moonlight_migration_v1_<id>
+  // marker only recorded "has THIS account run migration on THIS device
+  // before" - not "does this device's guest data actually belong to this
+  // account" - so on any device used by more than one person (a shared/
+  // QA/family device, or simply two different accounts signing up
+  // back-to-back in the same browser), the first account to sign in on
+  // that device had this device's guest content silently written into its
+  // own user_intentions/rhythms/journal_entries rows, and every
+  // subsequent distinct account that later signed in on the same device
+  // for the first time got that exact same (by-then-unrelated) content
+  // written into ITS rows too - reproduced live with two disposable DEV
+  // accounts sharing one browser: both ended up with identical Supabase
+  // user_intentions row content that neither had actually chosen.
+  //
+  // Per the approved remediation, guest data must never be adopted by a
+  // registered account automatically - only via a future explicit, user-
+  // approved conversion flow (e.g. an affirmative "Apply your guest data
+  // to this account?" prompt at the moment of signup), which does not
+  // exist yet. migrateGuestData.js itself is left untouched (its cloud-
+  // first-check/upsert building blocks remain valid for such a future
+  // flow) - only this automatic, unconditional call site is removed.
 
   return (
     <AuthContext.Provider value={{

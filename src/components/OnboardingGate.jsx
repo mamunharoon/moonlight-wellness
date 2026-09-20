@@ -1,8 +1,9 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { hasChosenGuestEntry, markGuestEntryChosen } from '../lib/guestEntry';
+import { onSignOutBroadcast } from '../lib/signOutCleanup';
 import { Welcome } from '../pages/Welcome';
 
 /*
@@ -39,6 +40,25 @@ export const OnboardingGate = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   const [guestEntryChosen, setGuestEntryChosen] = useState(hasChosenGuestEntry);
+
+  // Logout / cross-user client-state audit — root cause of "sign out
+  // doesn't return to Welcome": this state was only ever read from
+  // localStorage once, at this component's own initial mount. Since
+  // OnboardingGate wraps the whole app and never unmounts across a
+  // sign-out (App.jsx renders it once, above <Routes>), a device that had
+  // EVER chosen "Continue as Guest" during this page load kept
+  // guestEntryChosen stuck at true — so AuthContext.signOut()'s own
+  // clearGuestEntryChoice() correctly wiped the localStorage flag, but
+  // this already-mounted instance never found out, needsWelcome stayed
+  // false, and the signed-out user landed back on Home as an implicit
+  // guest instead of Welcome, complete with whatever stale local state
+  // was still sitting there. Explicitly re-synced to false at the exact
+  // moment sign-out is invoked, matching guestEntry.js's own documented
+  // intent ("the next person on this device... sees the welcome screen
+  // fresh").
+  useEffect(() => {
+    return onSignOutBroadcast(() => setGuestEntryChosen(false));
+  }, []);
 
   if (loading) {
     return (

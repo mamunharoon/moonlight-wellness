@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
 import { markGuestEntryChosen } from '../lib/guestEntry';
+import { shouldShowIntroduction } from '../lib/introductionVersion';
 import { BackButton } from '../components/BackButton';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -68,7 +69,31 @@ export const Auth = () => {
   // and reads-and-clears in one step, so an external/invalid or already-
   // consumed destination naturally falls through to this same Home
   // fallback - no separate handling needed here.
-  const redirectAfterAuth = () => {
+  // First-login Introduction gate — a ONE-SHOT check performed exactly
+  // once here, right after a successful sign-in/sign-up, never a
+  // persistent per-route gate (unlike OnboardingGate) - this is what
+  // prevents a redirect loop by construction: nothing re-evaluates this
+  // on a later navigation, so leaving /introduction without completing it
+  // can never bounce the user back.
+  //
+  // Queries this user's own profile row DIRECTLY (never AuthContext's own
+  // `profile` state, which is fetched by a separate effect keyed on
+  // `user` and may not have resolved yet at this exact moment - trusting
+  // it here could both show a stale decision and risk a flash of
+  // authenticated Home before a slow profile fetch settles). `authUser`
+  // is the user object the calling handler already has in hand from its
+  // own signIn/signUp response - not a re-fetch, not a context read.
+  //
+  // A pending-content destination always wins over Introduction (an
+  // explicit "come back to this exact locked item" intent from before
+  // sign-in is more specific than a generic first-login screen).
+  //
+  // Failure handling: a query error here fails OPEN toward Home, never
+  // toward forcing the Introduction on uncertain data - logged via
+  // console.warn (no user-identifying detail: no email, no user id, just
+  // the fact that the check failed) rather than surfaced to the user,
+  // since Home remains a perfectly good landing either way.
+  const redirectAfterAuth = async (authUser) => {
     const pending = consumePendingContent();
     if (pending) {
       if (!pending.id) {
@@ -79,6 +104,24 @@ export const Auth = () => {
       navigate(`${pending.returnPath}${separator}openId=${encodeURIComponent(pending.id)}`);
       return;
     }
+
+    if (supabase && authUser && !authUser.is_anonymous) {
+      const { data: profileRow, error: profileError } = await supabase
+        .from('profiles')
+        .select('introduction_completed_version')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('redirectAfterAuth: introduction-version check failed, defaulting to Home', profileError.message);
+      } else if (shouldShowIntroduction(profileRow?.introduction_completed_version)) {
+        // replace: true - Back from Introduction must not return to the
+        // Auth form (already submitted, nothing to resubmit).
+        navigate('/introduction', { replace: true });
+        return;
+      }
+    }
+
     navigate('/');
   };
 
@@ -95,18 +138,23 @@ export const Auth = () => {
     }
 
     setIsSubmitting(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
       password
     });
-    setIsSubmitting(false);
 
     if (signInError) {
+      setIsSubmitting(false);
       setError(getFriendlyErrorMessage(signInError));
       return;
     }
 
-    redirectAfterAuth();
+    // isSubmitting stays true through the redirect decision itself (never
+    // reset here) - this is what keeps the form's own submit control
+    // disabled/showing "Signing in..." for the brief extra moment the
+    // introduction-version check takes, rather than flashing back to an
+    // idle, re-enabled Auth form right before navigating away.
+    await redirectAfterAuth(signInData?.user);
   };
 
   const handleSignUp = async (e) => {
@@ -147,20 +195,23 @@ export const Auth = () => {
         }
       }
     });
-    setIsSubmitting(false);
 
     if (signUpError) {
+      setIsSubmitting(false);
       setError(getFriendlyErrorMessage(signUpError));
       return;
     }
 
     if (data.user && !data.session) {
+      setIsSubmitting(false);
       setMessage('Account created! Check your email to verify your address before signing in.');
       switchMode('signIn');
       return;
     }
 
-    redirectAfterAuth();
+    // isSubmitting stays true through the redirect decision itself - see
+    // handleSignIn's identical comment above.
+    await redirectAfterAuth(data.user);
   };
 
   const handleForgotPassword = async (e) => {

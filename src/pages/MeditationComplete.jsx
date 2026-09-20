@@ -5,8 +5,7 @@ import { useAlarm } from '../context/AlarmContext';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { BackButton } from '../components/BackButton';
-
-const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
+import { getMeditationCompletionKey } from '../lib/dailyCompletion';
 
 const CHECK_IN_OPTIONS = [
   { id: 'calmer', label: 'Calmer' },
@@ -45,19 +44,22 @@ const formatDuration = (seconds) => {
 export const MeditationComplete = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { effectiveTimezone } = useAlarm();
+  const { effectiveTimezone, userId } = useAlarm();
   const [checkIn, setCheckIn] = useState(null);
 
   const session = location.state || null;
   const durationLabel = session ? formatDuration(session.durationSeconds) : null;
 
+  // User-scoped daily completion audit — writes to the CURRENT identity's
+  // own key (see dailyCompletion.js's own doc comment), so this
+  // completion is never later read back as a different user's.
   const handleReturnHome = () => {
-    localStorage.setItem(MEDITATION_DONE_KEY, getZonedParts(effectiveTimezone, devNow()).dateKey);
+    localStorage.setItem(getMeditationCompletionKey(userId), getZonedParts(effectiveTimezone, devNow()).dateKey);
     navigate('/');
   };
 
   const handleChooseAnother = () => {
-    localStorage.setItem(MEDITATION_DONE_KEY, getZonedParts(effectiveTimezone, devNow()).dateKey);
+    localStorage.setItem(getMeditationCompletionKey(userId), getZonedParts(effectiveTimezone, devNow()).dateKey);
     navigate('/meditate');
   };
 

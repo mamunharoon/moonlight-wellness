@@ -42,10 +42,7 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
 import { saveIntentionsToCloud } from '../lib/intentionPersistence';
-
-const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
-const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
-const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';
+import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -62,14 +59,20 @@ export const Home = () => {
   // interpreted in the user's own timezone" in a shipped build.
   const zoned = getZonedParts(effectiveTimezone, devNow());
   const today = zoned.dateKey;
-  const isMorningDone = localStorage.getItem(MORNING_DONE_KEY) === today;
-  const isEveningDone = localStorage.getItem(EVENING_DONE_KEY) === today;
+  // User-scoped daily completion audit — reads the CURRENT identity's own
+  // key (userId, from useAlarm() above, is null for a guest) so a
+  // registered user's completion is never confused with a guest's, or
+  // with a different registered user's, on the same device. See
+  // dailyCompletion.js's own doc comment for the full rationale.
+  const isMorningDone = localStorage.getItem(getMorningCompletionKey(userId)) === today;
+  const isEveningDone = localStorage.getItem(getEveningCompletionKey(userId)) === today;
   // Meditation experience: mirrors the morning/evening pattern exactly -
   // a local-date-keyed flag using the same timezone-correct dateKey, so
   // it resets at the user's own local midnight, never Sydney server time
   // or UTC. Only ever shown once earned (see the pill below), not as a
-  // persistent unchecked placeholder like Morning/Evening.
-  const isMeditatedToday = localStorage.getItem(MEDITATION_DONE_KEY) === today;
+  // persistent unchecked placeholder like Morning/Evening. User-scoped
+  // the same way as isMorningDone/isEveningDone above.
+  const isMeditatedToday = localStorage.getItem(getMeditationCompletionKey(userId)) === today;
 
   // Build 10 remediation — the critical "Evening selected opens Morning"
   // defect traced back to this exact spot: isMorningActive/isEveningActive
