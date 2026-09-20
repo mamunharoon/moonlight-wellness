@@ -690,13 +690,38 @@ export const Home = () => {
         </button>
       )}
 
-      {/* 2. Greeting — one line, always shown, independent of which
-          period is selected. */}
-      {greetingText && (
-        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
-      )}
+      {/* 2-3. Greeting + the small, permanent Introduction replay link,
+          grouped into one layout unit (space-y-2 - a tight internal gap)
+          so the page's outer space-y-8 rhythm treats the pair as a single
+          child: one normal 2rem gap above the group, one normal 2rem gap
+          below it before the recommended card - no negative margins, no
+          fighting the parent's own cascade. Usability fix: the link used
+          to sit at the bottom of the page (below the quick-action cards,
+          requiring a scroll to reach) - moved here, directly under the
+          greeting, same route/behaviour, still exactly one link. Visually
+          secondary (plain text row, no glass-panel/card treatment, unlike
+          the primary CTA below or the quick-action cards further down),
+          reachable by both guests and registered users, exactly mirroring
+          Profile's own "About WakeWise" row (same destination, same
+          replay behaviour - Introduction.jsx's own persistAndContinue
+          already short-circuits to Home without any write for an
+          already-completed registered user, and never writes at all for
+          a guest). min-h-[44px] keeps a real touch target without the row
+          itself needing extra visual height. */}
+      <div className="space-y-2">
+        {greetingText && (
+          <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
+        )}
+        <Link
+          to="/introduction"
+          className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
+          <span>How WakeWise works</span>
+        </Link>
+      </div>
 
-      {/* 3-4. Recommended "Your Next Step" card + its one primary action
+      {/* 4-5. Recommended "Your Next Step" card + its one primary action
           button, for whichever period (activePeriod) is currently
           selected. The "yesterday's unfinished routine" stale-choice card
           (an existing, distinct two-choice feature - Resume Previous /
@@ -889,7 +914,7 @@ export const Home = () => {
         </>
       )}
 
-      {/* 5. Active intentions — always visible, one fixed position, right
+      {/* 6. Active intentions — always visible, one fixed position, right
           below the recommended card+button, for both guests (gated on
           tap, not on visibility - onRequireSignIn) and registered users. */}
       <div className="glass-panel p-6 rounded-3xl shadow-sm">
@@ -902,7 +927,7 @@ export const Home = () => {
         />
       </div>
 
-      {/* 6-7. "Or choose something quick" + the four existing shortcut
+      {/* 7-8. "Or choose something quick" + the four existing shortcut
           cards - unchanged destinations/behaviour, only their position
           (now after the recommended journey, never before it) and this
           new label are new. */}
@@ -944,24 +969,6 @@ export const Home = () => {
           </Link>
         </div>
       </div>
-
-      {/* 8. Small, permanent replay entry point for the Introduction
-          screen - visually secondary (plain text row, no glass-panel/
-          card treatment, unlike the four quick-action cards above),
-          reachable by both guests and registered users, exactly
-          mirroring Profile's own "About WakeWise" row (same destination,
-          same replay behaviour - Introduction.jsx's own
-          persistAndContinue already short-circuits to Home without any
-          write for an already-completed registered user, and never
-          writes at all for a guest). min-h-[44px] keeps a real touch
-          target without the row itself needing extra visual height. */}
-      <Link
-        to="/introduction"
-        className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
-      >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
-        <span>How WakeWise works</span>
-      </Link>
 
       {/* "Start Over" / "Repeat Morning/Evening Routine" / "Start Today's
           Routine" confirmation — one dialog, driven entirely by
