@@ -690,35 +690,41 @@ export const Home = () => {
         </button>
       )}
 
-      {/* 2-3. Greeting + the small, permanent Introduction replay link,
-          grouped into one layout unit (space-y-2 - a tight internal gap)
-          so the page's outer space-y-8 rhythm treats the pair as a single
-          child: one normal 2rem gap above the group, one normal 2rem gap
-          below it before the recommended card - no negative margins, no
-          fighting the parent's own cascade. Usability fix: the link used
-          to sit at the bottom of the page (below the quick-action cards,
-          requiring a scroll to reach) - moved here, directly under the
-          greeting, same route/behaviour, still exactly one link. Visually
-          secondary (plain text row, no glass-panel/card treatment, unlike
-          the primary CTA below or the quick-action cards further down),
-          reachable by both guests and registered users, exactly mirroring
-          Profile's own "About WakeWise" row (same destination, same
-          replay behaviour - Introduction.jsx's own persistAndContinue
-          already short-circuits to Home without any write for an
-          already-completed registered user, and never writes at all for
-          a guest). min-h-[44px] keeps a real touch target without the row
-          itself needing extra visual height. */}
+      {/* 2-3. Greeting + the permanent Introduction replay control, grouped
+          into one layout unit (space-y-2 - a tight internal gap) so the
+          page's outer space-y-8 rhythm treats the pair as a single child:
+          one normal 2rem gap above the group, one normal 2rem gap below it
+          before the recommended card - no negative margins, no fighting
+          the parent's own cascade. Still exactly one control, still routes
+          to /introduction, still reachable by both guests and registered
+          users (Introduction.jsx's own persistAndContinue already short-
+          circuits to Home without any write for an already-completed
+          registered user, and never writes at all for a guest).
+
+          Discoverability fix: phone testing found the original plain-text
+          row too small/subdued to notice next to the greeting. Now a
+          compact tinted pill (bg-primary/10 + border-primary/20 +
+          text-primary) - the exact same "chip" treatment as the eyebrow
+          badge on the card below (line ~545) - so it reads as WakeWise's
+          own peach accent, not a generic link, while staying visually
+          lighter than the primary CTA's solid bg-primary fill. inline-flex
+          (not w-full) keeps it sized to its own content - a real button,
+          not an edge-to-edge bar - centred under the greeting by the
+          shared flex justify-center wrapper. min-h-[44px] preserves the
+          touch target regardless of the shorter label's own line height. */}
       <div className="space-y-2">
         {greetingText && (
           <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
         )}
-        <Link
-          to="/introduction"
-          className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
-          <span>How WakeWise works</span>
-        </Link>
+        <div className="flex justify-center">
+          <Link
+            to="/introduction"
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/15 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+            <span>Watch: How WakeWise works</span>
+          </Link>
+        </div>
       </div>
 
       {/* 4-5. Recommended "Your Next Step" card + its one primary action
