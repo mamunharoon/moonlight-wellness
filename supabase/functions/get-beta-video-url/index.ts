@@ -122,7 +122,14 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['SL05', 'exercises/WW_SL05_Wind_v1.mp4.mp4'],
   ['SL06', 'exercises/WW_SL06_WhiteNoise_v1.mp4.mp4'],
   ['SL07', 'exercises/WW_SL07_PinkNoise_v1.mp4.mp4'],
-  ['SL08', 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4']
+  ['SL08', 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4'],
+  // Introduction guide videos (Introduction.jsx) - verified against
+  // storage.objects (name, mimetype video/mp4, size) before adding. Same
+  // JWT-required/anonymous-rejected policy as every other id above -
+  // Introduction.jsx gates guest taps via useProtectedVideo/
+  // SignInPromptDialog before ever calling this function.
+  ['I01', 'exercises/WW_I01_WelcomeToWakeWise_v1.mp4'],
+  ['I02', 'exercises/WW_I02_HowToUseWakeWise_v1.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

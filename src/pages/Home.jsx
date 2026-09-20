@@ -639,6 +639,23 @@ export const Home = () => {
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
           </Link>
         </div>
+        {/* Small, permanent replay entry point for the Introduction screen -
+            visually secondary (plain text row, no glass-panel/card
+            treatment, unlike the four quick-action cards above), reachable
+            by both guests and registered users, exactly mirroring Profile's
+            own "About WakeWise" row (same destination, same replay
+            behaviour - Introduction.jsx's own persistAndContinue already
+            short-circuits to Home without any write for an already-
+            completed registered user, and never writes at all for a
+            guest). min-h-[44px] keeps a real touch target without the row
+            itself needing extra visual height. */}
+        <Link
+          to="/introduction"
+          className="flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">info</span>
+          <span>How WakeWise works</span>
+        </Link>
       </div>
 
       {/* BEFORE WAKE TIME */}

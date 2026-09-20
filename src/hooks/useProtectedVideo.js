@@ -27,8 +27,15 @@ import { setPendingContent } from '../lib/pendingContent';
  * requires its own explicit Begin Exercise tap regardless of how it was
  * opened — then the query param is stripped (`replace`) so it can't
  * re-trigger on a later re-render or a browser back/forward.
+ *
+ * `resolveEntry` (optional, defaults to getCatalogEntryById) lets a caller
+ * resolve an id against a different lookup than the general Library
+ * catalog - Introduction.jsx passes getBetaVideoById directly, since I01/
+ * I02 are deliberately excluded from MEDIA_CATALOG (mediaCatalog.js's
+ * INTERACTIVE_ONLY_IDS, same reasoning as IB01/IS01) and would otherwise
+ * never resolve here at all.
  */
-export const useProtectedVideo = (returnPathOverride) => {
+export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogEntryById) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,7 +50,7 @@ export const useProtectedVideo = (returnPathOverride) => {
   // settled to false, so there's no race with auth still resolving.
   const [openVideoId, setOpenVideoId] = useState(() => {
     const openId = searchParams.get('openId');
-    return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
+    return openId && !isGuest && resolveEntry(openId) ? openId : null;
   });
 
   // Strips the now-consumed openId param so it can't re-trigger on a
@@ -81,7 +88,7 @@ export const useProtectedVideo = (returnPathOverride) => {
   };
 
   return {
-    openVideo: openVideoId ? getCatalogEntryById(openVideoId) : null,
+    openVideo: openVideoId ? resolveEntry(openVideoId) : null,
     handleSelect,
     closeVideo,
     promptOpen: !!promptId,

@@ -516,6 +516,24 @@ export const BETA_VIDEO_MANIFEST = [
     storagePath: 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4',
     description: 'A deeper, softer sound for calm and focus.',
     durationLabel: '5 min'
+  },
+  // Introduction guide videos - see mediaCatalog.js's INTERACTIVE_ONLY_IDS
+  // (I01/I02 are added there too): never a Library-browsable "Watch" row,
+  // only reachable via getBetaVideoById() from Introduction.jsx itself.
+  // Verified live against storage.objects (name, mimetype, size) before
+  // use - single ".mp4" extension, not the double-extension pattern seen
+  // on several older exercise uploads above.
+  {
+    id: 'I01',
+    title: 'Why WakeWise',
+    storagePath: 'exercises/WW_I01_WelcomeToWakeWise_v1.mp4',
+    description: 'A brief introduction to the purpose of WakeWise and how it can support your daily wellbeing.'
+  },
+  {
+    id: 'I02',
+    title: 'How to Use WakeWise',
+    storagePath: 'exercises/WW_I02_HowToUseWakeWise_v1.mp4',
+    description: 'A quick guide to Morning, Evening, calming practices and the Library.'
   }
 ];
 

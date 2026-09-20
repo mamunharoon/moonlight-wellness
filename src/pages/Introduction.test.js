@@ -46,52 +46,72 @@ describe('Introduction.jsx — required copy', () => {
   });
 });
 
-describe('Introduction.jsx — no fake/working media before real assets exist', () => {
-  it('every guide entry defaults to unavailable, with no storage reference or duration', () => {
+describe('Introduction.jsx — real guide videos (I01/I02), reusing the established private-video mechanism', () => {
+  it('both guides are available, connected by manifest id (never a raw storage path/URL)', () => {
     const entries = introductionMediaSource.match(/\{\s*id: '[\s\S]*?\}/g) ?? [];
     expect(entries.length).toBe(2);
-    entries.forEach((entry) => {
-      expect(entry).toMatch(/storageRef: null/);
-      expect(entry).toMatch(/durationSeconds: null/);
-      expect(entry).toMatch(/captionRef: null/);
-      expect(entry).toMatch(/available: false/);
-    });
-  });
-
-  it('renders a "Coming soon" label instead of a working Play control whenever a guide is unavailable', () => {
-    expect(introductionSource).toMatch(/\{!guide\.available && \([\s\S]*?Coming soon/);
-    // The icon itself only switches to a play affordance once available -
-    // never a clickable/enabled play button while available is false.
-    expect(introductionSource).toMatch(/\{guide\.available \? 'play_circle' : 'movie'\}/);
-    expect(introductionSource).not.toMatch(/<button[^>]*onClick=\{[^}]*[Pp]lay/);
-  });
-
-  it('never invents a storage URL, id, or path for the two guides', () => {
+    expect(entries[0]).toMatch(/storageRef: 'I01'/);
+    expect(entries[0]).toMatch(/available: true/);
+    expect(entries[1]).toMatch(/storageRef: 'I02'/);
+    expect(entries[1]).toMatch(/available: true/);
     expect(introductionMediaSource).not.toMatch(/https?:\/\//);
     expect(introductionMediaSource).not.toMatch(/exercises\//);
   });
 
-  it('the unavailable guide card is a plain <div>, not a <button>/<a> - no clickable/enabled control at all while unavailable', () => {
-    const cardOpenTag = introductionSource.match(/<div key=\{guide\.id\}[^>]*>/)?.[0] ?? '';
-    expect(cardOpenTag).toMatch(/^<div /);
-    expect(introductionSource).not.toMatch(/onClick=\{.*guide/i);
+  it('an available guide renders as a real <button> that calls handleSelect with its manifest id', () => {
+    expect(introductionSource).toMatch(
+      /onClick=\{\(\) => handleSelect\(guide\.storageRef\)\}/
+    );
   });
 
-  it('produces no network requests for the unavailable guides - nothing ever dereferences guide.storageRef into an <img>/<video>/<audio> src or a fetch call', () => {
-    expect(introductionSource).not.toMatch(/guide\.storageRef/);
-    expect(introductionSource).not.toMatch(/<video|<audio|<img/);
-    expect(introductionSource).not.toMatch(/fetch\(/);
+  it('an unavailable guide (a future, not-yet-released third guide) would still render as a plain, non-interactive <div> with a "Coming soon" badge - the availability guarantee is unchanged', () => {
+    expect(introductionSource).toMatch(/if \(!guide\.available\) \{/);
+    expect(introductionSource).toMatch(/\{!guide\.available && \([\s\S]*?Coming soon/);
+    expect(introductionSource).toMatch(/\{guide\.available \? 'play_circle' : 'movie'\}/);
   });
 
-  it('"Coming soon" is styled as a neutral badge, not an error/disabled-looking treatment (no red/error color classes)', () => {
+  it('reuses the existing shared hook/modal/dialog - never a bespoke player', () => {
+    expect(introductionSource).toMatch(/import \{ useProtectedVideo \} from '\.\.\/hooks\/useProtectedVideo';/);
+    expect(introductionSource).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
+    expect(introductionSource).toMatch(/import \{ SignInPromptDialog \} from '\.\.\/components\/SignInPromptDialog';/);
+    expect(introductionSource).not.toMatch(/<video/);
+    expect(introductionSource).not.toMatch(/createSignedUrl|functions\.invoke/);
+  });
+
+  it('resolves I01/I02 via getBetaVideoById, not the general Library catalog they are excluded from', () => {
+    expect(introductionSource).toMatch(/import \{ getBetaVideoById \} from '\.\.\/lib\/mediaCatalog';/);
+    expect(introductionSource).toMatch(/useProtectedVideo\(undefined, getBetaVideoById\)/);
+  });
+
+  it('only one BetaVideoModal is ever mounted - openVideo is a single piece of state, so selecting the other guide replaces it rather than stacking a second player', () => {
+    const modalOccurrences = introductionSource.match(/<BetaVideoModal/g) ?? [];
+    expect(modalOccurrences.length).toBe(1);
+    expect(introductionSource).toMatch(/\{openVideo && \(\s*\n\s*<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>/);
+  });
+
+  it('a guest tap opens SignInPromptDialog - handleSelect (from useProtectedVideo) is the only thing guide buttons call, never a direct video-open', () => {
+    expect(introductionSource).toMatch(
+      /<SignInPromptDialog\s*\n\s*open=\{promptOpen\}\s*\n\s*onSignIn=\{confirmSignIn\}\s*\n\s*onCreateAccount=\{confirmCreateAccount\}\s*\n\s*onDismiss=\{dismissPrompt\}\s*\n\s*\/>/
+    );
+  });
+
+  it('"Coming soon" (the still-reachable unavailable-guide state) is styled as a neutral badge, not an error/disabled-looking treatment', () => {
     const badge = introductionSource.match(/<span className="[^"]*">\s*\n\s*Coming soon/)?.[0] ?? '';
     expect(badge).not.toMatch(/red|error|destructive/i);
     expect(badge).toMatch(/bg-white\/5/);
   });
 
-  it('can only ever be enabled by changing introductionMedia.js - Introduction.jsx itself has no other place that decides availability', () => {
+  it('availability is decided only by introductionMedia.js - Introduction.jsx itself has no other place that hardcodes true/false', () => {
     expect(introductionSource).not.toMatch(/available:\s*(true|false)/);
     expect(introductionSource).toMatch(/guide\.available/);
+  });
+
+  it('watching, starting or closing a video never touches introduction_completed_version - that write path is owned entirely by persistAndContinue', () => {
+    const videoRelatedSlice = introductionSource.slice(
+      introductionSource.indexOf('useProtectedVideo('),
+      introductionSource.indexOf('const continueToHome')
+    );
+    expect(videoRelatedSlice).not.toMatch(/introduction_completed_version/);
   });
 });
 

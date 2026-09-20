@@ -6,13 +6,22 @@ import { supabase } from '../lib/supabaseClient';
 import { BackButton } from '../components/BackButton';
 import { INTRODUCTION_MEDIA } from '../lib/introductionMedia';
 import { CURRENT_INTRODUCTION_VERSION } from '../lib/introductionVersion';
+import { getBetaVideoById } from '../lib/mediaCatalog';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 /*
- * First-use WakeWise introduction — text-based structure only. The real
- * "Why WakeWise" / "How to Use WakeWise" clips do not exist yet (see
- * introductionMedia.js's own doc comment) - this screen must be complete
- * and useful without them, never show a working Play control for media
- * that isn't there, and never invent a storage path/URL.
+ * First-use WakeWise introduction. The "Why WakeWise" / "How to Use
+ * WakeWise" guide videos (I01/I02 in betaVideoManifest.js) are real,
+ * private Storage objects - played through the exact same shared
+ * signed-URL mechanism every other private video in this app uses
+ * (useProtectedVideo + BetaVideoModal + SignInPromptDialog), never a
+ * bespoke player. A guest tap opens the sign-in prompt instead of ever
+ * requesting a signed URL - this screen's own copy, guide list and
+ * Continue/Skip remain fully usable without watching either video, for
+ * both guests and registered users (see introductionMedia.js's own doc
+ * comment for the caption-track/future-media state).
  *
  * Reached either automatically (Auth.jsx's redirectAfterAuth, once per
  * successful sign-in/sign-up whose profile.introduction_completed_version
@@ -44,6 +53,26 @@ export const Introduction = () => {
   const { user, isGuest, refreshProfile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  // Reuses the exact same shared signed-URL/guest-gating mechanism every
+  // other private video in this app already uses (Library, Support,
+  // Prepare for Rest, etc.) - resolveEntry is getBetaVideoById rather than
+  // useProtectedVideo's own default (the general Library catalog) because
+  // I01/I02 are deliberately excluded from that catalog (see
+  // mediaCatalog.js's INTERACTIVE_ONLY_IDS) and would never resolve there.
+  // A guest tap opens SignInPromptDialog and never calls the Edge
+  // Function at all; only one BetaVideoModal is ever mounted (openVideo is
+  // a single piece of state), so selecting the other guide while one is
+  // open replaces it outright rather than stacking a second player.
+  const {
+    openVideo,
+    handleSelect,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn,
+    confirmCreateAccount
+  } = useProtectedVideo(undefined, getBetaVideoById);
 
   const continueToHome = () => navigate('/');
 
@@ -166,27 +195,52 @@ export const Introduction = () => {
           Introduction guides
         </h2>
         <div className="space-y-3">
-          {INTRODUCTION_MEDIA.map((guide) => (
-            <div key={guide.id} className="glass-panel rounded-2xl p-4 flex items-start gap-3">
-              <span
-                className="material-symbols-outlined text-on-surface-variant text-2xl shrink-0 mt-0.5"
-                aria-hidden="true"
-              >
-                {guide.available ? 'play_circle' : 'movie'}
-              </span>
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-bold text-on-surface">{guide.title}</h3>
-                  {!guide.available && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant bg-white/5 px-2 py-0.5 rounded-full">
-                      Coming soon
-                    </span>
-                  )}
+          {INTRODUCTION_MEDIA.map((guide) => {
+            const cardContent = (
+              <>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant text-2xl shrink-0 mt-0.5"
+                  aria-hidden="true"
+                >
+                  {guide.available ? 'play_circle' : 'movie'}
+                </span>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-on-surface">{guide.title}</h3>
+                    {!guide.available && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant bg-white/5 px-2 py-0.5 rounded-full">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">{guide.description}</p>
                 </div>
-                <p className="text-xs text-on-surface-variant leading-relaxed">{guide.description}</p>
-              </div>
-            </div>
-          ))}
+              </>
+            );
+
+            // Only an `available` guide (storageRef resolves to a real
+            // betaVideoManifest.js id) is ever a real control - an
+            // unavailable one stays a plain, non-interactive <div>, same
+            // guarantee as before any real asset existed.
+            if (!guide.available) {
+              return (
+                <div key={guide.id} className="glass-panel rounded-2xl p-4 flex items-start gap-3">
+                  {cardContent}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={guide.id}
+                type="button"
+                onClick={() => handleSelect(guide.storageRef)}
+                className="w-full text-left glass-panel rounded-2xl p-4 flex items-start gap-3 hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {cardContent}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -215,6 +269,17 @@ export const Introduction = () => {
           Skip for now
         </button>
       </div>
+
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+      )}
+
+      <SignInPromptDialog
+        open={promptOpen}
+        onSignIn={confirmSignIn}
+        onCreateAccount={confirmCreateAccount}
+        onDismiss={dismissPrompt}
+      />
     </div>
   );
 };

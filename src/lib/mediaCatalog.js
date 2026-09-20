@@ -237,7 +237,12 @@ const MEDITATION_METADATA = {
 // excluding these two ids from MEDIA_CATALOG - the one thing Library.jsx
 // actually iterates - is sufficient; getBetaVideoById() itself reads
 // BETA_VIDEO_MANIFEST directly and is completely unaffected by this filter.
-const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01']);
+//
+// I01/I02 (Introduction guide videos) share the same exclusion for the
+// same structural reason: they must stay reachable via getBetaVideoById()
+// from Introduction.jsx alone, and must never surface as a general
+// Library/catalog-browsable row.
+const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'I01', 'I02']);
 
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id)).map((entry) => ({
   ...entry,
