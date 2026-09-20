@@ -9,7 +9,7 @@ import { isNativePlatform } from './platform';
 // security-relevant redirect baked into an email link should trust:
 // this repo's `dev` branch is always served from the DEV preview URL
 // below, never Production, and the native app is never served over
-// HTTP(S) at all (see capacitor.config.json — no server.url).
+// HTTP(S) at all (see capacitor.config.ts — no server.url).
 const WEB_RESET_PASSWORD_URL = 'https://wakewise-git-dev-mamun65.vercel.app/reset-password';
 const NATIVE_RESET_PASSWORD_URL = 'wakewise://reset-password';
 

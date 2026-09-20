@@ -57,7 +57,7 @@ export const Layout = () => {
             env(safe-area-inset-top) on top of the normal 1rem so the logo
             never renders under the notch/Dynamic Island/status bar in
             Safari, standalone PWA, or the Capacitor shell (see
-            capacitor.config.json's ios.contentInset: 'never' - the native
+            capacitor.config.ts's ios.contentInset: 'never' - the native
             WKWebView no longer auto-insets itself, so this env() value is
             the single source of truth everywhere, never doubled up). */}
         {!hideNavigation && (

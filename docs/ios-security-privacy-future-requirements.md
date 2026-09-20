@@ -27,11 +27,18 @@ later.
   the JS bundle (confirmed by grep of `dist/` and
   `ios/App/App/public/`). No service-role key, Stripe secret key, or
   webhook secret exists anywhere in the built output.
-- **`webContentsDebuggingEnabled: true`**: deliberately on for this
-  foundation phase to support Safari Web Inspector debugging during
-  Xcode/device work. **Must be set to `false` before any TestFlight or
-  App Store build** — it does not expose anything over the network (it
-  is a local/USB-only Safari feature), but it should never ship.
+- **`webContentsDebuggingEnabled`** — **Update: fixed, no longer a flat
+  `true`.** `capacitor.config.json` was replaced with
+  `capacitor.config.ts`, which now defaults this to `false` and enables
+  it only via an explicit local opt-in (`CAPACITOR_WEB_DEBUG=true npm
+  run cap:sync`), so every CI/TestFlight/App Store build gets it off
+  automatically with nothing to remember to flip. Guarded by
+  `src/lib/capacitorWebDebug.test.js` (source-level default) and a
+  Codemagic build step that inspects the actual generated
+  `ios/App/App/capacitor.config.json` (see `codemagic.yaml`'s "Verify
+  WebView debugging is disabled in the generated native config"). It
+  never exposed anything over the network — it's a local/USB-only
+  Safari feature — but should never ship regardless.
 - **Native password recovery — implemented, dashboard change still
   outstanding.** `src/lib/authRedirect.js` now sends `redirectTo:
   wakewise://reset-password` on native (via `isNativePlatform()`, never

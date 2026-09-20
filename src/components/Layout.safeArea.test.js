@@ -1,5 +1,5 @@
 // Regression guard for the iPhone safe-area/header-overlap fix (Layout.jsx
-// header + content wrapper, capacitor.config.json). This repo's Vitest runs
+// header + content wrapper, capacitor.config.ts). This repo's Vitest runs
 // in a plain Node environment with no DOM/component rendering (see
 // vite.config.js and index.css.test.js's own note on this), so these are
 // static source-text checks rather than a rendered assertion - they lock in
@@ -8,11 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import capacitorConfig from '../../capacitor.config.ts';
 
 const layoutSource = readFileSync(fileURLToPath(new URL('./Layout.jsx', import.meta.url)), 'utf-8');
-const capacitorConfig = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../capacitor.config.json', import.meta.url)), 'utf-8')
-);
 
 describe('Layout safe-area handling', () => {
   it('pads the header for the top safe area (notch/Dynamic Island/status bar)', () => {

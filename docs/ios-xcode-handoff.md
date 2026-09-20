@@ -408,8 +408,10 @@ None of these have been done yet, and none should be skipped:
       actually completing end-to-end on a physical iPhone — see §11b —
       including the Supabase dashboard redirect-URL change in §14
       (explicitly not made in this phase).
-- [ ] `capacitor.config.json`'s `ios.webContentsDebuggingEnabled` set to
-      `false`, with `npx cap sync ios` re-run afterward.
+- [x] **Done (2026-09-20):** `webContentsDebuggingEnabled` now defaults
+      to `false` — `capacitor.config.json` was replaced with
+      `capacitor.config.ts`; see `docs/ios-security-privacy-future-requirements.md`
+      and `docs/release-readiness-register.md` for the fix and its guards.
 - [ ] Signing team, provisioning profile, and bundle-ID availability
       confirmed for the account this ships from (§5–§7 above).
 - [ ] iOS privacy manifest (`PrivacyInfo.xcprivacy`) and App Store privacy
