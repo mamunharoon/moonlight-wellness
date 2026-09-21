@@ -303,8 +303,13 @@ describe('Double-submission / email-spam prevention', () => {
     expect(signUpCallIndex).toBeGreaterThan(guardIndex);
     // The guard must be the very first statement after e.preventDefault() -
     // nothing (no state read/write) happens before this re-entrancy check.
+    // Matched with \s* (not a literal \n) so this survives either LF or
+    // CRLF line endings - a Windows `git checkout` materializes committed
+    // LF as CRLF locally (core.autocrlf=true), which an exact '\n' string
+    // comparison would otherwise fail on despite zero actual content
+    // difference in the commit itself.
     const preventDefaultIndex = body.indexOf('e.preventDefault();');
-    expect(body.slice(preventDefaultIndex, guardIndex)).toBe('e.preventDefault();\n    ');
+    expect(body.slice(preventDefaultIndex, guardIndex)).toMatch(/^e\.preventDefault\(\);\s*$/);
   });
 
   it('the Create Account button is disabled while isSubmitting and shows "Creating account..."', () => {
