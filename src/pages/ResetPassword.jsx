@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { shouldTreatAsValidRecovery } from '../lib/resetPasswordAccess';
-
-const MIN_PASSWORD_LENGTH = 8;
+import { resolveAuthError, logAuthDiagnostic, isWeakPasswordError, WEAK_PASSWORD_MESSAGE } from '../lib/authErrorMessages';
+import { NEW_PASSWORD_HINT, getPasswordTooShortMessage, isPasswordTooShort, PASSWORD_MISMATCH_MESSAGE } from '../lib/passwordPolicy';
 
 export const ResetPassword = () => {
   const navigate = useNavigate();
@@ -15,6 +15,14 @@ export const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Same accessible field-error pattern as Auth.jsx's Sign Up form (see its
+  // own comment) — this is also a "create/replace a password" moment, not
+  // login, so it gets the same 8-character rule and weak_password/breach
+  // handling, never the Sign In flow.
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const passwordInputRef = useRef(null);
+  const confirmPasswordInputRef = useRef(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -61,13 +69,17 @@ export const ResetPassword = () => {
     e.preventDefault();
     if (isSubmitting || !supabase) return;
     setError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    if (isPasswordTooShort(password)) {
+      setPasswordError(getPasswordTooShortMessage());
+      passwordInputRef.current?.focus();
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setConfirmPasswordError(PASSWORD_MISMATCH_MESSAGE);
+      confirmPasswordInputRef.current?.focus();
       return;
     }
 
@@ -76,7 +88,19 @@ export const ResetPassword = () => {
     setIsSubmitting(false);
 
     if (updateError) {
-      setError('Something went wrong updating your password. Please request a new reset link.');
+      if (isWeakPasswordError(updateError)) {
+        setPassword('');
+        setConfirmPassword('');
+        setPasswordError(WEAK_PASSWORD_MESSAGE);
+        passwordInputRef.current?.focus();
+        return;
+      }
+
+      const resolved = resolveAuthError(updateError, {
+        fallbackMessage: 'Something went wrong updating your password. Please request a new reset link.',
+      });
+      logAuthDiagnostic('updateUser', resolved);
+      setError(resolved.message);
       return;
     }
 
@@ -121,10 +145,17 @@ export const ResetPassword = () => {
             <div className="relative">
               <input
                 id="newPassword"
+                ref={passwordInputRef}
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError('');
+                  if (confirmPasswordError) setConfirmPasswordError('');
+                }}
+                aria-invalid={Boolean(passwordError)}
+                aria-describedby={passwordError ? 'newPasswordHint newPasswordError' : 'newPasswordHint'}
                 className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
@@ -136,19 +167,31 @@ export const ResetPassword = () => {
                 <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
             </div>
-            <p className="text-[10px] text-on-surface-variant">At least {MIN_PASSWORD_LENGTH} characters.</p>
+            <p id="newPasswordHint" className="text-[10px] text-on-surface-variant">{NEW_PASSWORD_HINT}</p>
+            {passwordError && (
+              <p id="newPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{passwordError}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <label htmlFor="confirmNewPassword" className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Confirm new password</label>
             <input
               id="confirmNewPassword"
+              ref={confirmPasswordInputRef}
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (confirmPasswordError) setConfirmPasswordError('');
+              }}
+              aria-invalid={Boolean(confirmPasswordError)}
+              aria-describedby={confirmPasswordError ? 'confirmNewPasswordError' : undefined}
               className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
+            {confirmPasswordError && (
+              <p id="confirmNewPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{confirmPasswordError}</p>
+            )}
           </div>
 
           <button

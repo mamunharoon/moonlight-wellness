@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
@@ -7,27 +7,30 @@ import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
 import { markGuestEntryChosen } from '../lib/guestEntry';
 import { shouldShowIntroduction } from '../lib/introductionVersion';
 import { BackButton } from '../components/BackButton';
+import {
+  resolveAuthError,
+  logAuthDiagnostic,
+  isAccountAlreadyExistsError,
+  isWeakPasswordError,
+  isEmailRateLimitError,
+  NEUTRAL_NO_SESSION_MESSAGE,
+  WEAK_PASSWORD_MESSAGE,
+  EMAIL_RATE_LIMIT_MESSAGE,
+  SIGNUP_FALLBACK_MESSAGE,
+} from '../lib/authErrorMessages';
+import { NEW_PASSWORD_HINT, getPasswordTooShortMessage, isPasswordTooShort, PASSWORD_MISMATCH_MESSAGE } from '../lib/passwordPolicy';
 
-const MIN_PASSWORD_LENGTH = 8;
-
-const getFriendlyErrorMessage = (error) => {
-  const msg = error?.message || '';
-  if (msg.includes('Invalid login credentials')) {
-    return 'The email or password you entered is incorrect.';
-  }
-  if (msg.includes('User already registered')) {
-    return 'An account with this email already exists. Try signing in instead.';
-  }
-  if (msg.includes('Email not confirmed')) {
-    return 'Please verify your email before signing in. Check your inbox for the verification link.';
-  }
-  if (msg.includes('Password should be at least')) {
-    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-  }
-  if (msg.includes('Unable to validate email address') || msg.includes('invalid format') || msg.includes('Invalid email')) {
-    return 'Please enter a valid email address.';
-  }
-  return 'Something went wrong. Please try again.';
+// The two ambiguous-signup outcomes that replace the Sign Up form with a
+// message-plus-actions panel instead of a plain error/success banner - see
+// the state/JSX below. 'neutral': a no-session success OR the rare
+// explicit user_already_exists error (both enumeration-safe, identical
+// copy - see NEUTRAL_NO_SESSION_MESSAGE's own comment). 'rateLimited':
+// Supabase's real over_email_send_rate_limit, which very often fires on a
+// perfectly legitimate repeat attempt, not a mistake - same "stop
+// resubmitting, here's what to do instead" treatment as 'neutral'.
+const SIGNUP_OUTCOME_MESSAGES = {
+  neutral: NEUTRAL_NO_SESSION_MESSAGE,
+  rateLimited: EMAIL_RATE_LIMIT_MESSAGE,
 };
 
 export const Auth = () => {
@@ -45,11 +48,62 @@ export const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  // Field-level, accessibility-wired errors for the Sign Up form only (see
+  // the accessible-error JSX below) — kept separate from the generic
+  // `error` banner above, which stays reserved for whole-form problems
+  // (missing name, rate limiting, offline, an unmapped server error) that
+  // aren't attributable to one specific input.
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  // Signup UX Remediation — replaces the old "Account created! Check your
+  // email..." success message, and also replaces a bare rate-limit error
+  // banner. null | 'neutral' | 'rateLimited' — see SIGNUP_OUTCOME_MESSAGES
+  // above. Setting this to a non-null value swaps the Sign Up form out for
+  // a message-plus-actions panel (see the JSX below), which incidentally
+  // also satisfies "no repeated Create Account submission for a completed
+  // request" — there is no submit button left to double-tap once an
+  // outcome is showing.
+  // Deliberately NOT reset by goToSignInAfterSignup (below) — the whole
+  // point is that this guidance survives that specific transition onto the
+  // Sign In form (rendered there too - see the JSX below). It IS reset by
+  // every other route to Sign In (the top Sign In/Sign Up pills, or
+  // actually submitting Sign In) via switchMode/handleSignIn, since those
+  // represent the user deliberately moving on.
+  const [signupOutcome, setSignupOutcome] = useState(null);
+
+  // Accessible error focus management (Sign Up form only — see the
+  // corrective-pattern JSX below): each ref lets a handler move focus to
+  // the exact input its error describes, synchronously, right after
+  // setting that error's state — the input is already mounted (setState
+  // re-renders it in place, never unmounts it), so no effect/timer is
+  // needed to wait for it to exist.
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  const confirmPasswordInputRef = useRef(null);
 
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setError('');
     setMessage('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setSignupOutcome(null);
+  };
+
+  // The outcome panel's own "Go to Sign In" action - deliberately NOT
+  // switchMode('signIn'): switchMode always clears signupOutcome, but here
+  // the whole point is that the confirmation/rate-limit guidance the user
+  // just saw survives onto the Sign In screen (rendered as a banner there
+  // - see the JSX below), so they don't lose it mid-flow.
+  const goToSignInAfterSignup = () => {
+    setMode('signIn');
+    setError('');
+    setMessage('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
   };
 
   // Guest access repair: if this sign-in/sign-up was reached via a
@@ -130,6 +184,11 @@ export const Auth = () => {
     if (isSubmitting || !supabase) return;
     setError('');
     setMessage('');
+    // A real sign-in attempt means the user is done acting on whatever
+    // signup guidance (see signupOutcome/goToSignInAfterSignup above) may
+    // still be showing here - clear it now rather than leaving it to
+    // linger past this point.
+    setSignupOutcome(null);
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
@@ -145,7 +204,9 @@ export const Auth = () => {
 
     if (signInError) {
       setIsSubmitting(false);
-      setError(getFriendlyErrorMessage(signInError));
+      const resolved = resolveAuthError(signInError);
+      logAuthDiagnostic('signIn', resolved);
+      setError(resolved.message);
       return;
     }
 
@@ -162,6 +223,10 @@ export const Auth = () => {
     if (isSubmitting || !supabase) return;
     setError('');
     setMessage('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setSignupOutcome(null);
 
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
@@ -172,15 +237,18 @@ export const Auth = () => {
       return;
     }
     if (!trimmedEmail) {
-      setError('Please enter your email address.');
+      setEmailError('Please enter your email address.');
+      emailInputRef.current?.focus();
       return;
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    if (isPasswordTooShort(password)) {
+      setPasswordError(getPasswordTooShortMessage());
+      passwordInputRef.current?.focus();
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setConfirmPasswordError(PASSWORD_MISMATCH_MESSAGE);
+      confirmPasswordInputRef.current?.focus();
       return;
     }
 
@@ -198,14 +266,59 @@ export const Auth = () => {
 
     if (signUpError) {
       setIsSubmitting(false);
-      setError(getFriendlyErrorMessage(signUpError));
+
+      // Enumeration-safe: routes the rare explicit `user_already_exists`
+      // error to the exact same neutral panel as a genuine no-session
+      // success below — never a distinct "this email is taken" message.
+      if (isAccountAlreadyExistsError(signUpError)) {
+        setSignupOutcome('neutral');
+        return;
+      }
+
+      // Checked via the structured error code first (see isWeakPasswordError),
+      // not string-matched here, so this survives a GoTrue wording change.
+      // Password/confirm are deliberately cleared — reusing a password
+      // Supabase just confirmed is breached/predictable is never correct
+      // guidance — while first/last name and email are left untouched.
+      if (isWeakPasswordError(signUpError)) {
+        setPassword('');
+        setConfirmPassword('');
+        setPasswordError(WEAK_PASSWORD_MESSAGE);
+        passwordInputRef.current?.focus();
+        return;
+      }
+
+      // A real, live Supabase rate limit - routed to its own outcome panel
+      // (not the generic `error` banner) specifically so "Create Account"
+      // isn't left sitting there inviting an immediate identical retry,
+      // which would just be rate-limited again. Never triggers another
+      // email send itself.
+      if (isEmailRateLimitError(signUpError)) {
+        setSignupOutcome('rateLimited');
+        return;
+      }
+
+      const resolved = resolveAuthError(signUpError, { fallbackMessage: SIGNUP_FALLBACK_MESSAGE });
+      logAuthDiagnostic('signUp', resolved);
+
+      // email_address_invalid/validation_failed are, in this form, only
+      // ever actually about the email field — password length/mismatch
+      // are already fully caught client-side above before any network
+      // call, and first/last name are unvalidated metadata GoTrue never
+      // rejects.
+      if (resolved.code === 'email_address_invalid' || resolved.code === 'validation_failed') {
+        setEmailError(resolved.message);
+        emailInputRef.current?.focus();
+        return;
+      }
+
+      setError(resolved.message);
       return;
     }
 
     if (data.user && !data.session) {
       setIsSubmitting(false);
-      setMessage('Account created! Check your email to verify your address before signing in.');
-      switchMode('signIn');
+      setSignupOutcome('neutral');
       return;
     }
 
@@ -233,7 +346,9 @@ export const Auth = () => {
     setIsSubmitting(false);
 
     if (resetError) {
-      setError(getFriendlyErrorMessage(resetError));
+      const resolved = resolveAuthError(resetError);
+      logAuthDiagnostic('resetPasswordForEmail', resolved);
+      setError(resolved.message);
       return;
     }
 
@@ -299,7 +414,38 @@ export const Auth = () => {
         </div>
       )}
 
-      {mode === 'signUp' && (
+      {mode === 'signUp' && signupOutcome && (
+        <div className="space-y-4">
+          <div role="status" className="glass-panel border border-primary/30 rounded-2xl px-4 py-3 text-xs text-primary font-medium">
+            {SIGNUP_OUTCOME_MESSAGES[signupOutcome]}
+          </div>
+          {/* Deliberately goToSignInAfterSignup, not switchMode('signIn') -
+              this is the one transition where the message above must
+              survive onto the Sign In screen (rendered again there below)
+              rather than being cleared. */}
+          <button
+            type="button"
+            onClick={goToSignInAfterSignup}
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          >
+            Go to Sign In
+          </button>
+          {/* Switches to the Forgot Password form only — never sends a
+              reset email itself. That form still requires its own
+              explicit "Send Reset Link" submit (see handleForgotPassword
+              above), so arriving here never triggers an email on its
+              own. */}
+          <button
+            type="button"
+            onClick={() => switchMode('forgotPassword')}
+            className="w-full glass-panel border border-white/10 py-3.5 rounded-full font-bold text-on-surface hover:opacity-90 active:scale-95 transition-all"
+          >
+            Forgot Password
+          </button>
+        </div>
+      )}
+
+      {mode === 'signUp' && !signupOutcome && (
         <form onSubmit={handleSignUp} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -330,12 +476,21 @@ export const Auth = () => {
             <label htmlFor="signUpEmail" className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Email</label>
             <input
               id="signUpEmail"
+              ref={emailInputRef}
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError('');
+              }}
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={emailError ? 'signUpEmailError' : undefined}
               className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
+            {emailError && (
+              <p id="signUpEmailError" role="alert" className="text-[10px] text-red-400 font-medium">{emailError}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -343,10 +498,17 @@ export const Auth = () => {
             <div className="relative">
               <input
                 id="signUpPassword"
+                ref={passwordInputRef}
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError('');
+                  if (confirmPasswordError) setConfirmPasswordError('');
+                }}
+                aria-invalid={Boolean(passwordError)}
+                aria-describedby={passwordError ? 'signUpPasswordHint signUpPasswordError' : 'signUpPasswordHint'}
                 className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
@@ -358,7 +520,10 @@ export const Auth = () => {
                 <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
             </div>
-            <p className="text-[10px] text-on-surface-variant">At least {MIN_PASSWORD_LENGTH} characters.</p>
+            <p id="signUpPasswordHint" className="text-[10px] text-on-surface-variant">{NEW_PASSWORD_HINT}</p>
+            {passwordError && (
+              <p id="signUpPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{passwordError}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -366,10 +531,16 @@ export const Auth = () => {
             <div className="relative">
               <input
                 id="confirmPassword"
+                ref={confirmPasswordInputRef}
                 type={showConfirmPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (confirmPasswordError) setConfirmPasswordError('');
+                }}
+                aria-invalid={Boolean(confirmPasswordError)}
+                aria-describedby={confirmPasswordError ? 'confirmPasswordError' : undefined}
                 className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
@@ -381,6 +552,9 @@ export const Auth = () => {
                 <span className="material-symbols-outlined text-lg">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
             </div>
+            {confirmPasswordError && (
+              <p id="confirmPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{confirmPasswordError}</p>
+            )}
           </div>
 
           <p className="text-[11px] text-on-surface-variant text-center leading-relaxed">
@@ -398,6 +572,12 @@ export const Auth = () => {
             {isSubmitting ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
+      )}
+
+      {mode === 'signIn' && signupOutcome && (
+        <div role="status" className="glass-panel border border-primary/30 rounded-2xl px-4 py-3 text-xs text-primary font-medium">
+          {SIGNUP_OUTCOME_MESSAGES[signupOutcome]}
+        </div>
       )}
 
       {mode === 'signIn' && (
