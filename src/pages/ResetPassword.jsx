@@ -108,7 +108,19 @@ export const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-center py-6 max-w-md mx-auto space-y-8">
+    <div
+      className="min-h-[85vh] flex flex-col justify-center max-w-md mx-auto space-y-8"
+      // Safe-area support - same convention as Auth.jsx (see its own
+      // comment on this same pattern): this page also renders outside
+      // <Layout>, so CSS env() is the only thing keeping it clear of the
+      // notch/Dynamic Island and the home indicator. Adds to the existing
+      // 1.5rem (previously py-6) rather than replacing it; never doubles
+      // up since neither page applies safe-area padding anywhere else.
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
+      }}
+    >
       <div className="text-center space-y-2">
         <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>lock_reset</span>
         <h2 className="text-2xl font-bold text-on-surface">Reset your password</h2>
@@ -156,13 +168,13 @@ export const ResetPassword = () => {
                 }}
                 aria-invalid={Boolean(passwordError)}
                 aria-describedby={passwordError ? 'newPasswordHint newPasswordError' : 'newPasswordHint'}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full text-on-surface-variant outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
@@ -187,7 +199,7 @@ export const ResetPassword = () => {
               }}
               aria-invalid={Boolean(confirmPasswordError)}
               aria-describedby={confirmPasswordError ? 'confirmNewPasswordError' : undefined}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
             {confirmPasswordError && (
               <p id="confirmNewPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{confirmPasswordError}</p>

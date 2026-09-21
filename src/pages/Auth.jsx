@@ -356,7 +356,26 @@ export const Auth = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-center py-6 max-w-md mx-auto space-y-8">
+    <div
+      className="min-h-[85vh] flex flex-col justify-center max-w-md mx-auto space-y-8"
+      // Safe-area support: Auth/ResetPassword render outside <Layout> (see
+      // App.jsx routing) and capacitor.config.ts sets `contentInset:
+      // 'never'`, so nothing else insets these two pages from the notch/
+      // Dynamic Island or the home indicator - CSS env() is the only
+      // mechanism, same convention Layout.jsx already uses for its own
+      // header/nav (see Layout.jsx's own safe-area comments). Adds to the
+      // existing 1.5rem (previously py-6) padding rather than replacing
+      // it, and never doubles up since this is the only safe-area padding
+      // either page applies. No overflow/height constraint exists on this
+      // div, index.css, or index.html (confirmed - no #root or html/body
+      // height/overflow rule anywhere in this repo), so content taller
+      // than the viewport already scrolls via the normal document scroll;
+      // nothing here needs to change to keep that working.
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
+      }}
+    >
       {/* Navigation audit: rendered outside <Layout> (no shared header),
           and reached from several places (Profile's Sign In/Create
           Account, and locked-content sign-in prompts elsewhere) - so
@@ -456,7 +475,7 @@ export const Auth = () => {
                 autoComplete="given-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div className="space-y-1.5">
@@ -467,7 +486,7 @@ export const Auth = () => {
                 autoComplete="family-name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>
@@ -486,7 +505,7 @@ export const Auth = () => {
               }}
               aria-invalid={Boolean(emailError)}
               aria-describedby={emailError ? 'signUpEmailError' : undefined}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
             {emailError && (
               <p id="signUpEmailError" role="alert" className="text-[10px] text-red-400 font-medium">{emailError}</p>
@@ -509,13 +528,13 @@ export const Auth = () => {
                 }}
                 aria-invalid={Boolean(passwordError)}
                 aria-describedby={passwordError ? 'signUpPasswordHint signUpPasswordError' : 'signUpPasswordHint'}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full text-on-surface-variant outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
@@ -541,13 +560,13 @@ export const Auth = () => {
                 }}
                 aria-invalid={Boolean(confirmPasswordError)}
                 aria-describedby={confirmPasswordError ? 'confirmPasswordError' : undefined}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((v) => !v)}
                 aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full text-on-surface-variant outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span className="material-symbols-outlined text-lg">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
@@ -590,7 +609,7 @@ export const Auth = () => {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -603,13 +622,13 @@ export const Auth = () => {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-10 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-full text-on-surface-variant outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
@@ -646,7 +665,7 @@ export const Auth = () => {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
