@@ -78,6 +78,12 @@ const TimezoneSettings = lazy(() => import('./pages/TimezoneSettings').then((m) 
 const AdminHome = lazy(() => import('./pages/AdminHome').then((m) => ({ default: m.AdminHome })));
 const AdminUsers = lazy(() => import('./pages/AdminUsers').then((m) => ({ default: m.AdminUsers })));
 const AdminSubscriptions = lazy(() => import('./pages/AdminSubscriptions').then((m) => ({ default: m.AdminSubscriptions })));
+// DEV-only Fast Start pilot comparison tool (approved for controlled DEV
+// deployment). See docs/fast-start-pilot-comparison.md. Remove this line +
+// the route below + src/pages/FastStartPilot.jsx + src/lib/
+// pilotVideoAccess.js + supabase/functions/get-pilot-video-url/ to remove
+// the pilot cleanly.
+const FastStartPilot = lazy(() => import('./pages/FastStartPilot').then((m) => ({ default: m.FastStartPilot })));
 const AudioLibrary = lazy(() => import('./pages/AudioLibrary').then((m) => ({ default: m.AudioLibrary })));
 const AudioCategory = lazy(() => import('./pages/AudioCategory').then((m) => ({ default: m.AudioCategory })));
 const AudioDetails = lazy(() => import('./pages/AudioDetails').then((m) => ({ default: m.AudioDetails })));
@@ -257,6 +263,7 @@ function App() {
                   <Route index element={withFallback(<AdminHome />)} />
                   <Route path="users" element={withFallback(<AdminUsers />)} />
                   <Route path="subscriptions" element={withFallback(<AdminSubscriptions />)} />
+                  <Route path="faststart-pilot" element={withFallback(<FastStartPilot />)} />
                 </Route>
 
                 {/* Main Tabbed Frame */}
