@@ -28,13 +28,19 @@
 // behavioural difference.
 //
 // `storagePath` is an object path inside the private `wellness-videos`
-// bucket (bucket root, includes the `exercises/` folder) — never a
-// public URL. It is only ever sent to the get-beta-video-url Edge
-// Function, which is the one place allowed to turn it into a short-lived
-// signed URL. Object names are exactly what's in Storage today (verified
-// via `supabase db query --linked` against storage.objects for every id,
-// not assumed from any spec) — not renamed, typos and double extensions
-// included.
+// bucket (bucket root, includes the `exercises/`/`faststart-v1/`/
+// `faststart-v2/` folder) — never a public URL. It is only ever sent to
+// the get-beta-video-url Edge Function, which is the one place allowed
+// to turn it into a short-lived signed URL. Object names are exactly
+// what's in Storage today (verified via `supabase db query --linked`
+// against storage.objects for every id, not assumed from any spec) —
+// not renamed, typos and double extensions included.
+//
+// Every path below is a Fast Start (moov-before-mdat) remux of the
+// original `exercises/` object, never re-encoded - see
+// get-beta-video-url/index.ts's own header comment for what faststart-v1
+// vs faststart-v2 means (which remux batch, not a quality difference).
+// Every original `exercises/` object remains in Storage for rollback.
 //
 // @typedef {Object} BetaVideoEntry
 // @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08)
@@ -59,235 +65,235 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E02',
     title: 'Overwhelmed Mind',
-    storagePath: 'exercises/WW_E02_OverwhelmedMind_Final_v2.mp4Use.mp4',
+    storagePath: 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4',
     description: 'Too much at once. A guided video to help you set some of it down.'
   },
   {
     id: 'E03',
     title: 'Instant Calm',
-    storagePath: 'exercises/WW_E03_InstantCalm_v3.mp4.mp4',
+    storagePath: 'faststart-v1/WW_E03_InstantCalm_v3.mp4_faststart.mp4',
     description: 'A fast, guided reset for your nervous system.'
   },
   {
     id: 'E04',
     title: 'Release Tension',
-    storagePath: 'exercises/WW_E04_ReleaseTension_Portrait_v2png.mp4',
+    storagePath: 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4',
     description: 'A short guided sequence to let go of physical tension.'
   },
   {
     id: 'E05',
     title: 'Night-time Calm',
-    storagePath: 'exercises/WW_E05_NightTimeCalm_v2.mp4.mp4',
+    storagePath: 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4',
     description: 'A slow wind-down video to ease you toward sleep.'
   },
   {
     id: 'E06',
     title: 'Gentle Awakening',
-    storagePath: 'exercises/WW_E06_GentleAwakening_Gratitude_v3.mp3.mp4',
+    storagePath: 'faststart-v2/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4',
     description: 'A soft guided start to ease into your morning.'
   },
   {
     id: 'E07',
     title: 'Morning Gratitude',
-    storagePath: 'exercises/WW_E07_MorningGratitude_Music_v2.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E07_MorningGratitude_Music_v2.mp3_faststart.mp4',
     description: 'A short guided moment to set a grateful tone for the day.'
   },
   {
     id: 'E08',
     title: 'Deep Breathing',
-    storagePath: 'exercises/WW_E08_DeepBreathing_v2.mp4.mp4',
+    storagePath: 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4',
     description: 'A guided deep-breathing video to center yourself.'
   },
   {
     id: 'E09',
     title: 'Mindful Pause',
-    storagePath: 'exercises/WW_E09_MindfulPause_Music_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4',
     description: 'A brief guided pause to reset your attention.'
   },
   {
     id: 'E10',
     title: 'Evening Reflection',
-    storagePath: 'exercises/WW_E10_EveningReflection_Music_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E10_EveningReflection_Music_v1.mp3_faststart.mp4',
     description: 'A guided reflection to close out your day.'
   },
   {
     id: 'E11',
     title: 'Positive Energy',
-    storagePath: 'exercises/WW_E11_PositiveEnergy_Music_v1.mp3.mp4',
+    storagePath: 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4',
     description: 'A guided video to lift your energy and mood.'
   },
   {
     id: 'E12',
     title: 'Confidence Builder',
-    storagePath: 'exercises/WW_E12_ConfidenceBuilder_Portrait_v1.png.mp4',
+    storagePath: 'faststart-v1/WW_E12_ConfidenceBuilder_Portrait_v1.png_faststart.mp4',
     description: 'A guided video to help you feel steady and self-assured.'
   },
   {
     id: 'E13',
     title: 'Morning Focus',
-    storagePath: 'exercises/WW_E13_MorningFocus_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to sharpen your focus for the day ahead.'
   },
   {
     id: 'E14',
     title: 'Motivation Boost',
-    storagePath: 'exercises/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3_faststart.mp4',
     description: 'A guided video to help you find momentum this morning.'
   },
   {
     id: 'E15',
     title: 'A Fresh Start',
-    storagePath: 'exercises/WW_E15_AFreshStart_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E15_AFreshStart_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video for a clean, hopeful start to your day.'
   },
   {
     id: 'E16',
     title: 'Anxiety Relief',
-    storagePath: 'exercises/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to ease a racing mind or a tight chest.'
   },
   {
     id: 'E17',
     title: 'Stress Reset',
-    storagePath: 'exercises/WW_E17_StressReset_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E17_StressReset_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to release built-up stress.'
   },
   {
     id: 'E18',
     title: 'Finding Balance',
-    storagePath: 'exercises/WW_E18_FindingBalance_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E18_FindingBalance_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to help you feel steady and centered.'
   },
   {
     id: 'E19',
     title: 'Letting Go',
-    storagePath: 'exercises/WW_E19_LettingGo_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E19_LettingGo_BackgroundMusic_v1.mp3_faststart.mp4',
     description: "A guided video to help you release what isn't yours to carry."
   },
   {
     id: 'E20',
     title: 'Quieting the Mind',
-    storagePath: 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to quiet a busy mind before rest.'
   },
   {
     id: 'E21',
     title: 'Self Compassion',
-    storagePath: 'exercises/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video for gentle self-compassion.'
   },
   {
     id: 'E22',
     title: 'Inner Strength',
-    storagePath: 'exercises/WW_E22_InnerStrength_Mobile_Background_v1.png.mp4',
+    storagePath: 'faststart-v1/WW_E22_InnerStrength_Mobile_Background_v1.png_faststart.mp4',
     description: 'A guided video to help you feel your own inner strength.'
   },
   {
     id: 'E23',
     title: 'Gratitude',
-    storagePath: 'exercises/WW_E23_Gratitude_Mobile_Background_v1.png.mp4',
+    storagePath: 'faststart-v1/WW_E23_Gratitude_Mobile_Background_v1.png_faststart.mp4',
     description: 'A guided video for a quiet moment of gratitude.'
   },
   {
     id: 'E24',
     title: 'Confidence',
-    storagePath: 'exercises/WW_E24_Confidence_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E24_Confidence_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to help you feel confident and capable.'
   },
   {
     id: 'E25',
     title: 'Hope and Healing',
-    storagePath: 'exercises/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video for hope and healing.'
   },
   {
     id: 'E26',
     title: 'Self Acceptance',
-    storagePath: 'exercises/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to help you feel accepted, just as you are.'
   },
   {
     id: 'E27',
     title: 'Deep Relaxation',
-    storagePath: 'exercises/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video for deep physical relaxation.'
   },
   {
     id: 'E28',
     title: 'Mindful Breathing',
-    storagePath: 'exercises/WW_E28_MindfulBreathing_v2.mp4.mp4',
+    storagePath: 'faststart-v1/WW_E28_MindfulBreathing_v2.mp4_faststart.mp4',
     description: 'A guided video for slow, mindful breathing.'
   },
   {
     id: 'E29',
     title: 'Patience',
-    storagePath: 'exercises/WW_E29_Patience_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_E29_Patience_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to help you find patience.'
   },
   {
     id: 'E30',
     title: 'Peaceful Sleep',
-    storagePath: 'exercises/WW_E30_PeacefulSleep_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_E30_PeacefulSleep_v1.mp4_faststart.mp4',
     description: 'A guided video to ease you into peaceful sleep.'
   },
   {
     id: 'A01',
     title: 'Confidence Affirmations',
-    storagePath: 'exercises/WW_A01_Confidence_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_A01_Confidence_v1.mp4_faststart.mp4',
     description: 'A guided affirmation video to help you feel confident and capable.'
   },
   {
     id: 'A02',
     title: 'Calmness Affirmations',
-    storagePath: 'exercises/WW_A02_Calmness_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_A02_Calmness_v1.mp4_faststart.mp4',
     description: 'A guided affirmation video to help you feel calm and settled.'
   },
   {
     id: 'A03',
     title: 'Focus Affirmations',
-    storagePath: 'exercises/WW_A03_Focus_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_A03_Focus_v1.mp4_faststart.mp4',
     description: 'A guided affirmation video to help sharpen your focus.'
   },
   {
     id: 'A04',
     title: 'Motivation Affirmations',
-    storagePath: 'exercises/WW_A04_Motivation_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_A04_Motivation_v1.mp4_faststart.mp4',
     description: 'A guided affirmation video to help you find momentum.'
   },
   {
     id: 'A05',
     title: 'Gratitude Affirmations',
-    storagePath: 'exercises/WW_A05_Gratitude_v2.mp4.mp4',
+    storagePath: 'faststart-v1/WW_A05_Gratitude_v2.mp4_faststart.mp4',
     description: 'A guided affirmation video for a grateful moment.'
   },
   {
     id: 'A06',
     title: 'Self-Worth Affirmations',
-    storagePath: 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4',
+    storagePath: 'faststart-v1/WW_A06_SelfWorth_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided affirmation video to help you feel worthy, just as you are.'
   },
   {
     id: 'B01',
     title: 'Deep Breathing Practice',
-    storagePath: 'exercises/WW_B01_DeepBreathing_Mobile_Background_v1.png.mp4',
+    storagePath: 'faststart-v1/WW_B01_DeepBreathing_Mobile_Background_v1.png_faststart.mp4',
     description: 'A guided video for a deep breathing practice.'
   },
   {
     id: 'B02',
     title: 'Box Breathing',
-    storagePath: 'exercises/WW_B02_BoxBreathing_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_B02_BoxBreathing_v1.mp4_faststart.mp4',
     description: 'A guided video for box breathing.'
   },
   {
     id: 'B03',
     title: '4-7-8 Breathing',
-    storagePath: 'exercises/WW_B03_478Breathing_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_B03_478Breathing_v1.mp4_faststart.mp4',
     description: 'A guided video for 4-7-8 breathing.'
   },
   {
     id: 'B04',
     title: 'Coherent Breathing',
-    storagePath: 'exercises/WW_B04_CoherentBreathing_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_B04_CoherentBreathing_v1.mp4_faststart.mp4',
     description: 'A guided video for coherent breathing.'
   },
   {
@@ -296,7 +302,7 @@ export const BETA_VIDEO_MANIFEST = [
     // Storage object name uses "althernativeNostril" (typo, as uploaded) -
     // preserved exactly; the app-facing title uses the recognised
     // technique name "Alternate Nostril Breathing" regardless.
-    storagePath: 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_B05_althernativeNostrilBreathing_v1.mp4_faststart.mp4',
     description: 'A guided video for alternate nostril breathing.'
   },
   {
@@ -326,79 +332,79 @@ export const BETA_VIDEO_MANIFEST = [
     // lookup target for eligibility-checking.
     id: 'IB01',
     title: 'Interactive Breathing Loop',
-    storagePath: 'exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v2.m4a',
+    storagePath: 'faststart-v1/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart.m4a',
     description: 'Ambient background loop for interactive breathing/grounding timers.'
   },
   {
     id: 'F01',
     title: 'Deep Work',
-    storagePath: 'exercises/WW_F01_DeepWork_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4',
     description: 'A guided video to help you settle into deep, focused work.'
   },
   {
     id: 'F02',
     title: 'Study',
-    storagePath: 'exercises/WW_F02_Study.mp4.mp4',
+    storagePath: 'faststart-v1/WW_F02_Study.mp4_faststart.mp4',
     description: 'A guided video to help you focus while studying.'
   },
   {
     id: 'F03',
     title: 'Concentration',
-    storagePath: 'exercises/WW_F03_Concentration_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_F03_Concentration_v1.mp4_faststart.mp4',
     description: 'A guided video to help you sharpen your concentration.'
   },
   {
     id: 'G01',
     title: 'Five Senses',
-    storagePath: 'exercises/WW_G01_FiveSenses_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_G01_FiveSenses_v1.mp4_faststart.mp4',
     description: 'A guided video to ground yourself through your five senses.'
   },
   {
     id: 'G02',
     title: 'Muscle Relaxation',
-    storagePath: 'exercises/WW_G02_MuscleRelaxation_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_G02_MuscleRelaxation_v1.mp4_faststart.mp4',
     description: 'A guided video for progressive muscle relaxation.'
   },
   {
     id: 'G03',
     title: 'Body Awareness',
-    storagePath: 'exercises/WW_G03_BodyAwareness_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_G03_BodyAwareness_v1.mp4_faststart.mp4',
     description: 'A guided video to help you reconnect with your body.'
   },
   {
     id: 'G04',
     title: 'Sensory Reset',
-    storagePath: 'exercises/WW_G04_SensoryReset_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4',
     description: 'A guided video for a quick sensory reset.'
   },
   {
     id: 'M01',
     title: 'Mindfulness Meditation',
-    storagePath: 'exercises/WW_M01_MindfulnessMeditation_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_M01_MindfulnessMeditation_v1.mp4_faststart.mp4',
     description: 'A guided mindfulness meditation.'
   },
   {
     id: 'M02',
     title: 'Body Scan',
-    storagePath: 'exercises/WW_M02_BodyScan_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_M02_BodyScan_v1.mp4_faststart.mp4',
     description: 'A guided body scan meditation.'
   },
   {
     id: 'M03',
     title: 'Loving Kindness',
-    storagePath: 'exercises/WW_M03_LovingKindness_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_M03_LovingKindness_v1.mp4_faststart.mp4',
     description: 'A guided loving kindness meditation.'
   },
   {
     id: 'M04',
     title: 'Gratitude Meditation',
-    storagePath: 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_M04_GratitudeMeditation_v1.mp4_faststart.mp4',
     description: 'A guided meditation for gratitude.'
   },
   {
     id: 'M05',
     title: 'Guided Reflection',
-    storagePath: 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_M05_GuidedReflection_v1.mp4_faststart.mp4',
     description: 'A guided meditation for quiet reflection.'
   },
   {
@@ -412,31 +418,31 @@ export const BETA_VIDEO_MANIFEST = [
     // instruction not to delete it.
     id: 'S01',
     title: 'Neck Release',
-    storagePath: 'exercises/WW_S01_NeckRelease_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_S01_NeckRelease_v1.mp4_faststart.mp4',
     description: 'A guided video to release tension in your neck.'
   },
   {
     id: 'S02',
     title: 'Shoulder Release',
-    storagePath: 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_S02_ShoulderRelease_v1.mp4_faststart.mp4',
     description: 'A guided video to release tension in your shoulders.'
   },
   {
     id: 'S03',
     title: 'Upper-Back Stretch',
-    storagePath: 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_S03_UpperBackStretch_v1.mp4_faststart.mp4',
     description: 'A guided video to stretch your upper back.'
   },
   {
     id: 'S04',
     title: 'Morning Flow',
-    storagePath: 'exercises/WW_S04_MorningFlow_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_S04_MorningFlow_v1.mp4_faststart.mp4',
     description: 'A guided morning stretching flow.'
   },
   {
     id: 'S05',
     title: 'Evening Flow',
-    storagePath: 'exercises/WW_S05_EveningFlow_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_S05_EveningFlow_v1.mp4_faststart.mp4',
     description: 'A guided evening stretching flow.'
   },
   {
@@ -456,34 +462,34 @@ export const BETA_VIDEO_MANIFEST = [
     // INTERACTIVE_ONLY_IDS.
     id: 'IS01',
     title: 'Interactive Stretching Loop',
-    storagePath: 'exercises/WW_IS01_InteractiveStretchingLoop_MusicBed_v2.m4a',
+    storagePath: 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a',
     description: 'Ambient background loop for the interactive stretching timer.'
   },
   {
     id: 'SL01',
     title: 'Rain',
-    storagePath: 'exercises/WW_SL01_Rain_v1.mp4',
+    storagePath: 'faststart-v1/WW_SL01_Rain_v1_faststart.mp4',
     description: 'Settle into the steady rhythm of gentle rain.',
     durationLabel: '5 min'
   },
   {
     id: 'SL02',
     title: 'Ocean Waves',
-    storagePath: 'exercises/WW_SL02_OceanWaves_Preview_v1.mp4',
+    storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v1_faststart.mp4',
     description: 'Rest with slow waves meeting a quiet shore.',
     durationLabel: '5 min'
   },
   {
     id: 'SL03',
     title: 'Forest Ambience',
-    storagePath: 'exercises/WW_SL03_ForestAmbience_v1.mp4',
+    storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v1_faststart.mp4',
     description: 'Unwind among soft woodland sounds.',
     durationLabel: '5 min'
   },
   {
     id: 'SL04',
     title: 'Fireplace',
-    storagePath: 'exercises/WW_SL04_Fireplace_v1.mp4',
+    storagePath: 'faststart-v1/WW_SL04_Fireplace_v1_faststart.mp4',
     description: 'Relax beside the warmth of a gently crackling fire.',
     durationLabel: '5 min'
   },
@@ -492,28 +498,28 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Gentle Wind',
     // Storage object name has a doubled extension (".mp4.mp4", as
     // uploaded) - preserved exactly.
-    storagePath: 'exercises/WW_SL05_Wind_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_SL05_Wind_v1.mp4_faststart.mp4',
     description: 'Drift off with a soft breeze across an open meadow.',
     durationLabel: '5 min'
   },
   {
     id: 'SL06',
     title: 'White Noise',
-    storagePath: 'exercises/WW_SL06_WhiteNoise_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v1.mp4_faststart.mp4',
     description: 'A steady sound to soften surrounding distractions.',
     durationLabel: '5 min'
   },
   {
     id: 'SL07',
     title: 'Pink Noise',
-    storagePath: 'exercises/WW_SL07_PinkNoise_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_SL07_PinkNoise_v1.mp4_faststart.mp4',
     description: 'A balanced, gentle sound for restful sleep.',
     durationLabel: '5 min'
   },
   {
     id: 'SL08',
     title: 'Brown Noise',
-    storagePath: 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4',
+    storagePath: 'faststart-v1/WW_SL08_BrownNoise_v1.mp4_faststart.mp4',
     description: 'A deeper, softer sound for calm and focus.',
     durationLabel: '5 min'
   },
@@ -526,13 +532,13 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'I01',
     title: 'Why WakeWise',
-    storagePath: 'exercises/WW_I01_WelcomeToWakeWise_v1.mp4',
+    storagePath: 'faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4',
     description: 'A brief introduction to the purpose of WakeWise and how it can support your daily wellbeing.'
   },
   {
     id: 'I02',
     title: 'How to Use WakeWise',
-    storagePath: 'exercises/WW_I02_HowToUseWakeWise_v1.mp4',
+    storagePath: 'faststart-v1/WW_I02_HowToUseWakeWise_v1_faststart.mp4',
     description: 'A quick guide to Morning, Evening, calming practices and the Library.'
   }
 ];

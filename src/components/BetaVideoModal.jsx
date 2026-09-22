@@ -274,13 +274,28 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     };
   }, [videoUrl]);
 
+  // Escape only closes the whole modal from the small preview state.
+  // While the standards-track Fullscreen API is active (isFullscreen),
+  // the browser exits fullscreen on its own and that already flows
+  // through handleStandardFullscreenChange above — calling onClose()
+  // here too would additionally tear down the modal underneath on the
+  // very same keypress. fallbackFullscreen (the in-app CSS full-viewport
+  // state, no native Fullscreen API engaged) has no browser-level Escape
+  // handling of its own, so this is the only place that can exit it -
+  // same "return to Resume/Close, never close the modal" contract.
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (fallbackFullscreen) {
+        setFallbackFullscreen(false);
+        return;
+      }
+      if (isFullscreen) return;
+      onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isFullscreen, fallbackFullscreen]);
 
   // Sleep Soundscapes auto-stop countdown. Only ever ticks while playback
   // has genuinely begun (hasStarted) AND the element is actually playing

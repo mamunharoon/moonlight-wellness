@@ -9,23 +9,23 @@ import { BETA_VIDEO_MANIFEST, getBetaVideoById } from './betaVideoManifest';
 import { MEDIA_CATALOG, getCatalogEntryById } from './mediaCatalog';
 
 describe('betaVideoManifest.js — I01/I02 (Introduction guide videos)', () => {
-  it('I01 maps to the exact verified Welcome video path', () => {
+  it('I01 maps to the exact verified Fast Start Welcome video path', () => {
     const entry = BETA_VIDEO_MANIFEST.find((e) => e.id === 'I01');
     expect(entry).toBeTruthy();
-    expect(entry.storagePath).toBe('exercises/WW_I01_WelcomeToWakeWise_v1.mp4');
+    expect(entry.storagePath).toBe('faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4');
     expect(entry.title).toBe('Why WakeWise');
   });
 
-  it('I02 maps to the exact verified How-to video path', () => {
+  it('I02 maps to the exact verified Fast Start How-to video path', () => {
     const entry = BETA_VIDEO_MANIFEST.find((e) => e.id === 'I02');
     expect(entry).toBeTruthy();
-    expect(entry.storagePath).toBe('exercises/WW_I02_HowToUseWakeWise_v1.mp4');
+    expect(entry.storagePath).toBe('faststart-v1/WW_I02_HowToUseWakeWise_v1_faststart.mp4');
     expect(entry.title).toBe('How to Use WakeWise');
   });
 
   it('both remain reachable via getBetaVideoById (the mechanism Introduction.jsx actually uses)', () => {
-    expect(getBetaVideoById('I01')?.storagePath).toBe('exercises/WW_I01_WelcomeToWakeWise_v1.mp4');
-    expect(getBetaVideoById('I02')?.storagePath).toBe('exercises/WW_I02_HowToUseWakeWise_v1.mp4');
+    expect(getBetaVideoById('I01')?.storagePath).toBe('faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4');
+    expect(getBetaVideoById('I02')?.storagePath).toBe('faststart-v1/WW_I02_HowToUseWakeWise_v1_faststart.mp4');
   });
 });
 

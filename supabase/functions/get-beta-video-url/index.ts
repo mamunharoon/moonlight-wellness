@@ -34,6 +34,16 @@
 // description, which this function has no use for, and a Deno Edge
 // Function can't import a Vite-bundled client file) — if any of these
 // beta videos are ever renamed in Storage, both places need the update.
+//
+// Fast Start conversion: every path below points at a losslessly
+// remuxed copy (`-map 0 -c copy -movflags +faststart` — moov moved
+// before mdat, no re-encode) rather than the original `exercises/`
+// object. faststart-v1/ holds the first catalogue-wide pass; five IDs
+// (E04, E05, E06, E11, E13) had their source replaced with reduced
+// exports after that pass and were remuxed a second time into
+// faststart-v2/ from the new bytes — v1/v2 is purely which remux batch
+// produced the file, not a quality tier. Every `exercises/` original
+// remains in Storage, byte-for-byte, for rollback.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
@@ -46,90 +56,90 @@ import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 // to resolve a non-string path either way, but this closes the gap at
 // the allowlist itself rather than relying on that downstream failure.
 const EXERCISE_PATHS: Map<string, string> = new Map([
-  ['E02', 'exercises/WW_E02_OverwhelmedMind_Final_v2.mp4Use.mp4'],
-  ['E03', 'exercises/WW_E03_InstantCalm_v3.mp4.mp4'],
-  ['E04', 'exercises/WW_E04_ReleaseTension_Portrait_v2png.mp4'],
-  ['E05', 'exercises/WW_E05_NightTimeCalm_v2.mp4.mp4'],
-  ['E06', 'exercises/WW_E06_GentleAwakening_Gratitude_v3.mp3.mp4'],
-  ['E07', 'exercises/WW_E07_MorningGratitude_Music_v2.mp3.mp4'],
-  ['E08', 'exercises/WW_E08_DeepBreathing_v2.mp4.mp4'],
-  ['E09', 'exercises/WW_E09_MindfulPause_Music_v1.mp3.mp4'],
-  ['E10', 'exercises/WW_E10_EveningReflection_Music_v1.mp3.mp4'],
-  ['E11', 'exercises/WW_E11_PositiveEnergy_Music_v1.mp3.mp4'],
-  ['E12', 'exercises/WW_E12_ConfidenceBuilder_Portrait_v1.png.mp4'],
-  ['E13', 'exercises/WW_E13_MorningFocus_BackgroundMusic_v1.mp3.mp4'],
-  ['E14', 'exercises/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3.mp4'],
-  ['E15', 'exercises/WW_E15_AFreshStart_BackgroundMusic_v1.mp3.mp4'],
-  ['E16', 'exercises/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3.mp4'],
-  ['E17', 'exercises/WW_E17_StressReset_BackgroundMusic_v1.mp3.mp4'],
-  ['E18', 'exercises/WW_E18_FindingBalance_BackgroundMusic_v1.mp3.mp4'],
-  ['E19', 'exercises/WW_E19_LettingGo_BackgroundMusic_v1.mp3.mp4'],
-  ['E20', 'exercises/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3.mp4'],
-  ['E21', 'exercises/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3.mp4'],
-  ['E22', 'exercises/WW_E22_InnerStrength_Mobile_Background_v1.png.mp4'],
-  ['E23', 'exercises/WW_E23_Gratitude_Mobile_Background_v1.png.mp4'],
-  ['E24', 'exercises/WW_E24_Confidence_BackgroundMusic_v1.mp3.mp4'],
-  ['E25', 'exercises/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3.mp4'],
-  ['E26', 'exercises/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3.mp4'],
-  ['E27', 'exercises/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3.mp4'],
-  ['E28', 'exercises/WW_E28_MindfulBreathing_v2.mp4.mp4'],
-  ['E29', 'exercises/WW_E29_Patience_BackgroundMusic_v1.mp3.mp4'],
-  ['E30', 'exercises/WW_E30_PeacefulSleep_v1.mp4.mp4'],
-  ['A01', 'exercises/WW_A01_Confidence_v1.mp4.mp4'],
-  ['A02', 'exercises/WW_A02_Calmness_v1.mp4.mp4'],
-  ['A03', 'exercises/WW_A03_Focus_v1.mp4.mp4'],
-  ['A04', 'exercises/WW_A04_Motivation_v1.mp4.mp4'],
-  ['A05', 'exercises/WW_A05_Gratitude_v2.mp4.mp4'],
-  ['A06', 'exercises/WW_A06_SelfWorth_BackgroundMusic_v1.mp3.mp4'],
-  ['B01', 'exercises/WW_B01_DeepBreathing_Mobile_Background_v1.png.mp4'],
-  ['B02', 'exercises/WW_B02_BoxBreathing_v1.mp4.mp4'],
-  ['B03', 'exercises/WW_B03_478Breathing_v1.mp4.mp4'],
-  ['B04', 'exercises/WW_B04_CoherentBreathing_v1.mp4.mp4'],
-  ['B05', 'exercises/WW_B05_althernativeNostrilBreathing_v1.mp4.mp4'],
+  ['E02', 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4'],
+  ['E03', 'faststart-v1/WW_E03_InstantCalm_v3.mp4_faststart.mp4'],
+  ['E04', 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
+  ['E05', 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
+  ['E06', 'faststart-v2/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4'],
+  ['E07', 'faststart-v1/WW_E07_MorningGratitude_Music_v2.mp3_faststart.mp4'],
+  ['E08', 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4'],
+  ['E09', 'faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4'],
+  ['E10', 'faststart-v1/WW_E10_EveningReflection_Music_v1.mp3_faststart.mp4'],
+  ['E11', 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4'],
+  ['E12', 'faststart-v1/WW_E12_ConfidenceBuilder_Portrait_v1.png_faststart.mp4'],
+  ['E13', 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E14', 'faststart-v1/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3_faststart.mp4'],
+  ['E15', 'faststart-v1/WW_E15_AFreshStart_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E16', 'faststart-v1/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E17', 'faststart-v1/WW_E17_StressReset_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E18', 'faststart-v1/WW_E18_FindingBalance_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E19', 'faststart-v1/WW_E19_LettingGo_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E20', 'faststart-v1/WW_E20_QuietingTheMind_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E21', 'faststart-v1/WW_E21_SelfCompassion_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E22', 'faststart-v1/WW_E22_InnerStrength_Mobile_Background_v1.png_faststart.mp4'],
+  ['E23', 'faststart-v1/WW_E23_Gratitude_Mobile_Background_v1.png_faststart.mp4'],
+  ['E24', 'faststart-v1/WW_E24_Confidence_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E25', 'faststart-v1/WW_E25_HopeAndHealing_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E26', 'faststart-v1/WW_E26_SelfAcceptance_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E27', 'faststart-v1/WW_E27_DeepRelaxation_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E28', 'faststart-v1/WW_E28_MindfulBreathing_v2.mp4_faststart.mp4'],
+  ['E29', 'faststart-v1/WW_E29_Patience_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E30', 'faststart-v1/WW_E30_PeacefulSleep_v1.mp4_faststart.mp4'],
+  ['A01', 'faststart-v1/WW_A01_Confidence_v1.mp4_faststart.mp4'],
+  ['A02', 'faststart-v1/WW_A02_Calmness_v1.mp4_faststart.mp4'],
+  ['A03', 'faststart-v1/WW_A03_Focus_v1.mp4_faststart.mp4'],
+  ['A04', 'faststart-v1/WW_A04_Motivation_v1.mp4_faststart.mp4'],
+  ['A05', 'faststart-v1/WW_A05_Gratitude_v2.mp4_faststart.mp4'],
+  ['A06', 'faststart-v1/WW_A06_SelfWorth_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['B01', 'faststart-v1/WW_B01_DeepBreathing_Mobile_Background_v1.png_faststart.mp4'],
+  ['B02', 'faststart-v1/WW_B02_BoxBreathing_v1.mp4_faststart.mp4'],
+  ['B03', 'faststart-v1/WW_B03_478Breathing_v1.mp4_faststart.mp4'],
+  ['B04', 'faststart-v1/WW_B04_CoherentBreathing_v1.mp4_faststart.mp4'],
+  ['B05', 'faststart-v1/WW_B05_althernativeNostrilBreathing_v1.mp4_faststart.mp4'],
   // Interactive-ambient-music loops (audio-only .m4a, no video track) -
   // shared background beds for the silent interactive timers on
   // Breathe.jsx/EveningBreathing.jsx/QuietBreathing.jsx (IB01) and
   // MorningFlow.jsx (IS01). Confirmed this Map has no format/extension
   // validation on the key or path, so .m4a works identically to every
   // .mp4 entry here. See src/lib/betaVideoManifest.js's matching entries.
-  ['IB01', 'exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v2.m4a'],
-  ['F01', 'exercises/WW_F01_DeepWork_v1.mp4.mp4'],
-  ['F02', 'exercises/WW_F02_Study.mp4.mp4'],
-  ['F03', 'exercises/WW_F03_Concentration_v1.mp4.mp4'],
-  ['G01', 'exercises/WW_G01_FiveSenses_v1.mp4.mp4'],
-  ['G02', 'exercises/WW_G02_MuscleRelaxation_v1.mp4.mp4'],
-  ['G03', 'exercises/WW_G03_BodyAwareness_v1.mp4.mp4'],
-  ['G04', 'exercises/WW_G04_SensoryReset_v1.mp4.mp4'],
-  ['M01', 'exercises/WW_M01_MindfulnessMeditation_v1.mp4.mp4'],
-  ['M02', 'exercises/WW_M02_BodyScan_v1.mp4.mp4'],
-  ['M03', 'exercises/WW_M03_LovingKindness_v1.mp4.mp4'],
-  ['M04', 'exercises/WW_M04_GratitudeMeditation_v1.mp4.mp4'],
-  ['M05', 'exercises/WW_M05_GuidedReflection_v1.mp4.mp4'],
+  ['IB01', 'faststart-v1/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart.m4a'],
+  ['F01', 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4'],
+  ['F02', 'faststart-v1/WW_F02_Study.mp4_faststart.mp4'],
+  ['F03', 'faststart-v1/WW_F03_Concentration_v1.mp4_faststart.mp4'],
+  ['G01', 'faststart-v1/WW_G01_FiveSenses_v1.mp4_faststart.mp4'],
+  ['G02', 'faststart-v1/WW_G02_MuscleRelaxation_v1.mp4_faststart.mp4'],
+  ['G03', 'faststart-v1/WW_G03_BodyAwareness_v1.mp4_faststart.mp4'],
+  ['G04', 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4'],
+  ['M01', 'faststart-v1/WW_M01_MindfulnessMeditation_v1.mp4_faststart.mp4'],
+  ['M02', 'faststart-v1/WW_M02_BodyScan_v1.mp4_faststart.mp4'],
+  ['M03', 'faststart-v1/WW_M03_LovingKindness_v1.mp4_faststart.mp4'],
+  ['M04', 'faststart-v1/WW_M04_GratitudeMeditation_v1.mp4_faststart.mp4'],
+  ['M05', 'faststart-v1/WW_M05_GuidedReflection_v1.mp4_faststart.mp4'],
   // S01-MUSIC (the pre-mixed narrated+music variant) removed - that
   // approach no longer represents the approved architecture. The original
   // S01 mapping below is untouched. WW_S01_NeckRelease_MusicBed_v2.mp4
   // itself is left in Storage, unreferenced by any id here.
-  ['S01', 'exercises/WW_S01_NeckRelease_v1.mp4.mp4'],
-  ['S02', 'exercises/WW_S02_ShoulderRelease_v1.mp4.mp4'],
-  ['S03', 'exercises/WW_S03_UpperBackStretch_v1.mp4.mp4'],
-  ['S04', 'exercises/WW_S04_MorningFlow_v1.mp4.mp4'],
-  ['S05', 'exercises/WW_S05_EveningFlow_v1.mp4.mp4'],
-  ['IS01', 'exercises/WW_IS01_InteractiveStretchingLoop_MusicBed_v2.m4a'],
-  ['SL01', 'exercises/WW_SL01_Rain_v1.mp4'],
-  ['SL02', 'exercises/WW_SL02_OceanWaves_Preview_v1.mp4'],
-  ['SL03', 'exercises/WW_SL03_ForestAmbience_v1.mp4'],
-  ['SL04', 'exercises/WW_SL04_Fireplace_v1.mp4'],
-  ['SL05', 'exercises/WW_SL05_Wind_v1.mp4.mp4'],
-  ['SL06', 'exercises/WW_SL06_WhiteNoise_v1.mp4.mp4'],
-  ['SL07', 'exercises/WW_SL07_PinkNoise_v1.mp4.mp4'],
-  ['SL08', 'exercises/WW_SL08_BrownNoise_v1.mp4.mp4'],
+  ['S01', 'faststart-v1/WW_S01_NeckRelease_v1.mp4_faststart.mp4'],
+  ['S02', 'faststart-v1/WW_S02_ShoulderRelease_v1.mp4_faststart.mp4'],
+  ['S03', 'faststart-v1/WW_S03_UpperBackStretch_v1.mp4_faststart.mp4'],
+  ['S04', 'faststart-v1/WW_S04_MorningFlow_v1.mp4_faststart.mp4'],
+  ['S05', 'faststart-v1/WW_S05_EveningFlow_v1.mp4_faststart.mp4'],
+  ['IS01', 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a'],
+  ['SL01', 'faststart-v1/WW_SL01_Rain_v1_faststart.mp4'],
+  ['SL02', 'faststart-v1/WW_SL02_OceanWaves_Preview_v1_faststart.mp4'],
+  ['SL03', 'faststart-v1/WW_SL03_ForestAmbience_v1_faststart.mp4'],
+  ['SL04', 'faststart-v1/WW_SL04_Fireplace_v1_faststart.mp4'],
+  ['SL05', 'faststart-v1/WW_SL05_Wind_v1.mp4_faststart.mp4'],
+  ['SL06', 'faststart-v1/WW_SL06_WhiteNoise_v1.mp4_faststart.mp4'],
+  ['SL07', 'faststart-v1/WW_SL07_PinkNoise_v1.mp4_faststart.mp4'],
+  ['SL08', 'faststart-v1/WW_SL08_BrownNoise_v1.mp4_faststart.mp4'],
   // Introduction guide videos (Introduction.jsx) - verified against
   // storage.objects (name, mimetype video/mp4, size) before adding. Same
   // JWT-required/anonymous-rejected policy as every other id above -
   // Introduction.jsx gates guest taps via useProtectedVideo/
   // SignInPromptDialog before ever calling this function.
-  ['I01', 'exercises/WW_I01_WelcomeToWakeWise_v1.mp4'],
-  ['I02', 'exercises/WW_I02_HowToUseWakeWise_v1.mp4']
+  ['I01', 'faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4'],
+  ['I02', 'faststart-v1/WW_I02_HowToUseWakeWise_v1_faststart.mp4']
 ]);
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — matches betaVideoAccess.js's SIGNED_URL_TTL_SECONDS

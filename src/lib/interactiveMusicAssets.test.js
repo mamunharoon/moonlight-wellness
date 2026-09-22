@@ -22,10 +22,10 @@ describe('S01-MUSIC is fully removed, S01 itself is untouched', () => {
     expect(BETA_VIDEO_MANIFEST.find((e) => e.musicVariantId === 'S01-MUSIC')).toBeUndefined();
   });
 
-  it('the original narration-only S01 entry is exactly as it was before S01-MUSIC ever existed', () => {
+  it('the original narration-only S01 entry is exactly as it was before S01-MUSIC ever existed (now Fast Start)', () => {
     const s01 = getBetaVideoById('S01');
     expect(s01).toBeDefined();
-    expect(s01.storagePath).toBe('exercises/WW_S01_NeckRelease_v1.mp4.mp4');
+    expect(s01.storagePath).toBe('faststart-v1/WW_S01_NeckRelease_v1.mp4_faststart.mp4');
     expect(s01.musicVariantId).toBeUndefined();
   });
 
@@ -33,27 +33,27 @@ describe('S01-MUSIC is fully removed, S01 itself is untouched', () => {
     expect(edgeFunctionSource).not.toMatch(/\['S01-MUSIC',/);
   });
 
-  it('the Edge Function\'s S01 mapping is unchanged', () => {
-    expect(edgeFunctionSource).toMatch(/\['S01', 'exercises\/WW_S01_NeckRelease_v1\.mp4\.mp4'\],/);
+  it('the Edge Function\'s S01 mapping is unchanged apart from the Fast Start conversion', () => {
+    expect(edgeFunctionSource).toMatch(/\['S01', 'faststart-v1\/WW_S01_NeckRelease_v1\.mp4_faststart\.mp4'\],/);
   });
 });
 
 describe('IB01 / IS01 are registered end-to-end for the two real approved v2 assets', () => {
-  it('IB01 resolves via getBetaVideoById to the approved breathing-loop v2 object path', () => {
+  it('IB01 resolves via getBetaVideoById to the approved breathing-loop v2 object\'s Fast Start path', () => {
     const ib01 = getBetaVideoById('IB01');
     expect(ib01).toBeDefined();
-    expect(ib01.storagePath).toBe('exercises/WW_IB01_InteractiveBreathingLoop_MusicBed_v2.m4a');
+    expect(ib01.storagePath).toBe('faststart-v1/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart.m4a');
   });
 
-  it('IS01 resolves via getBetaVideoById to the approved stretching-loop v2 object path', () => {
+  it('IS01 resolves via getBetaVideoById to the approved stretching-loop v2 object\'s Fast Start path', () => {
     const is01 = getBetaVideoById('IS01');
     expect(is01).toBeDefined();
-    expect(is01.storagePath).toBe('exercises/WW_IS01_InteractiveStretchingLoop_MusicBed_v2.m4a');
+    expect(is01.storagePath).toBe('faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a');
   });
 
-  it('the Edge Function maps IB01 and IS01 to the exact same two v2 object paths', () => {
-    expect(edgeFunctionSource).toMatch(/\['IB01', 'exercises\/WW_IB01_InteractiveBreathingLoop_MusicBed_v2\.m4a'\],/);
-    expect(edgeFunctionSource).toMatch(/\['IS01', 'exercises\/WW_IS01_InteractiveStretchingLoop_MusicBed_v2\.m4a'\],/);
+  it('the Edge Function maps IB01 and IS01 to the exact same two v2 objects\' Fast Start paths', () => {
+    expect(edgeFunctionSource).toMatch(/\['IB01', 'faststart-v1\/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart\.m4a'\],/);
+    expect(edgeFunctionSource).toMatch(/\['IS01', 'faststart-v1\/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart\.m4a'\],/);
   });
 
   it('the obsolete v1 object paths are no longer registered anywhere', () => {

@@ -191,3 +191,37 @@ describe('BetaVideoModal.jsx — signed-URL access is untouched by this fix', ()
     expect(source).not.toMatch(/webkitEnterFullscreen[\s\S]{0,200}requestBetaVideoUrl/);
   });
 });
+
+describe('BetaVideoModal.jsx — Escape never closes the whole modal while a fullscreen state is active', () => {
+  const keyDownBody = () =>
+    source.match(/useEffect\(\(\) => \{\s*\n\s*const handleKeyDown = \(e\) => \{[\s\S]*?\n {2}\}, \[onClose, isFullscreen, fallbackFullscreen\]\);/)?.[0] ?? '';
+
+  it('guards onClose behind both fullscreen states, and depends on them (not just [onClose])', () => {
+    const body = keyDownBody();
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(fallbackFullscreen\) \{\s*\n\s*setFallbackFullscreen\(false\);\s*\n\s*return;\s*\n\s*\}/);
+    expect(body).toMatch(/if \(isFullscreen\) return;/);
+  });
+
+  it('standards-track fullscreen (isFullscreen): Escape is left to the browser + handleStandardFullscreenChange, never reaches onClose', () => {
+    const body = keyDownBody();
+    const isFsIndex = body.indexOf('if (isFullscreen) return;');
+    const onCloseIndex = body.indexOf('onClose();');
+    expect(isFsIndex).toBeGreaterThanOrEqual(0);
+    expect(onCloseIndex).toBeGreaterThan(isFsIndex);
+  });
+
+  it('the in-app fallback fullscreen (fallbackFullscreen): Escape exits fallback only, checked before onClose is ever reached', () => {
+    const body = keyDownBody();
+    const fallbackIndex = body.indexOf('setFallbackFullscreen(false);');
+    const onCloseIndex = body.indexOf('onClose();');
+    expect(fallbackIndex).toBeGreaterThanOrEqual(0);
+    expect(onCloseIndex).toBeGreaterThan(fallbackIndex);
+  });
+
+  it('neither fullscreen state active (the small preview modal itself): Escape still closes the modal, preserving prior behavior', () => {
+    const body = keyDownBody();
+    expect(body).toMatch(/if \(e\.key !== 'Escape'\) return;/);
+    expect(body).toMatch(/onClose\(\);\s*\n\s*\};/);
+  });
+});
