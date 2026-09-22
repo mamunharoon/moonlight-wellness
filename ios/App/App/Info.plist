@@ -58,5 +58,17 @@
 			</array>
 		</dict>
 	</array>
+	<!-- The app makes only standard TLS/HTTPS calls (URLSession, StoreKit)
+	     to Supabase and implements no proprietary cryptography of its own
+	     (the JWS/certificate-chain verification in this repo runs
+	     server-side in Supabase Edge Functions, never in the compiled iOS
+	     binary) - already answered this way by hand in App Store Connect
+	     for a prior build. Declaring it here means App Store Connect skips
+	     the per-build "App Encryption Documentation" question entirely
+	     instead of blocking every future build on a manual dashboard
+	     answer that has already been missed once (the cause of Build 13's
+	     422 on automatic beta-review submission). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
