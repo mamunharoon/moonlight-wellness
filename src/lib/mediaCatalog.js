@@ -267,3 +267,78 @@ export const getMeditationCatalog = () => MEDIA_CATALOG.filter((entry) => entry.
 // Re-exported so existing callers (BetaVideoModal.jsx, PrepareForRest.jsx,
 // etc.) can migrate to this file without a second import statement.
 export { getBetaVideoById };
+
+// =============================================================================
+// Build 15 UX remediation — Anytime Reset (src/pages/AnytimeReset.jsx).
+//
+// Deliberately additive and fully separate from MEDITATION_NEEDS/
+// MEDITATION_DURATION_GROUPS/MEDITATION_METADATA/getMeditationCatalog
+// above: nothing above this comment block is read, written, or otherwise
+// affected by anything below it. Meditate.jsx imports only the exports
+// above and is untouched by this addition.
+//
+// Every durationSeconds value below was read from this session's own
+// catalogue-wide ffprobe audit against the live Storage objects (not
+// guessed from titles) - see the Build 15 implementation report for the
+// exact source. A single maxSeconds cap per duration option (rather than
+// Meditate's own min/max window) is deliberate: it directly encodes the
+// approved rule "never recommend content longer than the selected time"
+// as a plain filter, with no per-item "exactGroupFit" override needed.
+export const ANYTIME_RESET_NEEDS = Object.freeze([
+  { id: 'calm', label: 'Calm' },
+  { id: 'focus', label: 'Focus' },
+  { id: 'energy', label: 'More energy' },
+  { id: 'stress-relief', label: 'Stress relief' },
+  { id: 'body-reset', label: 'Body reset' },
+  { id: 'quiet-time', label: 'Quiet time' },
+  { id: 'better-mood', label: 'Better mood' },
+  { id: 'not-sure', label: 'Not sure' }
+]);
+
+export const ANYTIME_RESET_DURATIONS = Object.freeze([
+  { id: 'quick', label: 'About 2 minutes', maxSeconds: 135 },
+  { id: 'short', label: 'About 5 minutes', maxSeconds: 330 },
+  { id: 'any', label: 'No preference', maxSeconds: Infinity }
+]);
+
+// id -> { needs: string[], durationSeconds: number }. Every id here also
+// exists in MEDIA_CATALOG (asserted by getAnytimeResetCatalog below via a
+// plain filter, so a typo'd id is silently dropped rather than crashing -
+// covered by a dedicated test asserting the expected count survives the
+// filter). No id below is exclusive to this feature: all are existing,
+// already-shipped, already-Fast-Start catalogue entries.
+const ANYTIME_RESET_METADATA = {
+  E03: { needs: ['calm'], durationSeconds: 100.1 },
+  E08: { needs: ['calm'], durationSeconds: 117.2 },
+  B04: { needs: ['calm'], durationSeconds: 163.8 },
+  E27: { needs: ['calm'], durationSeconds: 155.6 },
+  E13: { needs: ['focus'], durationSeconds: 111.0 },
+  F01: { needs: ['focus'], durationSeconds: 155.9 },
+  F03: { needs: ['focus'], durationSeconds: 174.3 },
+  E11: { needs: ['energy'], durationSeconds: 109.5 },
+  E14: { needs: ['energy'], durationSeconds: 102.4 },
+  A04: { needs: ['energy'], durationSeconds: 146.1 },
+  E04: { needs: ['stress-relief'], durationSeconds: 110.9 },
+  E17: { needs: ['stress-relief'], durationSeconds: 116.6 },
+  B02: { needs: ['stress-relief'], durationSeconds: 168.9 },
+  G02: { needs: ['stress-relief'], durationSeconds: 196.9 },
+  G04: { needs: ['stress-relief'], durationSeconds: 172.7 },
+  S01: { needs: ['body-reset'], durationSeconds: 198.0 },
+  S02: { needs: ['body-reset'], durationSeconds: 200.7 },
+  S03: { needs: ['body-reset'], durationSeconds: 198.2 },
+  M01: { needs: ['quiet-time'], durationSeconds: 215.8 },
+  M03: { needs: ['quiet-time'], durationSeconds: 204.4 },
+  M05: { needs: ['quiet-time'], durationSeconds: 211.5 },
+  E23: { needs: ['better-mood'], durationSeconds: 116.4 },
+  A05: { needs: ['better-mood'], durationSeconds: 163.5 },
+  A01: { needs: ['better-mood'], durationSeconds: 147.8 }
+};
+
+// Every Anytime-Reset-eligible entry, each carrying its own `anytimeReset`
+// metadata - the single source anytimeResetRecommendations.js reads from,
+// so the two files can never drift out of sync about which ids qualify
+// or what their verified duration is.
+export const getAnytimeResetCatalog = () =>
+  MEDIA_CATALOG
+    .filter((entry) => ANYTIME_RESET_METADATA[entry.id])
+    .map((entry) => ({ ...entry, anytimeReset: ANYTIME_RESET_METADATA[entry.id] }));

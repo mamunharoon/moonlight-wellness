@@ -942,12 +942,18 @@ export const Home = () => {
           Or choose something quick
         </p>
         <div className="grid grid-cols-4 gap-2.5">
+          {/* Build 15 UX remediation: replaces the former "Need a
+              moment?" tile (-> /support) with Anytime Reset, keeping the
+              quick-action row at exactly four choices per the approved
+              design. /support itself is untouched and still reachable
+              (Library, Support.jsx's own sub-flows, existing tests) -
+              only this one Home tile's destination changed. */}
           <Link
-            to="/support"
+            to="/anytime-reset"
             className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
           >
-            <span className="material-symbols-outlined text-primary text-xl">self_improvement</span>
-            <span className="text-[11px] font-semibold text-on-surface leading-tight">Need a moment?</span>
+            <span className="material-symbols-outlined text-primary text-xl">bolt</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Anytime Reset</span>
           </Link>
           {/* Meditation experience: quick action, not a fifth bottom-nav
               tab. Routes to /meditate — see Meditate.jsx's own doc
