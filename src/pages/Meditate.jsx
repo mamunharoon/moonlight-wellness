@@ -71,10 +71,33 @@ export const Meditate = () => {
 
   // Strips the now-consumed params so they can't re-trigger on a later
   // re-render or a browser back/forward — touches only router state.
+  //
+  // Back-button repair: `need`/`duration` used to be stripped here only
+  // implicitly (never, in fact) — they were read once by the lazy
+  // initializers above but left sitting in the URL indefinitely. Any
+  // reload while the wizard had since moved to a *different* step (e.g.
+  // via "Change need"/"Change time", or the on-screen back arrow on the
+  // "What would help right now?" step) re-ran `restoredIsValid` against
+  // those same stale params and silently snapped back to the `recommend`
+  // step — discarding whatever step the user was actually on, which is
+  // exactly what a WKWebView memory reload (a normal iOS event after
+  // backgrounding, or after returning from a video's native fullscreen)
+  // can trigger. The on-screen back control's own click handler was never
+  // broken — confirmed live, it correctly steps `need` -> `duration` — a
+  // reload is what silently undid it. Stripping `need`/`duration` here
+  // too, the same one-time-restore-then-clear treatment `openId` already
+  // got, means a reload after this point always falls through to the
+  // step's own local-state default (`duration`) instead of a stale
+  // restore target — a predictable, safe landing spot rather than a
+  // confusing jump.
   useEffect(() => {
-    if (!searchParams.get('openId')) return;
+    const hasOpenId = searchParams.get('openId');
+    const hasRestoreParams = searchParams.get('need') || searchParams.get('duration');
+    if (!hasOpenId && !hasRestoreParams) return;
     const next = new URLSearchParams(searchParams);
     next.delete('openId');
+    next.delete('need');
+    next.delete('duration');
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

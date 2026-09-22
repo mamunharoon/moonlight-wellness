@@ -74,7 +74,10 @@ describe('Guest authentication gating is identical for both variants (entirely u
   it('BetaVideoModal\'s only isGuest/auth logic is a defensive sign-out guard (pause immediately if a session expires mid-playback) - the actual entry gate already happened in useProtectedVideo before this component ever mounts', () => {
     const guardBody = modalSource.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isGuest\) return;[\s\S]*?\n {2}\}, \[isGuest\]\);/)?.[0] ?? '';
     expect(guardBody).not.toBe('');
-    expect(guardBody).toMatch(/videoRef\.current\?\.pause\(\);/);
+    // Defect 2 fix (immersive fullscreen) also exits fullscreen here, on
+    // the same guard, before pausing - still just the one guest-gating
+    // effect, still unconditionally pauses.
+    expect(guardBody).toMatch(/video\.pause\(\);/);
     // that one defensive effect is the ONLY isGuest/useAuth reference -
     // no gating logic of its own beyond it.
     const isGuestOccurrences = modalSource.match(/isGuest/g) ?? [];

@@ -152,7 +152,36 @@ export const Introduction = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col px-6 py-8 max-w-md mx-auto space-y-8">
+    // Mobile scroll repair: Introduction is one of a handful of routes
+    // rendered outside <Layout> (full-bleed, no bottom-nav chrome — see
+    // this file's own top comment), so it never got Layout's own h-dvh +
+    // flex-1 min-h-0 + overflow-y-auto scroll container. It relied on the
+    // document (body/html) scrolling instead — which index.html
+    // deliberately sets `overflow: hidden` on for BOTH axes, specifically
+    // because every Layout-wrapped page already has its own internal
+    // scroll container and two competing scrollers was the actual bug
+    // that fix solved. Confirmed live: on a short viewport, desktop mouse-
+    // wheel still happened to reach the rest of the page (Chrome falls
+    // back to scrolling <html> when <body> alone is overflow:hidden), but
+    // iOS Safari/WKWebView specifically blocks touch-driven scrolling
+    // once <body> has overflow:hidden — body{overflow:hidden} is a
+    // well-known technique for exactly that suppression — so a real
+    // iPhone had no way to reach content past the fold at all. Fix: this
+    // screen now owns its own single scroll container, the same proven
+    // shape Layout.jsx already uses, instead of depending on document
+    // scroll.
+    <div className="h-dvh overflow-hidden">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+        <div
+          className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-8"
+          style={{
+            paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+            // iPhone home-indicator clearance — this route has no bottom
+            // nav of its own to already reserve that space (unlike
+            // Layout.jsx's content container).
+            paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))'
+          }}
+        >
       <div className="flex items-center gap-3">
         <BackButton fallback="/" />
       </div>
@@ -268,6 +297,8 @@ export const Introduction = () => {
         >
           Skip for now
         </button>
+      </div>
+        </div>
       </div>
 
       {openVideo && (

@@ -104,8 +104,64 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   // just an explicit Stop/pause tap: any native `pause` event, whatever
   // its cause, stops the countdown from advancing.
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  // Immersive fullscreen, Defect 2 fix. isFullscreen mirrors whichever
+  // fullscreen mechanism is actually active (native iOS video fullscreen
+  // via webkitbeginfullscreen/webkitendfullscreen, or the standards-track
+  // Fullscreen API's fullscreenchange — see the effect below);
+  // fallbackFullscreen is this component's OWN full-viewport in-app state
+  // for platforms where neither native API exists (requestVideoFullscreen
+  // below). hasEnded distinguishes natural completion (Done/Replay) from
+  // merely having exited fullscreen mid-playback (Resume) — both render
+  // the same small preview modal underneath, never a second player and
+  // never an autoclose (see the overlay in the JSX below).
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+  const [hasEnded, setHasEnded] = useState(false);
   const expiresAtRef = useRef(null);
   const videoRef = useRef(null);
+
+  // Immersive fullscreen, Defect 2 fix — the supported iPhone path is
+  // HTMLVideoElement.webkitEnterFullscreen(), a WKWebView/iOS-native API
+  // specific to <video>, not the standards-track element.requestFullscreen()
+  // — iOS has never reliably supported requestFullscreen() the way desktop
+  // browsers do, so that generic API is only ever tried second, as the
+  // fallback for platforms that DO support it (desktop Chrome/Firefox/
+  // Safari). If neither exists, fallbackFullscreen renders this same
+  // <video> element full-viewport via CSS instead (see its conditional
+  // className below) — never silently stays small. Declared here, ahead
+  // of every effect/handler that calls it, so none of them ever close
+  // over the identifier before it's initialised.
+  const requestVideoFullscreen = (video) => {
+    if (typeof video.webkitEnterFullscreen === 'function') {
+      try {
+        video.webkitEnterFullscreen();
+        return;
+      } catch {
+        // falls through to the standards-track path below
+      }
+    }
+    if (typeof video.requestFullscreen === 'function') {
+      video.requestFullscreen().catch(() => setFallbackFullscreen(true));
+      return;
+    }
+    setFallbackFullscreen(true);
+  };
+
+  // Mirror image of requestVideoFullscreen, used on every exit path
+  // (cleanup effect, sign-out guard) so a fullscreen video is never left
+  // presented — native or in-app — once its source is about to be
+  // released.
+  const exitVideoFullscreen = (video) => {
+    if (typeof video.webkitExitFullscreen === 'function' && video.webkitDisplayingFullscreen) {
+      try {
+        video.webkitExitFullscreen();
+      } catch {
+        // no-op — the source is being released regardless
+      }
+    } else if (document.fullscreenElement === video && typeof document.exitFullscreen === 'function') {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   // Fetches the signed URL. Deps are playbackId/retryToken - playbackId
   // already folds in entry.id (it's always the fallback), so this effect
@@ -132,6 +188,9 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
       setSleepTimerMinutes(DEFAULT_SLEEP_TIMER_MINUTES);
       setTimerEnded(false);
       setIsVideoPlaying(false);
+      setIsFullscreen(false);
+      setFallbackFullscreen(false);
+      setHasEnded(false);
       try {
         const { url, expiresAt } = await requestBetaVideoUrl(playbackId);
         if (cancelled) return;
@@ -161,10 +220,57 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     const video = videoRef.current;
     return () => {
       if (video) {
+        exitVideoFullscreen(video);
         video.pause();
         video.removeAttribute('src');
         video.load();
       }
+    };
+  }, [videoUrl]);
+
+  // Immersive fullscreen, Defect 2 fix — event wiring. iOS/WKWebView video
+  // fullscreen fires its own proprietary event pair on the <video>
+  // element itself (webkitbeginfullscreen/webkitendfullscreen), entirely
+  // separate from the standards-track Fullscreen API's `fullscreenchange`
+  // event on `document` (which iOS's native video fullscreen never
+  // fires) — both are listened for here so either path correctly updates
+  // isFullscreen. Exiting either way only ever flips this state; it never
+  // calls onClose, so the small preview modal underneath — never
+  // unmounted while fullscreen is active — is simply what's visible again
+  // once fullscreen ends (requirement: native Done / fullscreen exit
+  // returns to the preview modal). `ended` only ever fires for a
+  // non-looping video (Sleep Soundscapes loop, by design, and are
+  // excluded from fullscreen entirely — see requestVideoFullscreen).
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleBeginFullscreen = () => setIsFullscreen(true);
+    const handleEndFullscreen = () => {
+      setIsFullscreen(false);
+      setFallbackFullscreen(false);
+    };
+    const handleStandardFullscreenChange = () => {
+      const active = document.fullscreenElement === video;
+      setIsFullscreen(active);
+      if (!active) setFallbackFullscreen(false);
+    };
+    const handleEnded = () => {
+      setIsFullscreen(false);
+      setFallbackFullscreen(false);
+      setHasEnded(true);
+    };
+
+    video.addEventListener('webkitbeginfullscreen', handleBeginFullscreen);
+    video.addEventListener('webkitendfullscreen', handleEndFullscreen);
+    document.addEventListener('fullscreenchange', handleStandardFullscreenChange);
+    video.addEventListener('ended', handleEnded);
+
+    return () => {
+      video.removeEventListener('webkitbeginfullscreen', handleBeginFullscreen);
+      video.removeEventListener('webkitendfullscreen', handleEndFullscreen);
+      document.removeEventListener('fullscreenchange', handleStandardFullscreenChange);
+      video.removeEventListener('ended', handleEnded);
     };
   }, [videoUrl]);
 
@@ -228,7 +334,10 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
   // guest continue hearing audio they were never allowed to start.
   useEffect(() => {
     if (!isGuest) return;
-    videoRef.current?.pause();
+    const video = videoRef.current;
+    if (!video) return;
+    exitVideoFullscreen(video);
+    video.pause();
   }, [isGuest]);
 
   const handleVideoError = () => {
@@ -287,15 +396,48 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
     setRemainingMs(sleepTimerMinutes * 60 * 1000);
   };
 
-  // The ONLY place playback is ever started. Called directly from the
+  // The ONLY place playback is first started. Called directly from the
   // overlay button's onClick, so this runs synchronously inside a real
   // user gesture - the one thing browsers require to allow unmuted
-  // playback. hasStarted itself isn't set here; it flips from the
-  // <video>'s own onPlay event once playback has genuinely begun, so the
-  // overlay hides exactly when sound actually starts, not just on click.
+  // playback (and the same gesture fullscreen APIs require - see
+  // requestVideoFullscreen, called synchronously here rather than inside
+  // play()'s own .then(), so a fullscreen request is never one microtask
+  // removed from the tap that authorized it). hasStarted itself isn't set
+  // here; it flips from the <video>'s own onPlay event once playback has
+  // genuinely begun, so the overlay hides exactly when sound actually
+  // starts, not just on click.
+  //
+  // PRODUCT DECISION (temporary, revisitable - not an omission): Sleep
+  // Soundscapes are deliberately excluded from automatic fullscreen.
+  // Their own timer/remaining-time/Stop controls live in this modal's
+  // body, below the video frame, and would be hidden behind a fullscreen
+  // presentation with no way back to them short of exiting fullscreen
+  // entirely. Immersive fullscreen was requested for the guided exercise
+  // videos specifically (Defect 2) - giving Sleep Soundscapes their own
+  // fullscreen-compatible timer UI, if ever wanted, is a separate,
+  // deliberately deferred piece of work, not something this fix forgot.
   const handleBegin = () => {
     const video = videoRef.current;
     if (!video) return;
+    if (!isSleepSound) requestVideoFullscreen(video);
+    video.play().catch(() => {
+      setStatus('error');
+      setErrorMessage("Couldn't start playback.");
+    });
+  };
+
+  // Resume (exited fullscreen mid-playback, e.g. native Done) or Play
+  // Again (natural completion) from the returned-to-preview overlay -
+  // see the JSX below. Same synchronous fullscreen-then-play ordering and
+  // gesture reasoning as handleBegin.
+  const handleResumeOrReplay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (hasEnded) {
+      video.currentTime = 0;
+      setHasEnded(false);
+    }
+    if (!isSleepSound) requestVideoFullscreen(video);
     video.play().catch(() => {
       setStatus('error');
       setErrorMessage("Couldn't start playback.");
@@ -366,10 +508,37 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                 }}
                 onPause={() => setIsVideoPlaying(false)}
                 onLoadedMetadata={(e) => cacheDurationSeconds(entry.id, e.currentTarget.duration)}
-                className="w-full h-full object-contain bg-black"
+                // Fallback-fullscreen, Defect 2 fix: the SAME <video>
+                // element is simply repositioned full-viewport via CSS
+                // when neither native fullscreen API is available -
+                // never a second, duplicate video element (only one
+                // video may ever exist/play at a time).
+                className={
+                  fallbackFullscreen
+                    ? 'fixed inset-0 z-[200] w-screen h-screen object-contain bg-black'
+                    : 'w-full h-full object-contain bg-black'
+                }
               >
                 Your browser doesn&apos;t support embedded video.
               </video>
+
+              {/* Full-viewport in-app fallback exit control - only ever
+                  rendered when neither native fullscreen API was
+                  available, so there's otherwise no way back to the
+                  preview modal. Exits fullscreen only; does not close the
+                  video (matches the native-fullscreen Done behaviour
+                  above - both return to the same preview modal). */}
+              {fallbackFullscreen && (
+                <button
+                  type="button"
+                  onClick={() => setFallbackFullscreen(false)}
+                  aria-label="Exit fullscreen"
+                  className="fixed z-[201] w-11 h-11 rounded-full bg-black/50 flex items-center justify-center active:scale-95 transition-all"
+                  style={{ top: 'calc(1rem + env(safe-area-inset-top))', right: '1rem' }}
+                >
+                  <span className="material-symbols-outlined text-white">fullscreen_exit</span>
+                </button>
+              )}
 
               {/* Covers the frame until playback genuinely starts. No
                   autoplay, muted or otherwise - the signed URL loads as
@@ -405,6 +574,42 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                   >
                     Play again
                   </button>
+                </div>
+              )}
+
+              {/* Returned-to-preview state, Defect 2 fix: shown once
+                  playback has started AND fullscreen (native or fallback)
+                  is no longer active - i.e. the native Done button was
+                  pressed, a standards-track browser's own fullscreen exit
+                  was used, or the video completed naturally (hasEnded).
+                  Never rendered while still in either fullscreen mode
+                  (both fullscreen presentations cover this entire frame
+                  regardless). Deliberately excluded for Sleep
+                  Soundscapes, which never enter fullscreen in the first
+                  place and already have their own timerEnded "Play
+                  again" state above. */}
+              {hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm text-center px-6">
+                  <span className="material-symbols-outlined text-3xl text-white/80">
+                    {hasEnded ? 'check_circle' : 'pause_circle'}
+                  </span>
+                  <p className="text-sm text-white font-semibold">{hasEnded ? 'Done' : 'Paused'}</p>
+                  <div className="flex flex-col gap-2 w-full max-w-[220px]">
+                    <button
+                      type="button"
+                      onClick={handleResumeOrReplay}
+                      className="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-bold uppercase tracking-wide"
+                    >
+                      {hasEnded ? 'Play Again' : 'Resume'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      className="px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                    >
+                      Close Video
+                    </button>
+                  </div>
                 </div>
               )}
             </>

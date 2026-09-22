@@ -119,8 +119,13 @@ describe('Cleanup - closing, navigating away, signing out, or unmounting stops a
   it('sign-out defensive guard - same pattern as InteractiveAmbientMusic.jsx: a guest transition pauses playback immediately', () => {
     expect(source).toMatch(/import \{ useAuth \} from '\.\.\/context\/AuthContext';/);
     expect(source).toMatch(/const \{ isGuest \} = useAuth\(\);/);
-    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isGuest\) return;\s*\n\s*videoRef\.current\?\.pause\(\);\s*\n\s*\}, \[isGuest\]\);/)?.[0] ?? '';
+    // Defect 2 fix (immersive fullscreen) extended this guard to also
+    // exit fullscreen before pausing - see betaVideoModalFullscreen.
+    // test.js for that coverage; this test only re-confirms the pause
+    // itself still fires unconditionally on a guest transition.
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isGuest\) return;[\s\S]*?\n {2}\}, \[isGuest\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
+    expect(body).toMatch(/video\.pause\(\);/);
   });
 });
 
