@@ -11,6 +11,19 @@ import { BackButton } from '../components/BackButton';
 
 const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+// Build 15 DEV correction — contextual Back entry contexts. An
+// ALLOWLISTED identifier only, never a free-form `returnTo` URL: each
+// key maps to one fixed, hardcoded {fallback, label} pair this file
+// itself owns - the `from` query value can never choose an arbitrary
+// destination, only select among these pre-approved ones. An unknown or
+// missing value resolves to `undefined` (looked up below), which the
+// render guard below treats identically to "no context at all" - no
+// contextual Back renders, safely.
+const FROM_CONTEXTS = {
+  home: { fallback: '/', label: 'Back to Home' },
+  'evening-summary': { fallback: '/evening-complete', label: 'Back to Evening Summary' }
+};
+
 // Meditation experience: a UI-only pseudo-category, deliberately not part
 // of CATALOG_CATEGORIES (that list still means "this item's one primary
 // category" for every other consumer of mediaCatalog.js). An item's real
@@ -29,22 +42,26 @@ const MEDITATION_FILTER = 'Meditation';
  * now shares, replacing the prior split between betaVideoManifest.js
  * (id/title/storagePath) and a separate category-only file. This page
  * is a main bottom-nav destination, so by default it does not get a
- * back arrow — Home's bottom-nav Library tab link carries no `from`
- * param, so `cameFromHome` below is false and no contextual Back
- * control renders.
+ * back arrow — a plain bottom-nav or direct `/library` visit carries no
+ * `from` param, so `entryContext` below is undefined and no contextual
+ * Back control renders. This must never regress into a global "Library
+ * is a child page" change - direct/bottom-nav access always stays a
+ * top-level destination.
  *
- * Build 15 Phase B remediation — Task 4: Home's "Browse exercises" and
- * "Sleep sounds" quick-action tiles link here with an explicit,
- * allowlisted `?from=home` marker (never an arbitrary return URL - the
- * only thing this marker ever does is show/hide a Back control that is
- * itself hardcoded to BackButton's own fallback="/", never a caller-
- * supplied destination). Captured once via a lazy useState initializer
- * (same pattern AnytimeReset.jsx/Meditate.jsx already use for their own
+ * Build 15 Phase B remediation (Task 4) / Build 15 DEV correction —
+ * specific callers link here with an explicit, ALLOWLISTED `?from=`
+ * marker (never an arbitrary return URL): Home's "Browse exercises"/
+ * "Sleep sounds" tiles use `from=home`; EveningComplete.jsx's "Choose a
+ * Sleep Experience" uses `from=evening-summary`. FROM_CONTEXTS (above)
+ * is the one allowlist - the marker only ever SELECTS among these
+ * pre-approved {fallback, label} pairs, it can never supply its own
+ * destination. Captured once via a lazy useState initializer (same
+ * pattern AnytimeReset.jsx/Meditate.jsx already use for their own
  * one-time restore params) so it keeps controlling this Back control for
  * the lifetime of this mounted page even after the marker itself is
  * stripped from the visible URL a moment later - a plain `/library`
  * bottom-nav visit, or a later refresh once the marker is gone, both
- * correctly show no Back control (case 3's own requirement).
+ * correctly show no Back control.
  *
  * Search: client-side substring match over title + description — no
  * network request, the whole catalogue (65 items of plain text) is
@@ -66,16 +83,21 @@ export const Library = () => {
   // Captured once, before the strip effect below removes it from the URL -
   // see this file's own top-of-component comment for why a lazy
   // initializer (not a live searchParams.get('from') read) is required.
-  const [cameFromHome] = useState(() => searchParams.get('from') === 'home');
+  // Looks up the raw `from` value in the FROM_CONTEXTS allowlist above -
+  // an unknown/missing value resolves to `undefined`, never a caller-
+  // chosen destination.
+  const [entryContext] = useState(() => FROM_CONTEXTS[searchParams.get('from')]);
 
   // Strips the now-consumed `from` marker so it can't linger in the URL
   // while the user browses/filters within Library, or reappear on a
   // later browser back/forward - `category`/`openId` are left completely
   // untouched, same one-time-consume-then-clear treatment
   // AnytimeReset.jsx/Meditate.jsx already use for their own restore
-  // params.
+  // params. Only ever strips a value that was genuinely in the allowlist -
+  // an unrecognised `from` value is left in place (harmless - it never
+  // matched anything and never will) rather than silently erased.
   useEffect(() => {
-    if (searchParams.get('from') !== 'home') return;
+    if (!FROM_CONTEXTS[searchParams.get('from')]) return;
     const next = new URLSearchParams(searchParams);
     next.delete('from');
     setSearchParams(next, { replace: true });
@@ -127,9 +149,9 @@ export const Library = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {cameFromHome && (
+      {entryContext && (
         <div className="flex items-center gap-3">
-          <BackButton fallback="/" label="Back to Home" />
+          <BackButton fallback={entryContext.fallback} label={entryContext.label} />
         </div>
       )}
       <div>

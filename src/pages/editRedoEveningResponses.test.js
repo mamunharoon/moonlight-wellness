@@ -262,7 +262,11 @@ describe('Button hierarchy - EveningComplete.jsx (approved order: Choose a Sleep
   });
 
   it('Choose a Sleep Experience is the first, primary filled action for every user (guest included) - its real destination is unchanged', () => {
-    const sleepButtonMatch = eveningCompleteSource.match(/onClick=\{\(\) => navigate\('\/library\?category=sleep-soundscapes'\)\}\s*\n\s*className="([^"]+)"/);
+    // Build 15 DEV correction — this destination now also carries the
+    // allowlisted `from=evening-summary` entry context (see
+    // libraryHomeReturnContext.test.js) so Library shows a "Back to
+    // Evening Summary" control; the real category filter is unchanged.
+    const sleepButtonMatch = eveningCompleteSource.match(/onClick=\{\(\) => navigate\('\/library\?category=sleep-soundscapes&from=evening-summary'\)\}\s*\n\s*className="([^"]+)"/);
     expect(sleepButtonMatch).toBeTruthy();
     expect(sleepButtonMatch[1]).toMatch(/bg-primary text-on-primary/);
     expect(sleepIdx).toBeLessThan(eveningCompleteSource.indexOf('{!isGuest && ('));

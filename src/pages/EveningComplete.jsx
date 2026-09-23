@@ -148,8 +148,13 @@ export const EveningComplete = () => {
             writing for a guest), so Review/Edit/Redo would all open on
             nothing genuine - guests see only Sleep Experience + Return
             Home, both truthful for them either way. */}
+        {/* Build 15 DEV correction — carries the allowlisted
+            `from=evening-summary` entry context (see Library.jsx's own
+            FROM_CONTEXTS) so Library shows a contextual "Back to Evening
+            Summary" control, landing back on this exact screen - never a
+            free-form return URL, never an arbitrary destination. */}
         <button
-          onClick={() => navigate('/library?category=sleep-soundscapes')}
+          onClick={() => navigate('/library?category=sleep-soundscapes&from=evening-summary')}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
           <span>Choose a Sleep Experience</span>
