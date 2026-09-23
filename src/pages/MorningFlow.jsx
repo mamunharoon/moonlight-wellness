@@ -7,7 +7,6 @@ import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
-import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
@@ -15,6 +14,7 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
+import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -22,16 +22,19 @@ import { BackButton } from '../components/BackButton';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getStepLabel } from '../lib/stepLabels';
+import { formatTotalDuration } from '../lib/stretchDuration';
 
 // Background Music — the interactive stretching timer's own loop, distinct
-// from IB01 (breathing/grounding). Not yet registered in the manifest/
-// Edge Function, so InteractiveAmbientMusic renders nothing until it is —
-// see isInteractiveMusicEligible's own doc comment.
+// from IB01 (breathing/grounding). Registered in betaVideoManifest.js
+// (confirmed live) and eligible whenever the backgroundMusic feature flag
+// is on.
 const INTERACTIVE_STRETCHING_MUSIC_ID = 'IS01';
 
 // S01-S05: a "Stretching Sessions" collection, matching the pattern
 // already established for the A-, B-, G- and M-series sections. Shown to
-// any signed-in user (guests excluded).
+// any signed-in user (guests excluded). Deliberately separate from the
+// timed 4-movement selector below (Build 15) — these remain optional
+// supplementary guided videos, never merged into the interactive sequence.
 const STRETCHING_SESSION_VIDEOS = [
   { id: 'S01', blurb: 'A guided video to release tension in your neck.' },
   { id: 'S02', blurb: 'A guided video to release tension in your shoulders.' },
@@ -40,8 +43,19 @@ const STRETCHING_SESSION_VIDEOS = [
   { id: 'S05', blurb: 'A guided evening stretching flow.' }
 ];
 
+// Build 15 — Morning Stretch pre-start screen. The 4 real movements
+// (unchanged wording/icons) are now shown and multi-selectable BEFORE
+// anything starts, rather than always auto-running as a fixed sequence
+// the instant the music-choice prompt resolved. Selection uses a real
+// switch (role="switch"/aria-checked) per movement, never radio
+// semantics, since more than one movement may be included — the same
+// accessible multi-select pattern already proven in
+// PrepareToggleRow.jsx (Evening), just with Morning's own existing
+// `primary` accent (not evening-accent) since this screen already uses
+// `primary` throughout for its own identity.
+//
 // Morning-flow redesign — interactive timer vs. optional guided video:
-// this screen's own 4-exercise countdown has no narration or audio of its
+// this screen's own movement countdown has no narration or audio of its
 // own (confirmed by direct audit - the rows below open a completely
 // separate, same-page BetaVideoModal, never mixed with the countdown
 // itself). Selecting any row now: (1) marks videoOpenedDuringExercise so
@@ -54,36 +68,104 @@ export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
   // Stage 3C Group 3D Batch B: mirrors the stretch -> breathe transition
-  // into the Session Engine from all three genuine exits (timer
-  // auto-advance, manual Next/Continue on the final exercise, Skip
-  // Stretching). See mirrorStretchExitRef below.
+  // into the Session Engine from all genuine exits (timer auto-advance,
+  // manual Next/Continue on the final movement, Skip Stretching). See
+  // mirrorStretchExitRef below.
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - see Breathe.jsx's
   // identical block for the full rationale.
   const { isReviewMode, isLiveStep } = useStepReviewMode('stretch', 'morning-routine');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  const { isGuest } = useAuth();
+
+  const steps = [
+    { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
+    { title: 'Shoulder Rolls', desc: 'Roll your shoulders backward gently.', icon: 'rotate_right' },
+    { title: 'Gentle Neck Stretch', desc: 'Slowly lower your ear to your shoulder.', icon: 'autorenew' },
+    { title: 'Gentle Twist', desc: 'Slowly rotate your torso from side to side.', icon: 'spa' }
+  ];
+
+  const getStepDuration = () => (routineDuration === 'extended' ? 40 : 20);
+
   // Pause-and-resume-exact-state fix - see Breathe.jsx's identical block
-  // for the full rationale (session/timedExercisePause.js).
+  // for the full rationale (session/timedExercisePause.js). Build 15:
+  // the snapshot now also carries which movements were selected and
+  // whether music was enabled, so a review-mode round-trip restores the
+  // exact same locked run, not a freshly-reset default selection.
   const [pausedSnapshot] = useState(() => loadPausedExerciseState('morning-routine', 'stretch'));
   useEffect(() => {
     if (pausedSnapshot) clearPausedExerciseState('morning-routine', 'stretch');
   }, [pausedSnapshot]);
+
+  // Build 15 — movement multi-selection, pre-start only. All 4 selected
+  // by default. Pure local component state, never written to
+  // localStorage — so it can never leak across users or survive a
+  // genuine remount (Start Over, sign-out, a new day's fresh mount),
+  // satisfying every "must clear" requirement by construction rather
+  // than by an explicit clear call. Restored from the paused-exercise
+  // snapshot (sessionStorage, already scoped by sessionId+stepId) only
+  // for the one legitimate case that must survive a remount: leaving the
+  // LIVE step via Review Mode and returning to it.
+  const [selectedMovements, setSelectedMovements] = useState(() => {
+    if (pausedSnapshot?.selectedMovements) return new Set(pausedSnapshot.selectedMovements);
+    return new Set(steps.map((_, i) => i));
+  });
+  const [lastMovementNotice, setLastMovementNotice] = useState(false);
+  const handleToggleMovement = (idx) => {
+    setSelectedMovements((prev) => {
+      if (prev.has(idx) && prev.size === 1) {
+        // Requirement: at least one movement must always remain selected
+        // - deselecting the last one is rejected, not silently ignored,
+        // with a friendly explanation shown below the list.
+        setLastMovementNotice(true);
+        return prev;
+      }
+      setLastMovementNotice(false);
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  // hasBegun: false until the user explicitly taps "Begin Stretching" -
+  // true immediately when resuming from a paused snapshot (the exercise
+  // was already begun before being paused for review). Nothing below
+  // (timer, animation, music) can start while this is false.
+  const [hasBegun, setHasBegun] = useState(() => Boolean(pausedSnapshot));
+  // The locked, canonically-ordered sequence of STEP INDICES for this
+  // active run - set once at Begin (or restored, already-locked, from
+  // the paused snapshot). "Locked" means the pre-start selection UI is
+  // never shown again once this is set - changing your mind mid-run
+  // isn't offered, matching "lock the chosen sequence for that active
+  // run."
+  const [activeSequence, setActiveSequence] = useState(() => {
+    if (pausedSnapshot?.selectedMovements) return [...pausedSnapshot.selectedMovements].sort((a, b) => a - b);
+    return null;
+  });
+  const orderedActiveSteps = activeSequence ? activeSequence.map((i) => steps[i]) : [];
+
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'morning-routine',
     isLiveStep,
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('morning-routine', 'stretch', { timeLeft, activeStep, musicChoiceMade })
+    onLeaveLiveStep: () => savePausedExerciseState('morning-routine', 'stretch', {
+      timeLeft,
+      activeStep,
+      selectedMovements: activeSequence ?? [...selectedMovements],
+      musicEnabled: musicPreferenceOn
+    })
   });
+
   const [activeStep, setActiveStep] = useState(() => pausedSnapshot?.activeStep ?? 0);
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
   const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
   // Usability remediation - see Breathe.jsx's identical block for the
-  // full rationale. Same pattern, same convergent isInterrupted flag.
-  // Also true immediately on mount when resuming from a review-paused
-  // snapshot - see Breathe.jsx's identical block.
+  // full rationale. Also true immediately on mount when resuming from a
+  // review-paused snapshot - see Breathe.jsx's identical block.
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
@@ -96,7 +178,6 @@ export const MorningFlow = () => {
     confirmSignIn,
     confirmCreateAccount
   } = useProtectedVideo();
-  const { isGuest } = useAuth();
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
@@ -124,31 +205,29 @@ export const MorningFlow = () => {
     getEntryById: getBetaVideoById
   });
 
-  // Entry choice - see Breathe.jsx's identical block for the full
-  // rationale.
-  const [musicChoiceMade, setMusicChoiceMade] = useState(() => Boolean(pausedSnapshot?.musicChoiceMade));
-  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
-  const handleStartWithMusic = () => {
-    setMusicChoiceMade(true);
-    musicPlayerRef.current?.start();
+  // Build 15 — a real pre-start preference, not the old modal-style
+  // "choose before the timer starts anyway" prompt. Genuinely safe to
+  // seed from the persisted cross-app preference now (unlike
+  // InteractiveAmbientMusic's own always-off-on-mount default - see its
+  // own doc comment): Begin Stretching is a real, mandatory user gesture
+  // that must happen before any playback, so honouring an already-on
+  // preference here does not violate iOS's gesture-before-playback rule
+  // - the tap itself is that gesture. Never seeded true for a guest
+  // (guests can never have successfully set the underlying preference to
+  // true in the first place - InteractiveAmbientMusic's own toggle
+  // already refuses to for them).
+  const [musicPreferenceOn, setMusicPreferenceOn] = useState(() => {
+    if (pausedSnapshot) return Boolean(pausedSnapshot.musicEnabled);
+    if (isGuest) return false;
+    return musicEligible && getMusicPreference();
+  });
+  const handleToggleMusicPreference = () => {
+    setMusicPreferenceOn((prev) => {
+      const next = !prev;
+      setMusicPreference(next);
+      return next;
+    });
   };
-  const handleContinueWithoutMusic = () => {
-    setMusicChoiceMade(true);
-  };
-
-  const steps = [
-    { title: 'Reach to the Sky', desc: 'Extend your arms high and breathe deep.', icon: 'wb_sunny' },
-    { title: 'Shoulder Rolls', desc: 'Roll your shoulders backward gently.', icon: 'rotate_right' },
-    { title: 'Gentle Neck Stretch', desc: 'Slowly lower your ear to your shoulder.', icon: 'autorenew' },
-    { title: 'Gentle Twist', desc: 'Slowly rotate your torso from side to side.', icon: 'spa' }
-  ];
-
-  const getStepDuration = () => {
-    if (routineDuration === 'extended') return 40;
-    return 20; // Default to 20s for standard routine mode
-  };
-
-  const [timeLeft, setTimeLeft] = useState(() => pausedSnapshot?.timeLeft ?? getStepDuration());
 
   // Stage 3C Group 3D Batch B: one-shot guard for the Session Engine
   // mirror only — multiple exits (timer, manual, skip) could theoretically
@@ -174,19 +253,23 @@ export const MorningFlow = () => {
     };
   }, [state.status, currentStep, advanceStep]);
 
-  useEffect(() => {
-    // Pause-during-review fix - see Breathe.jsx's identical block for the
-    // full rationale: freeze the countdown the instant the confirmation
-    // dialog opens, not only after the user confirms.
-    if (isInterrupted || awaitingMusicChoice || isRepeatGated || isConfirming) return;
+  const [timeLeft, setTimeLeft] = useState(() => pausedSnapshot?.timeLeft ?? getStepDuration());
 
-    const stepDur = routineDuration === 'extended' ? 40 : 20;
+  useEffect(() => {
+    // Build 15: nothing runs until hasBegun (or a genuine resume from a
+    // paused snapshot, which already implies hasBegun=true). Pause-
+    // during-review fix - see Breathe.jsx's identical block for the full
+    // rationale: freeze the countdown the instant the confirmation
+    // dialog opens, not only after the user confirms.
+    if (!hasBegun || !activeSequence || isInterrupted || isRepeatGated || isConfirming) return;
+
+    const stepDur = getStepDuration();
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           setActiveStep((curr) => {
-            if (curr < steps.length - 1) {
+            if (curr < activeSequence.length - 1) {
               return curr + 1;
             } else {
               setJourneyStep('breathe');
@@ -202,12 +285,37 @@ export const MorningFlow = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, setJourneyStep, routineDuration, steps.length, isInterrupted, awaitingMusicChoice, isRepeatGated, isConfirming]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasBegun, activeSequence, navigate, setJourneyStep, routineDuration, isInterrupted, isRepeatGated, isConfirming]);
+
+  // Double-tap protection: a ref (not state) so a second, near-
+  // simultaneous tap can never race past this check before the first
+  // tap's state updates have committed - the same pattern
+  // hasMirroredExitRef above already uses for the same reason.
+  const hasBegunOnceRef = useRef(false);
+  const handleBeginStretching = () => {
+    if (hasBegunOnceRef.current) return;
+    if (selectedMovements.size === 0) return; // defense in depth - unreachable by construction, see handleToggleMovement
+    hasBegunOnceRef.current = true;
+    const sequence = [...selectedMovements].sort((a, b) => a - b);
+    setActiveSequence(sequence);
+    setActiveStep(0);
+    setTimeLeft(getStepDuration());
+    setHasBegun(true);
+    // Called synchronously within this real click handler - the exact
+    // same proven, gesture-safe pattern "Resume with Music" already uses
+    // (see handleResumeWithMusic above). InteractiveAmbientMusic is
+    // already mounted (hideToggle=true) before this tap, so its ref/
+    // audio element already exist.
+    if (musicEligible && musicPreferenceOn && !isGuest) {
+      musicPlayerRef.current?.start();
+    }
+  };
 
   const handleNextStep = () => {
-    const stepDur = routineDuration === 'extended' ? 40 : 20;
-    if (activeStep < steps.length - 1) {
-      setActiveStep(prev => prev + 1);
+    const stepDur = getStepDuration();
+    if (activeStep < activeSequence.length - 1) {
+      setActiveStep((prev) => prev + 1);
       setTimeLeft(stepDur);
     } else {
       setJourneyStep('breathe');
@@ -228,6 +336,9 @@ export const MorningFlow = () => {
     if (state.status === 'playing' && currentStep?.id === 'stretch') abandonSession();
   };
 
+  const selectedCount = selectedMovements.size;
+  const totalSeconds = selectedCount * getStepDuration();
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
@@ -240,28 +351,16 @@ export const MorningFlow = () => {
       )}
 
       <div className="text-center space-y-2">
-        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Awakening</span>
-        <h2 className="text-2xl font-bold text-on-surface">Light Morning Stretching</h2>
+        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Movement</span>
+        <h2 className="text-2xl font-bold text-on-surface">Gentle Morning Stretch</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-          Gently wake your body and release overnight tension.
+          Ease into the day with a few gentle movements.
         </p>
       </div>
 
-      {/* Review-flow ordering fix - see Breathe.jsx's identical block for
-          the full rationale. Required order is Repeat -> Music Choice ->
-          Timer. */}
-      {!isRepeatGated && awaitingMusicChoice && (
-        <MusicEntryChoice
-          onStartWithMusic={handleStartWithMusic}
-          onContinueWithoutMusic={handleContinueWithoutMusic}
-          isGuest={isGuest}
-          onSignIn={confirmSignIn}
-        />
-      )}
-
       {isRepeatGated ? (
         <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10">
-          <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the 4-exercise stretch sequence from the beginning.</p>
+          <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the stretch sequence from the beginning.</p>
           <button
             type="button"
             onClick={() => setHasStartedRepeat(true)}
@@ -271,32 +370,148 @@ export const MorningFlow = () => {
             <span>Repeat this exercise</span>
           </button>
         </div>
+      ) : !hasBegun ? (
+        <>
+          {/* Build 15 — pre-start summary + movement selection. Nothing
+              below this point runs a timer, animation, or plays music -
+              see handleBeginStretching above for the one gesture that
+              starts all three together. */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <span className="text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
+              {formatTotalDuration(totalSeconds)} total
+            </span>
+            <span className="text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
+              {selectedCount} movement{selectedCount === 1 ? '' : 's'} selected
+            </span>
+          </div>
+
+          <div className="space-y-3" role="group" aria-label="Choose your movements">
+            {steps.map((step, idx) => {
+              const isSelected = selectedMovements.has(idx);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  role="switch"
+                  aria-checked={isSelected}
+                  onClick={() => handleToggleMovement(idx)}
+                  className={`w-full min-h-[56px] px-5 py-4 rounded-2xl border text-left flex items-center gap-4 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] ${
+                    isSelected ? 'bg-primary/10 border-primary' : 'bg-surface-container border-primary/50 hover:bg-white/10'
+                  }`}
+                >
+                  <span className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'}`}>
+                    <span className="material-symbols-outlined text-2xl">{step.icon}</span>
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className={`block text-sm leading-snug ${isSelected ? 'text-primary font-bold' : 'text-on-surface font-medium'}`}>{step.title}</span>
+                    <span className="block text-xs text-on-surface-variant mt-1">{step.desc}</span>
+                    <span className="block text-[10px] text-on-surface-variant/70 mt-1 uppercase font-semibold tracking-wide">0:{getStepDuration().toString().padStart(2, '0')}</span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-150 ${isSelected ? 'bg-primary' : 'bg-evening-track-off'}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-container-lowest border border-primary transition-transform duration-150 ${
+                        isSelected ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {lastMovementNotice && (
+            <p className="text-xs text-on-surface-variant text-center px-4">Keep at least one movement selected to begin.</p>
+          )}
+
+          {musicEligible && (
+            <div className="glass-panel rounded-2xl p-4 border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="block text-sm font-bold text-on-surface">Background music</span>
+                  <span className="block text-[11px] text-on-surface-variant">
+                    {isGuest ? 'Sign in to use background music.' : 'Play gentle music during your stretch.'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={musicPreferenceOn}
+                  aria-label="Background music"
+                  onClick={isGuest ? confirmSignIn : handleToggleMusicPreference}
+                  className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+                    musicPreferenceOn ? 'bg-primary' : 'bg-white/10'
+                  }`}
+                >
+                  <span
+                    className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border border-primary shadow transition-transform ${
+                      musicPreferenceOn ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 w-full">
+            <button
+              type="button"
+              onClick={handleBeginStretching}
+              disabled={selectedMovements.size === 0}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50"
+            >
+              <span>Begin Stretching</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            <button
+              onClick={handleSkip}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+            >
+              Skip this step
+            </button>
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+            >
+              Exit routine
+            </button>
+          </div>
+
+          {/* Mounted early (hidden toggle) purely so its ref/audio element
+              already exist before Begin is tapped - see
+              handleBeginStretching above. Renders nothing visible here. */}
+          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={false} hideToggle />
+        </>
       ) : (
         <>
           {/* Progress visual bar */}
           <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
             <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
               <span>Stretching Progress</span>
-              <span>Exercise {activeStep + 1} of {steps.length}</span>
+              <span>Movement {activeStep + 1} of {orderedActiveSteps.length}</span>
             </div>
             <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
-                style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+                style={{ width: `${((activeStep + 1) / orderedActiveSteps.length) * 100}%` }}
               ></div>
             </div>
           </div>
 
           {/* Steps List - collapsed to just the active step while paused for a
-              guided video. All four full-detail cards together are taller than
+              guided video. All full-detail cards together are taller than
               an iPhone's own viewport on this screen (measured directly: the
               back button + step tabs + title + progress bar alone already fill
               it), which would push ExercisePausedPanel below the fold no matter
               where in the DOM it sits relative to the video rows. The other
-              three exercises aren't relevant while paused anyway - the user
-              already knows which one they were on. */}
+              exercises aren't relevant while paused anyway - the user
+              already knows which one they were on. Only movements INCLUDED
+              in this run render here (Build 15) - excluded movements never
+              appear during the active sequence at all. */}
           <div className="space-y-4">
-            {steps.map((step, idx) => {
+            {orderedActiveSteps.map((step, idx) => {
               const isCompleted = idx < activeStep;
               const isActive = idx === activeStep;
               if (isInterrupted && !openVideo && !isActive) return null;
@@ -338,9 +553,8 @@ export const MorningFlow = () => {
 
           {/* Immediately below the countdown/music toggle, ABOVE the
               Stretching Sessions video rows below - visible in the initial
-              viewport with no scroll. See Breathe.jsx's identical panel and
-              its identical musicChoiceMade gating. */}
-          {musicChoiceMade && isInterrupted && !openVideo && (
+              viewport with no scroll. See Breathe.jsx's identical panel. */}
+          {isInterrupted && !openVideo && (
             <ExercisePausedPanel
               onResumeExercise={handleResumeExercise}
               onResumeWithMusic={handleResumeWithMusic}
@@ -352,7 +566,7 @@ export const MorningFlow = () => {
 
           {/* Usability remediation - see Breathe.jsx's identical block for the
               full rationale. */}
-          {!isInterrupted && !awaitingMusicChoice && !openVideo && (
+          {!isInterrupted && !openVideo && (
             <button
               type="button"
               onClick={handlePauseExercise}
@@ -381,45 +595,47 @@ export const MorningFlow = () => {
         })}
       </div>
 
-      <div className="space-y-3 w-full">
-        {isReviewMode ? (
-          currentStep && (
-            <button
-              onClick={() => navigate(routeForStep(currentStep.id))}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-            >
-              <span>Return to {getStepLabel(currentStep.id)}</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-          )
-        ) : (
-          <>
-            {/* Hidden while the ExercisePausedPanel above is showing its own
-                two resume actions - see Breathe.jsx's identical comment. */}
-            {!isInterrupted && !awaitingMusicChoice && (
+      {hasBegun && !isRepeatGated && (
+        <div className="space-y-3 w-full">
+          {isReviewMode ? (
+            currentStep && (
               <button
-                onClick={handleNextStep}
+                onClick={() => navigate(routeForStep(currentStep.id))}
                 className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
               >
-                <span>{activeStep === steps.length - 1 ? 'Continue' : 'Next Step'}</span>
+                <span>Return to {getStepLabel(currentStep.id)}</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
-            )}
-            <button
-              onClick={handleSkip}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-            >
-              Skip this step
-            </button>
-            <button
-              onClick={handleExitRoutine}
-              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
-            >
-              Exit routine
-            </button>
-          </>
-        )}
-      </div>
+            )
+          ) : (
+            <>
+              {/* Hidden while the ExercisePausedPanel above is showing its own
+                  two resume actions - see Breathe.jsx's identical comment. */}
+              {!isInterrupted && (
+                <button
+                  onClick={handleNextStep}
+                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                >
+                  <span>{activeStep === orderedActiveSteps.length - 1 ? 'Continue' : 'Next Movement'}</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              )}
+              <button
+                onClick={handleSkip}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+              >
+                Skip this step
+              </button>
+              <button
+                onClick={handleExitRoutine}
+                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+              >
+                Exit routine
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Closing this leaves the user right here on the stretching screen
           - no navigation needed for a return path. The timer stays paused

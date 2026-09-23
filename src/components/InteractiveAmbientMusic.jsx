@@ -62,7 +62,7 @@ const DEFAULT_VOLUME = 0.35;
 // after the timer resumes, without duplicating this component's network/
 // element-management logic in two page files. EveningBreathing.jsx/
 // QuietBreathing.jsx (no ref passed) are completely unaffected.
-export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false }, ref) => {
+export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false, hideToggle = false }, ref) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGuest } = useAuth();
@@ -239,30 +239,45 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         onPause={() => setMusicEnabledState(false)}
       />
 
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
-          <span className="material-symbols-outlined text-lg">music_note</span>
-          Music
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isChecked}
-          aria-label="Background music"
-          onClick={handleToggle}
-          className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-            isChecked ? 'bg-primary' : 'bg-white/10'
-          }`}
-        >
-          <span
-            className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-              isChecked ? 'translate-x-5' : 'translate-x-0'
+      {/* `hideToggle` (Build 15, additive - every existing caller omits it
+          and is completely unaffected): lets a caller mount this
+          component early (so its ref/audio element already exist) while
+          showing its own separate pre-start preference control instead
+          of this one - e.g. MorningFlow.jsx's pre-start screen shows a
+          local "Background music" switch that only records intent, then
+          calls this same instance's exposed start() synchronously from
+          its own Begin-tap handler once eligibility/preference are known
+          - the same proven "ref.start() from a real click handler"
+          pattern "Resume with Music" already uses elsewhere in this
+          file. The <audio> element, cleanup effects, and start()/stop()
+          are all unaffected by this prop - only the visible toggle row
+          is suppressed. */}
+      {!hideToggle && (
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
+            <span className="material-symbols-outlined text-lg">music_note</span>
+            Music
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isChecked}
+            aria-label="Background music"
+            onClick={handleToggle}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+              isChecked ? 'bg-primary' : 'bg-white/10'
             }`}
-          />
-        </button>
-      </div>
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                isChecked ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+      )}
 
-      {loadError && (
+      {!hideToggle && loadError && (
         <p className="text-[10px] text-on-surface-variant/60 text-center">
           Music unavailable right now — continuing without it.
         </p>

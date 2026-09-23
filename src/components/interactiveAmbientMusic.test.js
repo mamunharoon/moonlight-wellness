@@ -131,7 +131,7 @@ describe('Stop and release the element on every exit path', () => {
 
 describe('`suspended` prop - stop before an optional guided video opens (Breathe.jsx/MorningFlow.jsx)', () => {
   it('defaults to false, so EveningBreathing.jsx/QuietBreathing.jsx (which never pass it) are unaffected', () => {
-    expect(playerSource).toMatch(/export const InteractiveAmbientMusic = forwardRef\(\(\{ musicVariantId, suspended = false \}, ref\) => \{/);
+    expect(playerSource).toMatch(/export const InteractiveAmbientMusic = forwardRef\(\(\{ musicVariantId, suspended = false, hideToggle = false \}, ref\) => \{/);
   });
 
   it('a suspended transition only ever calls the native .pause() DOM method inside its effect - never setState in an effect', () => {
@@ -237,21 +237,43 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(source).not.toMatch(/onClose=\{[^}]*setVideoOpenedDuringExercise/);
     });
 
-    it(`${name}: the paused panel (and its two resume actions) render only while interrupted (video or manual pause) AND no video is currently open (and the initial music entry choice has already been resolved - see musicEntryChoice.test.js)`, () => {
-      expect(source).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
-    });
+    // Build 15 — MorningFlow.jsx no longer has a "musicChoiceMade"/
+    // "awaitingMusicChoice" concept at all (see musicEntryChoice.test.js's
+    // own updated coverage): its pre-start screen resolves the music
+    // preference before hasBegun is ever true, so once the exercise is
+    // running there is nothing left to "await".
+    if (name === 'MorningFlow.jsx') {
+      it(`${name}: the paused panel (and its two resume actions) render whenever interrupted (video or manual pause) and no video is currently open - no separate "awaiting music choice" gate exists here`, () => {
+        expect(source).toMatch(/\{isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+        expect(source).not.toMatch(/musicChoiceMade|awaitingMusicChoice/);
+      });
 
-    it(`${name}: a persistent "Pause Exercise" button is reachable immediately below the ring/music control whenever the exercise is actually running (not interrupted, not awaiting the music choice, no video open)`, () => {
-      expect(source).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
-      expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
-      expect(source).toMatch(/Pause Exercise/);
-      // It sits before InteractiveAmbientMusic's sibling panel/video rows,
-      // i.e. it occupies the exact same slot the panel takes over once
-      // paused - never both on screen together.
-      const musicIndex = source.indexOf('<InteractiveAmbientMusic');
-      const pauseButtonIndex = source.indexOf('onClick={handlePauseExercise}');
-      expect(pauseButtonIndex).toBeGreaterThan(musicIndex);
-    });
+      it(`${name}: a persistent "Pause Exercise" button is reachable immediately below the ring/music control whenever the exercise is actually running (not interrupted, no video open)`, () => {
+        expect(source).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+        expect(source).toMatch(/\{!isInterrupted && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
+        expect(source).toMatch(/Pause Exercise/);
+        const musicIndex = source.indexOf('<InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo)');
+        const pauseButtonIndex = source.indexOf('onClick={handlePauseExercise}');
+        expect(musicIndex).toBeGreaterThan(-1);
+        expect(pauseButtonIndex).toBeGreaterThan(musicIndex);
+      });
+    } else {
+      it(`${name}: the paused panel (and its two resume actions) render only while interrupted (video or manual pause) AND no video is currently open (and the initial music entry choice has already been resolved - see musicEntryChoice.test.js)`, () => {
+        expect(source).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+      });
+
+      it(`${name}: a persistent "Pause Exercise" button is reachable immediately below the ring/music control whenever the exercise is actually running (not interrupted, not awaiting the music choice, no video open)`, () => {
+        expect(source).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+        expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
+        expect(source).toMatch(/Pause Exercise/);
+        // It sits before InteractiveAmbientMusic's sibling panel/video rows,
+        // i.e. it occupies the exact same slot the panel takes over once
+        // paused - never both on screen together.
+        const musicIndex = source.indexOf('<InteractiveAmbientMusic');
+        const pauseButtonIndex = source.indexOf('onClick={handlePauseExercise}');
+        expect(pauseButtonIndex).toBeGreaterThan(musicIndex);
+      });
+    }
 
     it(`${name}: the panel sits immediately after InteractiveAmbientMusic and strictly before every optional-video row - visible without scrolling past the video catalogue`, () => {
       const musicIndex = source.indexOf('<InteractiveAmbientMusic');
@@ -262,9 +284,15 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(videoRowIndex).toBeGreaterThan(panelIndex);
     });
 
-    it(`${name}: the ordinary "Continue"/"Next Step" control is hidden while interrupted or awaiting the music choice, so it never appears alongside the Pause button or the paused panel`, () => {
-      expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && \(/);
-    });
+    if (name === 'MorningFlow.jsx') {
+      it(`${name}: the ordinary "Continue"/"Next Movement" control is hidden while interrupted, so it never appears alongside the Pause button or the paused panel`, () => {
+        expect(source).toMatch(/\{!isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handleNextStep\}/);
+      });
+    } else {
+      it(`${name}: the ordinary "Continue"/"Next Step" control is hidden while interrupted or awaiting the music choice, so it never appears alongside the Pause button or the paused panel`, () => {
+        expect(source).toMatch(/\{!isInterrupted && !awaitingMusicChoice && \(/);
+      });
+    }
 
     it(`${name}: "Resume with Music" starts this screen's own ambient loop via the ref InteractiveAmbientMusic exposes, only from this dedicated handler - never automatically`, () => {
       expect(source).toMatch(/const musicPlayerRef = useRef\(null\);/);

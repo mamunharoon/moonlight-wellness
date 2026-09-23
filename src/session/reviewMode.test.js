@@ -372,7 +372,14 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) r
   });
 
   it('the timer effect never runs while gated - isRepeatGated is in the effect\'s own early-return guard and dependency array, alongside isConfirming (pause-during-review fix)', () => {
-    for (const source of Object.values(REPEAT_GATED_PAGES)) {
+    // Build 15 — MorningFlow.jsx's own guard dropped awaitingMusicChoice
+    // entirely (no music-entry-choice concept left - see
+    // musicEntryChoice.test.js) and added hasBegun/activeSequence
+    // instead, since nothing may run before the new pre-start screen's
+    // explicit Begin gesture.
+    expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
+    for (const [name, source] of Object.entries(REPEAT_GATED_PAGES)) {
+      if (name === 'MorningFlow') continue;
       expect(source).toMatch(/if \((?:isInterrupted|manuallyPaused)(?: \|\| )?awaitingMusicChoice \|\| isRepeatGated \|\| isConfirming\) return;/);
     }
   });

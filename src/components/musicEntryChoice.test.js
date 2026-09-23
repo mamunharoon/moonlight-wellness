@@ -87,9 +87,17 @@ describe('ExercisePausedPanel.jsx - "Resume with Music" has the same guest lock 
   });
 });
 
+// Build 15 — MorningFlow.jsx (Stretch) no longer uses MusicEntryChoice's
+// modal-style "choose before the timer starts anyway" pattern at all: it
+// now has its own pre-start screen with a real, deliberate "Begin
+// Stretching" gesture, and a plain preference switch shown alongside the
+// movement list (not a separate blocking prompt). See
+// morningFlowStretchPreStart.test.js for that screen's own coverage.
+// Breathe.jsx/EveningBreathing.jsx/QuietBreathing.jsx are unaffected by
+// this phase and keep the exact MusicEntryChoice-gated design tested
+// below.
 describe.each([
   ['Breathe.jsx', breatheSource, 'secondsLeft'],
-  ['MorningFlow.jsx', morningFlowSource, 'timeLeft'],
   ['EveningBreathing.jsx', eveningBreathingSource, 'secondsLeft'],
   ['QuietBreathing.jsx', quietBreathingSource, 'secondsLeft']
 ])('%s - the entry choice gates the countdown effect itself', (name, source) => {
@@ -135,16 +143,31 @@ describe.each([
   });
 });
 
-describe('Breathe.jsx / MorningFlow.jsx - the entry choice and ExercisePausedPanel never both apply to the same interruption', () => {
-  for (const [name, source] of [['Breathe.jsx', breatheSource], ['MorningFlow.jsx', morningFlowSource]]) {
-    it(`${name}: ExercisePausedPanel only renders once musicChoiceMade is already true - an interruption (video or manual pause) before the initial choice resolves back to the choice on close, never the panel`, () => {
-      expect(source).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
-    });
+describe('Breathe.jsx - the entry choice and ExercisePausedPanel never both apply to the same interruption', () => {
+  it('ExercisePausedPanel only renders once musicChoiceMade is already true - an interruption (video or manual pause) before the initial choice resolves back to the choice on close, never the panel', () => {
+    expect(breatheSource).toMatch(/\{musicChoiceMade && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+  });
 
-    it(`${name}: the ordinary manual controls (Pause/Continue or Next Step) are also hidden while awaiting the initial choice, not just while the paused panel shows`, () => {
-      expect(source).toMatch(/&& !awaitingMusicChoice && \(/);
-    });
-  }
+  it('the ordinary manual controls (Pause/Continue or Next Step) are also hidden while awaiting the initial choice, not just while the paused panel shows', () => {
+    expect(breatheSource).toMatch(/&& !awaitingMusicChoice && \(/);
+  });
+});
+
+// Build 15 — MorningFlow.jsx no longer has an "awaiting the initial
+// choice" state at all (see the describe.each block above) - its own
+// ExercisePausedPanel now renders whenever the exercise is genuinely
+// interrupted, full stop, since by the time hasBegun is true (the only
+// time ExercisePausedPanel can ever render) the music preference was
+// already resolved on the pre-start screen.
+describe('MorningFlow.jsx - ExercisePausedPanel no longer gated on a music entry choice (Build 15)', () => {
+  it('renders whenever interrupted and no video is open, with no musicChoiceMade/awaitingMusicChoice concept left in the file', () => {
+    expect(morningFlowSource).toMatch(/\{isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    expect(morningFlowSource).not.toMatch(/musicChoiceMade|awaitingMusicChoice/);
+  });
+
+  it('the ordinary manual controls (Pause/Continue or Next Movement) are hidden only while genuinely interrupted, not while awaiting any choice (there is none)', () => {
+    expect(morningFlowSource).toMatch(/\{!isInterrupted && !openVideo && \(/);
+  });
 });
 
 describe.each([
