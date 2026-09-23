@@ -1,11 +1,23 @@
-// Regression guard for Home.jsx's "Change intention" feature, and its
-// one-or-two-intentions rules shared with IntentionSetup.jsx. No DOM/
-// component rendering is available in this repo's Vitest (see
-// Home.routineState.test.js's own note) - source-level checks, plus
-// direct unit tests of the two genuinely pure pieces (INTENTION_PRESETS,
-// shared between IntentionSetup.jsx and ActiveIntentionCard.jsx, and
-// intentionSelection.js's own toggle/limit/sanitize logic - see that
-// module's own dedicated test file for its exhaustive unit coverage).
+// Regression guard for "Change intention", now a dedicated screen
+// (ChangeIntention.jsx, at /change-intention) rather than Home.jsx's old
+// expanded-inline editor. Also covers the one-or-two-intentions rules
+// shared with IntentionSetup.jsx. No DOM/component rendering is
+// available in this repo's Vitest (see Home.routineState.test.js's own
+// note) - source-level checks, plus direct unit tests of the two
+// genuinely pure pieces (INTENTION_PRESETS, shared between
+// IntentionSetup.jsx and ChangeIntention.jsx, and intentionSelection.js's
+// own toggle/limit/sanitize logic - see that module's own dedicated test
+// file for its exhaustive unit coverage).
+//
+// ChangeIntention.jsx's own preload/selection/save/cancel/custom-field
+// behaviour has its own dedicated test file: ChangeIntention.test.js.
+//
+// Filename note: deliberately NOT "changeIntention.test.js" - this repo
+// is checked out on a case-insensitive filesystem (Windows), where that
+// name collides with ChangeIntention.jsx's own "ChangeIntention.test.js"
+// as the exact same file on disk. Named for what this file actually
+// covers (ActiveIntentionCard.jsx + Home.jsx's wiring + the untouched
+// IntentionSetup.jsx/intentionPersistence.js contracts) instead.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +42,7 @@ describe('INTENTION_PRESETS - the single shared preset list', () => {
   });
 });
 
-describe('IntentionSetup.jsx now imports the shared preset list, selection helper, and save helper, rather than its own inline copies', () => {
+describe('IntentionSetup.jsx — untouched by the Change Intention remediation (Morning routine\'s own Step 1, a distinct Session-Engine-coupled screen)', () => {
   it('imports INTENTION_PRESETS instead of a local hardcoded array', () => {
     expect(intentionSetupSource).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
     expect(intentionSetupSource).toMatch(/const presets = INTENTION_PRESETS;/);
@@ -91,32 +103,31 @@ describe('intentionPersistence.js - the one shared save mechanism, now array-bas
   });
 });
 
-describe('Home.jsx wires ActiveIntentionCard into both places intentions are shown, using the exact same save mechanism IntentionSetup.jsx uses', () => {
-  it('imports ActiveIntentionCard and the shared saveIntentionsToCloud helper', () => {
+describe('Home.jsx — no longer owns intention save logic at all; ActiveIntentionCard only navigates', () => {
+  it('imports ActiveIntentionCard but no longer imports saveIntentionsToCloud - that now lives entirely in ChangeIntention.jsx', () => {
     expect(homeSource).toMatch(/import \{ ActiveIntentionCard \} from '\.\.\/components\/ActiveIntentionCard';/);
-    expect(homeSource).toMatch(/import \{ saveIntentionsToCloud \} from '\.\.\/lib\/intentionPersistence';/);
+    expect(homeSource).not.toMatch(/import \{ saveIntentionsToCloud \}/);
   });
 
-  it('destructures setIntentions and userId from useAlarm - the exact same context setter/id IntentionSetup.jsx uses', () => {
-    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, setIntentions, effectiveTimezone, userId \} = useAlarm\(\);/);
+  it('no longer destructures setIntentions from useAlarm (Home never mutates intentions directly any more) - checked in real code only, since a prose comment is free to name the identifier that moved away', () => {
+    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, effectiveTimezone, userId \} = useAlarm\(\);/);
+    const codeOnly = homeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/setIntentions/);
   });
 
-  it('handleSaveIntention only ever calls setIntentions + saveIntentionsToCloud with the full ordered array - no Session Engine call, no routine start/resume/reset', () => {
-    const body = homeSource.match(/const handleSaveIntention = async \(values\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/setIntentions\(values\);/);
-    expect(body).toMatch(/await saveIntentionsToCloud\(userId, values\);/);
-    expect(body).not.toMatch(/startSession|resumeRoutine|resetRoutine|resetSession|advanceStep|abandonSession/);
+  it('handleSaveIntention no longer exists on Home.jsx', () => {
+    expect(homeSource).not.toMatch(/const handleSaveIntention/);
   });
 
-  it('Home redesign — Active Intentions is now a single, always-visible section (item 5 of the approved Home order), rendered via exactly one ActiveIntentionCard with the same isGuest/onRequireSignIn/onSave wiring and the full intentions array', () => {
+  it('Home redesign — Active Intentions is still a single, always-visible section, rendered via exactly one ActiveIntentionCard with the same isGuest/onRequireSignIn wiring and the full intentions array, but no onSave prop any more', () => {
     const cardUsages = homeSource.match(/<ActiveIntentionCard[\s\S]*?\/>/g) ?? [];
     expect(cardUsages.length).toBe(1);
     const usage = cardUsages[0];
     expect(usage).toMatch(/intentions=\{displayIntentions\}/);
     expect(usage).toMatch(/isGuest=\{isGuest\}/);
     expect(usage).toMatch(/onRequireSignIn=\{promptRoutineSignIn\}/);
-    expect(usage).toMatch(/onSave=\{handleSaveIntention\}/);
     expect(usage).toMatch(/label="Active Intention"/);
+    expect(usage).not.toMatch(/onSave=/);
   });
 
   it('displayIntentions falls back to the same default only when genuinely empty, never silently dropping a real second intention', () => {
@@ -128,47 +139,37 @@ describe('Home.jsx wires ActiveIntentionCard into both places intentions are sho
   });
 });
 
-describe('ActiveIntentionCard.jsx - explicit edit mode, guest gating, one-or-two selection, no auto-start of anything routine-related', () => {
-  it('a guest tap calls onRequireSignIn and never enters edit mode', () => {
+describe('ActiveIntentionCard.jsx — display-only, navigates to the dedicated screen, no local editing state at all', () => {
+  it('holds no state - no isEditing/draftSelection/customIntention any more', () => {
+    expect(cardSource).not.toMatch(/useState/);
+  });
+
+  it('a guest tap calls onRequireSignIn and never navigates', () => {
     expect(cardSource).toMatch(/const handleChangeTap = \(\) => \{\s*\n\s*if \(isGuest\) \{\s*\n\s*onRequireSignIn\(\);\s*\n\s*return;\s*\n\s*\}/);
   });
 
-  it('seeds the edit draft from the current intentions, never from an empty selection, when edit mode opens', () => {
-    expect(cardSource).toMatch(/setDraftSelection\(intentions\);/);
+  it('a non-guest tap navigates to the dedicated /change-intention route, never expanding an inline editor', () => {
+    expect(cardSource).toMatch(/import \{ useNavigate \} from 'react-router-dom';/);
+    expect(cardSource).toMatch(/navigate\('\/change-intention'\);/);
   });
 
-  it('uses the shared toggleIntention helper - same rules as IntentionSetup.jsx, never a bespoke tap-to-save-immediately path', () => {
-    expect(cardSource).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
-    expect(cardSource).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(draftSelection, value\);/);
+  it('the "Change intention" control carries a 44px effective hit area, keeping its small compact label text', () => {
+    const body = cardSource.match(/<button\s*\n\s*type="button"\s*\n\s*onClick=\{handleChangeTap\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(body).toMatch(/min-h-\[44px\]/);
+    expect(body).toMatch(/text-\[11px\] font-bold text-primary/);
   });
 
-  it('Save is disabled until at least one intention is selected, and only Save (not every preset tap) calls onSave', () => {
-    expect(cardSource).toMatch(/disabled=\{draftSelection\.length === 0\}/);
-    const presetButtons = cardSource.match(/onClick=\{\(\) => applySelection\(preset\)\}/g) ?? [];
-    expect(presetButtons.length).toBe(1);
-    expect(cardSource).not.toMatch(/onClick=\{\(\) => handleSave\(preset\)\}/);
+  it('carries a visible focus-visible ring', () => {
+    expect(cardSource).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
   });
 
-  it('offers all six shared presets plus a custom text input', () => {
-    expect(cardSource).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
-    expect(cardSource).toMatch(/\{INTENTION_PRESETS\.map/);
-    expect(cardSource).toMatch(/placeholder="Write your own\.\.\."/);
-  });
-
-  it('shows a brief, self-clearing success confirmation after a save, never a persistent banner', () => {
-    expect(cardSource).toMatch(/setJustSaved\(true\);\s*\n\s*setTimeout\(\(\) => setJustSaved\(false\), 2500\);/);
-  });
-
-  it('clarifies in-UI that this does not rewrite a completed routine\'s historical affirmation record', () => {
-    expect(cardSource).toMatch(/does not rewrite a completed routine's saved affirmation record/);
-  });
-
-  it('displays both intentions with a Primary/Supporting label when two are set, and no role label at all for a single one', () => {
+  it('displays both intentions with a Primary/Supporting label when two are set, and no role label at all for a single one - unchanged display logic', () => {
     expect(cardSource).toMatch(/\{intentions\.length > 1 && \(/);
     expect(cardSource).toMatch(/\{roleForIndex\(idx\)\}/);
   });
 
-  it('never imports or references the Session Engine, routine start/resume, or journal/history writes', () => {
-    expect(cardSource).not.toMatch(/useSession|startSession|resumeRoutine|resetRoutine|supabase/);
+  it('never imports or references the Session Engine, routine start/resume, journal/history writes, or the selection/persistence helpers (all of that now lives only in ChangeIntention.jsx) - checked in real code only, since this file\'s own prose comment names what moved away', () => {
+    const codeOnly = cardSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/useSession|startSession|resumeRoutine|resetRoutine|supabase|toggleIntention|saveIntentionsToCloud|INTENTION_PRESETS/);
   });
 });

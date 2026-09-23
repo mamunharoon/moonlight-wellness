@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 
 /*
  * Back-navigation repair — NavigationHistoryContext
@@ -27,12 +27,29 @@ import { useLocation, useNavigate } from 'react-router-dom';
  * change), the revisited key already exists in the stack; the stack is
  * truncated back to that point rather than appended to, so repeated
  * back/forward doesn't grow the stack unbounded.
+ *
+ * Build 15 Phase B remediation (Task 4) fix — a REPLACE navigation (e.g.
+ * a page's own "strip this one-time query param" mount effect, via
+ * setSearchParams(next, { replace: true }) - AnytimeReset.jsx/
+ * Meditate.jsx/Library.jsx all do this) still gets a brand-new
+ * location.key, exactly like a genuine PUSH. Before this fix, that new
+ * key was pushed as if it were a whole new page the user had navigated
+ * to, inflating the tracked stack length past what was actually visited
+ * - discovered live (Library's own new contextual Back control silently
+ * did nothing) when a direct `/library?from=home` landing's own
+ * param-strip effect was the very first thing to replace immediately on
+ * mount, before any real second page was ever visited. `useNavigationType()`
+ * (react-router's own per-render "what caused this location" value) lets
+ * a REPLACE update the CURRENT top of the stack in place instead of
+ * growing it - a PUSH still grows it, a POP still truncates it,
+ * unchanged from before.
  */
 const NavigationHistoryContext = createContext(null);
 
 export const NavigationHistoryProvider = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const stackRef = useRef([]);
 
   useEffect(() => {
@@ -40,10 +57,12 @@ export const NavigationHistoryProvider = ({ children }) => {
     const existingIndex = stack.indexOf(location.key);
     if (existingIndex !== -1) {
       stack.length = existingIndex + 1;
+    } else if (navigationType === 'REPLACE' && stack.length > 0) {
+      stack[stack.length - 1] = location.key;
     } else {
       stack.push(location.key);
     }
-  }, [location.key]);
+  }, [location.key, navigationType]);
 
   const goBack = (fallbackRoute) => {
     if (stackRef.current.length > 1) {

@@ -3,6 +3,12 @@
 // tooltip added alongside the bottom-nav clearance fix. Source-level
 // checks - this repo's Vitest has no rendering engine (see
 // Layout.safeArea.test.js's own header comment for why).
+//
+// Build 15 Phase B remediation (Task 4) - the Browse exercises/Sleep
+// sounds hrefs each gained a trailing `&from=home`/`?from=home` marker,
+// so Library.jsx knows to show its own contextual Back control - see
+// libraryHomeReturnContext.test.js for the Library-side coverage. Every
+// other destination/tooltip/touch-target guarantee below is unchanged.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -12,8 +18,8 @@ const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)
 const TILES = [
   { href: '/anytime-reset', label: 'Anytime Reset', tipId: 'quick-action-tip-anytime-reset' },
   { href: '/meditate', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
-  { href: '/library', label: 'Browse exercises', tipId: 'quick-action-tip-browse-exercises' },
-  { href: '/library?category=sleep-soundscapes', label: 'Sleep sounds', tipId: 'quick-action-tip-sleep-sounds' }
+  { href: '/library?from=home', label: 'Browse exercises', tipId: 'quick-action-tip-browse-exercises' },
+  { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep sounds', tipId: 'quick-action-tip-sleep-sounds' }
 ];
 
 describe('Home — quick-action row stays exactly four tiles, unchanged destinations', () => {

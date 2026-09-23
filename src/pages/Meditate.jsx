@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 import {
   MEDITATION_DURATION_GROUPS,
   MEDITATION_NEEDS,
@@ -63,8 +64,27 @@ const NEED_ICONS = {
  */
 export const Meditate = () => {
   const navigate = useNavigate();
-  const { isGuest } = useAuth();
+  const { isGuest, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Build 15 Phase B remediation — the same stale-session gap
+  // AnytimeReset.jsx's own verifyingAuth/handleBegin already closed:
+  // isGuest only ever reflects the locally cached session
+  // (supabase.auth.getSession(), never revalidated against the server),
+  // so it can say "signed in" for a session the server no longer honours
+  // (expired token, or the account removed server-side). verifyAndOpenVideo
+  // below adds the one genuine, server-revalidating supabase.auth.getUser()
+  // check immediately before ever opening BetaVideoModal - read-only, no
+  // write, get-beta-video-url's own server-side auth remains the real,
+  // unweakened gate regardless of what this resolves to.
+  const [verifyingAuth, setVerifyingAuth] = useState(false);
+  // Re-entrancy guard, a plain ref not the verifyingAuth STATE above -
+  // exactly AnytimeReset.jsx's own reasoning: state updates are
+  // asynchronous, so two click events dispatched before the next render
+  // would both still close over the pre-update `verifyingAuth === false`
+  // and could both start a getUser() call. A ref is mutated synchronously,
+  // so the second handleBegin invocation in the same tick sees the
+  // updated value immediately.
+  const verifyingAuthRef = useRef(false);
 
   const restoredNeed = searchParams.get('need');
   const restoredDuration = searchParams.get('duration');
@@ -151,13 +171,44 @@ export const Meditate = () => {
 
   const returnPath = () => `/meditate?need=${needId}&duration=${durationGroupId}`;
 
+  // Never treat "auth not resolved yet" as authenticated - a tap that
+  // lands while AuthContext is still loading is simply ignored rather
+  // than racing ahead on a guess; the Begin button itself is also
+  // disabled during authLoading/verifyingAuth (see the RecommendationCard
+  // wiring below), so this is defense-in-depth, matching
+  // AnytimeReset.jsx's own handleBegin exactly.
   const handleBegin = () => {
-    if (!current) return;
+    if (!current || authLoading || verifyingAuthRef.current) return;
     if (isGuest) {
       setSignInPromptOpen(true);
       return;
     }
-    setOpenVideoId(current.id);
+    verifyAndOpenVideo(current.id);
+  };
+
+  // The one, single source-revalidating auth check before ever opening
+  // BetaVideoModal for a client that currently looks signed in - see this
+  // file's own top-of-component comment for why. Exactly one
+  // supabase.auth.getUser() call per Start/Begin tap (guarded by
+  // verifyingAuthRef above). Read-only: no table write, no localStorage
+  // write, and get-beta-video-url's own server-side check remains the
+  // real, unweakened access gate regardless of what this resolves to.
+  const verifyAndOpenVideo = async (id) => {
+    verifyingAuthRef.current = true;
+    setVerifyingAuth(true);
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user || data.user.is_anonymous) {
+        setSignInPromptOpen(true);
+        return;
+      }
+      setOpenVideoId(id);
+    } catch {
+      setSignInPromptOpen(true);
+    } finally {
+      verifyingAuthRef.current = false;
+      setVerifyingAuth(false);
+    }
   };
 
   const handleSignIn = () => {
@@ -282,6 +333,8 @@ export const Meditate = () => {
               matchReason={current.matchReason}
               onStart={handleBegin}
               startLabel="Begin"
+              startDisabled={authLoading || verifyingAuth}
+              startBusy={verifyingAuth}
               onChooseAnother={handleChooseAnother}
               showChooseAnother={items.length > 1}
               chooseAnotherLabel="Choose Another"

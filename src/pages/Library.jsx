@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getMeditationCatalog } from '../lib/mediaCatalog';
@@ -7,6 +7,7 @@ import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { BackButton } from '../components/BackButton';
 
 const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -27,7 +28,23 @@ const MEDITATION_FILTER = 'Meditation';
  * other surface (Support's recommendations, routine step video rows)
  * now shares, replacing the prior split between betaVideoManifest.js
  * (id/title/storagePath) and a separate category-only file. This page
- * is a main bottom-nav destination, so it does not get a back arrow.
+ * is a main bottom-nav destination, so by default it does not get a
+ * back arrow — Home's bottom-nav Library tab link carries no `from`
+ * param, so `cameFromHome` below is false and no contextual Back
+ * control renders.
+ *
+ * Build 15 Phase B remediation — Task 4: Home's "Browse exercises" and
+ * "Sleep sounds" quick-action tiles link here with an explicit,
+ * allowlisted `?from=home` marker (never an arbitrary return URL - the
+ * only thing this marker ever does is show/hide a Back control that is
+ * itself hardcoded to BackButton's own fallback="/", never a caller-
+ * supplied destination). Captured once via a lazy useState initializer
+ * (same pattern AnytimeReset.jsx/Meditate.jsx already use for their own
+ * one-time restore params) so it keeps controlling this Back control for
+ * the lifetime of this mounted page even after the marker itself is
+ * stripped from the visible URL a moment later - a plain `/library`
+ * bottom-nav visit, or a later refresh once the marker is gone, both
+ * correctly show no Back control (case 3's own requirement).
  *
  * Search: client-side substring match over title + description — no
  * network request, the whole catalogue (65 items of plain text) is
@@ -46,6 +63,24 @@ export const Library = () => {
     [...CATALOG_CATEGORIES, MEDITATION_FILTER].find((c) => slugify(c) === searchParams.get('category')) || null;
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [query, setQuery] = useState('');
+  // Captured once, before the strip effect below removes it from the URL -
+  // see this file's own top-of-component comment for why a lazy
+  // initializer (not a live searchParams.get('from') read) is required.
+  const [cameFromHome] = useState(() => searchParams.get('from') === 'home');
+
+  // Strips the now-consumed `from` marker so it can't linger in the URL
+  // while the user browses/filters within Library, or reappear on a
+  // later browser back/forward - `category`/`openId` are left completely
+  // untouched, same one-time-consume-then-clear treatment
+  // AnytimeReset.jsx/Meditate.jsx already use for their own restore
+  // params.
+  useEffect(() => {
+    if (searchParams.get('from') !== 'home') return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('from');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const {
     openVideo,
     handleSelect,
@@ -92,6 +127,11 @@ export const Library = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {cameFromHome && (
+        <div className="flex items-center gap-3">
+          <BackButton fallback="/" label="Back to Home" />
+        </div>
+      )}
       <div>
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Library</h2>
         <p className="text-on-surface-variant font-body-md mt-1 text-sm">

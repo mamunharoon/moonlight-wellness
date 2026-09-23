@@ -39,6 +39,23 @@ describe('SelectionChip.jsx — selected state through 4 channels, never colour 
   });
 });
 
+describe('SelectionChip.jsx — Build 15 Phase B remediation: roleLabel/large are additive, opt-in, and never affect the two existing callers (Anytime Reset/Meditate never pass either)', () => {
+  it('roleLabel only renders when truthy - a caller that never passes it (every existing usage) renders no extra badge at all', () => {
+    expect(source).toMatch(/\{roleLabel && \(/);
+  });
+
+  it('the role badge is a distinct, differently-positioned pill from the selected checkmark, so the two can never visually collide', () => {
+    expect(source).toMatch(/absolute -top-2 left-1\/2 -translate-x-1\/2[\s\S]{0,200}\{roleLabel\}/);
+    expect(source).toMatch(/absolute top-1\.5 right-1\.5[\s\S]{0,200}check_circle/);
+  });
+
+  it('large defaults to false, so every existing call site (no `large` prop passed) keeps the exact original compact p-4/min-h-[44px]/text-xs sizing', () => {
+    expect(source).toMatch(/large = false/);
+    expect(source).toMatch(/large \? 'p-5 min-h-\[72px\]' : 'p-4 min-h-\[44px\]'/);
+    expect(source).toMatch(/\$\{large \? 'text-sm' : 'text-xs'\}/);
+  });
+});
+
 describe('SelectionChip.jsx — icons are Material Symbols, never emoji', () => {
   it('the icon prop renders through material-symbols-outlined, and the icon itself is aria-hidden (decorative only - the label is the real accessible content)', () => {
     expect(source).toMatch(/material-symbols-outlined text-xl[\s\S]{0,100}aria-hidden="true"/);

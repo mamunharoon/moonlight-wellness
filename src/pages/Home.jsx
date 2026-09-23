@@ -43,12 +43,11 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
-import { saveIntentionsToCloud } from '../lib/intentionPersistence';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 
 export const Home = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, intentions, setIntentions, effectiveTimezone, userId } = useAlarm();
+  const { alarmTime, bedTime, intentions, effectiveTimezone, userId } = useAlarm();
   const { profile, user, isGuest } = useAuth();
   const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
@@ -413,24 +412,12 @@ export const Home = () => {
     cardState: 'completed'
   });
 
-  // Usability remediation — "Change intention" (ActiveIntentionCard,
-  // rendered from the single, always-visible Active Intentions section
-  // below). Deliberately the ONLY thing this touches: the same
-  // setIntentions context setter + saveIntentionsToCloud helper
-  // IntentionSetup.jsx itself uses. No Session Engine call, no routine
-  // start/resume/reset, no journal/history write - changing today's
-  // intentions here can never create a second Morning completion, clear
-  // the existing one, or touch Evening's own progress. Guests never reach
-  // this at all (ActiveIntentionCard's own isGuest check intercepts the
-  // tap with the sign-in prompt before onSave could ever be called).
-  // `values` is the full ordered selection (1-2 items) - always replaces
-  // the whole array, so removing a Supporting intention here genuinely
-  // removes it everywhere (local, Supabase, this banner/card) rather than
-  // leaving it stranded.
-  const handleSaveIntention = async (values) => {
-    setIntentions(values);
-    await saveIntentionsToCloud(userId, values);
-  };
+  // Build 15 Phase B remediation — "Change intention" (ActiveIntentionCard)
+  // now only navigates to the dedicated /change-intention screen
+  // (ChangeIntention.jsx), which owns setIntentions/saveIntentionsToCloud
+  // itself - Home no longer calls either directly. Guests never reach
+  // that screen from here (ActiveIntentionCard's own isGuest check
+  // intercepts the tap with the sign-in prompt before any navigation).
 
   // Build 10 remediation — the single source of truth for "what happens
   // when this routine's own card CTA is tapped", replacing the old bug
@@ -599,7 +586,7 @@ export const Home = () => {
           <button
             type="button"
             onClick={() => setShowMorningFlowMigrationNotice(false)}
-            className="px-4 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
+            className="min-h-[44px] px-4 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Got it
           </button>
@@ -635,7 +622,7 @@ export const Home = () => {
           role="tab"
           onClick={() => setSelectedPeriod('morning')}
           aria-selected={activePeriod === 'morning'}
-          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border ${
+          className={`flex-1 min-h-[44px] flex items-center justify-center text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             activePeriod === 'morning'
               ? 'bg-primary text-on-primary border-primary shadow-sm'
               : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
@@ -648,7 +635,7 @@ export const Home = () => {
           role="tab"
           onClick={() => setSelectedPeriod('evening')}
           aria-selected={activePeriod === 'evening'}
-          className={`flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border ${
+          className={`flex-1 min-h-[44px] flex items-center justify-center text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             activePeriod === 'evening'
               ? 'bg-secondary text-on-secondary border-secondary shadow-sm'
               : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
@@ -980,7 +967,6 @@ export const Home = () => {
           intentions={displayIntentions}
           isGuest={isGuest}
           onRequireSignIn={promptRoutineSignIn}
-          onSave={handleSaveIntention}
         />
       </div>
 
@@ -1049,7 +1035,7 @@ export const Home = () => {
             </span>
           </Link>
           <Link
-            to="/library"
+            to="/library?from=home"
             aria-describedby="quick-action-tip-browse-exercises"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
@@ -1064,7 +1050,7 @@ export const Home = () => {
             </span>
           </Link>
           <Link
-            to="/library?category=sleep-soundscapes"
+            to="/library?category=sleep-soundscapes&from=home"
             aria-describedby="quick-action-tip-sleep-sounds"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >

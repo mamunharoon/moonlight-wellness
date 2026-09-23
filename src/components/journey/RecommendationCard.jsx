@@ -54,7 +54,7 @@ export const RecommendationCard = ({
       type="button"
       onClick={onStart}
       disabled={startDisabled}
-      className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none"
+      className="w-full min-h-[44px] bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none"
     >
       <span>{startBusy ? 'Checking…' : startLabel}</span>
       <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
@@ -64,7 +64,7 @@ export const RecommendationCard = ({
       <button
         type="button"
         onClick={onChooseAnother}
-        className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="w-full min-h-[44px] glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         {chooseAnotherLabel}
       </button>

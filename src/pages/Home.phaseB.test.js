@@ -63,9 +63,9 @@ describe('Home.jsx — quick-action tiles: icon bump only, everything else from 
     expect(source).toMatch(/text-primary text-2xl">bedtime</);
   });
 
-  it('the tooltip/aria-describedby wiring and exactly four tiles are still present, unchanged', () => {
+  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage)', () => {
     const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(['/anytime-reset', '/meditate', '/library', '/library?category=sleep-soundscapes']);
+    expect(hrefs).toEqual(['/anytime-reset', '/meditate', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 });
 
@@ -75,7 +75,10 @@ describe('Home.jsx — Phase B is visual-only: every routine/session/guest handl
     expect(source).toMatch(/const handleEveningAction = \(\) => \{/);
     expect(source).toMatch(/const handleResumeStaleMorning = \(\) => \{/);
     expect(source).toMatch(/const handleResumeStaleEvening = \(\) => \{/);
-    expect(source).toMatch(/const handleSaveIntention = async \(values\) => \{/);
+    // handleSaveIntention was retired by the Phase B remediation pass's
+    // own Task 1 - "Change intention" is now a dedicated route
+    // (ChangeIntention.jsx) that owns setIntentions/saveIntentionsToCloud
+    // itself; see activeIntentionCard.test.js/ChangeIntention.test.js.
   });
 
   it('the guest sign-in gate and ConfirmDialog wiring are untouched', () => {

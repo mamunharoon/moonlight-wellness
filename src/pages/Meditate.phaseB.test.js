@@ -95,18 +95,24 @@ describe('Meditate.jsx — Phase B: recommend step uses RecommendationCard, own 
     expect(source).toMatch(/chooseAnotherLabel="Choose Another"/);
   });
 
-  it('never passes startBusy/startDisabled - Meditate keeps its own simpler handleBegin (guest-check only, no server-revalidation hardening)', () => {
+  // The Build 15 Phase B remediation pass's own Task 3 deliberately
+  // reversed this original decision: Meditate now DOES apply the same
+  // server-revalidation hardening AnytimeReset.jsx already had, closing a
+  // stale-session gap Meditate previously shared with it before Anytime
+  // Reset's own fix. See Meditate.staleSessionAuth.test.js for the full
+  // coverage of that hardening; only the two superseded assertions below
+  // are updated here.
+  it('passes startBusy/startDisabled into RecommendationCard - Meditate now applies the same server-revalidation hardening as Anytime Reset (Build 15 Phase B remediation, Task 3)', () => {
     const cardBlock = source.match(/<RecommendationCard[\s\S]*?\/>/)?.[0] ?? '';
-    expect(cardBlock).not.toMatch(/startBusy/);
-    expect(cardBlock).not.toMatch(/startDisabled/);
+    expect(cardBlock).toMatch(/startBusy=\{verifyingAuth\}/);
+    expect(cardBlock).toMatch(/startDisabled=\{authLoading \|\| verifyingAuth\}/);
   });
 
-  it('handleBegin itself is completely untouched: guest-check then setOpenVideoId, no verifyingAuthRef/getUser() added', () => {
+  it('handleBegin now guards on authLoading/verifyingAuthRef and routes a non-guest tap through verifyAndOpenVideo (Build 15 Phase B remediation, Task 3)', () => {
     const body = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!current\) return;/);
+    expect(body).toMatch(/if \(!current \|\| authLoading \|\| verifyingAuthRef\.current\) return;/);
     expect(body).toMatch(/if \(isGuest\) \{/);
-    expect(body).toMatch(/setOpenVideoId\(current\.id\);/);
-    expect(body).not.toMatch(/verifyingAuthRef|getUser\(/);
+    expect(body).toMatch(/verifyAndOpenVideo\(current\.id\);/);
   });
 
   it('the empty-state copy is exactly preserved ("No session matches that combination yet.")', () => {
