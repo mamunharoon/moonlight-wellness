@@ -372,16 +372,14 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) r
   });
 
   it('the timer effect never runs while gated - isRepeatGated is in the effect\'s own early-return guard and dependency array, alongside isConfirming (pause-during-review fix)', () => {
-    // Build 15 — MorningFlow.jsx's own guard dropped awaitingMusicChoice
-    // entirely (no music-entry-choice concept left - see
-    // musicEntryChoice.test.js) and added hasBegun/activeSequence
-    // instead, since nothing may run before the new pre-start screen's
-    // explicit Begin gesture.
+    // Build 15 — none of the three timed pages has an awaitingMusicChoice
+    // concept left (no music-entry-choice gate - see
+    // musicEntryChoice.test.js): each now gates on hasBegun (MorningFlow.jsx
+    // additionally on its own locked activeSequence), since nothing may
+    // run before its own new pre-start screen's explicit Begin gesture.
     expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
-    for (const [name, source] of Object.entries(REPEAT_GATED_PAGES)) {
-      if (name === 'MorningFlow') continue;
-      expect(source).toMatch(/if \((?:isInterrupted|manuallyPaused)(?: \|\| )?awaitingMusicChoice \|\| isRepeatGated \|\| isConfirming\) return;/);
-    }
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
+    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming\) return;/);
   });
 
   it('renders a distinct "Repeat this exercise" affordance instead of the live ring/countdown while gated', () => {

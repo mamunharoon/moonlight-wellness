@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -22,7 +23,7 @@ import { BackButton } from '../components/BackButton';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getStepLabel } from '../lib/stepLabels';
-import { formatTotalDuration } from '../lib/stretchDuration';
+import { formatTotalDuration } from '../lib/formatDuration';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -427,32 +428,13 @@ export const MorningFlow = () => {
           )}
 
           {musicEligible && (
-            <div className="glass-panel rounded-2xl p-4 border-white/10">
-              <div className="flex items-center justify-between gap-3">
-                <span>
-                  <span className="block text-sm font-bold text-on-surface">Background music</span>
-                  <span className="block text-[11px] text-on-surface-variant">
-                    {isGuest ? 'Sign in to use background music.' : 'Play gentle music during your stretch.'}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={musicPreferenceOn}
-                  aria-label="Background music"
-                  onClick={isGuest ? confirmSignIn : handleToggleMusicPreference}
-                  className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-                    musicPreferenceOn ? 'bg-primary' : 'bg-white/10'
-                  }`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border border-primary shadow transition-transform ${
-                      musicPreferenceOn ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
+            <MusicPreferenceToggle
+              isOn={musicPreferenceOn}
+              onToggle={handleToggleMusicPreference}
+              isGuest={isGuest}
+              onSignIn={confirmSignIn}
+              description="Play gentle music during your stretch."
+            />
           )}
 
           <div className="space-y-3 w-full">

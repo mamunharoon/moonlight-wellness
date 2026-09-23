@@ -7,11 +7,14 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
-import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
+import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
+import { formatTotalDuration } from '../lib/formatDuration';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useStepReviewMode } from '../session/useStepReviewMode';
@@ -20,80 +23,58 @@ import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseSt
 import { getStepLabel } from '../lib/stepLabels';
 
 // Background Music — reserved id for the shared interactive-breathing
-// ambient loop (see docs/background-music-asset-manifest.md). Not yet
-// registered in betaVideoManifest.js/the Edge Function's EXERCISE_PATHS
-// map, so InteractiveAmbientMusic renders nothing until it is - see
-// isInteractiveMusicEligible's own doc comment.
+// ambient loop (see docs/background-music-asset-manifest.md).
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
+
+// Build 15 — Evening keeps its own canonical 4-7-8 cadence, fixed, not a
+// choice (the Evening journey itself was already completed and verified
+// - no multi-pattern selector is added here this phase, per the approved
+// scope). What's new is the pre-start presentation: a real preview of
+// this fixed pattern's cadence/duration, a Background music preference,
+// and a genuine "Begin Breathing" gesture - nothing (timer, ring
+// animation, or music) starts before it is tapped.
+const PATTERN = getBreathingPatternById('evening');
 
 /*
  * Stage 4 Batch F6 — EveningBreathing
  *
  * Fourth step of the evening-wind-down session. Reuses BreathingRing
  * (F2) as-is — the visual is unchanged; only the timing driving it
- * changes. "A calmer evening rhythm than the morning flow" is
- * implemented as a slower cadence, not a different look: a 4-7-8 cycle
- * (inhale 4s, hold 7s, exhale 8s = 19s, a well-known slow/calming
- * breathing pattern) over 4 full cycles (76s total), versus
- * Breathe.jsx's 4-4-6/14s cycle over 56s. Same mirrorBreathingExitRef
- * one-shot-guard pattern as Breathe.jsx, targeting the 'breathing' step
- * and advanceStep() (immediately adjacent to 'sleepPreparation').
- *
- * Pause Exercise: added to match Breathe.jsx/MorningFlow.jsx (release-
- * blocking consistency fix - this screen originally had none, "to keep
- * visual/interactive stimulation low", but reviewing an earlier step
- * from evening-wind-down's own progress bar requires the exact same
- * pause-and-resume-exact-state behaviour those two screens have - see
- * session/timedExercisePause.js). Continue and Skip both call the same
- * handleAdvance — identical behaviour, exactly like Breathe.jsx's own
- * handleComplete/handleSkip — Skip exists as its own labelled, de-
- * emphasised affordance per this batch's explicit "Support Skip"
- * requirement, not as a second distinct path.
+ * changes. Same mirrorBreathingExitRef one-shot-guard pattern as
+ * Breathe.jsx, targeting the 'breathing' step and advanceStep()
+ * (immediately adjacent to 'sleepPreparation').
  */
-const CYCLE_SECONDS = 19;
-const TOTAL_SECONDS = 76;
-
 export const EveningBreathing = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGuest } = useAuth();
   // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
   // doc comment. This page has no guided-video rows (no useProtectedVideo
-  // instance to borrow a confirmSignIn from, unlike Breathe.jsx/
-  // MorningFlow.jsx), so it stashes/navigates directly, matching that
-  // hook's own confirmSignIn shape exactly (id: null - nothing to
-  // reopen, just return here after sign-in).
+  // instance to borrow a confirmSignIn from), so it stashes/navigates
+  // directly.
   const confirmSignInForMusic = () => {
     setPendingContent({ returnPath: `${location.pathname}${location.search}` });
     navigate('/auth');
   };
   const { state, currentStep, advanceStep } = useSession();
-  // Safe backward navigation ("Review Mode") - see Breathe.jsx's
-  // identical block for the full rationale.
   const { isReviewMode, isLiveStep } = useStepReviewMode('breathing', 'evening-wind-down');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
   const isRepeatGated = isReviewMode && !hasStartedRepeat;
-  // Pause-and-resume-exact-state fix - see Breathe.jsx's identical block
-  // for the full rationale.
   const [pausedSnapshot] = useState(() => loadPausedExerciseState('evening-wind-down', 'breathing'));
   useEffect(() => {
     if (pausedSnapshot) clearPausedExerciseState('evening-wind-down', 'breathing');
   }, [pausedSnapshot]);
+
+  const [hasBegun, setHasBegun] = useState(() => Boolean(pausedSnapshot));
+
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'evening-wind-down',
     isLiveStep,
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('evening-wind-down', 'breathing', { secondsLeft, breatheState, musicChoiceMade })
+    onLeaveLiveStep: () => savePausedExerciseState('evening-wind-down', 'breathing', { secondsLeft, breatheState, musicEnabled: musicPreferenceOn })
   });
   const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale');
-  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? TOTAL_SECONDS);
-  // Entry choice, asked once per visit before the countdown starts at all
-  // (see MusicEntryChoice's own doc comment). Distinct from musicEnabled
-  // itself, which InteractiveAmbientMusic owns internally.
-  const [musicChoiceMade, setMusicChoiceMade] = useState(() => Boolean(pausedSnapshot?.musicChoiceMade));
-  // Pause Exercise - see Breathe.jsx's identical block for the full
-  // rationale. Also true immediately on mount when resuming from a
-  // review-paused snapshot.
+  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? PATTERN.totalSeconds);
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const handleResumeExercise = () => setManuallyPaused(false);
@@ -107,19 +88,22 @@ export const EveningBreathing = () => {
     featureEnabled: isFeatureEnabled('backgroundMusic'),
     getEntryById: getBetaVideoById
   });
-  // Only actually blocks anything when there's a real choice to make -
-  // a screen with no eligible music (flag off / no asset) behaves exactly
-  // as before this feature existed: the timer starts immediately.
-  const awaitingMusicChoice = musicEligible && !musicChoiceMade;
-  const handleStartWithMusic = () => {
-    setMusicChoiceMade(true);
-    musicPlayerRef.current?.start();
-  };
-  const handleContinueWithoutMusic = () => {
-    setMusicChoiceMade(true);
+  // Build 15 — genuinely safe to seed from the persisted preference now:
+  // Begin Breathing is a real mandatory gesture before any playback.
+  const [musicPreferenceOn, setMusicPreferenceOn] = useState(() => {
+    if (pausedSnapshot) return Boolean(pausedSnapshot.musicEnabled);
+    if (isGuest) return false;
+    return musicEligible && getMusicPreference();
+  });
+  const handleToggleMusicPreference = () => {
+    setMusicPreferenceOn((prev) => {
+      const next = !prev;
+      setMusicPreference(next);
+      return next;
+    });
   };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && ExercisePausedPanel && MusicEntryChoice && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -134,11 +118,9 @@ export const EveningBreathing = () => {
   }, [state.status, currentStep, advanceStep]);
 
   useEffect(() => {
-    // Pause-during-review fix - see Breathe.jsx's identical block for the
-    // full rationale: freeze the countdown the instant the confirmation
-    // dialog opens, not only after the user confirms. manuallyPaused
-    // gates it exactly like Breathe.jsx's own Pause Exercise.
-    if (manuallyPaused || awaitingMusicChoice || isRepeatGated || isConfirming) return;
+    // Build 15: nothing runs until hasBegun. Pause-during-review fix -
+    // freeze the countdown the instant the confirmation dialog opens.
+    if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming) return;
 
     if (secondsLeft <= 0) {
       navigate('/prepare-for-rest');
@@ -149,20 +131,26 @@ export const EveningBreathing = () => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
         const nextSec = prev - 1;
-        const cycleTime = (TOTAL_SECONDS - nextSec) % CYCLE_SECONDS;
-        if (cycleTime < 4) {
-          setBreatheState('Inhale');
-        } else if (cycleTime < 11) {
-          setBreatheState('Hold');
-        } else {
-          setBreatheState('Exhale');
-        }
+        setBreatheState(resolveBreathPhase(PATTERN, nextSec));
         return nextSec;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, manuallyPaused, awaitingMusicChoice, isRepeatGated, isConfirming]);
+  }, [secondsLeft, navigate, hasBegun, manuallyPaused, isRepeatGated, isConfirming]);
+
+  // Double-tap protection - see Breathe.jsx's identical rationale.
+  const hasBegunOnceRef = useRef(false);
+  const handleBeginBreathing = () => {
+    if (hasBegunOnceRef.current) return;
+    hasBegunOnceRef.current = true;
+    setSecondsLeft(PATTERN.totalSeconds);
+    setBreatheState('Inhale');
+    setHasBegun(true);
+    if (musicEligible && musicPreferenceOn && !isGuest) {
+      musicPlayerRef.current?.start();
+    }
+  };
 
   const handleAdvance = () => {
     navigate('/prepare-for-rest');
@@ -178,27 +166,14 @@ export const EveningBreathing = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {/* Review-flow ordering fix - see Breathe.jsx's identical block for
-          the full rationale. Required order is Repeat -> Music Choice ->
-          Timer. */}
-      {!isRepeatGated && awaitingMusicChoice && (
-        <MusicEntryChoice
-          onStartWithMusic={handleStartWithMusic}
-          onContinueWithoutMusic={handleContinueWithoutMusic}
-          isGuest={isGuest}
-          onSignIn={confirmSignInForMusic}
-        />
-      )}
-
-      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-        <div className="space-y-2">
-          <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
-          <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-            Slow, easy breaths. There is nowhere else to be.
-          </p>
-        </div>
-
-        {isRepeatGated ? (
+      {isRepeatGated ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+          <div className="space-y-2">
+            <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
+            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              Slow, easy breaths. There is nowhere else to be.
+            </p>
+          </div>
           <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10 w-full">
             <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the breathing exercise from the beginning.</p>
             <button
@@ -210,74 +185,132 @@ export const EveningBreathing = () => {
               <span>Repeat this exercise</span>
             </button>
           </div>
-        ) : (
-          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
-        )}
-      </div>
+        </div>
+      ) : !hasBegun ? (
+        <>
+          {/* Build 15 — pre-start preview of Evening's own fixed 4-7-8
+              pattern. Not a picker (Evening keeps one canonical cadence
+              this phase) - just a real, truthful preview plus a genuine
+              Begin gesture. */}
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+            <div className="space-y-2">
+              <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Slow, easy breaths. There is nowhere else to be.
+              </p>
+            </div>
 
-      {!isRepeatGated && (
-        <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={manuallyPaused} />
-      )}
+            <div className="glass-panel rounded-2xl p-5 w-full space-y-1 border-white/10">
+              <p className="text-sm font-bold text-on-surface">{PATTERN.label}</p>
+              <p className="text-xs text-on-surface-variant">
+                Inhale {PATTERN.inhaleSeconds}s · Hold {PATTERN.holdSeconds}s · Exhale {PATTERN.exhaleSeconds}s
+              </p>
+              <p className="text-[10px] text-on-surface-variant/70 uppercase font-semibold tracking-wide">{formatTotalDuration(PATTERN.totalSeconds)}</p>
+            </div>
 
-      {/* Pause Exercise - see Breathe.jsx's identical block for the full
-          rationale (release-blocking consistency fix; this screen
-          originally had none). Same musicChoiceMade-gated
-          ExercisePausedPanel slot, same hidden-while-awaiting-music-
-          choice/repeat-gated condition. */}
-      {!isRepeatGated && musicChoiceMade && manuallyPaused && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-          isGuest={isGuest}
-          onSignIn={confirmSignInForMusic}
-        />
-      )}
+            {musicEligible && (
+              <MusicPreferenceToggle
+                isOn={musicPreferenceOn}
+                onToggle={handleToggleMusicPreference}
+                isGuest={isGuest}
+                onSignIn={confirmSignInForMusic}
+                description="Play gentle music during your breathing practice."
+              />
+            )}
+          </div>
 
-      {!isRepeatGated && !manuallyPaused && !awaitingMusicChoice && (
-        <button
-          type="button"
-          onClick={handlePauseExercise}
-          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-        >
-          <span className="material-symbols-outlined text-sm">pause</span>
-          <span>Pause Exercise</span>
-        </button>
-      )}
-
-      <div className="space-y-3 w-full">
-        {isReviewMode ? (
-          currentStep && (
+          <div className="space-y-3 w-full">
             <button
-              onClick={() => navigate(routeForStep(currentStep.id))}
+              type="button"
+              onClick={handleBeginBreathing}
               className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
             >
-              <span>Return to {getStepLabel(currentStep.id)}</span>
+              <span>Begin Breathing</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
-          )
-        ) : (
-          <>
-            {/* Hidden while ExercisePausedPanel above is showing its own
-                two resume actions - see Breathe.jsx's identical comment. */}
-            {!manuallyPaused && !awaitingMusicChoice && (
-              <button
-                onClick={handleAdvance}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-              >
-                <span>Continue</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            )}
             <button
               onClick={handleAdvance}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
             >
               Skip
             </button>
-          </>
-        )}
-      </div>
+          </div>
+
+          {/* Mounted early (hidden toggle) purely so its ref/audio element
+              already exist before Begin is tapped. Renders nothing
+              visible here. */}
+          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={false} hideToggle />
+        </>
+      ) : (
+        <>
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+            <div className="space-y-2">
+              <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Slow, easy breaths. There is nowhere else to be.
+              </p>
+            </div>
+
+            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+          </div>
+
+          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={manuallyPaused} />
+
+          {manuallyPaused && (
+            <ExercisePausedPanel
+              onResumeExercise={handleResumeExercise}
+              onResumeWithMusic={handleResumeWithMusic}
+              showResumeWithMusic={musicEligible}
+              isGuest={isGuest}
+              onSignIn={confirmSignInForMusic}
+            />
+          )}
+
+          {!manuallyPaused && (
+            <button
+              type="button"
+              onClick={handlePauseExercise}
+              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+            >
+              <span className="material-symbols-outlined text-sm">pause</span>
+              <span>Pause Exercise</span>
+            </button>
+          )}
+
+          <div className="space-y-3 w-full">
+            {isReviewMode ? (
+              currentStep && (
+                <button
+                  onClick={() => navigate(routeForStep(currentStep.id))}
+                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                >
+                  <span>Return to {getStepLabel(currentStep.id)}</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              )
+            ) : (
+              <>
+                {!manuallyPaused && (
+                  <button
+                    onClick={handleAdvance}
+                    className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                  >
+                    <span>Continue</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleAdvance}
+                  className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+                >
+                  Skip
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
       <ConfirmDialog
         open={isConfirming}
         title="Review an earlier step?"

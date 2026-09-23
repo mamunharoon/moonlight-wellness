@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { formatTotalDuration } from '../lib/stretchDuration';
+import { formatTotalDuration } from '../lib/formatDuration';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const source = read('./MorningFlow.jsx');
@@ -55,9 +55,10 @@ describe('Item 1/2 - real movements only, exact approved wording, nothing fabric
     expect(durationDisplays.length).toBeGreaterThan(0);
   });
 
-  it('never fabricates a named music track ("Calm Dawn Acoustic" or similar) - only the real "Background music" toggle wording is used', () => {
+  it('never fabricates a named music track ("Calm Dawn Acoustic" or similar) - only the real, shared MusicPreferenceToggle (default label "Background music") is used', () => {
     expect(source).not.toMatch(/Calm Dawn Acoustic|Ambient Music —/);
-    expect(source).toMatch(/Background music/);
+    expect(source).toMatch(/<MusicPreferenceToggle/);
+    expect(source).toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
   });
 
   it('does not offer "Customise Moves & Duration" - the visible movement selection IS the customisation, and duration is not independently customisable', () => {
