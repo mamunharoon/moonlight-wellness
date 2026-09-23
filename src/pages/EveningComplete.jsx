@@ -10,8 +10,8 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
-import { getEveningCompletionKey, clearEveningCompletionKey } from '../lib/dailyCompletion';
-import { deleteEveningReflectionGratitudeResponsesForDate } from '../lib/routineResponses';
+import { getEveningCompletionKey } from '../lib/dailyCompletion';
+import { redoEveningWindDown } from '../lib/routineResponses';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -98,16 +98,15 @@ export const EveningComplete = () => {
   };
 
   /*
-   * Redo Tonight's Wind-Down (Build 15) — failure-safe order, exactly as
-   * approved: (1) validate eligibility, (2) resolve today's local date
-   * ONCE and hold that exact value for the whole operation, (3) guard
-   * against rapid double taps, (4) the one narrowly-scoped atomic
-   * delete, (5) check it actually succeeded, (6) only then clear the
-   * completion flag, (7) only then reset the Evening routine, (8)
-   * navigate to the canonical Evening start. Any failure at (1) or (5)
-   * stops here — no flag clear, no routine reset, no navigation — the
-   * existing completed journey is left exactly as it was, still fully
-   * reviewable, with a friendly retry available.
+   * Redo Tonight's Wind-Down (Build 15; shared as of the Build 15
+   * addendum) — the entire failure-safe eligibility/delete/flag/routine
+   * sequence now lives in one place, routineResponses.js's own
+   * redoEveningWindDown (see its doc comment for the exact approved
+   * order), so this screen and Home.jsx's completed-Evening card can
+   * never drift out of sync with each other. This handler's own job is
+   * just: guard against rapid double taps, resolve today's local date
+   * once, call the shared function, and translate its result into this
+   * screen's own error/navigation UI.
    */
   const handleConfirmRedo = async () => {
     if (isRedoing) return;
@@ -115,26 +114,14 @@ export const EveningComplete = () => {
     setRedoError(false);
 
     const localDate = getZonedParts(effectiveTimezone, devNow()).dateKey;
-    const isEligible = !isGuest && Boolean(userId) && localStorage.getItem(getEveningCompletionKey(userId)) === localDate;
-    if (!isEligible) {
-      setIsRedoing(false);
-      setRedoConfirmOpen(false);
-      setRedoError(true);
-      return;
-    }
+    const result = await redoEveningWindDown({ userId, isGuest, localDate, resetRoutine });
 
-    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId, localDate });
-    if (!result.ok) {
-      setIsRedoing(false);
-      setRedoConfirmOpen(false);
-      setRedoError(true);
-      return;
-    }
-
-    clearEveningCompletionKey(userId);
-    resetRoutine('evening-wind-down');
-    setRedoConfirmOpen(false);
     setIsRedoing(false);
+    setRedoConfirmOpen(false);
+    if (!result.ok) {
+      setRedoError(true);
+      return;
+    }
     navigate('/evening-wind-down');
   };
 

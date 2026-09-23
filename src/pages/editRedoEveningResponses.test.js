@@ -280,9 +280,63 @@ describe('Home.jsx completed-Evening card', () => {
     expect(homeSource).toMatch(/navigate\('\/edit\/evening\?q=1'\)/);
   });
 
-  it('does not add a Redo BUTTON directly to Home\'s compact card (kept uncluttered - Redo is reachable via the full completed-Evening screen) - the doc comment explaining that design choice is not a rendered control', () => {
-    expect(homeSource).not.toMatch(/onClick=\{handleRedoTap\}/);
+  // Build 15 addendum — Redo Tonight's Wind-Down is now ALSO reachable
+  // directly from Home's own compact completed-Evening card, using the
+  // same shared routineResponses.js#redoEveningWindDown workflow as
+  // EveningComplete.jsx (see routineResponses.test.js for that shared
+  // function's own behavioural coverage) - never a second, hand-rolled
+  // copy of the eligibility/delete/flag/routine-reset sequence here.
+  it('adds a Redo Tonight\'s Wind-Down action, wired to the shared redoEveningWindDown workflow - never a duplicated copy of the delete/reset logic', () => {
+    expect(homeSource).toMatch(/import \{ redoEveningWindDown \} from '\.\.\/lib\/routineResponses';/);
+    expect(homeSource).toMatch(/onClick=\{handleRedoTap\}/);
     expect(homeSource).not.toMatch(/deleteEveningReflectionGratitudeResponsesForDate/);
+    expect(homeSource).not.toMatch(/clearEveningCompletionKey/);
+    const confirmRedoBody = homeSource.match(/const handleConfirmRedo = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmRedoBody).toMatch(/await redoEveningWindDown\(\{ userId, isGuest, localDate: today, resetRoutine \}\);/);
+  });
+
+  it('Redo is guest-excluded, matching Review/Edit\'s own exclusion (rendered only inside the same !isGuest branch)', () => {
+    const redoIdx = homeSource.indexOf('onClick={handleRedoTap}');
+    const guestBranchIdx = homeSource.lastIndexOf(') : (', redoIdx);
+    expect(guestBranchIdx).toBeGreaterThan(-1);
+    expect(redoIdx).toBeGreaterThan(guestBranchIdx);
+  });
+
+  it('Redo is styled as a quiet, text-only destructive action on Home too - never a filled primary/Continue-style button', () => {
+    const redoButtonMatch = homeSource.match(/onClick=\{handleRedoTap\}\s*className="([^"]+)"/);
+    expect(redoButtonMatch).toBeTruthy();
+    expect(redoButtonMatch[1]).not.toMatch(/bg-primary/);
+    expect(redoButtonMatch[1]).toMatch(/text-red-300/);
+  });
+
+  it('uses the exact same approved confirmation copy as EveningComplete.jsx\'s own dialog', () => {
+    expect(homeSource).toMatch(/title="Redo tonight's Wind-Down\?"/);
+    expect(homeSource).toMatch(
+      /message="This will permanently delete tonight's saved Reflection and Gratitude responses and restart the Evening journey from the beginning\. If you leave before completing it again, your previous responses cannot be restored\."/
+    );
+    expect(homeSource).toMatch(/confirmLabel="Delete Responses & Redo"/);
+    expect(homeSource).toMatch(/cancelLabel="Keep Existing Journey"/);
+  });
+
+  it('is a separate ConfirmDialog/state from the existing activeDialog system (Redo is async and can fail; every activeDialog kind is synchronous)', () => {
+    expect(homeSource).toMatch(/const \[redoConfirmOpen, setRedoConfirmOpen\] = useState\(false\);/);
+    expect(homeSource).toMatch(/const \[isRedoing, setIsRedoing\] = useState\(false\);/);
+    expect(homeSource).toMatch(/const \[redoError, setRedoError\] = useState\(false\);/);
+    expect(homeSource).toMatch(/<ConfirmDialog\s*\n\s*open=\{redoConfirmOpen\}/);
+    expect(homeSource).toMatch(/confirmPending=\{isRedoing\}/);
+  });
+
+  it('handleRedoTap only opens the dialog - nothing is deleted before confirmation', () => {
+    const tapBody = homeSource.match(/const handleRedoTap = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(tapBody).not.toMatch(/redoEveningWindDown/);
+    expect(tapBody).toMatch(/setRedoConfirmOpen\(true\);/);
+  });
+
+  it('navigates to /evening-wind-down only on a successful redo, and shows the shared retry-safe error copy on failure - never partially, matching EveningComplete.jsx\'s own outcome handling', () => {
+    const confirmRedoBody = homeSource.match(/const handleConfirmRedo = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmRedoBody).toMatch(/if \(!result\.ok\) \{\s*setRedoError\(true\);\s*return;\s*\}/);
+    expect(confirmRedoBody).toMatch(/navigate\('\/evening-wind-down'\);/);
+    expect(homeSource).toMatch(/Couldn't redo tonight's Wind-Down\. Your existing journey is unchanged/);
   });
 
   it('guests still see only "Begin Evening Wind-Down" - unaffected by this work', () => {
@@ -315,72 +369,40 @@ describe('Redo confirmation copy - exact approved wording', () => {
   });
 });
 
-describe('Redo failure-safe order (approved: validate -> resolve date once -> guard -> delete -> check -> clear flag -> reset routine -> navigate)', () => {
-  it('resolves the local date exactly once and reuses that same variable throughout the whole operation', () => {
-    const dateDeclarations = eveningCompleteSource.match(/const localDate = getZonedParts/g) ?? [];
-    expect(dateDeclarations).toHaveLength(1);
-    // reused (not re-resolved) at every later step
-    const confirmRedoBlock = eveningCompleteSource.slice(
-      eveningCompleteSource.indexOf('const handleConfirmRedo'),
-      eveningCompleteSource.indexOf('return (\n    <EveningSceneShell')
-    );
-    expect(confirmRedoBlock.match(/localDate/g).length).toBeGreaterThanOrEqual(3);
+// Build 15 addendum — the actual failure-safe eligibility/delete/flag/
+// routine-reset ORDER now lives in ONE place, routineResponses.js's own
+// redoEveningWindDown (see routineResponses.test.js for real behavioural
+// coverage of that exact order, against a mocked Supabase). What remains
+// here is EveningComplete.jsx's own thin wrapper: guard against rapid
+// double taps, resolve today's local date once, call the shared
+// function, and translate its result into this screen's own error/
+// navigation UI - never a second copy of the underlying sequence.
+describe('EveningComplete.jsx\'s handleConfirmRedo - thin wrapper around the shared redoEveningWindDown workflow', () => {
+  it('imports the shared function - never the raw delete/clear-flag primitives directly', () => {
+    expect(eveningCompleteSource).toMatch(/import \{ redoEveningWindDown \} from '\.\.\/lib\/routineResponses';/);
+    expect(eveningCompleteSource).not.toMatch(/deleteEveningReflectionGratitudeResponsesForDate/);
+    expect(eveningCompleteSource).not.toMatch(/clearEveningCompletionKey/);
   });
 
   it('guards against rapid double taps before anything else runs', () => {
     expect(eveningCompleteSource).toMatch(/const handleConfirmRedo = async \(\) => \{\s*if \(isRedoing\) return;\s*setIsRedoing\(true\);/);
   });
 
-  it('validates eligibility BEFORE the delete call, and aborts without deleting anything if ineligible', () => {
-    const confirmRedoBlock = eveningCompleteSource.slice(
-      eveningCompleteSource.indexOf('const handleConfirmRedo'),
-      eveningCompleteSource.indexOf('return (\n    <EveningSceneShell')
-    );
-    const eligibilityIdx = confirmRedoBlock.indexOf('isEligible');
-    const deleteCallIdx = confirmRedoBlock.indexOf('deleteEveningReflectionGratitudeResponsesForDate(');
-    expect(eligibilityIdx).toBeGreaterThan(-1);
-    expect(deleteCallIdx).toBeGreaterThan(eligibilityIdx);
+  it('resolves the local date exactly once and passes it, along with userId/isGuest/resetRoutine, straight to the shared function', () => {
+    const confirmRedoBody = eveningCompleteSource.match(/const handleConfirmRedo = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmRedoBody.match(/const localDate = getZonedParts/g)).toHaveLength(1);
+    expect(confirmRedoBody).toMatch(/await redoEveningWindDown\(\{ userId, isGuest, localDate, resetRoutine \}\);/);
   });
 
-  it('the completion flag is cleared, and the routine reset, ONLY after result.ok is confirmed true - in that exact order, delete -> flag -> reset -> navigate', () => {
-    const confirmRedoBlock = eveningCompleteSource.slice(
-      eveningCompleteSource.indexOf('const handleConfirmRedo'),
-      eveningCompleteSource.indexOf('return (\n    <EveningSceneShell')
-    );
-    const deleteIdx = confirmRedoBlock.indexOf('deleteEveningReflectionGratitudeResponsesForDate(');
-    const resultCheckIdx = confirmRedoBlock.indexOf('if (!result.ok)');
-    const clearFlagIdx = confirmRedoBlock.indexOf('clearEveningCompletionKey(userId);');
-    const resetRoutineIdx = confirmRedoBlock.indexOf("resetRoutine('evening-wind-down');");
-    const navigateIdx = confirmRedoBlock.indexOf("navigate('/evening-wind-down');");
-    expect(deleteIdx).toBeGreaterThan(-1);
-    expect(resultCheckIdx).toBeGreaterThan(deleteIdx);
-    expect(clearFlagIdx).toBeGreaterThan(resultCheckIdx);
-    expect(resetRoutineIdx).toBeGreaterThan(clearFlagIdx);
-    expect(navigateIdx).toBeGreaterThan(resetRoutineIdx);
+  it('navigates to /evening-wind-down only on a successful result, and shows the friendly retry-safe error otherwise - never both, never neither', () => {
+    const confirmRedoBody = eveningCompleteSource.match(/const handleConfirmRedo = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmRedoBody).toMatch(/if \(!result\.ok\) \{\s*setRedoError\(true\);\s*return;\s*\}/);
+    expect(confirmRedoBody).toMatch(/navigate\('\/evening-wind-down'\);/);
   });
 
-  it('on delete failure, does NOT clear the flag, does NOT reset the routine, and does NOT navigate', () => {
-    const failureBranch = eveningCompleteSource.slice(
-      eveningCompleteSource.indexOf('const result = await deleteEveningReflectionGratitudeResponsesForDate'),
-      eveningCompleteSource.indexOf('clearEveningCompletionKey(userId);')
-    );
-    expect(failureBranch).toMatch(/if \(!result\.ok\) \{/);
-    expect(failureBranch).not.toMatch(/navigate\(/);
-    expect(failureBranch).not.toMatch(/resetRoutine/);
-  });
-
-  it('a failed delete shows a friendly, non-technical retry state and re-enables the button (releases the guard)', () => {
+  it('a failed redo shows a friendly, non-technical retry state, never the raw error message', () => {
     expect(eveningCompleteSource).toMatch(/Couldn't redo tonight's Wind-Down\. Your existing journey is unchanged/);
     expect(eveningCompleteSource).not.toMatch(/result\.error\.message/);
-  });
-
-  it('the ineligible-at-confirm-time path (e.g. flag already gone) behaves exactly like a delete failure - no partial mutation', () => {
-    const ineligibleBlock = eveningCompleteSource.slice(
-      eveningCompleteSource.indexOf('if (!isEligible)'),
-      eveningCompleteSource.indexOf('const result = await deleteEveningReflectionGratitudeResponsesForDate')
-    );
-    expect(ineligibleBlock).toMatch(/setRedoError\(true\);/);
-    expect(ineligibleBlock).not.toMatch(/clearEveningCompletionKey|resetRoutine|navigate\(/);
   });
 });
 

@@ -44,6 +44,7 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
+import { redoEveningWindDown } from '../lib/routineResponses';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -290,6 +291,42 @@ export const Home = () => {
       else handleBeginEveningWindDown();
     }
     setActiveDialog(null);
+  };
+
+  // Redo Tonight's Wind-Down (Build 15 addendum) — kept as its own
+  // separate confirmation state/dialog, deliberately not folded into the
+  // activeDialog/dialogCopy/handleConfirmDialog system above: every kind
+  // in that system is a synchronous, always-succeeds action, while Redo
+  // is a real network delete that can fail and needs its own pending/
+  // error UI (confirmPending, a retry-safe error state) - exactly
+  // mirroring EveningComplete.jsx's own separate redoConfirmOpen/
+  // isRedoing/redoError state, which this reuses the same shape of. The
+  // actual eligibility/delete/flag/routine-reset sequence itself is never
+  // duplicated here - both this handler and EveningComplete.jsx's own
+  // call the one shared routineResponses.js#redoEveningWindDown.
+  const [redoConfirmOpen, setRedoConfirmOpen] = useState(false);
+  const [isRedoing, setIsRedoing] = useState(false);
+  const [redoError, setRedoError] = useState(false);
+
+  const handleRedoTap = () => {
+    setRedoError(false);
+    setRedoConfirmOpen(true);
+  };
+
+  const handleConfirmRedo = async () => {
+    if (isRedoing) return;
+    setIsRedoing(true);
+    setRedoError(false);
+
+    const result = await redoEveningWindDown({ userId, isGuest, localDate: today, resetRoutine });
+
+    setIsRedoing(false);
+    setRedoConfirmOpen(false);
+    if (!result.ok) {
+      setRedoError(true);
+      return;
+    }
+    navigate('/evening-wind-down');
   };
 
   // "Resume Previous Routine" — resumes the EXACT stale snapshot (its own
@@ -1016,19 +1053,35 @@ export const Home = () => {
                     Review Tonight's Journey
                   </button>
                   {/* Edit Tonight's Responses (Build 15) — a visible
-                      secondary action here too, kept to just this one
-                      addition so Home's own compact card stays
-                      uncluttered; Redo Tonight's Wind-Down (a rarer,
-                      destructive action with its own confirmation) is
-                      reachable via Review's own "Evening Summary" return
-                      action on the full completed-Evening screen, not
-                      duplicated here. */}
+                      secondary action here too. */}
                   <button
                     type="button"
                     onClick={() => navigate('/edit/evening?q=1')}
                     className="block w-full py-3 rounded-xl glass-panel text-on-surface font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
                   >
                     Edit Tonight's Responses
+                  </button>
+                  {/* Redo Tonight's Wind-Down (Build 15 addendum) — same
+                      quiet, text-only destructive styling as
+                      EveningComplete.jsx's own action, deliberately never
+                      a filled/primary button so it never visually
+                      competes with Review. The actual delete/flag/reset
+                      sequence is the one shared
+                      routineResponses.js#redoEveningWindDown - never a
+                      second, hand-rolled copy of that logic here. */}
+                  {redoError && (
+                    <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
+                      <p className="text-sm text-on-surface">
+                        Couldn't redo tonight's Wind-Down. Your existing journey is unchanged — please try again.
+                      </p>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleRedoTap}
+                    className="block w-full py-3 text-center text-sm font-semibold text-red-300 hover:text-red-200 active:scale-95 transition-all"
+                  >
+                    Redo Tonight's Wind-Down
                   </button>
                 </div>
               )}
@@ -1199,6 +1252,22 @@ export const Home = () => {
         destructive={dialogCopy?.destructive ?? false}
         onConfirm={handleConfirmDialog}
         onDismiss={() => setActiveDialog(null)}
+      />
+
+      {/* Redo Tonight's Wind-Down (Build 15 addendum) — same exact
+          approved copy as EveningComplete.jsx's own dialog, kept as its
+          own separate ConfirmDialog instance (see handleConfirmRedo's own
+          doc comment above for why). */}
+      <ConfirmDialog
+        open={redoConfirmOpen}
+        title="Redo tonight's Wind-Down?"
+        message="This will permanently delete tonight's saved Reflection and Gratitude responses and restart the Evening journey from the beginning. If you leave before completing it again, your previous responses cannot be restored."
+        confirmLabel="Delete Responses & Redo"
+        cancelLabel="Keep Existing Journey"
+        destructive
+        confirmPending={isRedoing}
+        onConfirm={handleConfirmRedo}
+        onDismiss={() => setRedoConfirmOpen(false)}
       />
 
       {/* Guest Onboarding — shown instead of actually starting/resuming/

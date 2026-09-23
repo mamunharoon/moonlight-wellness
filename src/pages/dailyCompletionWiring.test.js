@@ -61,11 +61,13 @@ describe('SessionComplete.jsx writes Morning completion to the CURRENT identity\
 
 describe('EveningComplete.jsx writes Evening completion to the CURRENT identity\'s own scoped key', () => {
   it('imports getEveningCompletionKey and destructures userId from useAlarm()', () => {
-    // Build 15 (Redo Tonight's Wind-Down) added clearEveningCompletionKey
-    // to the same import statement - still the same scoped-key module,
-    // still the same getEveningCompletionKey export, just one more named
-    // import alongside it.
-    expect(eveningCompleteSource).toMatch(/import \{ getEveningCompletionKey, clearEveningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+    // Build 15 addendum — clearEveningCompletionKey moved out of this
+    // file's own import (it now lives inside the ONE shared
+    // routineResponses.js#redoEveningWindDown workflow, used identically
+    // by this screen and Home.jsx - see routineResponses.test.js). This
+    // file keeps only the plain getEveningCompletionKey read it still
+    // needs for its own mount-effect completion write above.
+    expect(eveningCompleteSource).toMatch(/import \{ getEveningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
     expect(eveningCompleteSource).toMatch(/const \{ effectiveTimezone, userId \} = useAlarm\(\);/);
     expect(eveningCompleteSource).not.toMatch(/const EVENING_DONE_KEY = 'moonlight_evening_completed_date';/);
   });

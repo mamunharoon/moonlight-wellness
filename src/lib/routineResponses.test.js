@@ -6,8 +6,31 @@
 // returned - not source-string assertions. loadRoutineResponse/
 // upsertRoutineResponse/deleteRoutineResponse (the pre-existing
 // functions) are unchanged by this work and are not re-tested here.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+//
+// Build 15 addendum — redoEveningWindDown (the ONE shared Redo workflow
+// used identically by EveningComplete.jsx and Home.jsx's own completed-
+// Evening card) is covered below too, with the same real-execution
+// standard. This repo's Vitest runs in a plain Node environment - not
+// jsdom - so there is no real `localStorage` global (see
+// musicPreference.test.js's own note on this exact point); an in-memory
+// mock is installed as that global for these tests only.
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
+import { getEveningCompletionKey } from './dailyCompletion';
+
+const localStorageStore = new Map();
+const localStorageMock = {
+  getItem: (key) => (localStorageStore.has(key) ? localStorageStore.get(key) : null),
+  setItem: (key, value) => localStorageStore.set(key, String(value)),
+  removeItem: (key) => localStorageStore.delete(key),
+  clear: () => localStorageStore.clear()
+};
+const originalLocalStorage = globalThis.localStorage;
+globalThis.localStorage = localStorageMock;
+
+afterAll(() => {
+  globalThis.localStorage = originalLocalStorage;
+});
 
 // A minimal fake Postgrest-style chainable query builder. Each method
 // records its own call and returns the same chain object, so tests can
@@ -51,7 +74,8 @@ vi.mock('./supabaseClient', () => ({
   supabase: { from: mockFrom }
 }));
 
-const { upsertRoutineResponsesBatch, deleteEveningReflectionGratitudeResponsesForDate } = await import('./routineResponses');
+const { upsertRoutineResponsesBatch, deleteEveningReflectionGratitudeResponsesForDate, redoEveningWindDown } =
+  await import('./routineResponses');
 
 const setResult = (result) => {
   lastChain = makeChain(result);
@@ -61,6 +85,7 @@ const setResult = (result) => {
 beforeEach(() => {
   mockFrom.mockReset();
   setResult({ error: null, data: [] });
+  localStorageStore.clear();
 });
 
 describe('upsertRoutineResponsesBatch - one atomic call across both sections', () => {
@@ -221,5 +246,78 @@ describe('deleteEveningReflectionGratitudeResponsesForDate - narrowly scoped, ne
   it('the resolved local date is used exactly as given, for this one call only - the caller (EveningComplete.jsx) is responsible for resolving it once and passing the same value throughout', async () => {
     await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
     expect(lastChain.matchArgs[0].local_date).toBe('2026-09-22');
+  });
+});
+
+describe('redoEveningWindDown - the ONE shared Redo workflow (Build 15 addendum), used identically by EveningComplete.jsx and Home.jsx', () => {
+  it('on an eligible request and a successful delete: clears the completion flag, THEN calls resetRoutine, and reports ok:true', async () => {
+    setResult({ data: [{ prompt_id: 'went-well' }], error: null });
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    const resetRoutine = vi.fn(() => {
+      // At the exact moment resetRoutine is called, the flag must already
+      // be cleared - proves the real call order, not just that both
+      // eventually happened.
+      expect(localStorage.getItem(getEveningCompletionKey('user-1'))).toBeNull();
+    });
+
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine });
+
+    expect(result).toEqual({ ok: true });
+    expect(resetRoutine).toHaveBeenCalledTimes(1);
+    expect(resetRoutine).toHaveBeenCalledWith('evening-wind-down');
+    expect(localStorage.getItem(getEveningCompletionKey('user-1'))).toBeNull();
+  });
+
+  it('deletes scoped to exactly this user/date, via the same narrowly-scoped delete used elsewhere - never a second, broader delete path', async () => {
+    setResult({ data: [], error: null });
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine: vi.fn() });
+    expect(mockFrom).toHaveBeenCalledWith('routine_responses');
+    expect(lastChain.matchArgs).toEqual([{ user_id: 'user-1', session_id: 'evening-wind-down', local_date: '2026-09-22' }]);
+  });
+
+  it('a guest is never eligible, regardless of userId - refuses without ever calling Supabase or resetRoutine', async () => {
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    const resetRoutine = vi.fn();
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: true, localDate: '2026-09-22', resetRoutine });
+    expect(result).toEqual({ ok: false });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(resetRoutine).not.toHaveBeenCalled();
+  });
+
+  it('refuses without a userId, without ever calling Supabase or resetRoutine', async () => {
+    const resetRoutine = vi.fn();
+    const result = await redoEveningWindDown({ userId: null, isGuest: false, localDate: '2026-09-22', resetRoutine });
+    expect(result).toEqual({ ok: false });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(resetRoutine).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the completion flag does not match this exact local date (missing, or a stale prior day) - never calls Supabase or resetRoutine', async () => {
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-21');
+    const resetRoutine = vi.fn();
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine });
+    expect(result).toEqual({ ok: false });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(resetRoutine).not.toHaveBeenCalled();
+  });
+
+  it('on a genuine delete failure: does not clear the flag, does not call resetRoutine, and reports ok:false - the existing completed journey is left exactly as it was', async () => {
+    setResult({ data: null, error: { message: 'permission denied' } });
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    const resetRoutine = vi.fn();
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine });
+    expect(result).toEqual({ ok: false });
+    expect(resetRoutine).not.toHaveBeenCalled();
+    expect(localStorage.getItem(getEveningCompletionKey('user-1'))).toBe('2026-09-22');
+  });
+
+  it('two different users never collide - user A\'s flag/delete never touches user B\'s', async () => {
+    localStorage.setItem(getEveningCompletionKey('user-a'), '2026-09-22');
+    localStorage.setItem(getEveningCompletionKey('user-b'), '2026-09-22');
+    setResult({ data: [], error: null });
+    await redoEveningWindDown({ userId: 'user-a', isGuest: false, localDate: '2026-09-22', resetRoutine: vi.fn() });
+    expect(localStorage.getItem(getEveningCompletionKey('user-a'))).toBeNull();
+    expect(localStorage.getItem(getEveningCompletionKey('user-b'))).toBe('2026-09-22');
   });
 });

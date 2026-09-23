@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
+import { getEveningCompletionKey, clearEveningCompletionKey } from './dailyCompletion';
 
 // Client-side counterpart to the routine_responses migration
 // (20260919120000) - Reflection.jsx/Gratitude.jsx's prompt answers, keyed
@@ -171,4 +172,40 @@ export const deleteEveningReflectionGratitudeResponsesForDate = async ({ userId,
   } catch (e) {
     return { ok: false, error: e };
   }
+};
+
+/**
+ * Redo Tonight's Wind-Down (Build 15 addendum) — the ONE shared
+ * implementation of the whole destructive Redo sequence, used identically
+ * by EveningComplete.jsx and Home.jsx's own completed-Evening card so
+ * neither screen hand-rolls its own copy of this ordering (approved: do
+ * not duplicate the deletion/reset logic between the two surfaces).
+ *
+ * Failure-safe, exactly as originally approved for EveningComplete.jsx:
+ * (1) validate eligibility (never a guest, a real userId, and the
+ * completion flag genuinely set to this exact localDate - never a stale
+ * or future value), (2) the one narrowly-scoped atomic delete, (3) only
+ * once that delete genuinely succeeds does it clear the completion flag
+ * and reset the Session Engine's own evening-wind-down routine state.
+ * Any failure at (1) or (2) returns `{ ok: false }` and mutates nothing
+ * else - the existing completed journey is left exactly as it was, still
+ * fully reviewable.
+ *
+ * `localDate` is resolved ONCE by the caller and passed in (matching
+ * deleteEveningReflectionGratitudeResponsesForDate's own convention
+ * above); `resetRoutine` is the caller's own SessionContext action.
+ * Navigating to the canonical Evening start afterwards is the one
+ * remaining step left to each caller's own useNavigate() - it is not a
+ * data mutation, so it stays outside this function.
+ */
+export const redoEveningWindDown = async ({ userId, isGuest, localDate, resetRoutine }) => {
+  const isEligible = !isGuest && Boolean(userId) && localStorage.getItem(getEveningCompletionKey(userId)) === localDate;
+  if (!isEligible) return { ok: false };
+
+  const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId, localDate });
+  if (!result.ok) return { ok: false };
+
+  clearEveningCompletionKey(userId);
+  resetRoutine(EVENING_WIND_DOWN_SESSION_ID);
+  return { ok: true };
 };
