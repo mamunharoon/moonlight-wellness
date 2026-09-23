@@ -27,6 +27,11 @@ export default {
         // needed for it.
         "gratitude-accent": "var(--color-gratitude-accent)",
         "on-gratitude-accent": "var(--color-on-gratitude-accent)",
+
+        // Prepare for Rest subphase — the four preparation toggles'
+        // selected accent (see src/index.css's matching comment).
+        "evening-accent": "var(--color-evening-accent)",
+        "on-evening-accent": "var(--color-on-evening-accent)",
         "background": "var(--color-background)",
         "on-background": "var(--color-on-background)",
         "surface": "var(--color-surface)",

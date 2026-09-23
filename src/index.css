@@ -39,6 +39,16 @@
        floor for normal text, above the 7:1 AAA floor too). */
     --color-gratitude-accent: #f4c56a;
     --color-on-gratitude-accent: #3a2408;
+
+    /* Prepare for Rest subphase — the four independent preparation
+       toggles' selected state. A calm periwinkle blue, distinct from
+       Reflection's peach and Gratitude's gold. on-evening-accent reuses
+       this app's own existing --color-background/--color-surface value
+       (#0b1326) rather than inventing a third near-identical dark navy -
+       ~8.4:1 contrast against evening-accent, comfortably above the
+       4.5:1 AA floor. */
+    --color-evening-accent: #9fb4f0;
+    --color-on-evening-accent: #0b1326;
     --color-background: #0b1326;
     --color-on-background: #dae2fd;
     --color-surface: #0b1326;
