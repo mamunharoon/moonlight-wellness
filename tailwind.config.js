@@ -20,6 +20,13 @@ export default {
         "on-tertiary": "var(--color-on-tertiary)",
         "tertiary-container": "var(--color-tertiary-container)",
         "on-tertiary-container": "var(--color-on-tertiary-container)",
+
+        // Phase 3 UX correction — Gratitude's selected-answer accent
+        // (see src/index.css's matching comment). Reflection reuses the
+        // existing primary/on-primary pair above, so no new token is
+        // needed for it.
+        "gratitude-accent": "var(--color-gratitude-accent)",
+        "on-gratitude-accent": "var(--color-on-gratitude-accent)",
         "background": "var(--color-background)",
         "on-background": "var(--color-on-background)",
         "surface": "var(--color-surface)",

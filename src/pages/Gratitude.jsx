@@ -202,6 +202,7 @@ export const Gratitude = () => {
               onClear={handlePromptClear}
               onAdvance={handleAdvance}
               onComplete={handleComplete}
+              accent="gratitude"
             />
           )}
         </div>

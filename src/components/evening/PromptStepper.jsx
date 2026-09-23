@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useRef, useState } from 'react';
-import { SelectionChip } from '../journey/SelectionChip';
-import { SelectionRow } from '../journey/SelectionRow';
+import { AnswerOptionButton } from './AnswerOptionButton';
 import { BetaVideoRow } from '../BetaVideoRow';
 import { BetaVideoModal } from '../BetaVideoModal';
 import { SignInPromptDialog } from '../SignInPromptDialog';
@@ -105,8 +104,13 @@ const CHANGE_DEBOUNCE_MS = 400;
  *                 Next or Skip is pressed on the LAST prompt. `answers`
  *                 is a { [promptId]: value } map of everything entered -
  *                 skipped prompts are simply absent from the map.
+ *   accent        'reflection' | 'gratitude' (required) - which section's
+ *                 colour AnswerOptionButton uses for a selected answer
+ *                 (see that component's own doc comment). Passed straight
+ *                 through; this component makes no colour decisions of
+ *                 its own.
  */
-export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete }) => {
+export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent }) => {
   const [answers, setAnswers] = useState(initialAnswers ?? {});
   // Per-prompt "Add your own" disclosure - lazily seeded once at mount so
   // a historical free-text answer (one that doesn't match any preset for
@@ -264,22 +268,25 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
       {activePrompt.layout === 'rows' ? (
         <div className="space-y-3" role="group" aria-label={activePrompt.label}>
           {activePrompt.options?.map((option) => (
-            <SelectionRow
+            <AnswerOptionButton
               key={option}
               label={option}
               selected={selectedOption === option}
               onClick={() => handleSelectPreset(option)}
+              accent={accent}
             />
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3" role="group" aria-label={activePrompt.label}>
           {activePrompt.options?.map((option) => (
-            <SelectionChip
+            <AnswerOptionButton
               key={option}
               label={option}
               selected={selectedOption === option}
               onClick={() => handleSelectPreset(option)}
+              accent={accent}
+              centered
             />
           ))}
         </div>
@@ -294,19 +301,27 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           select persistence contract's own "entering a custom answer
           deselects the preset" rule. */}
       <div>
+        {/* Phase 3 UX correction: a static "edit" icon, not a directional
+            chevron - this disclosure never navigates anywhere, it only
+            reveals the same custom-text field every historical/typed
+            answer already used. Expanded state tints icon+label with
+            this section's own accent colour (a subtle cue, not a filled
+            button) - explicitly never the same treatment as a selected
+            preset answer, per "do not make it look like a selected
+            preset". */}
         <button
           type="button"
           onClick={handleToggleCustom}
           aria-expanded={isCustomOpen}
           aria-controls={`${activePrompt.id}-custom-field`}
-          className="flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors px-1 min-h-[44px]"
+          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors px-1 min-h-[44px] ${
+            isCustomOpen
+              ? accent === 'gratitude' ? 'text-gratitude-accent' : 'text-primary'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
         >
-          <span
-            className="material-symbols-outlined text-sm transition-transform"
-            style={{ transform: isCustomOpen ? 'rotate(90deg)' : 'none' }}
-            aria-hidden="true"
-          >
-            chevron_right
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">
+            edit
           </span>
           <span>Add your own</span>
         </button>

@@ -241,6 +241,7 @@ export const Reflection = () => {
               onClear={handlePromptClear}
               onAdvance={handleAdvance}
               onComplete={handleComplete}
+              accent="reflection"
             />
           )}
         </div>

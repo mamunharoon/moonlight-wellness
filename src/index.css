@@ -26,6 +26,19 @@
     --color-on-tertiary: #003730;
     --color-tertiary-container: #62c8b5;
     --color-on-tertiary-container: #005247;
+
+    /* Phase 3 UX correction — Reflection/Gratitude selected-answer
+       buttons. Reflection reuses the existing --color-primary/
+       --color-on-primary pair above (already this app's own WakeWise
+       peach/coral, already paired with a contrast-verified dark text
+       color, already used for every primary CTA) rather than
+       introducing a second, barely-different peach. Gratitude has no
+       existing token in this family, so gratitude-accent is new - a
+       warm sunrise gold, paired with a dark amber-brown text color
+       measured at ~9.5:1 contrast (comfortably above the 4.5:1 AA
+       floor for normal text, above the 7:1 AAA floor too). */
+    --color-gratitude-accent: #f4c56a;
+    --color-on-gratitude-accent: #3a2408;
     --color-background: #0b1326;
     --color-on-background: #dae2fd;
     --color-surface: #0b1326;

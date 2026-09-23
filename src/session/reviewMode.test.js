@@ -263,7 +263,7 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
   // goPrevious/handleNext (both removed - see the next test).
   it('activeIndex is a controlled prop, not internal state - confirm-clear/guidance-disclosure reset when it changes, adjusted directly during render (React\'s own documented pattern) rather than a useEffect, so this never causes an extra committed render', () => {
     expect(promptStepperSource).not.toMatch(/const \[activeIndex, setActiveIndex\]/);
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete \}\) => \{/);
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent \}\) => \{/);
     expect(promptStepperSource).toMatch(/if \(activeIndex !== prevActiveIndex\) \{\s*\n\s*setPrevActiveIndex\(activeIndex\);\s*\n\s*setConfirmingClear\(false\);\s*\n\s*setGuidanceOpen\(false\);\s*\n\s*\}/);
     expect(promptStepperSource).not.toMatch(/useEffect\(/);
   });

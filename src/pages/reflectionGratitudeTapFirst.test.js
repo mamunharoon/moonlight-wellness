@@ -152,11 +152,29 @@ describe('Layout: Reflection Q1 uses full-width rows (long labels), every other 
     expect(gratitudeSource).not.toMatch(/layout: 'rows'/);
   });
 
-  it('PromptStepper renders SelectionRow (full-width) only when layout === \'rows\', SelectionChip (2-column grid) otherwise', () => {
+  // Phase 3 UX correction: physical-device feedback that the shared
+  // SelectionChip/SelectionRow controls (checkmark/chevron, subtle tint)
+  // read as small tick controls, not clear buttons. Reflection/Gratitude
+  // now use a dedicated AnswerOptionButton instead - SelectionChip/
+  // SelectionRow are UNTOUCHED and still used exactly as before by
+  // ChangeIntention.jsx/AnytimeReset.jsx/Meditate.jsx (see
+  // answerOptionButton.test.js's own "does not touch" check).
+  it('PromptStepper renders the same AnswerOptionButton for both layouts - full-width rows (space-y-3) when layout === \'rows\', a 2-column grid (centered) otherwise - never the old SelectionChip/SelectionRow', () => {
     expect(promptStepperSource).toMatch(/activePrompt\.layout === 'rows' \? \(/);
-    expect(promptStepperSource).toMatch(/<SelectionRow/);
-    expect(promptStepperSource).toMatch(/<SelectionChip/);
+    expect(promptStepperSource).toMatch(/<AnswerOptionButton/);
     expect(promptStepperSource).toMatch(/grid grid-cols-2 gap-3/);
+    expect(promptStepperSource).not.toMatch(/<SelectionRow/);
+    expect(promptStepperSource).not.toMatch(/<SelectionChip/);
+    expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionChip'/);
+    expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionRow'/);
+  });
+
+  it('the grid layout passes centered (narrower tiles read better centered), rows does not (a wide rectangle reads better left-aligned) - and accent is passed straight through from the page, not decided in PromptStepper', () => {
+    const gridBlock = promptStepperSource.match(/grid grid-cols-2 gap-3[\s\S]*?<\/div>/)?.[0] ?? '';
+    expect(gridBlock).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}[\s\S]{0,40}centered/);
+    const rowsBlock = promptStepperSource.match(/space-y-3" role="group"[\s\S]*?<\/div>/)?.[0] ?? '';
+    expect(rowsBlock).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}/);
+    expect(rowsBlock).not.toMatch(/centered/);
   });
 
   it('every approved option string across both pages is short enough to stay fully readable and unclipped even in the 2-column grid (<= 34 chars - the longest, Reflection Q1\'s own, is the one question routed to full-width rows instead)', () => {
@@ -265,5 +283,34 @@ describe('Real guidance content only - real titles/descriptions from betaVideoMa
 
   it('guidance rows use the manifest\'s own real entry.title, never a hand-typed display string', () => {
     expect(promptStepperSource).toMatch(/title=\{entry\.title\}/);
+  });
+});
+
+describe('Phase 3 UX correction - each page passes its own section accent through to PromptStepper, unchanged otherwise', () => {
+  it('Reflection.jsx passes accent="reflection"; Gratitude.jsx passes accent="gratitude"', () => {
+    expect(reflectionSource).toMatch(/<PromptStepper[\s\S]*?accent="reflection"[\s\S]*?\/>/);
+    expect(gratitudeSource).toMatch(/<PromptStepper[\s\S]*?accent="gratitude"[\s\S]*?\/>/);
+  });
+
+  it('PromptStepper declares accent as a prop and forwards it verbatim to every AnswerOptionButton - it never picks a colour itself', () => {
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent \}\) => \{/);
+    const accentUsages = promptStepperSource.match(/accent=\{accent\}/g) ?? [];
+    expect(accentUsages.length).toBe(2); // one per layout branch (rows, grid)
+  });
+});
+
+describe('Phase 3 UX correction - "Add your own" disclosure: edit icon (not a chevron), no reused checkmark styling, accent tint only while expanded', () => {
+  it('uses a static "edit" icon, never chevron_right/rotate (that directional treatment is reserved for the still-unchanged guidance disclosure)', () => {
+    const customBlock = promptStepperSource.match(/onClick=\{handleToggleCustom\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(customBlock).toMatch(/material-symbols-outlined text-sm" aria-hidden="true">\s*\n\s*edit/);
+    expect(customBlock).not.toMatch(/chevron_right/);
+    expect(customBlock).not.toMatch(/rotate\(/);
+    expect(customBlock).toMatch(/aria-expanded=\{isCustomOpen\}/);
+  });
+
+  it('expanded state tints icon+label with the section\'s own accent colour (text-only, never a filled/bordered button) - explicitly distinct from a selected preset answer', () => {
+    const customBlock = promptStepperSource.match(/onClick=\{handleToggleCustom\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(customBlock).toMatch(/accent === 'gratitude' \? 'text-gratitude-accent' : 'text-primary'/);
+    expect(customBlock).not.toMatch(/bg-primary|bg-gratitude-accent|border-primary|border-gratitude-accent/);
   });
 });
