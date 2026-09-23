@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 import { ANYTIME_RESET_DURATIONS, ANYTIME_RESET_NEEDS, getCatalogEntryById } from '../lib/mediaCatalog';
 import { recommendAnytimeReset } from '../lib/anytimeResetRecommendations';
 import { setPendingContent } from '../lib/pendingContent';
@@ -31,8 +32,37 @@ import { BackButton } from '../components/BackButton';
  */
 export const AnytimeReset = () => {
   const navigate = useNavigate();
-  const { isGuest } = useAuth();
+  const { isGuest, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Guest/auth wrong-modal fix (Build 15 remediation): a signed-in-looking
+  // client can still hold a STALE local session - e.g. its access token
+  // expired, or (as reproduced live during this remediation) the account
+  // behind it was removed server-side while this tab still had it cached.
+  // AuthContext's own isGuest only ever reads that local cache
+  // (supabase.auth.getSession(), never revalidated against the server), so
+  // it can say "signed in" for a session the server no longer honours -
+  // BetaVideoModal then opens, its signed-URL fetch 401s server-side, and
+  // the guest sees that modal's own Retry-only error UI instead of ever
+  // being offered a real sign-in path. verifyingAuth/handleBegin below
+  // close that gap with one genuine, server-revalidating
+  // supabase.auth.getUser() check immediately before ever opening the
+  // video - read-only, no write, no weakening of get-beta-video-url's own
+  // server-side auth (that remains the real gate; this is only ever a
+  // client-side pre-check to route a stale session to sign-in instead of
+  // to a confusing playback error).
+  const [verifyingAuth, setVerifyingAuth] = useState(false);
+  // Re-entrancy guard for verifyAndOpenVideo: a plain ref, not the
+  // verifyingAuth STATE above, because state updates are asynchronous - two
+  // click events dispatched before React re-renders (a fast real
+  // double-tap, or a scripted/automated double-click) would both still
+  // close over the pre-update `verifyingAuth === false` and could both
+  // start a getUser() call. A ref is mutated synchronously, so the second
+  // handleBegin invocation in the same tick sees the updated value
+  // immediately - genuinely single-flight, not just "usually fine because
+  // clicks are rarely that fast". verifyingAuth (state) still exists
+  // separately to drive the disabled/"Checking…" UI, which does need a
+  // render to reflect.
+  const verifyingAuthRef = useRef(false);
 
   const restoredNeed = searchParams.get('need');
   const restoredDuration = searchParams.get('duration');
@@ -108,13 +138,47 @@ export const AnytimeReset = () => {
 
   const returnPath = () => `/anytime-reset?need=${needId}&duration=${durationId}`;
 
+  // Never treat "auth not resolved yet" as authenticated - a tap that
+  // lands while AuthContext is still loading (e.g. a direct/refresh
+  // navigation straight to /anytime-reset) is simply ignored rather than
+  // racing ahead on a guess; the button itself is also disabled during
+  // authLoading/verifyingAuth below, so this is defense-in-depth, not the
+  // only guard.
   const handleBegin = () => {
-    if (!current) return;
+    if (!current || authLoading || verifyingAuthRef.current) return;
     if (isGuest) {
       setSignInPromptOpen(true);
       return;
     }
-    setOpenVideoId(current.id);
+    verifyAndOpenVideo(current.id);
+  };
+
+  // The one, single source-revalidating auth check before ever opening
+  // BetaVideoModal for a client that currently looks signed in.
+  // supabase.auth.getUser() (unlike getSession(), which only ever reads
+  // the locally cached token) asks the server whether this session is
+  // still genuinely valid - a expired/revoked/deleted-account session
+  // fails here and is routed to the exact same SignInPromptDialog a plain
+  // guest sees, never to BetaVideoModal's own Retry-only error state.
+  // Read-only: no table write, no localStorage write, and
+  // get-beta-video-url's own server-side check remains the real,
+  // unweakened access gate regardless of what this resolves to.
+  const verifyAndOpenVideo = async (id) => {
+    verifyingAuthRef.current = true;
+    setVerifyingAuth(true);
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user || data.user.is_anonymous) {
+        setSignInPromptOpen(true);
+        return;
+      }
+      setOpenVideoId(id);
+    } catch {
+      setSignInPromptOpen(true);
+    } finally {
+      verifyingAuthRef.current = false;
+      setVerifyingAuth(false);
+    }
   };
 
   const handleSignIn = () => {
@@ -142,7 +206,14 @@ export const AnytimeReset = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-4">
+    <div
+      className="max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
+      style={{
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+      }}
+    >
       <div className="flex items-center justify-between gap-3">
         {step === 'need' ? (
           <BackButton fallback="/" />
@@ -247,9 +318,10 @@ export const AnytimeReset = () => {
               <button
                 type="button"
                 onClick={handleBegin}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                disabled={authLoading || verifyingAuth}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none"
               >
-                <span>Start</span>
+                <span>{verifyingAuth ? 'Checking…' : 'Start'}</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
 

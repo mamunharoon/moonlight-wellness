@@ -35,8 +35,10 @@ describe('AnytimeReset.jsx — single-select, no typing, no custom field', () =>
     expect(source).not.toMatch(/setIntentions\(/);
   });
 
-  it('never imports supabase directly and never calls localStorage.setItem/getItem (no persistence beyond React state)', () => {
-    expect(source).not.toMatch(/from ['"]\.\.\/lib\/supabaseClient['"]/);
+  it('imports supabase only for a read-only auth revalidation check - never a table write, storage call, or localStorage use', () => {
+    expect(source).toMatch(/import \{ supabase \} from '\.\.\/lib\/supabaseClient';/);
+    expect(source).not.toMatch(/supabase\.from\(/);
+    expect(source).not.toMatch(/supabase\.storage/);
     expect(source).not.toMatch(/localStorage\.(setItem|getItem|removeItem)/);
   });
 });
@@ -167,6 +169,73 @@ describe('AnytimeReset.jsx — BetaVideoModal integration, unchanged component',
   it('reuses BetaVideoModal directly - never a second/alternate player', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
     expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} \/>/);
+  });
+});
+
+describe('AnytimeReset.jsx — desktop layout: bounded/centred container, never full-bleed', () => {
+  it('the root element is bounded to max-w-md and centred, matching the app\'s existing mobile-simulating shell width', () => {
+    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
+    expect(rootOpenTag).toMatch(/max-w-md/);
+    expect(rootOpenTag).toMatch(/mx-auto/);
+  });
+
+  it('horizontal padding is applied via safe-area-aware calc(), never a bare fixed px value that could double up with a safe-area inset elsewhere', () => {
+    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
+    expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
+    expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  });
+
+  it('width stays fluid (max-w-md + w-full), never a fixed pixel width that could overflow a narrow mobile viewport', () => {
+    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
+    expect(rootOpenTag).toMatch(/w-full/);
+    expect(rootOpenTag).not.toMatch(/w-\[\d+px\]/);
+  });
+});
+
+describe('AnytimeReset.jsx — auth-loading guard and server-revalidated Start (guest/auth wrong-modal fix)', () => {
+  it('handleBegin never proceeds while AuthContext is still resolving (authLoading) - "not yet resolved" is never treated as signed in', () => {
+    const body = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(!current \|\| authLoading \|\| verifyingAuthRef\.current\) return;/);
+  });
+
+  it('re-entrancy guard is a ref, not just the verifyingAuth state - two click events dispatched before a re-render must still see the updated flag synchronously, so a fast real or scripted double-tap can never start two getUser() calls', () => {
+    expect(source).toMatch(/const verifyingAuthRef = useRef\(false\);/);
+    const body = source.match(/const verifyAndOpenVideo = async \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/async \(id\) => \{\s*\n\s*verifyingAuthRef\.current = true;/);
+    expect(body).toMatch(/finally \{\s*\n\s*verifyingAuthRef\.current = false;/);
+  });
+
+  it('a signed-in-looking tap runs a real server-revalidating supabase.auth.getUser() check before ever opening the video, never trusts the local cached session alone', () => {
+    const body = source.match(/const verifyAndOpenVideo = async \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/await supabase\.auth\.getUser\(\)/);
+  });
+
+  it('getUser() success (a real, non-anonymous user) opens BetaVideoModal via setOpenVideoId', () => {
+    const body = source.match(/const verifyAndOpenVideo = async \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setOpenVideoId\(id\)/);
+  });
+
+  it('getUser() failure, no user, or an anonymous user all route to the SignInPromptDialog - a stale/expired/deleted session is treated as a guest, never opens BetaVideoModal', () => {
+    const body = source.match(/const verifyAndOpenVideo = async \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(error \|\| !data\?\.user \|\| data\.user\.is_anonymous\) \{\s*\n\s*setSignInPromptOpen\(true\);/);
+    expect(body).toMatch(/\} catch \{\s*\n\s*setSignInPromptOpen\(true\);/);
+  });
+
+  it('the Start button is disabled while auth is loading or being revalidated, so a tap cannot race either check', () => {
+    expect(source).toMatch(/onClick=\{handleBegin\}\s*\n\s*disabled=\{authLoading \|\| verifyingAuth\}/);
+  });
+
+  it('this stays a read-only client-side pre-check only - get-beta-video-url remains the real server-side gate, never bypassed or weakened here', () => {
+    expect(source).not.toMatch(/beta_access\s*=|\.update\(|\.insert\(|\.upsert\(/);
+  });
+});
+
+describe('AnytimeReset.jsx — cancelling sign-in preserves the recommendation and selections', () => {
+  it('onDismiss only closes the dialog - it never resets step/needId/durationId/optionIndex', () => {
+    const dialogBlock = source.match(/<SignInPromptDialog[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/onDismiss=\{\(\) => setSignInPromptOpen\(false\)\}/);
+    expect(dialogBlock).not.toMatch(/setStep|setNeedId|setDurationId|setOptionIndex/);
   });
 });
 

@@ -96,7 +96,24 @@ export const Layout = () => {
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide px-4"
           style={{
             paddingTop: hideNavigation ? 'calc(1rem + env(safe-area-inset-top))' : '1rem',
-            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))',
+            paddingBottom: hideNavigation ? 'calc(7.5rem + env(safe-area-inset-bottom))' : '1rem',
+            // Bottom-nav overlap fix, found live on tall/desktop viewports:
+            // this div is a `flex-1` sibling of the `absolute`-positioned
+            // nav below, so it always fills the SAME full container height
+            // the nav floats over - a bare paddingBottom only pushes the
+            // reserved gap further down the SCROLLABLE content, which does
+            // nothing when that content is already short enough to fit
+            // the viewport without scrolling (confirmed live: nothing ever
+            // forces a scroll to reveal padding that was never actually
+            // subtracted from this element's own box). marginBottom, by
+            // contrast, genuinely shrinks this flex item's own box by the
+            // nav's exact footprint (its bottom offset + its own height),
+            // so the last piece of real content can never render behind
+            // the nav - whether or not the page needs to scroll at all.
+            // Only reserved when the nav actually renders (!hideNavigation)
+            // - routes that hide it (e.g. /breathe, /morning-flow) must not
+            // gain unexplained blank space at the bottom.
+            marginBottom: hideNavigation ? '0px' : 'calc(1rem + 72px + env(safe-area-inset-bottom))',
             // Scroll-chaining hardening: without this, a wheel/trackpad
             // gesture that starts right at this container's top/bottom
             // edge (e.g. immediately after ExercisePausedPanel changes

@@ -31,6 +31,26 @@ describe('Layout safe-area handling', () => {
   });
 });
 
+describe('Layout bottom-nav overlap fix (found live on tall/desktop viewports)', () => {
+  it('the scrollable content div reserves the nav\'s exact footprint via marginBottom, not just paddingBottom - a margin genuinely shrinks the flex item\'s own box so content can never render behind the absolutely-positioned nav, whether or not the page needs to scroll', () => {
+    expect(layoutSource).toMatch(/marginBottom:\s*hideNavigation\s*\?\s*'0px'\s*:\s*'calc\(1rem \+ 72px \+ env\(safe-area-inset-bottom\)\)'/);
+  });
+
+  it('marginBottom is only reserved when the nav actually renders - routes that hide it (hideNavigation) get no unexplained blank space at the bottom', () => {
+    const navRenderGuard = layoutSource.match(/\{!hideNavigation && \(\s*\n\s*<nav/);
+    expect(navRenderGuard).not.toBeNull();
+  });
+
+  it('paddingBottom no longer double-counts the safe-area-bottom inset already reserved by marginBottom', () => {
+    expect(layoutSource).toMatch(/paddingBottom:\s*hideNavigation\s*\?\s*'calc\(7\.5rem \+ env\(safe-area-inset-bottom\)\)'\s*:\s*'1rem'/);
+  });
+
+  it('the reserved footprint (72px) matches the nav\'s own real rendered height (h-[72px])', () => {
+    expect(layoutSource).toMatch(/h-\[72px\]/);
+    expect(layoutSource).toMatch(/marginBottom:[\s\S]{0,80}72px/);
+  });
+});
+
 describe('Capacitor iOS content-inset regression guard', () => {
   it('never lets the native WKWebView auto-inset itself, so CSS env() stays the single source of truth (no duplicate padding)', () => {
     expect(capacitorConfig.ios.contentInset).toBe('never');
