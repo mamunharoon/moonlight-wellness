@@ -31,7 +31,7 @@ describe('Home.jsx — quick-action row stays at exactly four tiles', () => {
   });
 
   it('the Anytime Reset tile routes to /anytime-reset, not /support', () => {
-    const tileMatch = quickActionBlock.match(/to="\/anytime-reset"[\s\S]{0,400}Anytime Reset/);
+    const tileMatch = quickActionBlock.match(/to="\/anytime-reset"[\s\S]{0,700}Anytime Reset/);
     expect(tileMatch).toBeTruthy();
     expect(quickActionBlock).not.toMatch(/to="\/support"/);
   });

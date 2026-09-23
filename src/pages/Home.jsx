@@ -947,37 +947,85 @@ export const Home = () => {
               quick-action row at exactly four choices per the approved
               design. /support itself is untouched and still reachable
               (Library, Support.jsx's own sub-flows, existing tests) -
-              only this one Home tile's destination changed. */}
+              only this one Home tile's destination changed.
+
+              Desktop/keyboard tooltip, added alongside this fix: each
+              tile is a `group` with a `role="tooltip"` span, hidden by
+              default (opacity-0, pointer-events-none so it can never
+              intercept a tap or a click) and shown only on
+              group-hover/group-focus-visible - :focus-visible specifically
+              (not plain :focus) so a mouse click never triggers it, only
+              real keyboard Tab focus. The tooltip's text always mirrors
+              the tile's own permanently-visible label - it is a
+              supplementary aria-describedby, never the tile's accessible
+              NAME (that's still the visible label text), and it never
+              replaces or hides that label. On touch devices `:hover`
+              typically only sticks for an instant before the tap's own
+              navigation fires, so this never meaningfully obstructs a
+              normal mobile tap. min-h-[44px] (already present) and the
+              tile's own full tap area are unchanged. */}
           <Link
             to="/anytime-reset"
-            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+            aria-describedby="quick-action-tip-anytime-reset"
+            className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-xl">bolt</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Anytime Reset</span>
+            <span
+              id="quick-action-tip-anytime-reset"
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
+            >
+              Anytime Reset
+            </span>
           </Link>
           {/* Meditation experience: quick action, not a fifth bottom-nav
               tab. Routes to /meditate — see Meditate.jsx's own doc
               comment for the full journey it owns from here. */}
           <Link
             to="/meditate"
-            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+            aria-describedby="quick-action-tip-meditate"
+            className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-xl">spa</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Meditate</span>
+            <span
+              id="quick-action-tip-meditate"
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
+            >
+              Meditate
+            </span>
           </Link>
           <Link
             to="/library"
-            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+            aria-describedby="quick-action-tip-browse-exercises"
+            className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-xl">video_library</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Browse exercises</span>
+            <span
+              id="quick-action-tip-browse-exercises"
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
+            >
+              Browse exercises
+            </span>
           </Link>
           <Link
             to="/library?category=sleep-soundscapes"
-            className="glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px]"
+            aria-describedby="quick-action-tip-sleep-sounds"
+            className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-xl">bedtime</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
+            <span
+              id="quick-action-tip-sleep-sounds"
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
+            >
+              Sleep sounds
+            </span>
           </Link>
         </div>
       </div>
