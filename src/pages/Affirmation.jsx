@@ -27,9 +27,12 @@ import { getStepLabel } from '../lib/stepLabels';
  *
  * Also previously branched to skip Stretching for routineDuration ===
  * 'quick' - that branch point moved to IntentionSetup.jsx's own
- * handleComplete now that Intention comes before Stretch instead of
- * after it. This screen (the last content step before Complete, in every
- * routine duration) now always advances straight to Complete.
+ * handleComplete when Intention started coming before Stretch instead of
+ * after it, and was then removed there entirely as a release-blocking
+ * DEV defect fix (see IntentionSetup.jsx's own top comment) - the "skip
+ * Stretching for quick" behaviour no longer exists anywhere in the app.
+ * This screen (the last content step before Complete, in every routine
+ * duration) always advances straight to Complete.
  */
 export const Affirmation = () => {
   const navigate = useNavigate();

@@ -30,19 +30,36 @@ import { getStepLabel } from '../lib/stepLabels';
  * "Start Your Journey" renamed to "Continue" (this is no longer the last
  * screen before Complete - Stretch/Breathe/Affirm still follow).
  *
- * Quick-routine branch relocated here from Affirmation.jsx: this step
- * used to be immediately before Complete, so Affirmation.jsx (immediately
- * before Stretch/Breathe in the old order) owned the "skip Stretching
- * entirely for a quick routine" decision. Now Intention is immediately
- * before Stretch, so this screen owns that decision instead - the
- * destination step is the only thing that changed; the branch logic
- * itself (advanceToStep('breathe') vs advanceStep()) is copied verbatim
- * from Affirmation.jsx's own previous handleNext/handleSkip.
+ * Release-blocking DEV defect fix (reported: Morning "Start over" skips
+ * Stretch) — the "quick routine skips Stretching entirely" branch that
+ * used to live here (relocated, unchanged, from Affirmation.jsx during
+ * the redesign above) is REMOVED. Root cause: `routineDuration` was a
+ * context value with no UI to ever set it until Profile.jsx's later
+ * "Daily Journey & Content Architecture" batch added a plain 3-way
+ * Quick/Standard/Extended toggle (see that file's own doc comment: "no
+ * UI anywhere ever let a user change it... a small self contained
+ * three-way toggle, not a rebuild of anything") - that toggle never
+ * disclosed, and its own author evidently never knew, that "Quick" also
+ * silently skipped this screen's entire next step once it became
+ * reachable. Confirmed live on DEV: an account with `routineDuration`
+ * ==='quick' in localStorage reproduced the exact reported symptom
+ * (Continue jumped straight to Breathe; ProgressIndicator showed
+ * Stretch "completed" purely because its own `isCompleted = idx <
+ * activeIndex` check has no way to distinguish "visited" from "index
+ * jumped past via ADVANCE_TO_STEP"). MorningFlow.jsx's own stretch-
+ * duration logic already treats 'quick' identically to 'standard' (both
+ * 20s reps, only 'extended' differs) - skipping the step outright was
+ * never how "Quick" behaves anywhere else in this app. The single
+ * canonical step order (sessionDefinitions.js's MORNING_ROUTINE_SESSION)
+ * has always been Intend -> Stretch -> Breathe -> Affirm -> Complete
+ * with no conditional branch - Continue and Skip now both always follow
+ * it, unconditionally, matching every other duration value and matching
+ * this file's own single source of truth for step order.
  */
 export const IntentionSetup = () => {
   const navigate = useNavigate();
-  const { userId, intentions, setIntentions, setJourneyStep, routineDuration } = useAlarm();
-  const { state, currentStep, advanceStep, advanceToStep, abandonSession } = useSession();
+  const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
+  const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - handleSelectPreset/
   // handleAddCustom below already only ever call setIntentions (no
   // Session Engine call at all), so changing today's intention while
@@ -159,14 +176,13 @@ export const IntentionSetup = () => {
 
   // Mirror only when the engine is genuinely playing at the 'intention'
   // step — a direct-route visit with no active session, or a mismatched
-  // mirror, silently does nothing here.
+  // mirror, silently does nothing here. Always a single ADVANCE_STEP (one
+  // step forward, to Stretch) - never a multi-step jump, so
+  // ProgressIndicator's own idx-based "completed" inference can never
+  // mark a step the user hasn't actually reached.
   const mirrorTransition = () => {
     if (state.status !== 'playing' || currentStep?.id !== 'intention') return;
-    if (routineDuration === 'quick') {
-      advanceToStep('breathe');
-    } else {
-      advanceStep();
-    }
+    advanceStep();
   };
 
   const handleComplete = async () => {
@@ -186,13 +202,12 @@ export const IntentionSetup = () => {
 
     setIsSaving(false);
 
-    if (routineDuration === 'quick') {
-      setJourneyStep('breathe');
-      navigate('/breathe'); // Quick routine skips stretching entirely
-    } else {
-      setJourneyStep('stretch');
-      navigate('/morning-flow');
-    }
+    // Always Stretch next - the one and only canonical step order (see
+    // this file's own top comment for the bug this fixes). Continue and
+    // Skip already shared this exact call (both invoke handleComplete),
+    // so both are fixed by the same change.
+    setJourneyStep('stretch');
+    navigate('/morning-flow');
     mirrorTransition();
   };
 
