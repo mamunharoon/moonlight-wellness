@@ -143,18 +143,18 @@ describe('Evening completed-review (Build 15) - the unsafe "Repeat Evening Routi
     expect(homeSource).not.toMatch(/kind: 'repeat', period: 'evening'/);
   });
 
-  it('an authenticated completed-Evening card offers "Review Tonight\'s Journey" instead, navigating straight to the read-only review flow - no confirmation dialog, since nothing destructive happens', () => {
+  it('an authenticated completed-Evening card offers "Review or Edit Tonight\'s Responses" instead (Build 15 Evening UX correction combined the former separate Review/Edit buttons), navigating straight to the read-only review flow - no confirmation dialog, since nothing destructive happens', () => {
     const block = homeSource.match(/\{eveningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
     expect(block).toMatch(/\{isGuest \? \(/);
     expect(block).toMatch(/onClick=\{\(\) => navigate\('\/review\/reflection\?q=1'\)\}/);
-    expect(block).toMatch(/Review Tonight's Journey/);
+    expect(block).toMatch(/Review or Edit Tonight's Responses/);
   });
 
   it('a guest\'s completed-Evening card (a possible device-flag edge case - guests never actually have saved routine_responses) shows a truthful "Begin Evening Wind-Down" action instead - never Review, never a claim about saved reflections', () => {
     const block = homeSource.match(/\{eveningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
     expect(block).toMatch(/onClick=\{handleBeginEveningWindDown\}/);
     expect(block).toMatch(/Begin Evening Wind-Down/);
-    expect(block).not.toMatch(/isGuest[\s\S]{0,120}Review Tonight's Journey/);
+    expect(block).not.toMatch(/isGuest[\s\S]{0,120}Review or Edit Tonight's Responses/);
   });
 });
 

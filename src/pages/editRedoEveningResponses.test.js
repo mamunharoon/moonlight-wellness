@@ -122,9 +122,9 @@ describe('Edit Mode presentation', () => {
     expect(read('../components/evening/EveningEditBanner.jsx')).toMatch(/Editing.*tonight.*responses/);
   });
 
-  it('preserves the Reflection peach / Gratitude gold accent tokens, unchanged', () => {
+  it('passes each question\'s own accent through to EveningEditQuestion - Gratitude now renders the same peach as Reflection (Build 15 Evening UX correction), not gold', () => {
     expect(editSource).toMatch(/accent=\{activePrompt\.accent\}/);
-    expect(editQuestionSource).toMatch(/accent === 'gratitude' \? 'text-gratitude-accent' : 'text-primary'/);
+    expect(editQuestionSource).not.toMatch(/text-gratitude-accent/);
   });
 
   it('Back/Next navigation spans all six questions via the same backFallbackForIndex shape already proven for Review', () => {
@@ -228,7 +228,7 @@ describe('Navigation protection for unsaved Edit drafts', () => {
   });
 
   it('EveningSceneShell forwards onBeforeLeave through to BackButton, optional and defaulting to undefined', () => {
-    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, children/);
+    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, showExit = false, children/);
     expect(sceneShellSource).toMatch(/onBeforeLeave=\{onBeforeLeave\}/);
   });
 
@@ -242,29 +242,47 @@ describe('Navigation protection for unsaved Edit drafts', () => {
 // ---------------------------------------------------------------------
 // Home / EveningComplete button hierarchy
 // ---------------------------------------------------------------------
-describe('Button hierarchy - EveningComplete.jsx (approved order: Review, Edit, Choose a Sleep Experience, Redo, Return Home)', () => {
+// Build 15 Evening UX correction — Choose a Sleep Experience is now
+// first/primary; Review and Edit are combined into one action; Redo and
+// Return Home keep their existing order/styling.
+describe('Button hierarchy - EveningComplete.jsx (approved order: Choose a Sleep Experience, Review or Edit, Redo, Return Home)', () => {
   // Anchored to the actual rendered JSX text (not doc comments, which
   // mention several of these same phrases earlier in the file while
   // explaining the design).
-  const reviewIdx = eveningCompleteSource.indexOf("<span>Review Tonight's Journey</span>");
-  const editIdx = eveningCompleteSource.indexOf("<span>Edit Tonight's Responses</span>");
   const sleepIdx = eveningCompleteSource.indexOf('<span>Choose a Sleep Experience</span>');
+  const reviewOrEditIdx = eveningCompleteSource.indexOf("<span>Review or Edit Tonight's Responses</span>");
   const redoIdx = eveningCompleteSource.indexOf('onClick={handleRedoTap}');
   const homeIdx = eveningCompleteSource.indexOf('onClick={handleReturnHome}');
 
   it('renders in the approved order', () => {
-    expect(reviewIdx).toBeGreaterThan(-1);
-    expect(reviewIdx).toBeLessThan(editIdx);
-    expect(editIdx).toBeLessThan(sleepIdx);
-    expect(sleepIdx).toBeLessThan(redoIdx);
+    expect(sleepIdx).toBeGreaterThan(-1);
+    expect(sleepIdx).toBeLessThan(reviewOrEditIdx);
+    expect(reviewOrEditIdx).toBeLessThan(redoIdx);
     expect(redoIdx).toBeLessThan(homeIdx);
   });
 
-  it('Edit and Redo are both guest-excluded, matching Review\'s own exclusion', () => {
-    const editButtonBlock = eveningCompleteSource.slice(editIdx - 400, editIdx);
-    expect(editButtonBlock).toMatch(/\{!isGuest && \(/);
+  it('Choose a Sleep Experience is the first, primary filled action for every user (guest included) - its real destination is unchanged', () => {
+    const sleepButtonMatch = eveningCompleteSource.match(/onClick=\{\(\) => navigate\('\/library\?category=sleep-soundscapes'\)\}\s*\n\s*className="([^"]+)"/);
+    expect(sleepButtonMatch).toBeTruthy();
+    expect(sleepButtonMatch[1]).toMatch(/bg-primary text-on-primary/);
+    expect(sleepIdx).toBeLessThan(eveningCompleteSource.indexOf('{!isGuest && ('));
+  });
+
+  it('the separate Edit Tonight\'s Responses button is gone from this screen - Edit is reached from inside Review instead', () => {
+    expect(eveningCompleteSource).not.toMatch(/navigate\('\/edit\/evening\?q=1'\)/);
+    expect(eveningCompleteSource).not.toMatch(/>Edit Tonight's Responses</);
+  });
+
+  it('the combined Review-or-Edit action and Redo are both guest-excluded, matching the original Review exclusion', () => {
+    const reviewOrEditBlock = eveningCompleteSource.slice(reviewOrEditIdx - 400, reviewOrEditIdx);
+    expect(reviewOrEditBlock).toMatch(/\{!isGuest && \(/);
     const redoButtonBlock = eveningCompleteSource.slice(redoIdx - 700, redoIdx);
     expect(redoButtonBlock).toMatch(/\{!isGuest && \(/);
+  });
+
+  it('the combined action opens the existing read-only Review journey at Reflection Q1 - not a new route', () => {
+    const reviewOrEditBlock = eveningCompleteSource.slice(reviewOrEditIdx - 400, reviewOrEditIdx);
+    expect(reviewOrEditBlock).toMatch(/onClick=\{\(\) => navigate\('\/review\/reflection\?q=1'\)\}/);
   });
 
   it('Redo is styled as a quiet, text-only destructive action - never a filled primary/Continue-style button', () => {
@@ -276,8 +294,10 @@ describe('Button hierarchy - EveningComplete.jsx (approved order: Review, Edit, 
 });
 
 describe('Home.jsx completed-Evening card', () => {
-  it('adds Edit Tonight\'s Responses as a visible secondary action for authenticated users, alongside Review', () => {
-    expect(homeSource).toMatch(/navigate\('\/edit\/evening\?q=1'\)/);
+  it('combines Review and Edit into one "Review or Edit Tonight\'s Responses" action, opening read-only Review first - the separate Edit button is gone', () => {
+    expect(homeSource).toMatch(/Review or Edit Tonight's Responses/);
+    expect(homeSource).not.toMatch(/>Edit Tonight's Responses</);
+    expect(homeSource).not.toMatch(/navigate\('\/edit\/evening\?q=1'\)/);
   });
 
   // Build 15 addendum — Redo Tonight's Wind-Down is now ALSO reachable

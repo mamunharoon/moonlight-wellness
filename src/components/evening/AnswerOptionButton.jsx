@@ -36,9 +36,16 @@
  *   chevron. `accent` picks which section's colour: 'reflection' reuses
  *   the app's own existing primary/on-primary tokens (WakeWise's own
  *   peach/coral, already contrast-paired and already used for every
- *   primary CTA - not a second, barely-different peach); 'gratitude' uses
- *   the gratitude-accent/on-gratitude-accent pair (see index.css) - a warm
- *   sunrise gold with no prior token in this app.
+ *   primary CTA - not a second, barely-different peach); 'gratitude'
+ *   (Build 15 Evening UX correction) now reuses this EXACT SAME peach/
+ *   on-primary pair too - previously it used the gratitude-accent/
+ *   on-gratitude-accent gold pair (see index.css), but that read as an
+ *   unexplained, mixed colour identity against Reflection's peach within
+ *   the same Evening journey. The gratitude-accent/on-gratitude-accent
+ *   CSS variables and Tailwind tokens themselves are NOT removed -
+ *   Home.jsx's Today's Rhythm Morning card (`morning-accent`) reuses this
+ *   exact same CSS variable for its own, unrelated sunrise-gold identity
+ *   - only Gratitude's own consumption of them, here, stops.
  *
  * `groupName` scopes the native radio `name` to this question only (its
  * own promptId) so the browser's built-in radio-group behaviour (arrow
@@ -87,9 +94,12 @@
  *   on press - a non-interactive control should not visually invite a
  *   press.
  */
+// Build 15 Evening UX correction — Gratitude now reuses Reflection's own
+// peach tokens exactly (same values, not a second near-identical peach),
+// so both sections share one selected-answer identity throughout Evening.
 const ACCENT_TOKENS = {
   reflection: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' },
-  gratitude: { text: 'text-gratitude-accent', border: 'border-gratitude-accent', tint: 'bg-gratitude-accent/10', radioFill: 'border-gratitude-accent bg-gratitude-accent', dot: 'bg-on-gratitude-accent' }
+  gratitude: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' }
 };
 
 export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflection', groupName, readOnly = false }) => {

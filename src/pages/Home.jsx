@@ -45,6 +45,7 @@ import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { setPendingContent } from '../lib/pendingContent';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
+import { clearEveningBreathingPattern } from '../lib/eveningBreathingSelection';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -267,6 +268,13 @@ export const Home = () => {
     const sessionId = RITUAL_SESSION_IDS[period];
     if (kind === 'start-over') {
       resetRoutine(sessionId);
+      // Build 15 Evening UX correction — a genuine Evening Start Over
+      // also clears tonight's selected Evening breathing pattern, so the
+      // restarted journey begins fresh at the established 4-7-8 default
+      // rather than silently reusing whatever was selected before.
+      // Morning's own Start Over is completely unaffected (this helper
+      // only ever touches the Evening-scoped key).
+      if (period === 'evening') clearEveningBreathingPattern(userId);
     } else if (kind === 'repeat') {
       if (period === 'morning') handleBeginRiseAndReset();
       else handleBeginEveningWindDown();
@@ -1045,21 +1053,18 @@ export const Home = () => {
                 </button>
               ) : (
                 <div className="space-y-2">
+                  {/* Build 15 Evening UX correction — Review and Edit
+                      combined into one action, matching EveningComplete.jsx's
+                      own Step 6 screen: opens read-only Review first; Edit
+                      is reached from Review's own banner (see
+                      EveningReviewBanner.jsx), never a separate button
+                      here. */}
                   <button
                     type="button"
                     onClick={() => navigate('/review/reflection?q=1')}
                     className="block w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all"
                   >
-                    Review Tonight's Journey
-                  </button>
-                  {/* Edit Tonight's Responses (Build 15) — a visible
-                      secondary action here too. */}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/edit/evening?q=1')}
-                    className="block w-full py-3 rounded-xl glass-panel text-on-surface font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-                  >
-                    Edit Tonight's Responses
+                    Review or Edit Tonight's Responses
                   </button>
                   {/* Redo Tonight's Wind-Down (Build 15 addendum) — same
                       quiet, text-only destructive styling as

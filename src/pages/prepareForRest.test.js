@@ -278,15 +278,18 @@ describe('"More bedtime options" is its own independent disclosure, collapsed in
   });
 });
 
-// Ready for Sleep placement: after the two featured items, before More options.
-describe('Ready for Sleep sits right after the two featured guidance choices, before "More bedtime options"', () => {
-  it('the featured-guidance block appears before {primaryAction}, which appears before the More-options block, in source order', () => {
+// Build 15 Evening UX correction — "More bedtime options" now sits
+// between the featured guidance and Ready for Sleep (previously it was
+// AFTER Ready for Sleep), so browsing the full bedtime library always
+// happens before the exit action, never after it.
+describe('"More bedtime options" sits between the featured guidance and Ready for Sleep', () => {
+  it('the featured-guidance block appears before the More-options block, which appears before {primaryAction}, in source order', () => {
     const featuredIdx = source.indexOf('featuredItems.length > 0');
-    const primaryIdx = source.indexOf('{primaryAction}');
     const moreIdx = source.indexOf('moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0');
+    const primaryIdx = source.indexOf('{primaryAction}');
     expect(featuredIdx).toBeGreaterThan(-1);
-    expect(primaryIdx).toBeGreaterThan(featuredIdx);
-    expect(moreIdx).toBeGreaterThan(primaryIdx);
+    expect(moreIdx).toBeGreaterThan(featuredIdx);
+    expect(primaryIdx).toBeGreaterThan(moreIdx);
   });
 });
 

@@ -341,15 +341,32 @@ describe('Every Morning/Evening step page wires review mode consistently', () =>
     }
   });
 
-  it('every page also imports useReviewNavigation and ReviewModeBanner (or wires requestReview/routeForStep from it)', () => {
-    for (const source of Object.values(ALL_STEP_PAGES)) {
+  // Build 15 Evening UX correction — EveningWindDown.jsx (the intro) is
+  // the one deliberate exception: it still imports/uses useReviewNavigation
+  // (routeForStep drives its own "Return to X" button), but never renders
+  // ReviewModeBanner at all. That banner's "Reviewing — your place is
+  // still X" wording describes revisiting an EARLIER STEP mid-journey
+  // (the genuine ProgressIndicator/onReviewStep case every OTHER step page
+  // renders it for) - the intro isn't a step being "reviewed" in that
+  // sense, it's the entry screen, so showing that banner there was
+  // confusing rather than informative. See EveningWindDown.jsx's own doc
+  // comment for the full reasoning.
+  it('every OTHER page (all but EveningWindDown) imports useReviewNavigation and ReviewModeBanner (or wires requestReview/routeForStep from it)', () => {
+    for (const [page, source] of Object.entries(ALL_STEP_PAGES)) {
       expect(source).toMatch(/import \{ useReviewNavigation \} from '.*session\/useReviewNavigation';/);
+      if (page === 'EveningWindDown') continue;
       expect(source).toMatch(/import \{ ReviewModeBanner \} from '.*components\/ReviewModeBanner';/);
     }
   });
 
-  it('every page renders ReviewModeBanner gated on isReviewMode && currentStep, wired to navigate back to the live step', () => {
-    for (const source of Object.values(ALL_STEP_PAGES)) {
+  it('EveningWindDown.jsx deliberately does NOT import ReviewModeBanner at all - not merely omitting the render, the import itself is gone (its own doc comment may still mention the name in prose explaining why)', () => {
+    const code = eveningWindDownSource.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/ReviewModeBanner/);
+  });
+
+  it('every OTHER page (all but EveningWindDown) renders ReviewModeBanner gated on isReviewMode && currentStep, wired to navigate back to the live step', () => {
+    for (const [page, source] of Object.entries(ALL_STEP_PAGES)) {
+      if (page === 'EveningWindDown') continue;
       expect(source).toMatch(
         /\{isReviewMode && currentStep && \(\s*\n\s*<ReviewModeBanner currentStepLabel=\{getStepLabel\(currentStep\.id\)\} onReturnToCurrentStep=\{\(\) => navigate\(routeForStep\(currentStep\.id\)\)\}\s*\/>\s*\n\s*\)\}/
       );

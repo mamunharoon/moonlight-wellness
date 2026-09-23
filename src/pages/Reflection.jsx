@@ -166,7 +166,7 @@ export const Reflection = () => {
     // subsequent evening step, so there is no visible change at all
     // crossing that boundary — only the deliberate Wind-Down -> Reflection
     // transition remains.
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 2 of 6</span>
 

@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { AtmosphereManager } from '../stage3/AtmosphereManager';
 import { BackButton } from '../BackButton';
+import { ExitEveningButton } from './ExitEveningButton';
 
 /*
  * Stage 4 Batch F2 — EveningSceneShell
@@ -61,10 +62,25 @@ import { BackButton } from '../BackButton';
  * (Tailwind important) prefix is required here since glass-panel is a
  * plain CSS class (not a Tailwind utility) with equal-or-higher
  * cascade precedence than an appended utility class of the same
- * specificity would otherwise have. confirmTitle/confirmMessage give
- * the "leave routine" confirmation evening-specific wording.
+ * specificity would otherwise have.
+ *
+ * Build 15 Evening UX correction — BackButton always renders here with
+ * `guardActiveRoute={false}`: Back means "previous Evening question/
+ * stage," a plain navigate(), never the old "Leave this routine?"
+ * confirmation (that concern moved entirely to the new, separate
+ * `showExit` control below). The former evening-specific confirmTitle/
+ * confirmMessage props are gone from this BackButton usage for the same
+ * reason - that dialog can no longer ever open here.
+ *
+ * `showExit` (additive, default false): renders ExitEveningButton -
+ * a circular Close/X, top-right, mirroring BackButton's own top-left
+ * position/sizing - on the screens that are genuinely part of the
+ * active Evening journey (see each page's own doc comment for why it
+ * does or doesn't pass this). Deliberately a sibling control, not a
+ * BackButton variant, since Back and Exit now have two different
+ * meanings that must never collapse back into one dialog.
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, children }) => {
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, showExit = false, children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
@@ -107,11 +123,19 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
           >
             <BackButton
               fallback={backFallback}
-              confirmTitle="Leave evening routine?"
-              confirmMessage="Your unsaved progress may be lost."
               className="!bg-black/55 !border-white/40"
               onBeforeLeave={onBeforeLeave}
+              guardActiveRoute={false}
             />
+          </div>
+        )}
+
+        {showExit && (
+          <div
+            className="absolute right-6 z-20"
+            style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
+          >
+            <ExitEveningButton />
           </div>
         )}
 

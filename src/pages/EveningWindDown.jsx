@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
-import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
@@ -40,7 +39,7 @@ export const EveningWindDown = () => {
   const { isReviewMode, isLiveStep } = useStepReviewMode('windDown', 'evening-wind-down');
   const { routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
 
-  if (EveningSceneShell && ReviewModeBanner) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
     if (state.status === 'playing' && state.sessionId === 'evening-wind-down' && currentStep) {
@@ -74,10 +73,20 @@ export const EveningWindDown = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/">
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
+    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/" showExit>
+      {/* Build 15 Evening UX correction — this screen deliberately never
+          renders ReviewModeBanner, even though useStepReviewMode reports
+          isReviewMode=true whenever the journey is already mid-flight
+          (e.g. Reflection Q1's Back lands here while currentStep.id is
+          still 'reflection'). That banner's "Reviewing — your place is
+          still X" wording describes revisiting an EARLIER STEP mid-
+          journey (the genuine ProgressIndicator/onReviewStep use case
+          every other step page renders it for) - landing on the entry
+          screen while further along is a different, non-confusing case:
+          the button below already reflects the real state honestly
+          (Return to {step} vs Begin My Wind-Down) with no banner needed.
+          Viewing this page never changes currentStep or deletes anything
+          either way - isReviewMode only decides which button renders. */}
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>

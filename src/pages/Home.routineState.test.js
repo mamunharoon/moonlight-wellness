@@ -58,6 +58,17 @@ describe('Home.jsx per-routine action handlers (Build 10 critical fix)', () => {
     expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'start-over', period: 'morning' \}\)/);
     expect(homeSource).toMatch(/setActiveDialog\(\{ kind: 'start-over', period: 'evening' \}\)/);
   });
+
+  // Build 15 Evening UX correction — a genuine Evening Start Over also
+  // clears tonight's selected Evening breathing pattern, so the restarted
+  // journey begins fresh at the 4-7-8 default; Morning's own Start Over
+  // must never touch this Evening-only key.
+  it('Evening Start Over clears tonight\'s selected breathing pattern; Morning Start Over never does', () => {
+    expect(homeSource).toMatch(/import \{ clearEveningBreathingPattern \} from '\.\.\/lib\/eveningBreathingSelection';/);
+    const startOverBranch = homeSource.match(/if \(kind === 'start-over'\) \{([\s\S]*?)\n {4}\} else if \(kind === 'repeat'\)/)?.[1] ?? '';
+    expect(startOverBranch).toMatch(/resetRoutine\(sessionId\);/);
+    expect(startOverBranch).toMatch(/if \(period === 'evening'\) clearEveningBreathingPattern\(userId\);/);
+  });
 });
 
 describe('Sign-out routine-progress isolation', () => {

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { setPendingContent } from '../lib/pendingContent';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { BreathingPatternRow } from '../components/BreathingPatternRow';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
@@ -13,8 +15,10 @@ import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
-import { getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
-import { formatTotalDuration } from '../lib/formatDuration';
+import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
+import { loadEveningBreathingPattern, saveEveningBreathingPattern } from '../lib/eveningBreathingSelection';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useStepReviewMode } from '../session/useStepReviewMode';
@@ -26,14 +30,13 @@ import { getStepLabel } from '../lib/stepLabels';
 // ambient loop (see docs/background-music-asset-manifest.md).
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 
-// Build 15 — Evening keeps its own canonical 4-7-8 cadence, fixed, not a
-// choice (the Evening journey itself was already completed and verified
-// - no multi-pattern selector is added here this phase, per the approved
-// scope). What's new is the pre-start presentation: a real preview of
-// this fixed pattern's cadence/duration, a Background music preference,
-// and a genuine "Begin Breathing" gesture - nothing (timer, ring
-// animation, or music) starts before it is tapped.
-const PATTERN = getBreathingPatternById('evening');
+// Build 15 Evening UX correction — Evening now offers the same three real
+// shared patterns Morning/standalone already do (BREATHING_PATTERNS),
+// defaulting to its own established 4-7-8 recommendation rather than
+// being permanently fixed to it. Nothing (timer, ring animation, or
+// music) starts before "Begin Breathing" is tapped - same proven
+// pre-start shape already used by Breathe.jsx/QuietBreathing.jsx.
+const DEFAULT_PATTERN_ID = 'evening';
 
 /*
  * Stage 4 Batch F6 — EveningBreathing
@@ -47,6 +50,8 @@ const PATTERN = getBreathingPatternById('evening');
 export const EveningBreathing = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { effectiveTimezone, userId } = useAlarm();
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { isGuest } = useAuth();
   // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
   // doc comment. This page has no guided-video rows (no useProtectedVideo
@@ -67,14 +72,33 @@ export const EveningBreathing = () => {
 
   const [hasBegun, setHasBegun] = useState(() => Boolean(pausedSnapshot));
 
+  // Build 15 Evening UX correction — tonight's selected pattern. Priority:
+  // a genuine review-round-trip snapshot (same as Breathe.jsx's own
+  // precedent) first, then whatever was already persisted/selected
+  // earlier tonight (survives backgrounding/remount/leaving to Home and
+  // resuming), then the established 4-7-8 default.
+  const [selectedPatternId, setSelectedPatternId] = useState(
+    () => pausedSnapshot?.patternId ?? loadEveningBreathingPattern(userId, today) ?? DEFAULT_PATTERN_ID
+  );
+  const activePattern = getBreathingPatternById(selectedPatternId) ?? getBreathingPatternById(DEFAULT_PATTERN_ID);
+  const handleSelectPattern = (patternId) => {
+    setSelectedPatternId(patternId);
+    saveEveningBreathingPattern(userId, patternId, today);
+  };
+
   const { requestReview, confirmLeave, cancelLeave, isConfirming, routeForStep } = useReviewNavigation({
     sessionId: 'evening-wind-down',
     isLiveStep,
     hasUnsavedProgress: true,
-    onLeaveLiveStep: () => savePausedExerciseState('evening-wind-down', 'breathing', { secondsLeft, breatheState, musicEnabled: musicPreferenceOn })
+    onLeaveLiveStep: () => savePausedExerciseState('evening-wind-down', 'breathing', {
+      secondsLeft,
+      breatheState,
+      patternId: selectedPatternId,
+      musicEnabled: musicPreferenceOn
+    })
   });
   const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale');
-  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? PATTERN.totalSeconds);
+  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const handleResumeExercise = () => setManuallyPaused(false);
@@ -103,7 +127,7 @@ export const EveningBreathing = () => {
     });
   };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && BreathingPatternRow && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -131,20 +155,23 @@ export const EveningBreathing = () => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
         const nextSec = prev - 1;
-        setBreatheState(resolveBreathPhase(PATTERN, nextSec));
+        setBreatheState(resolveBreathPhase(activePattern, nextSec));
         return nextSec;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, hasBegun, manuallyPaused, isRepeatGated, isConfirming]);
+  }, [secondsLeft, navigate, hasBegun, manuallyPaused, isRepeatGated, isConfirming, activePattern]);
 
-  // Double-tap protection - see Breathe.jsx's identical rationale.
+  // Double-tap protection - see Breathe.jsx's identical rationale. Also
+  // where the selected pattern is effectively "locked" for the active
+  // run - the picker UI below only renders while !hasBegun, so
+  // selectedPatternId can never change again once this fires.
   const hasBegunOnceRef = useRef(false);
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
-    setSecondsLeft(PATTERN.totalSeconds);
+    setSecondsLeft(activePattern.totalSeconds);
     setBreatheState('Inhale');
     setHasBegun(true);
     if (musicEligible && musicPreferenceOn && !isGuest) {
@@ -158,7 +185,10 @@ export const EveningBreathing = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude">
+    // Build 15 Evening UX correction — fixes the confirmed Back-matrix bug:
+    // the missing `?q=3` meant Back landed on Gratitude Q1 (parseActiveIndex
+    // defaults a missing q to index 0), not Gratitude Q3 as required.
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" showExit>
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 6</span>
 
@@ -188,24 +218,30 @@ export const EveningBreathing = () => {
         </div>
       ) : !hasBegun ? (
         <>
-          {/* Build 15 — pre-start preview of Evening's own fixed 4-7-8
-              pattern. Not a picker (Evening keeps one canonical cadence
-              this phase) - just a real, truthful preview plus a genuine
-              Begin gesture. */}
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-            <div className="space-y-2">
+          {/* Build 15 Evening UX correction — real pattern selection,
+              replacing the former fixed-4-7-8-only preview. Nothing
+              below this point runs a timer, animation, or plays music -
+              see handleBeginBreathing above for the one gesture that
+              starts all three together. */}
+          <div className="flex-1 flex flex-col justify-center space-y-6">
+            <div className="text-center space-y-2">
               <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
                 Slow, easy breaths. There is nowhere else to be.
               </p>
             </div>
 
-            <div className="glass-panel rounded-2xl p-5 w-full space-y-1 border-white/10">
-              <p className="text-sm font-bold text-on-surface">{PATTERN.label}</p>
-              <p className="text-xs text-on-surface-variant">
-                Inhale {PATTERN.inhaleSeconds}s · Hold {PATTERN.holdSeconds}s · Exhale {PATTERN.exhaleSeconds}s
-              </p>
-              <p className="text-[10px] text-on-surface-variant/70 uppercase font-semibold tracking-wide">{formatTotalDuration(PATTERN.totalSeconds)}</p>
+            <div className="space-y-3" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern) => (
+                <BreathingPatternRow
+                  key={pattern.id}
+                  pattern={pattern}
+                  selected={selectedPatternId === pattern.id}
+                  onSelect={handleSelectPattern}
+                  groupName="evening-breathing-pattern"
+                  accent="evening"
+                />
+              ))}
             </div>
 
             {musicEligible && (

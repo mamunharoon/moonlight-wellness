@@ -19,7 +19,6 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const viewControllerSource = read('../../ios/App/App/MainViewController.swift');
 const storyboardSource = read('../../ios/App/App/Base.lproj/Main.storyboard');
 const pbxprojSource = read('../../ios/App/App.xcodeproj/project.pbxproj');
-const eveningShellSource = read('../components/evening/EveningSceneShell.jsx');
 
 describe('MainViewController.swift — edge-swipe-back gesture', () => {
   it('enables allowsBackForwardNavigationGestures by default', () => {
@@ -51,17 +50,26 @@ describe('MainViewController.swift — edge-swipe-back gesture', () => {
     expect(viewControllerSource).toMatch(/webView\?\.allowsBackForwardNavigationGestures = !isGuardedEveningStep/);
   });
 
-  it('the guarded route list matches exactly the routes EveningSceneShell.jsx itself protects with showBack + a "leave routine" confirmation', () => {
+  // Build 15 Evening UX correction — the protective mechanism this native
+  // gesture guard exists to respect moved: it used to be BackButton's own
+  // "Leave this routine?" confirmation (confirmMessage="Your unsaved
+  // progress may be lost."), which fired merely from being on the live
+  // step's own route. That confirmation can no longer fire on any Evening
+  // screen at all (EveningSceneShell always passes guardActiveRoute=false
+  // now - see eveningFlow.navigation.test.js) - Back is a plain,
+  // confirmation-free navigate() between questions/stages, and the ONE
+  // control that can now interrupt the active session and leave is the
+  // dedicated Exit/X (ExitEveningButton, its own separate confirmation,
+  // never reachable via a swipe gesture at all). The five routes below
+  // are still exactly the five active-journey screens - now identified by
+  // `showExit`, the new marker for "this route is part of the active
+  // Evening journey" - rather than the retired confirmMessage string.
+  it('the guarded route list matches exactly the five routes that pass showExit to EveningSceneShell.jsx (the active Evening journey)', () => {
     const guardedInSwift = [...viewControllerSource.matchAll(/"(\/[a-z-]+)"/g)].map((m) => m[1]);
     const guardedRoutes = ['/evening-wind-down', '/reflection', '/gratitude', '/evening-breathing', '/prepare-for-rest'];
     for (const route of guardedRoutes) {
       expect(guardedInSwift).toContain(route);
     }
-    // EveningSceneShell.jsx doesn't itself list routes (each page passes
-    // its own backFallback), but it's the single place the "leave
-    // routine?" confirmation this gesture must never bypass is wired -
-    // confirms that mechanism still exists to be respected.
-    expect(eveningShellSource).toMatch(/confirmMessage="Your unsaved progress may be lost\."/);
   });
 });
 

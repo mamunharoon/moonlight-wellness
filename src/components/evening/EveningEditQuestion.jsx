@@ -65,8 +65,11 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
           aria-expanded={isCustomOpen}
           aria-controls={`${prompt.id}-edit-custom-field`}
           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors px-1 min-h-[44px] ${
+            // Build 15 Evening UX correction — Gratitude's "Add your own"
+            // toggle now matches Reflection's peach exactly, same as
+            // AnswerOptionButton's own selected-state tokens.
             isCustomOpen
-              ? accent === 'gratitude' ? 'text-gratitude-accent' : 'text-primary'
+              ? 'text-primary'
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >

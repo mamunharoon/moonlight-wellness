@@ -30,6 +30,19 @@ import { ConfirmDialog } from './ConfirmDialog';
  * silently leaving progress behind. Ordinary browsing screens (anything
  * that isn't itself the active step) never see this dialog.
  *
+ * `guardActiveRoute` (Build 15 Evening UX correction — additive, default
+ * true so every existing caller keeps this exact behaviour): set to
+ * false by EveningSceneShell's own BackButton usage, since Evening now
+ * has a dedicated Exit/X control for "interrupt the active journey and
+ * go Home" - Back on an Evening screen must always mean "previous
+ * question/stage," a plain confirmation-free navigate(), never this
+ * guard's dialog. Without this, Reflection/Gratitude/Evening Breathing/
+ * Prepare for Rest each share ONE route across multiple internal
+ * questions/stages, so `activeRoute === location.pathname` was true for
+ * the entire time any of them was the live step - meaning Back on, say,
+ * Reflection Q2 showed "Leave this routine?" instead of simply returning
+ * to Reflection Q1.
+ *
  * confirmTitle/confirmMessage let a caller override that confirmation's
  * exact wording (e.g. EveningSceneShell's "Leave evening routine? Your
  * unsaved progress may be lost.") — optional, defaulting to the original
@@ -58,14 +71,15 @@ export const BackButton = ({
   className = '',
   confirmTitle = 'Leave this routine?',
   confirmMessage = 'Your current progress may be paused.',
-  onBeforeLeave
+  onBeforeLeave,
+  guardActiveRoute = true
 }) => {
   const location = useLocation();
   const { goBack } = useNavigationHistory();
   const { activeRoute, leaveActiveRoutine } = useActiveRoutineStep();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const isActiveRoutineStep = activeRoute === location.pathname;
+  const isActiveRoutineStep = guardActiveRoute && activeRoute === location.pathname;
 
   const handleClick = () => {
     if (isActiveRoutineStep) {

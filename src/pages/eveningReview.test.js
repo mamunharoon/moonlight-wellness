@@ -26,15 +26,19 @@ const routineResponsesSource = read('../lib/routineResponses.js');
 // 1, 2. Completed Home/completion-screen actions.
 // ---------------------------------------------------------------------
 describe('Completed Evening actions - authenticated vs guest (items 1-4)', () => {
-  it('EveningComplete.jsx shows "Review Tonight\'s Journey" for authenticated users only, navigating to the review flow\'s own first question', () => {
+  // Build 15 Evening UX correction — the former separate "Review Tonight's
+  // Journey" button is now the combined "Review or Edit Tonight's
+  // Responses" action, still navigating to the same review flow's own
+  // first question, still authenticated-only.
+  it('EveningComplete.jsx shows "Review or Edit Tonight\'s Responses" for authenticated users only, navigating to the review flow\'s own first question', () => {
     expect(eveningCompleteSource).toMatch(/\{!isGuest && \(/);
     expect(eveningCompleteSource).toMatch(/onClick=\{\(\) => navigate\('\/review\/reflection\?q=1'\)\}/);
-    expect(eveningCompleteSource).toMatch(/Review Tonight's Journey/);
+    expect(eveningCompleteSource).toMatch(/Review or Edit Tonight's Responses/);
   });
 
-  it('guests never see Review Tonight\'s Journey and get no misleading claim about saved reflections', () => {
+  it('guests never see Review or Edit Tonight\'s Responses and get no misleading claim about saved reflections', () => {
     const guestGuardedBlock = eveningCompleteSource.match(/\{!isGuest && \(([\s\S]*?)\n {8}\)\}/)?.[0] ?? '';
-    expect(guestGuardedBlock).toMatch(/Review Tonight's Journey/);
+    expect(guestGuardedBlock).toMatch(/Review or Edit Tonight's Responses/);
     // the guest-visible actions below are unconditional / isGuest-styled,
     // never inside the !isGuest-only block above
     expect(eveningCompleteSource).toMatch(/Choose a Sleep Experience/);
@@ -230,10 +234,10 @@ describe('Review navigation order (items 6, 20-23)', () => {
     expect(body).toMatch(/if \(isLast\) \{\s*\n\s*navigate\('\/evening-complete'\);\s*\n\s*return;\s*\n\s*\}/);
   });
 
-  it('"Return to Evening Summary" is a persistent, discoverable action on every question (the banner\'s own action), never an arbitrary returnTo URL (item 23)', () => {
+  it('"Return to Evening Summary" is a persistent, discoverable action on every question (the banner\'s own action), never an arbitrary returnTo URL (item 23) - Build 15 Evening UX correction also wires the banner\'s additive onEdit action to the existing Edit route', () => {
     for (const source of [reflectionReviewSource, gratitudeReviewSource]) {
       expect(source).toMatch(/const handleReturnToSummary = \(\) => navigate\('\/evening-complete'\);/);
-      expect(source).toMatch(/<EveningReviewBanner onReturn=\{handleReturnToSummary\} \/>/);
+      expect(source).toMatch(/<EveningReviewBanner onReturn=\{handleReturnToSummary\} onEdit=\{\(\) => navigate\('\/edit\/evening\?q=1'\)\} \/>/);
     }
   });
 

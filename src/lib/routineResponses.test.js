@@ -17,6 +17,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
 import { getEveningCompletionKey } from './dailyCompletion';
+import { saveEveningBreathingPattern, loadEveningBreathingPattern } from './eveningBreathingSelection';
 
 const localStorageStore = new Map();
 const localStorageMock = {
@@ -310,6 +311,18 @@ describe('redoEveningWindDown - the ONE shared Redo workflow (Build 15 addendum)
     expect(result).toEqual({ ok: false });
     expect(resetRoutine).not.toHaveBeenCalled();
     expect(localStorage.getItem(getEveningCompletionKey('user-1'))).toBe('2026-09-22');
+  });
+
+  it('also clears tonight\'s selected Evening breathing pattern on a successful redo (Build 15 Evening UX correction addendum) - so a redone journey starts fresh at the 4-7-8 default, never silently reusing the old selection', async () => {
+    setResult({ data: [], error: null });
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    saveEveningBreathingPattern('user-1', 'quiet', '2026-09-22');
+    expect(loadEveningBreathingPattern('user-1', '2026-09-22')).toBe('quiet');
+
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine: vi.fn() });
+
+    expect(result).toEqual({ ok: true });
+    expect(loadEveningBreathingPattern('user-1', '2026-09-22')).toBeNull();
   });
 
   it('two different users never collide - user A\'s flag/delete never touches user B\'s', async () => {

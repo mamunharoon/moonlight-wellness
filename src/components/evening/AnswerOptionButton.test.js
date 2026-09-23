@@ -106,35 +106,51 @@ describe('AnswerOptionButton - readOnly mode (Evening completed-review)', () => 
 describe('AnswerOptionButton - selected state (subtle row tint, never a fully filled/bright block, never colour alone)', () => {
   it('the row itself only gets a SUBTLE colour tint (bg-*/10) and a full-strength border - never a fully filled/bright background', () => {
     expect(source).toMatch(/reflection: \{ text: 'text-primary', border: 'border-primary', tint: 'bg-primary\/10'/);
-    expect(source).toMatch(/gratitude: \{ text: 'text-gratitude-accent', border: 'border-gratitude-accent', tint: 'bg-gratitude-accent\/10'/);
     expect(source).not.toMatch(/tint: 'bg-primary'[^/]/);
   });
 
   it('the radio glyph itself carries the strong, saturated colour when selected - filled circle plus a small, contrasting inner dot, never a tick/checkmark', () => {
     expect(source).toMatch(/radioFill: 'border-primary bg-primary', dot: 'bg-on-primary'/);
-    expect(source).toMatch(/radioFill: 'border-gratitude-accent bg-gratitude-accent', dot: 'bg-on-gratitude-accent'/);
   });
 
   it('selected label text is bold and coloured (never colour alone - weight changes too), row border switches to the full-strength accent border', () => {
     expect(source).toMatch(/\$\{tokens\.text\} font-bold/);
     expect(source).toMatch(/\$\{tokens\.tint\} \$\{tokens\.border\}/);
   });
+
+  // Build 15 Evening UX correction — Gratitude's selected state now
+  // reuses Reflection's exact peach tokens, replacing the former gold
+  // identity, so both sections share one selected-answer colour
+  // throughout Evening (active, read-only Review, and Edit all consume
+  // this same ACCENT_TOKENS map).
+  it('gratitude reuses reflection\'s EXACT peach token values (text/border/tint/radioFill/dot) - not a second, near-identical peach', () => {
+    const gratitudeLine = source.match(/gratitude: \{[^}]*\}/)?.[0] ?? '';
+    expect(gratitudeLine).toBe(
+      "gratitude: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' }"
+    );
+  });
+
+  it('gold (gratitude-accent/on-gratitude-accent) is completely absent from the ACTUAL CODE - the doc comment above may still mention it in prose explaining the change, but no real class/token reference remains', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/text-gratitude-accent|border-gratitude-accent|bg-gratitude-accent|on-gratitude-accent/);
+  });
 });
 
-describe('New colour tokens - contrast-verified, additive only (unchanged by this round)', () => {
-  it('index.css defines gratitude-accent/on-gratitude-accent - not reusing or overwriting any existing token', () => {
+describe('gratitude-accent/on-gratitude-accent tokens - kept, but no longer consumed by Gratitude itself', () => {
+  it('index.css still defines gratitude-accent/on-gratitude-accent - not deleted, since Home.jsx\'s Today\'s Rhythm Morning card (`morning-accent`) reuses this exact same CSS variable for its own, unrelated sunrise-gold identity', () => {
     expect(cssSource).toMatch(/--color-gratitude-accent: #f4c56a;/);
     expect(cssSource).toMatch(/--color-on-gratitude-accent: #3a2408;/);
     expect(cssSource).toMatch(/--color-primary: #ffc5b7;/);
     expect(cssSource).toMatch(/--color-on-primary: #5a1c0c;/);
   });
 
-  it('tailwind.config.js exposes gratitude-accent/on-gratitude-accent as real utility-generating colours', () => {
+  it('tailwind.config.js still exposes gratitude-accent/on-gratitude-accent as real utility-generating colours, and morning-accent still points at the same underlying CSS variable', () => {
     expect(tailwindConfigSource).toMatch(/"gratitude-accent": "var\(--color-gratitude-accent\)"/);
     expect(tailwindConfigSource).toMatch(/"on-gratitude-accent": "var\(--color-on-gratitude-accent\)"/);
+    expect(tailwindConfigSource).toMatch(/"morning-accent": "var\(--color-gratitude-accent\)"/);
   });
 
-  it('#f4c56a text on #3a2408 (and vice versa) measures well above the 4.5:1 AA floor for normal text - genuinely computed, not merely asserted', () => {
+  it('#f4c56a text on #3a2408 (and vice versa) still measures well above the 4.5:1 AA floor for normal text - kept genuinely computed since Home\'s Morning card still relies on this exact pair', () => {
     const relLum = (hex) => {
       const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
       const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
@@ -145,6 +161,23 @@ describe('New colour tokens - contrast-verified, additive only (unchanged by thi
       return (l1 + 0.05) / (l2 + 0.05);
     };
     expect(contrast('#f4c56a', '#3a2408')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // Build 15 Evening UX correction — required addition: a genuinely
+  // computed contrast check for Reflection's own peach pair, which
+  // Gratitude now also relies on for its selected state (previously this
+  // pair was only existence-checked in this file, never contrast-computed).
+  it('#ffc5b7 text on #5a1c0c (and vice versa) - the peach pair now shared by both Reflection and Gratitude - measures well above the 4.5:1 AA floor for normal text', () => {
+    const relLum = (hex) => {
+      const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
+      const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+    };
+    const contrast = (a, b) => {
+      const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+      return (l1 + 0.05) / (l2 + 0.05);
+    };
+    expect(contrast('#ffc5b7', '#5a1c0c')).toBeGreaterThanOrEqual(4.5);
   });
 });
 

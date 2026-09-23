@@ -326,9 +326,10 @@ describe('Phase 3 UX correction - "Add your own" disclosure: edit icon (not a ch
     expect(customBlock).toMatch(/aria-expanded=\{isCustomOpen\}/);
   });
 
-  it('expanded state tints icon+label with the section\'s own accent colour (text-only, never a filled/bordered button) - explicitly distinct from a selected preset answer', () => {
+  it('expanded state tints icon+label with the section\'s own accent colour (text-only, never a filled/bordered button) - explicitly distinct from a selected preset answer; Gratitude now renders the same peach as Reflection (Build 15 Evening UX correction), not gold', () => {
     const customBlock = promptStepperSource.match(/onClick=\{handleToggleCustom\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(customBlock).toMatch(/accent === 'gratitude' \? 'text-gratitude-accent' : 'text-primary'/);
+    expect(customBlock).toMatch(/isCustomOpen\s*\n\s*\? 'text-primary'/);
+    expect(customBlock).not.toMatch(/text-gratitude-accent/);
     expect(customBlock).not.toMatch(/bg-primary|bg-gratitude-accent|border-primary|border-gratitude-accent/);
   });
 });

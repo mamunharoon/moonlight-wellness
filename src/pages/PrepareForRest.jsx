@@ -61,12 +61,13 @@ import { getStepLabel } from '../lib/stepLabels';
  * real video) and one real Sleep Sound (SL01, "Rain" - this library's own
  * first/flagship item) are shown immediately, expanded by default, each
  * explicitly labelled by content type ("Guided video"/"Sleep sound") so
- * a user understands what's on offer without an extra tap. Ready for
- * Sleep is placed immediately after these two, so it stays quickly
- * reachable without scrolling past a long list - "More bedtime options"
- * (E20/E27/E30 plus the remaining SL02-08) is its own, separately
- * collapsed disclosure AFTER Ready for Sleep, for a user who wants to
- * keep browsing. Neither featured id is duplicated inside More options.
+ * a user understands what's on offer without an extra tap. "More bedtime
+ * options" (E20/E27/E30 plus the remaining SL02-08) is its own, separately
+ * collapsed disclosure directly below the featured pair - Build 15
+ * Evening UX correction moved it ABOVE Ready for Sleep (previously
+ * below), so a user who wants to keep browsing sees the full library
+ * before the exit action, not after it. Neither featured id is
+ * duplicated inside More options.
  */
 const FEATURED_GUIDANCE = [
   { id: 'E05', kind: 'Guided video', blurb: 'A short guided video to ease toward sleep.' },
@@ -179,7 +180,7 @@ export const PrepareForRest = () => {
   );
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
       <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 5 of 6</span>
 
@@ -243,8 +244,13 @@ export const PrepareForRest = () => {
           </div>
         )}
 
-        {primaryAction}
-
+        {/* Build 15 Evening UX correction — "More bedtime options" moved
+            above "Ready for Sleep" (was previously below it), so a user
+            browsing the full bedtime content library sees Ready for Sleep
+            only after they've seen everything on offer, not before it.
+            The disclosure itself is unchanged: still collapsed by
+            default, still a plain aria-expanded/aria-controls button that
+            never navigates on its own — only repositioned. */}
         {(moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0) && (
           <div className="space-y-2">
             <button
@@ -284,6 +290,8 @@ export const PrepareForRest = () => {
             )}
           </div>
         )}
+
+        {primaryAction}
       </div>
 
       {/* Closing this leaves the user right here on Prepare for Rest —

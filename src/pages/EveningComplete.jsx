@@ -137,45 +137,36 @@ export const EveningComplete = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        {/* Guests never have persisted routine_responses (Reflection.jsx/
-            Gratitude.jsx both early-return before ever writing for a
-            guest) - offering "Review Tonight's Journey" here would open
-            a page with nothing genuine to show. Kept truthful: guests
-            see only the two actions that are actually true for them. */}
-        {!isGuest && (
-          <button
-            onClick={() => navigate('/review/reflection?q=1')}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span>Review Tonight's Journey</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
-        )}
-        {/* Edit Tonight's Responses (Build 15) — a clearly visible
-            secondary action, deliberately never styled like the primary
-            Review button above (see the approved button hierarchy). */}
-        {!isGuest && (
-          <button
-            onClick={() => navigate('/edit/evening?q=1')}
-            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span>Edit Tonight's Responses</span>
-          </button>
-        )}
+        {/* Build 15 Evening UX correction — approved authenticated order:
+            (1) Choose a Sleep Experience, now first and primary;
+            (2) Review or Edit Tonight's Responses, combined into one
+            secondary action (opens read-only Review first; Edit is
+            reached from Review's own banner - see EveningReviewBanner.jsx);
+            (3) Redo Tonight's Wind-Down (unchanged); (4) Return Home
+            (unchanged). Guests never have persisted routine_responses
+            (Reflection.jsx/Gratitude.jsx both early-return before ever
+            writing for a guest), so Review/Edit/Redo would all open on
+            nothing genuine - guests see only Sleep Experience + Return
+            Home, both truthful for them either way. */}
         <button
           onClick={() => navigate('/library?category=sleep-soundscapes')}
-          className={`w-full py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all ${
-            isGuest
-              ? 'bg-primary text-on-primary shadow-lg'
-              : 'glass-panel text-on-surface border-white/10 focus-visible:ring-2 focus-visible:ring-primary'
-          }`}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
         >
           <span>Choose a Sleep Experience</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
+        {!isGuest && (
+          <button
+            onClick={() => navigate('/review/reflection?q=1')}
+            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span>Review or Edit Tonight's Responses</span>
+          </button>
+        )}
         {/* Redo Tonight's Wind-Down (Build 15) — quiet, destructive-tinted
             text-only action, deliberately NOT a filled/primary Continue-
-            style button, so it never visually competes with Review. */}
+            style button, so it never visually competes with the actions
+            above. */}
         {!isGuest && (
           <>
             {redoError && (

@@ -162,7 +162,7 @@ export const ReflectionReview = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)}>
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Reflection</span>
-      <EveningReviewBanner onReturn={handleReturnToSummary} />
+      <EveningReviewBanner onReturn={handleReturnToSummary} onEdit={() => navigate('/edit/evening?q=1')} />
 
       <div className="flex-1 flex flex-col justify-center space-y-6">
         <div className="glass-panel rounded-3xl p-6">

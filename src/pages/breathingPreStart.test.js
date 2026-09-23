@@ -166,23 +166,38 @@ describe('Breathe.jsx - Session Engine boundary unchanged (Morning-only advancem
 });
 
 // ---------------------------------------------------------------------
-// Evening Breathing - fixed pattern (no selector), pre-start preview,
-// Begin gesture, unchanged fixed 4-7-8 cadence.
+// Evening Breathing (Build 15 Evening UX correction) - real pattern
+// choice like Morning/standalone, defaulting to 4-7-8, using the Evening
+// periwinkle accent, with the same pre-start Begin discipline.
 // ---------------------------------------------------------------------
-describe('EveningBreathing.jsx - fixed 4-7-8 pattern, no selector, but the same pre-start Begin discipline', () => {
-  it('uses the shared pattern config for its one fixed pattern - never a second hand-typed 4-7-8 definition', () => {
-    expect(eveningBreathingSource).toMatch(/import \{ getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
-    expect(eveningBreathingSource).toMatch(/const PATTERN = getBreathingPatternById\('evening'\);/);
+describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Evening-themed, same pre-start Begin discipline', () => {
+  it('imports the shared BREATHING_PATTERNS/BreathingPatternRow, never a second, hand-typed pattern list', () => {
+    expect(eveningBreathingSource).toMatch(/import \{ BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
+    expect(eveningBreathingSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
   });
 
-  it('does not render BreathingPatternRow or any radiogroup - the pattern is a fixed preview, never a fabricated choice', () => {
-    expect(eveningBreathingSource).not.toMatch(/BreathingPatternRow|radiogroup/);
+  it('renders inside role="radiogroup", one BreathingPatternRow per real pattern with the Evening accent, single groupName so only one can be checked at a time', () => {
+    expect(eveningBreathingSource).toMatch(/role="radiogroup" aria-label="Choose your breathing practice"/);
+    expect(eveningBreathingSource).toMatch(/groupName="evening-breathing-pattern"/);
+    expect(eveningBreathingSource).toMatch(/accent="evening"/);
   });
 
-  it('shows the real cadence and real total duration in the pre-start preview', () => {
-    expect(eveningBreathingSource).toMatch(/\{PATTERN\.label\}/);
-    expect(eveningBreathingSource).toMatch(/Inhale \{PATTERN\.inhaleSeconds\}s · Hold \{PATTERN\.holdSeconds\}s · Exhale \{PATTERN\.exhaleSeconds\}s/);
-    expect(eveningBreathingSource).toMatch(/\{formatTotalDuration\(PATTERN\.totalSeconds\)\}/);
+  it('defaults to the real Evening 4-7-8 pattern ("evening") - preserving the established recommendation while allowing another choice', () => {
+    expect(eveningBreathingSource).toMatch(/const DEFAULT_PATTERN_ID = 'evening';/);
+  });
+
+  it('resolves tonight\'s selection from a review-round-trip snapshot first, then a persisted same-day selection, then the 4-7-8 default - never a second, hand-typed default fallback', () => {
+    expect(eveningBreathingSource).toMatch(
+      /const \[selectedPatternId, setSelectedPatternId\] = useState\(\s*\n\s*\(\) => pausedSnapshot\?\.patternId \?\? loadEveningBreathingPattern\(userId, today\) \?\? DEFAULT_PATTERN_ID\s*\n\s*\);/
+    );
+    expect(eveningBreathingSource).toMatch(/const activePattern = getBreathingPatternById\(selectedPatternId\) \?\? getBreathingPatternById\(DEFAULT_PATTERN_ID\);/);
+  });
+
+  it('selecting a pattern persists it via the dedicated Evening-only helper, scoped by userId and today\'s date - never a general cross-app preference', () => {
+    expect(eveningBreathingSource).toMatch(/import \{ loadEveningBreathingPattern, saveEveningBreathingPattern \} from '\.\.\/lib\/eveningBreathingSelection';/);
+    const body = eveningBreathingSource.match(/const handleSelectPattern = \(patternId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setSelectedPatternId\(patternId\);/);
+    expect(body).toMatch(/saveEveningBreathingPattern\(userId, patternId, today\);/);
   });
 
   it('nothing starts on mount - hasBegun defaults to false (true only when resuming a paused snapshot), gating the countdown entirely', () => {
@@ -198,16 +213,25 @@ describe('EveningBreathing.jsx - fixed 4-7-8 pattern, no selector, but the same 
     expect(startCalls.length).toBe(2);
   });
 
-  it('Begin Breathing resets the countdown to the fixed pattern\'s total, sets hasBegun, guards against double taps, and starts music only if eligible+preferred+not-guest', () => {
+  it('Begin Breathing locks the selected pattern by resetting the countdown to its real total, sets hasBegun, guards against double taps, and starts music only if eligible+preferred+not-guest', () => {
     const body = eveningBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
-    expect(body).toMatch(/setSecondsLeft\(PATTERN\.totalSeconds\);/);
+    expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(body).toMatch(/setHasBegun\(true\);/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn && !isGuest\) \{/);
   });
 
-  it('uses the shared resolveBreathPhase for its own countdown - never a hand-rolled modulo', () => {
-    expect(eveningBreathingSource).toMatch(/setBreatheState\(resolveBreathPhase\(PATTERN, nextSec\)\);/);
+  it('the picker UI only renders while !hasBegun - once Begin fires, selectedPatternId can never change again for the active run (structural lock, no separate "locked" flag needed)', () => {
+    const preStartBlock = eveningBreathingSource.match(/\) : !hasBegun \? \(([\s\S]*?)\n {6}\) : \(/)?.[1] ?? '';
+    expect(preStartBlock).toMatch(/role="radiogroup"/);
+    const activeBlock = eveningBreathingSource.slice(eveningBreathingSource.indexOf(') : (', eveningBreathingSource.indexOf('!hasBegun ?')));
+    // BreathingRing (the active view) never itself renders a radiogroup.
+    const activeViewOnly = activeBlock.slice(0, activeBlock.indexOf('InteractiveAmbientMusic'));
+    expect(activeViewOnly).not.toMatch(/role="radiogroup"/);
+  });
+
+  it('uses the shared resolveBreathPhase, driven by the locked activePattern, for its own countdown - never a hand-rolled modulo', () => {
+    expect(eveningBreathingSource).toMatch(/setBreatheState\(resolveBreathPhase\(activePattern, nextSec\)\);/);
     expect(eveningBreathingSource).not.toMatch(/cycleTime/);
   });
 
@@ -221,6 +245,11 @@ describe('EveningBreathing.jsx - fixed 4-7-8 pattern, no selector, but the same 
   it('Prepare for Rest/Reflection/Gratitude/Review/Edit/Redo are untouched - the only exercise-advancement target is /prepare-for-rest (the pre-existing /auth sign-in redirect for guest music is unrelated and unchanged)', () => {
     const navigateTargets = [...eveningBreathingSource.matchAll(/navigate\('([^']+)'\)/g)].map((m) => m[1]);
     expect(new Set(navigateTargets)).toEqual(new Set(['/prepare-for-rest', '/auth']));
+  });
+
+  it('never renders a hand-typed cadence/duration preview string outside BreathingPatternRow - no second source of truth for the pattern label/cadence', () => {
+    expect(eveningBreathingSource).not.toMatch(/Inhale \{PATTERN\.inhaleSeconds\}/);
+    expect(eveningBreathingSource).not.toMatch(/const PATTERN = getBreathingPatternById/);
   });
 });
 
