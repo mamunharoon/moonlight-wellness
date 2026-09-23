@@ -1,7 +1,9 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { COMMON_TIMEZONES, detectDeviceTimezone, isValidTimezone } from '../lib/timezone';
+import { JourneyHeader } from '../components/journey/JourneyHeader';
 
 /*
  * Onboarding simplification (removal of the middle "Set Your
@@ -42,6 +44,31 @@ import { COMMON_TIMEZONES, detectDeviceTimezone, isValidTimezone } from '../lib/
  * sign-in and sign-up straight to Home ('/'); this route is only ever
  * reached voluntarily via Profile's "Wake time"/"Bedtime" rows, exactly
  * as before.
+ *
+ * Return-navigation remediation — this is entirely a VOLUNTARY, replay-
+ * able settings screen (confirmed above: the only real entry points are
+ * Profile's own two rows; Auth.jsx never routes here; no auth/consent/
+ * security step is ever involved), never first-time-onboarding proper -
+ * so it gets Case 1 treatment (a visible Back/Close, safe Home
+ * fallback), not a mandatory-flow exemption. JourneyHeader (already
+ * shared by Anytime Reset/Meditate/Change Intention) supplies both:
+ * showBackButton on step 1 renders the real, shared BackButton
+ * (fallback="/" - Home, the documented safe fallback; goBack() itself
+ * still prefers real in-app history first, landing back on Profile for
+ * every genuine entry) with the app's one accessible "Go back" name; the
+ * step 2 slot instead renders JourneyHeader's own circular 44x44
+ * step-back arrow wired to this file's existing local `handleBack`
+ * (replacing the old undersized text-only "← Back" link, which carried
+ * no confirmed touch-target size and didn't match the shared circular
+ * BackButton style used everywhere else in the app). onClose is an
+ * unconditional, always-present "Close" control (JourneyHeader's own
+ * accessible name) straight to Home on every step - the one guarantee
+ * that holds even for a direct
+ * `/onboarding` URL open or a mid-step-2 refresh (this flow keeps no
+ * step-progress persistence, so a refresh always lands back on step 1,
+ * where Close/Back both already resolve safely). Existing progress bar,
+ * step state, and rhythm-persistence logic are completely untouched -
+ * this is a navigation-only change.
  */
 const TOTAL_STEPS = 2;
 
@@ -92,7 +119,14 @@ export const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center py-6 max-w-xl mx-auto space-y-10">
+    <div
+      className="min-h-[80vh] flex flex-col items-center justify-center py-6 max-w-xl mx-auto space-y-10"
+      style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}
+    >
+
+      <div className="w-full">
+        <JourneyHeader showBackButton={step === 1} backFallback="/" onStepBack={handleBack} onClose={() => navigate('/')} />
+      </div>
 
       <section className="text-center space-y-2 w-full">
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Personalizing Your Journey</span>
@@ -115,16 +149,6 @@ export const Onboarding = () => {
 
       {step === 2 && (
         <div className="space-y-6 w-full">
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-on-surface-variant hover:text-on-surface active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined text-sm">arrow_back</span>
-              Back
-            </button>
-          </div>
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-white">Sync with Your Nature</h2>
             <p className="text-xs text-on-surface-variant">Setting your schedule enables automatically adjusted lighting and soundscapes.</p>

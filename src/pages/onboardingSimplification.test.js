@@ -70,10 +70,15 @@ describe('Onboarding.jsx - back/forward navigation between the two steps', () =>
     expect(onboardingSource).toMatch(/if \(step < TOTAL_STEPS\) \{\s*\n\s*setStep\(step \+ 1\);/);
   });
 
-  it('a Back control on the schedule step returns to step 1 (Welcome), and only ever renders on step 2', () => {
+  // Return-navigation remediation - the schedule step's own Back control
+  // moved out of the step-2-only JSX block entirely, into the shared
+  // JourneyHeader rendered once near the top (showBackButton={step === 1}
+  // means step 2 always gets JourneyHeader's own step-back arrow, wired
+  // to this same handleBack). See onboardingReturnNavigation.test.js for
+  // full coverage of that header wiring.
+  it('a Back control returns to step 1 (Welcome) via the shared JourneyHeader, not a step-2-local block any more', () => {
     expect(onboardingSource).toMatch(/const handleBack = \(\) => \{\s*\n\s*if \(step > 1\) setStep\(step - 1\);\s*\n\s*\};/);
-    const stepTwoBlock = onboardingSource.match(/\{step === 2 && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
-    expect(stepTwoBlock).toMatch(/onClick=\{handleBack\}/);
+    expect(onboardingSource).toMatch(/<JourneyHeader showBackButton=\{step === 1\} backFallback="\/" onStepBack=\{handleBack\} onClose=\{\(\) => navigate\('\/'\)\} \/>/);
     const stepOneBlock = onboardingSource.match(/\{step === 1 && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
     expect(stepOneBlock).not.toMatch(/handleBack/);
   });
