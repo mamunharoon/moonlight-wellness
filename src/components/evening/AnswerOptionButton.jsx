@@ -48,28 +48,53 @@
  * PromptStepper no longer offers a 2-column grid at all, since a right-
  * aligned radio glyph plus a left-aligned label needs a full-width row to
  * stay readable; every question now renders one column of these rows.
+ *
+ * `readOnly` (Evening completed-review work, additive - every existing
+ * active-journey caller omits it and is completely unaffected):
+ *   Uses the native `disabled` attribute on the real radio input, never a
+ *   CSS-only trick. The visible circle/dot/row are all hand-drawn <span>
+ *   elements (not the browser's own radio chrome), so disabling the
+ *   underlying input has NO visual side effect on them at all - the
+ *   selected/unselected styling stays exactly as legible as the live
+ *   journey's own, satisfying "disabled browser styling does not reduce
+ *   contrast" by construction rather than by tuning opacity values. A
+ *   disabled input cannot be focused, tabbed to, or toggled by keyboard,
+ *   touch, or pointer (native HTML behaviour, not application code); its
+ *   `checked` state is still exposed to assistive tech exactly as
+ *   before, so VoiceOver/TalkBack still announce which option is the
+ *   saved answer. `onChange` is `undefined` in this mode - nothing is
+ *   wired to fire on interaction (React does not warn about a missing
+ *   onChange on a controlled input when `disabled` is true - this is an
+ *   intentional, documented React exemption, not a suppressed warning).
+ *   The hover/press affordances (hover:bg-white/10, active:scale-[0.98],
+ *   cursor-pointer) are also dropped in this mode, since nothing happens
+ *   on press - a non-interactive control should not visually invite a
+ *   press.
  */
 const ACCENT_TOKENS = {
   reflection: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' },
   gratitude: { text: 'text-gratitude-accent', border: 'border-gratitude-accent', tint: 'bg-gratitude-accent/10', radioFill: 'border-gratitude-accent bg-gratitude-accent', dot: 'bg-on-gratitude-accent' }
 };
 
-export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflection', groupName }) => {
+export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflection', groupName, readOnly = false }) => {
   const tokens = ACCENT_TOKENS[accent];
 
   return (
     <label
-      className={`flex items-center justify-between gap-3 w-full min-h-[52px] px-5 py-3 rounded-2xl border text-left cursor-pointer transition-all duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface active:scale-[0.98] ${
+      className={`flex items-center justify-between gap-3 w-full min-h-[52px] px-5 py-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+        readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'
+      } ${
         selected
           ? `${tokens.tint} ${tokens.border}`
-          : 'bg-surface-container border-white/15 hover:bg-white/10'
+          : `bg-surface-container border-white/15 ${readOnly ? '' : 'hover:bg-white/10'}`
       }`}
     >
       <input
         type="radio"
         name={groupName}
         checked={selected}
-        onChange={onClick}
+        onChange={readOnly ? undefined : onClick}
+        disabled={readOnly}
         className="sr-only"
       />
       <span className={`block text-sm leading-snug ${selected ? `${tokens.text} font-bold` : 'text-on-surface font-medium'}`}>

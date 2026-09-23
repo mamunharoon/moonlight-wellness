@@ -106,38 +106,55 @@ describe('SessionContext.jsx — resumeStaleRoutine/discardStaleRoutine never to
   });
 });
 
-describe('Completed-routine "Repeat" fix (the "Do Again does nothing" defect)', () => {
+describe('Completed-routine "Repeat" fix (the "Do Again does nothing" defect) - Morning only, unchanged', () => {
   it('the ambiguous "Do Again" label no longer exists anywhere', () => {
     expect(homeSource).not.toMatch(/>\s*Do Again\s*</);
   });
 
-  it('a completed Morning routine shows "Repeat Morning Routine", a completed Evening routine shows "Repeat Evening Routine" (Home redesign - the literal copy now lives in nextStepCard.js, rendered here via {morningCompletedCard.buttonLabel}/{eveningCompletedCard.buttonLabel})', () => {
+  it('a completed Morning routine shows "Repeat Morning Routine" (Home redesign - the literal copy lives in nextStepCard.js, rendered here via {morningCompletedCard.buttonLabel})', () => {
     const nextStepCardSource = read('../lib/nextStepCard.js');
     expect(nextStepCardSource).toMatch(/buttonLabel: 'Repeat Morning Routine'/);
-    expect(nextStepCardSource).toMatch(/buttonLabel: 'Repeat Evening Routine'/);
     expect(homeSource).toMatch(/\{morningCompletedCard\.buttonLabel\}/);
-    expect(homeSource).toMatch(/\{eveningCompletedCard\.buttonLabel\}/);
   });
 
-  it('tapping Repeat opens the repeat dialog, scoped to that one period', () => {
+  it('tapping Repeat opens the repeat dialog, scoped to morning', () => {
     expect(homeSource).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'morning' \}\)\}/);
-    expect(homeSource).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'evening' \}\)\}/);
   });
 
-  it('the repeat dialog uses non-destructive confirmation copy - the previous completion is preserved, not something being discarded', () => {
+  it('the repeat dialog uses non-destructive confirmation copy - the previous completion is preserved, not something being discarded (still used by Morning\'s own Repeat action - Morning has no per-day saved-answer data of the kind routine_responses stores, so this claim stays true for it)', () => {
     expect(homeSource).toMatch(/title: `Repeat \$\{label\} Routine\?`/);
     expect(homeSource).toMatch(/message: 'Your completed routine and saved reflections will remain in your history\.'/);
     expect(homeSource).toMatch(/confirmLabel: 'Start Again'/);
     expect(homeSource).toMatch(/destructive: false/);
   });
 
-  it('confirming Repeat actually launches the routine (the exact defect: confirming used to do nothing) via the SAME fresh-start handler the ordinary Begin card uses', () => {
+  it('confirming Repeat actually launches the routine (the exact defect: confirming used to do nothing) via the SAME fresh-start handler the ordinary Begin card uses - the generic handler still supports both periods, even though only Morning\'s own UI can reach the evening branch\'s dead code path today', () => {
     const match = homeSource.match(/\} else if \(kind === 'repeat'\) \{\s*\n\s*if \(period === 'morning'\) handleBeginRiseAndReset\(\);\s*\n\s*else handleBeginEveningWindDown\(\);/);
     expect(match).not.toBeNull();
   });
 
   it('Repeat Morning never touches Evening\'s own sessionId, and vice versa - each dialog kind only ever resolves `sessionId` from `RITUAL_SESSION_IDS[period]`', () => {
     expect(homeSource).toMatch(/const sessionId = RITUAL_SESSION_IDS\[period\];/);
+  });
+});
+
+describe('Evening completed-review (Build 15) - the unsafe "Repeat Evening Routine" action is gone, replaced by a safe Review action', () => {
+  it('no control on Home can dispatch { kind: \'repeat\', period: \'evening\' } any more - the investigation proved this would silently overwrite tonight\'s saved routine_responses (routine_responses\' own UNIQUE(user_id, session_id, step_id, prompt_id, local_date) constraint has no room for a second same-day Evening run)', () => {
+    expect(homeSource).not.toMatch(/kind: 'repeat', period: 'evening'/);
+  });
+
+  it('an authenticated completed-Evening card offers "Review Tonight\'s Journey" instead, navigating straight to the read-only review flow - no confirmation dialog, since nothing destructive happens', () => {
+    const block = homeSource.match(/\{eveningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
+    expect(block).toMatch(/\{isGuest \? \(/);
+    expect(block).toMatch(/onClick=\{\(\) => navigate\('\/review\/reflection\?q=1'\)\}/);
+    expect(block).toMatch(/Review Tonight's Journey/);
+  });
+
+  it('a guest\'s completed-Evening card (a possible device-flag edge case - guests never actually have saved routine_responses) shows a truthful "Begin Evening Wind-Down" action instead - never Review, never a claim about saved reflections', () => {
+    const block = homeSource.match(/\{eveningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
+    expect(block).toMatch(/onClick=\{handleBeginEveningWindDown\}/);
+    expect(block).toMatch(/Begin Evening Wind-Down/);
+    expect(block).not.toMatch(/isGuest[\s\S]{0,120}Review Tonight's Journey/);
   });
 });
 

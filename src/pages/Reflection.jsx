@@ -19,6 +19,7 @@ import { now as devNow } from '../lib/devClock';
 import { loadRoutineResponses, upsertRoutineResponse, deleteRoutineResponse } from '../lib/routineResponses';
 import { setPendingContent } from '../lib/pendingContent';
 import { parseActiveIndex } from '../lib/questionStepNavigation';
+import { REFLECTION_PROMPTS } from '../lib/eveningJourneyQuestions';
 
 /*
  * Phase 3 (Reflection/Gratitude tap-first redesign) — Reflection
@@ -28,70 +29,17 @@ import { parseActiveIndex } from '../lib/questionStepNavigation';
  * PromptStepper.jsx's own doc comment for the full single-select/
  * guidance/custom-answer contract every question here follows.
  *
- * Question-specific preset options and guidance items below were
- * reported to and approved by the product owner before implementation -
- * see the Phase 3 pre-implementation report for the full rationale
- * behind each choice (why these particular catalogue ids, why Q1 uses
- * full-width rows instead of a 2-column grid, etc.).
+ * Question-specific preset options and guidance items were reported to
+ * and approved by the product owner before implementation - see the
+ * Phase 3 pre-implementation report for the full rationale behind each
+ * choice (why these particular catalogue ids, why Q1 uses full-width
+ * rows instead of a 2-column grid, etc.). Extracted into
+ * eveningJourneyQuestions.js (Evening completed-review work) so this
+ * page and ReflectionReview.jsx can never drift apart on wording/
+ * options/guidance - this page's own SESSION_ID/STEP_ID/accent/write
+ * behaviour below are page-specific wiring, not question configuration,
+ * and stay local here unchanged.
  */
-const REFLECTION_PROMPTS = [
-  {
-    id: 'went-well',
-    label: 'What went well today?',
-    layout: 'rows',
-    options: [
-      'Reached a small milestone',
-      'Had a peaceful moment',
-      'Had a meaningful conversation',
-      'Stayed calm in a difficult moment',
-      'Got outside or moved',
-      'Helped someone',
-      'Handled a difficult task',
-      'Simply got through the day'
-    ],
-    guidance: [
-      { id: 'E10', blurb: 'A guided reflection to close out your day.' },
-      { id: 'M05', blurb: 'A guided meditation for quiet reflection.' }
-    ]
-  },
-  {
-    id: 'challenged',
-    label: 'What challenged you today?',
-    options: [
-      'Too much to do',
-      'Difficult conversation',
-      'Low energy',
-      'Worry or uncertainty',
-      'Trouble staying focused',
-      'Felt rushed',
-      'Plans changed',
-      'Something personal'
-    ],
-    guidance: [
-      { id: 'E17', blurb: 'A guided video to release built-up stress.' },
-      { id: 'E16', blurb: 'A guided video to ease a racing mind or a tight chest.' }
-    ]
-  },
-  {
-    id: 'release',
-    label: 'What are you ready to release?',
-    options: [
-      "Today's stress",
-      "A worry I'm carrying",
-      "What I can't control",
-      'A mistake I made',
-      'Comparing myself to others',
-      'An unfinished task',
-      "Tension I'm holding",
-      'Not sure yet'
-    ],
-    guidance: [
-      { id: 'E19', blurb: "A guided video to help you release what isn't yours to carry." },
-      { id: 'E21', blurb: 'A guided video for gentle self-compassion.' }
-    ]
-  }
-];
-
 const SESSION_ID = 'evening-wind-down';
 const STEP_ID = 'reflection';
 

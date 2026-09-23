@@ -29,8 +29,13 @@ describe('AnswerOptionButton - semantic radio, not a styled button/switch', () =
 
   it('checked is driven directly by the `selected` prop, and the whole row is one <label> wrapping the input - clicking anywhere in the row activates it, not only the visual circle', () => {
     expect(source).toMatch(/checked=\{selected\}/);
-    expect(source).toMatch(/onChange=\{onClick\}/);
+    expect(source).toMatch(/onChange=\{readOnly \? undefined : onClick\}/);
     expect(source).toMatch(/<label\s*\n\s*className=/);
+  });
+
+  it('readOnly (Evening completed-review) is additive - default false, so every existing active-journey caller is unaffected - and drives the native `disabled` attribute, never a CSS-only trick', () => {
+    expect(source).toMatch(/accent = 'reflection', groupName, readOnly = false/);
+    expect(source).toMatch(/disabled=\{readOnly\}/);
   });
 
   it('the input carries the question\'s own groupName as its `name`, so every option for the SAME question shares one native radio group (real arrow-key cycling/Home/End, for free, per question) - never leaking across different questions', () => {
@@ -66,7 +71,7 @@ describe('AnswerOptionButton - button interaction contract', () => {
 
 describe('AnswerOptionButton - unselected state', () => {
   it('deep surface-container background, a subtle white/15 border, off-white readable label at medium weight', () => {
-    expect(source).toMatch(/'bg-surface-container border-white\/15/);
+    expect(source).toMatch(/bg-surface-container border-white\/15/);
     expect(source).toMatch(/text-on-surface font-medium/);
   });
 
@@ -74,6 +79,26 @@ describe('AnswerOptionButton - unselected state', () => {
     const unselectedRadio = source.match(/selected \? tokens\.radioFill : ('[^']*')/)?.[1] ?? '';
     expect(unselectedRadio).toBe("'border-on-surface-variant'");
     expect(source).toMatch(/\{selected && <span/); // the inner dot only ever renders when selected
+  });
+});
+
+describe('AnswerOptionButton - readOnly mode (Evening completed-review)', () => {
+  it('drops the interactive hover/press affordances (cursor-pointer, active:scale, hover:bg-white/10) since nothing happens on press', () => {
+    expect(source).toMatch(/readOnly \? 'cursor-default' : 'cursor-pointer active:scale-\[0\.98\]'/);
+    expect(source).toMatch(/readOnly \? '' : 'hover:bg-white\/10'/);
+  });
+
+  it('selected/unselected colour treatment is identical in readOnly mode to the live journey - the same tokens/classes are reused, never a separate dimmed palette, so legibility and contrast are unchanged', () => {
+    // The selected/unselected branch that decides colour classes does not
+    // itself branch on `readOnly` at all - only the interactive-affordance
+    // classes above do. Same tokens, same contrast, in both modes.
+    const colourBranch = source.match(/\$\{\s*selected\s*\?\s*`\$\{tokens\.tint\} \$\{tokens\.border\}`\s*\n\s*: `bg-surface-container border-white\/15 \$\{readOnly \? '' : 'hover:bg-white\/10'\}`\s*\}/);
+    expect(colourBranch).not.toBeNull();
+  });
+
+  it('the native `disabled` attribute is the only readOnly-specific change to the input itself - never removed from the DOM, never aria-hidden, so its checked/unchecked state stays in the accessibility tree', () => {
+    expect(source).not.toMatch(/readOnly && null/);
+    expect(source).not.toMatch(/aria-hidden=\{readOnly\}/);
   });
 });
 

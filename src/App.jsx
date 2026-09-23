@@ -60,6 +60,8 @@ const Reflection = lazy(() => import('./pages/Reflection').then((m) => ({ defaul
 const Gratitude = lazy(() => import('./pages/Gratitude').then((m) => ({ default: m.Gratitude })));
 const EveningBreathing = lazy(() => import('./pages/EveningBreathing').then((m) => ({ default: m.EveningBreathing })));
 const PrepareForRest = lazy(() => import('./pages/PrepareForRest').then((m) => ({ default: m.PrepareForRest })));
+const ReflectionReview = lazy(() => import('./pages/ReflectionReview').then((m) => ({ default: m.ReflectionReview })));
+const GratitudeReview = lazy(() => import('./pages/GratitudeReview').then((m) => ({ default: m.GratitudeReview })));
 const Support = lazy(() => import('./pages/Support').then((m) => ({ default: m.Support })));
 const PanicMode = lazy(() => import('./pages/PanicMode').then((m) => ({ default: m.PanicMode })));
 const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m.Meditate })));
@@ -207,6 +209,13 @@ function App() {
                 <Route path="evening-breathing" element={withFallback(<EveningBreathing />)} />
                 <Route path="prepare-for-rest" element={withFallback(<PrepareForRest />)} />
                 <Route path="evening-complete" element={withFallback(<EveningComplete />)} />
+
+                {/* Evening completed-review (Build 15) — read-only, not
+                    coupled to the Session Engine. `?q=` is the only
+                    allowlisted URL input; see ReflectionReview.jsx/
+                    GratitudeReview.jsx's own doc comments. */}
+                <Route path="review/reflection" element={withFallback(<ReflectionReview />)} />
+                <Route path="review/gratitude" element={withFallback(<GratitudeReview />)} />
 
                 {/* Support & Calm, Sprint 1: lightweight grounding/panic/
                     stress/breathing support flow. Full-bleed (same

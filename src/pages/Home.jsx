@@ -939,20 +939,45 @@ export const Home = () => {
             </div>
           )}
 
-          {/* EVENING — completed today. */}
+          {/* EVENING — completed today.
+              Evening completed-review (Build 15): the investigation
+              confirmed a repeated same-day Evening session would
+              silently overwrite tonight's already-saved Reflection/
+              Gratitude answers (routine_responses' own UNIQUE
+              (user_id, session_id, step_id, prompt_id, local_date)
+              constraint has no room for a second same-day run - see the
+              Phase 1 report). The old "Repeat Evening Routine" action
+              (which claimed those answers "will remain in your
+              history") is removed for authenticated users, replaced
+              with a safe, read-only "Review Tonight's Journey" -
+              guests never see it (they have no persisted
+              routine_responses to review at all - Reflection.jsx/
+              Gratitude.jsx both early-return before ever writing for a
+              guest), and instead get a truthful, non-destructive way to
+              simply begin the routine again. */}
           {eveningCardState === 'completed' && (
             <div
               className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningCompletedCard)}
-              <button
-                type="button"
-                onClick={() => setActiveDialog({ kind: 'repeat', period: 'evening' })}
-                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
-              >
-                {eveningCompletedCard.buttonLabel}
-              </button>
+              {isGuest ? (
+                <button
+                  type="button"
+                  onClick={handleBeginEveningWindDown}
+                  className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+                >
+                  Begin Evening Wind-Down
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/review/reflection?q=1')}
+                  className="block w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all"
+                >
+                  Review Tonight's Journey
+                </button>
+              )}
             </div>
           )}
         </>

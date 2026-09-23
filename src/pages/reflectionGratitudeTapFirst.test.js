@@ -14,6 +14,12 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const reflectionSource = read('./Reflection.jsx');
 const gratitudeSource = read('./Gratitude.jsx');
 const promptStepperSource = read('../components/evening/PromptStepper.jsx');
+// Evening completed-review work: question wording/options/guidance moved
+// out of Reflection.jsx/Gratitude.jsx into this shared, side-effect-free
+// module (see its own doc comment) so the active journey and the new
+// completed-review pages can never drift apart - the data-content tests
+// below now check it directly, at the source it actually lives at.
+const eveningQuestionsSource = read('../lib/eveningJourneyQuestions.js');
 
 const REFLECTION_OPTIONS = {
   'went-well': [
@@ -81,10 +87,10 @@ const GRATITUDE_OPTIONS = {
   ]
 };
 
-describe('Reflection.jsx - exact approved preset options, per question', () => {
+describe('eveningJourneyQuestions.js - exact approved Reflection preset options, per question', () => {
   for (const [promptId, options] of Object.entries(REFLECTION_OPTIONS)) {
     it(`"${promptId}" has exactly its 8 approved options, in order, and no others`, () => {
-      const block = reflectionSource.match(new RegExp(`id: '${promptId}',[\\s\\S]*?options: \\[([\\s\\S]*?)\\]`))?.[1] ?? '';
+      const block = eveningQuestionsSource.match(new RegExp(`id: '${promptId}',[\\s\\S]*?options: \\[([\\s\\S]*?)\\]`))?.[1] ?? '';
       const found = [...block.matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)].map((m) => (m[1] ?? m[2]).replace(/\\'/g, "'"));
       expect(found).toEqual(options);
     });
@@ -96,10 +102,10 @@ describe('Reflection.jsx - exact approved preset options, per question', () => {
   });
 });
 
-describe('Gratitude.jsx - exact approved preset options, per question', () => {
+describe('eveningJourneyQuestions.js - exact approved Gratitude preset options, per question', () => {
   for (const [promptId, options] of Object.entries(GRATITUDE_OPTIONS)) {
     it(`"${promptId}" has exactly its 8 approved options, in order, and no others`, () => {
-      const block = gratitudeSource.match(new RegExp(`id: '${promptId}',[\\s\\S]*?options: \\[([\\s\\S]*?)\\]`))?.[1] ?? '';
+      const block = eveningQuestionsSource.match(new RegExp(`id: '${promptId}',[\\s\\S]*?options: \\[([\\s\\S]*?)\\]`))?.[1] ?? '';
       const found = [...block.matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)].map((m) => (m[1] ?? m[2]).replace(/\\'/g, "'"));
       expect(found).toEqual(options);
     });
@@ -111,29 +117,46 @@ describe('Gratitude.jsx - exact approved preset options, per question', () => {
   });
 });
 
+describe('Reflection.jsx/Gratitude.jsx import their prompts from the shared module - no local re-declaration, so the active journey and completed review can never drift apart', () => {
+  it('both pages import REFLECTION_PROMPTS/GRATITUDE_PROMPTS from eveningJourneyQuestions.js, and no longer declare their own inline prompts array', () => {
+    expect(reflectionSource).toMatch(/import \{ REFLECTION_PROMPTS \} from '\.\.\/lib\/eveningJourneyQuestions';/);
+    expect(gratitudeSource).toMatch(/import \{ GRATITUDE_PROMPTS \} from '\.\.\/lib\/eveningJourneyQuestions';/);
+    expect(reflectionSource).not.toMatch(/const REFLECTION_PROMPTS = \[/);
+    expect(gratitudeSource).not.toMatch(/const GRATITUDE_PROMPTS = \[/);
+  });
+
+  it('ReflectionReview.jsx/GratitudeReview.jsx import the exact same prompts constants - never a second, possibly-diverging copy', () => {
+    const reflectionReviewSource = read('./ReflectionReview.jsx');
+    const gratitudeReviewSource = read('./GratitudeReview.jsx');
+    expect(reflectionReviewSource).toMatch(/import \{ REFLECTION_PROMPTS \} from '\.\.\/lib\/eveningJourneyQuestions';/);
+    expect(gratitudeReviewSource).toMatch(/import \{ GRATITUDE_PROMPTS \} from '\.\.\/lib\/eveningJourneyQuestions';/);
+  });
+});
+
 describe('Approved real guidance catalogue mapping - real ids only, capped at 2 per question, never reused merely to pad a second card', () => {
   it('Reflection: went-well -> E10+M05, challenged -> E17+E16, release -> E19+E21', () => {
-    expect(reflectionSource).toMatch(/id: 'went-well',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E10',[\s\S]*?\{ id: 'M05',/);
-    expect(reflectionSource).toMatch(/id: 'challenged',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E17',[\s\S]*?\{ id: 'E16',/);
-    expect(reflectionSource).toMatch(/id: 'release',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E19',[\s\S]*?\{ id: 'E21',/);
+    expect(eveningQuestionsSource).toMatch(/id: 'went-well',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E10',[\s\S]*?\{ id: 'M05',/);
+    expect(eveningQuestionsSource).toMatch(/id: 'challenged',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E17',[\s\S]*?\{ id: 'E16',/);
+    expect(eveningQuestionsSource).toMatch(/id: 'release',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E19',[\s\S]*?\{ id: 'E21',/);
   });
 
   it('Gratitude: appreciated-moment -> E23+M04, who-made-better -> M03 only, grateful-now -> A05 only (not enough genuinely relevant items to pad the last two to 2 - approved as-is)', () => {
-    expect(gratitudeSource).toMatch(/id: 'appreciated-moment',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E23',[\s\S]*?\{ id: 'M04',/);
-    const whoBlock = gratitudeSource.match(/id: 'who-made-better',[\s\S]*?guidance: \[([\s\S]*?)\]/)?.[1] ?? '';
+    expect(eveningQuestionsSource).toMatch(/id: 'appreciated-moment',[\s\S]*?guidance: \[\s*\n\s*\{ id: 'E23',[\s\S]*?\{ id: 'M04',/);
+    const whoBlock = eveningQuestionsSource.match(/id: 'who-made-better',[\s\S]*?guidance: \[([\s\S]*?)\]/)?.[1] ?? '';
     expect([...whoBlock.matchAll(/id: '([A-Z0-9]+)'/g)].map((m) => m[1])).toEqual(['M03']);
-    const gratefulBlock = gratitudeSource.match(/id: 'grateful-now',[\s\S]*?guidance: \[([\s\S]*?)\]/)?.[1] ?? '';
+    const gratefulBlock = eveningQuestionsSource.match(/id: 'grateful-now',[\s\S]*?guidance: \[([\s\S]*?)\]/)?.[1] ?? '';
     expect([...gratefulBlock.matchAll(/id: '([A-Z0-9]+)'/g)].map((m) => m[1])).toEqual(['A05']);
   });
 
   it('E23/M04 (Gratitude Q1\'s own items) are not repeated under Q2 or Q3 merely to create a second card', () => {
-    const q2q3 = gratitudeSource.match(/id: 'who-made-better'[\s\S]*$/)?.[0] ?? '';
+    const q2q3 = eveningQuestionsSource.match(/id: 'who-made-better'[\s\S]*$/)?.[0] ?? '';
     expect(q2q3).not.toMatch(/id: 'E23'/);
     expect(q2q3).not.toMatch(/id: 'M04'/);
   });
 
-  it('no guidance item exceeds 2 entries for any question in either file', () => {
-    const guidanceBlocks = [...reflectionSource.matchAll(/guidance: \[([\s\S]*?)\]/g), ...gratitudeSource.matchAll(/guidance: \[([\s\S]*?)\]/g)];
+  it('no guidance item exceeds 2 entries for any question', () => {
+    const guidanceBlocks = [...eveningQuestionsSource.matchAll(/guidance: \[([\s\S]*?)\]/g)];
+    expect(guidanceBlocks.length).toBe(6);
     for (const [, block] of guidanceBlocks) {
       const count = [...block.matchAll(/id: '[A-Z0-9]+'/g)].length;
       expect(count).toBeLessThanOrEqual(2);
@@ -168,7 +191,7 @@ describe('Layout: every Reflection/Gratitude question renders as one column of f
   });
 
   it('Reflection "went-well" keeps its own (now purely historical, unread) layout: \'rows\' field - harmless since PromptStepper no longer branches on it, left as-is rather than editing data that already matches the new universal behaviour', () => {
-    expect(reflectionSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',\s*\n\s*layout: 'rows',/);
+    expect(eveningQuestionsSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',\s*\n\s*layout: 'rows',/);
     expect(promptStepperSource).not.toMatch(/activePrompt\.layout ===/);
   });
 

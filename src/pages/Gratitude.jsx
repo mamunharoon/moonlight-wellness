@@ -19,6 +19,7 @@ import { now as devNow } from '../lib/devClock';
 import { loadRoutineResponses, upsertRoutineResponse, deleteRoutineResponse } from '../lib/routineResponses';
 import { setPendingContent } from '../lib/pendingContent';
 import { parseActiveIndex } from '../lib/questionStepNavigation';
+import { GRATITUDE_PROMPTS } from '../lib/eveningJourneyQuestions';
 
 /*
  * Phase 3 (Reflection/Gratitude tap-first redesign) — Gratitude
@@ -33,62 +34,12 @@ import { parseActiveIndex } from '../lib/questionStepNavigation';
  * on Reflection's own Q3 (`/reflection?q=3`), not Reflection's Q1 as it
  * did before this phase - see backFallbackForIndex below and Reflection.jsx's
  * identical mechanism.
+ *
+ * Question configuration extracted into eveningJourneyQuestions.js
+ * (Evening completed-review work) - see Reflection.jsx's own doc comment
+ * for why. This page's own SESSION_ID/STEP_ID/accent/write behaviour
+ * below stay local, unchanged.
  */
-const GRATITUDE_PROMPTS = [
-  {
-    id: 'appreciated-moment',
-    label: 'Name one moment you appreciated today.',
-    options: [
-      'Morning stillness',
-      'A comforting meal',
-      'Kindness from someone',
-      'A song that lifted me',
-      'Feeling at home',
-      'A moment of relief',
-      'Fresh air or movement',
-      'A quiet pause'
-    ],
-    guidance: [
-      { id: 'E23', blurb: 'A guided video for a quiet moment of gratitude.' },
-      { id: 'M04', blurb: 'A guided meditation for gratitude.' }
-    ]
-  },
-  {
-    id: 'who-made-better',
-    label: 'Who made your day better?',
-    options: [
-      'Partner or family',
-      'Friend',
-      'Colleague',
-      'Someone who helped',
-      'Someone who listened',
-      'A kind stranger',
-      'My community',
-      'I supported myself'
-    ],
-    guidance: [
-      { id: 'M03', blurb: 'A guided loving kindness meditation.' }
-    ]
-  },
-  {
-    id: 'grateful-now',
-    label: 'What are you grateful for right now?',
-    options: [
-      'This quiet moment',
-      'Someone who cares about me',
-      'A place where I feel safe',
-      'Something that made me smile',
-      'A small comfort',
-      'A fresh start tomorrow',
-      'My own effort today',
-      'Simply being here'
-    ],
-    guidance: [
-      { id: 'A05', blurb: 'A guided affirmation video for a grateful moment.' }
-    ]
-  }
-];
-
 const SESSION_ID = 'evening-wind-down';
 const STEP_ID = 'gratitude';
 
