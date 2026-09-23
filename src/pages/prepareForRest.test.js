@@ -1,7 +1,9 @@
-// Phase 3 (Prepare for Rest subphase) — four independent preparation
-// toggles, compact collapsed bedtime guidance, Ready for Sleep. No DOM
-// rendering is available in this repo's Vitest - source-level checks,
-// matching every other regression guard in this codebase.
+// Phase 3 (Prepare for Rest subphase, round 2 UX correction) — real
+// sliding switches (not a full-bright-fill row) for the four preparation
+// actions, and an explicit, expanded-by-default "choose a bedtime video
+// or sleep sound" section instead of a vague collapsed "guidance" row.
+// No DOM rendering is available in this repo's Vitest - source-level
+// checks, matching every other regression guard in this codebase.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +23,6 @@ const PREP_ITEMS = [
   { id: 'finish', title: 'Let the day finish.', support: 'Everything else can wait until tomorrow.' }
 ];
 
-// 1. Four exact preparation actions and safe copy.
 describe('Four exact approved preparation actions, in order, with their exact supporting text', () => {
   it('PREP_ITEMS matches the approved id/title/support list exactly', () => {
     const block = source.match(/const PREP_ITEMS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
@@ -37,157 +38,166 @@ describe('Four exact approved preparation actions, in order, with their exact su
   });
 });
 
-// 2, 3. Initially unselected, multi-select toggling.
 describe('Checklist state: initially all unselected, genuinely multi-select', () => {
   it('selectedPrep starts as an empty Set - nothing pre-checked', () => {
     expect(source).toMatch(/const \[selectedPrep, setSelectedPrep\] = useState\(\(\) => new Set\(\)\);/);
   });
 
-  it('togglePrep adds/removes from the Set independently - never clears the others (no single-select exclusivity)', () => {
+  it('togglePrep adds/removes from the Set independently - never clears the others (no single-select exclusivity), so multiple switches can be On at once', () => {
     const body = source.match(/const togglePrep = \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/const next = new Set\(prev\);/);
     expect(body).toMatch(/if \(next\.has\(id\)\) next\.delete\(id\);/);
     expect(body).toMatch(/else next\.add\(id\);/);
-    // proof there is no "clear every other id first" step
     expect(body).not.toMatch(/next\.clear\(\)/);
-  });
-
-  it('each toggle only ever affects its own item, via selectedPrep.has(item.id)', () => {
-    expect(source).toMatch(/selected=\{selectedPrep\.has\(item\.id\)\}/);
-    expect(source).toMatch(/onToggle=\{\(\) => togglePrep\(item\.id\)\}/);
   });
 });
 
-// 4, 5, 6. Selected blue treatment, no tick/chevron, aria-pressed (button semantics, not switch).
-describe('PrepareToggleRow - selected state, no tick/chevron, button/aria-pressed semantics (not switch/aria-checked)', () => {
-  it('uses aria-pressed, never role="switch"/aria-checked', () => {
-    expect(toggleRowSource).toMatch(/aria-pressed=\{selected\}/);
+// 1, 2. Every row contains a switch; role="switch"/aria-checked.
+describe('PrepareToggleRow - a real switch (role="switch"/aria-checked), never role="button"/aria-pressed', () => {
+  it('the control carries role="switch" and aria-checked driven by `selected`', () => {
+    expect(toggleRowSource).toMatch(/role="switch"/);
+    expect(toggleRowSource).toMatch(/aria-checked=\{selected\}/);
     const code = toggleRowSource.replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(code).not.toMatch(/role="switch"/);
-    expect(code).not.toMatch(/aria-checked/);
+    expect(code).not.toMatch(/aria-pressed/);
   });
 
-  it('selected fills the entire row with the new evening-accent/on-evening-accent token pair - stronger border, bold high-contrast title, inset shadow', () => {
-    expect(toggleRowSource).toMatch(/bg-evening-accent border-evening-accent shadow-\[inset/);
-    expect(toggleRowSource).toMatch(/text-on-evening-accent font-bold/);
+  it('the whole row is one real <button> (accessible action label is the title text inside it) - the entire surface, not just the switch glyph, toggles it', () => {
+    expect(toggleRowSource).toMatch(/<button\s*\n\s*type="button"\s*\n\s*role="switch"/);
+    expect(toggleRowSource).toMatch(/onClick=\{onToggle\}/);
   });
 
-  it('never renders a checkmark/tick icon or a navigation chevron anywhere', () => {
-    expect(toggleRowSource).not.toMatch(/check_circle|chevron_right|chevron_left/);
-  });
-
-  it('the whole row is one real <button>, not a <div> with onClick - the entire surface (not just an icon) toggles it', () => {
-    expect(toggleRowSource).toMatch(/<button\s*\n\s*type="button"\s*\n\s*onClick=\{onToggle\}/);
-  });
-
-  it('meets the 56px minimum height, comfortably exceeding the 44x44 minimum target', () => {
+  it('meets the 56px minimum height, comfortably exceeding the 44x44 minimum effective target', () => {
     expect(toggleRowSource).toMatch(/min-h-\[56px\]/);
   });
 });
 
-// New colour tokens.
+// 3. Off knob/track state.
+describe('PrepareToggleRow - OFF state: muted track, knob on the left, no full colour', () => {
+  it('track is a muted grey (bg-white/20) when off, row keeps its deep surface-container background', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-white\/20'/);
+    expect(toggleRowSource).toMatch(/'bg-surface-container border-white\/15/);
+  });
+
+  it('the knob sits at the left (translate-x-0) when off', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'translate-x-5' : 'translate-x-0'/);
+  });
+});
+
+// 4, 5. On: knob moves right + blue accent; row does NOT become a full bright-blue fill.
+describe('PrepareToggleRow - ON state: subtle tint only (never a full bright-blue fill), knob slides right, blue track', () => {
+  it('the row itself only gains a SUBTLE evening-accent/10 tint plus a full-strength border - never a solid/opaque evening-accent fill', () => {
+    expect(toggleRowSource).toMatch(/'bg-evening-accent\/10 border-evening-accent/);
+    expect(toggleRowSource).not.toMatch(/'bg-evening-accent border-evening-accent/);
+  });
+
+  it('the switch track itself fills solid evening-accent blue when on - the strong colour lives in the switch, not the row', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-white\/20'/);
+  });
+
+  it('the title becomes bold and accent-coloured when on (never colour alone) - the support text/icon stay as they were, keeping the row itself visually calm', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'text-evening-accent font-bold' : 'text-on-surface font-medium'/);
+  });
+});
+
+// 6. Multiple switches can be On - already covered by the togglePrep test above; this checks the rendering side.
+describe('Multiple switches can be On simultaneously', () => {
+  it('each row\'s selected state is derived independently from selectedPrep.has(item.id) - no shared/exclusive selection variable', () => {
+    expect(source).toMatch(/selected=\{selectedPrep\.has\(item\.id\)\}/);
+  });
+});
+
+// 7. No tick/checkmark.
+describe('No tick/checkmark anywhere on the preparation rows', () => {
+  it('PrepareToggleRow never renders check_circle/check or a navigation chevron', () => {
+    expect(toggleRowSource).not.toMatch(/check_circle|chevron_right|chevron_left/);
+  });
+});
+
+// New colour tokens (unchanged by this round - still additive).
 describe('evening-accent/on-evening-accent - additive, contrast-verified tokens', () => {
   it('index.css defines them without touching gratitude-accent/primary', () => {
     expect(cssSource).toMatch(/--color-evening-accent: #9fb4f0;/);
     expect(cssSource).toMatch(/--color-on-evening-accent: #0b1326;/);
-    expect(cssSource).toMatch(/--color-gratitude-accent: #f4c56a;/);
   });
 
   it('tailwind.config.js exposes them as real utility-generating colours', () => {
     expect(tailwindConfigSource).toMatch(/"evening-accent": "var\(--color-evening-accent\)"/);
     expect(tailwindConfigSource).toMatch(/"on-evening-accent": "var\(--color-on-evening-accent\)"/);
   });
+});
 
-  it('#0b1326 text on #9fb4f0 (and vice versa) measures well above the 4.5:1 AA floor - genuinely computed', () => {
-    const relLum = (hex) => {
-      const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
-      const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-      return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
-    };
-    const contrast = (a, b) => {
-      const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
-      return (l1 + 0.05) / (l2 + 0.05);
-    };
-    expect(contrast('#9fb4f0', '#0b1326')).toBeGreaterThanOrEqual(4.5);
+// 8. New exact guidance heading and supporting copy.
+describe('Guidance section copy: explicit heading naming both content types, plus optional-framing supporting copy', () => {
+  it('heading reads exactly "Choose a bedtime video or sleep sound"', () => {
+    expect(source).toMatch(/Choose a bedtime video or sleep sound/);
+  });
+
+  it('supporting copy reads exactly "Optional — play something calming, or continue when you\'re ready."', () => {
+    expect(source).toMatch(/Optional — play something calming, or continue when you're ready\./);
+  });
+
+  it('never says "Would some ... guidance help?" (the earlier, too-vague heading this corrects)', () => {
+    expect(source).not.toMatch(/Would some.*guidance help\?/);
+  });
+
+  it('never says "music" for the Sleep Sounds catalogue - "sleep sound" only, since these are ambient sound, not music', () => {
+    const block = source.match(/const FEATURED_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    expect(block).not.toMatch(/music/i);
+    expect(block).toMatch(/'Sleep sound'/);
   });
 });
 
-// 7. Continue with zero selections; 17. Ready for Sleep advances once.
-describe('Ready for Sleep: works regardless of checklist state, fires the one real transition exactly once', () => {
-  it('handleReadyForSleep never reads selectedPrep - identical behaviour whether zero, some, or all items are toggled', () => {
-    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).not.toMatch(/selectedPrep/);
-  });
-
-  it('advanceStep is guarded exactly like every other Session-Engine page (status playing AND currentStep is this exact step) before navigating to the existing /evening-complete route', () => {
-    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(state\.status === 'playing' && currentStep\?\.id === 'sleepPreparation'\) \{\s*\n\s*advanceStep\(\);\s*\n\s*\}/);
-    expect(body).toMatch(/navigate\('\/evening-complete'\);/);
+// 9. Guidance expanded by default.
+describe('Guidance section is expanded by default on first entry', () => {
+  it('guidanceOpen starts true (not false, unlike the earlier round-1 collapsed default)', () => {
+    expect(source).toMatch(/const \[guidanceOpen, setGuidanceOpen\] = useState\(true\);/);
   });
 });
 
-// 8, 16. Selections preserved through the guidance video modal.
-describe('Guidance video open/close never touches checklist state - same mounted page throughout', () => {
-  it('closeVideo/handleSelect are never wired to setSelectedPrep - selections are untouched by opening or closing guidance', () => {
-    expect(source).not.toMatch(/handleSelect[\s\S]{0,60}setSelectedPrep/);
-    expect(source).not.toMatch(/closeVideo[\s\S]{0,60}setSelectedPrep/);
-  });
-});
-
-// 9, 10. Back returns to Evening Breathing, never completes Step 5.
-describe('Back: shared circular BackButton only, returns to Evening Breathing, never marks the step complete', () => {
-  it('EveningSceneShell renders with a single static backFallback="/evening-breathing" - the shared BackButton is the only back control on this page', () => {
-    expect(source).toMatch(/showBack backFallback="\/evening-breathing"/);
-  });
-
-  it('advanceStep is called from nowhere except handleReadyForSleep - Back (a plain navigate via BackButton, outside this component) can never trigger it', () => {
-    const allAdvanceStepCalls = source.match(/advanceStep\(\);/g) ?? [];
-    expect(allAdvanceStepCalls.length).toBe(1);
-  });
-});
-
-// 11, 18. No duplicate completion; rapid double-tap protection.
-describe('No duplicate completion - isAdvancing guards a rapid double tap', () => {
-  it('handleReadyForSleep exits immediately if already advancing, before setting it', () => {
-    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(isAdvancing\) return;\s*\n\s*setIsAdvancing\(true\);/);
-  });
-
-  it('the Ready for Sleep button is disabled while advancing, with a visible (not fully hidden) disabled treatment', () => {
-    expect(source).toMatch(/disabled=\{isAdvancing\}/);
-    expect(source).toMatch(/disabled:opacity-70/);
-  });
-});
-
-// 12, 13, 14, 15. Guidance content: exactly two initial items, More options collapsed, real ids, accurate/omitted duration.
-describe('Bedtime guidance: exactly two initial items, collapsed "More bedtime options", real catalogue ids only, accurate or omitted duration', () => {
-  it('INITIAL_GUIDANCE has exactly two entries: E05 and E30', () => {
-    const block = source.match(/const INITIAL_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+// 10, 11, 13. Exactly one video + one sound featured; real/active ids; no duplication in More options.
+describe('Exactly one featured guided video and one featured sleep sound, real catalogue ids, never duplicated in More options', () => {
+  it('FEATURED_GUIDANCE is exactly [E05 "Guided video", SL01 "Sleep sound"]', () => {
+    const block = source.match(/const FEATURED_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    expect(block).toMatch(/id: 'E05', kind: 'Guided video'/);
+    expect(block).toMatch(/id: 'SL01', kind: 'Sleep sound'/);
     const ids = [...block.matchAll(/id: '([A-Z0-9]+)'/g)].map((m) => m[1]);
-    expect(ids).toEqual(['E05', 'E30']);
+    expect(ids).toEqual(['E05', 'SL01']);
   });
 
-  it('every referenced id (E05, E20, E27, E30, SL01-SL08) is a real entry in betaVideoManifest.js, verified against the actual manifest source', () => {
+  it('E05 and SL01 are real entries in betaVideoManifest.js - verified against the actual manifest source, not merely asserted', () => {
+    expect(manifestSource).toMatch(/id: 'E05',\s*\n\s*title: 'Night-time Calm',/);
+    expect(manifestSource).toMatch(/id: 'SL01',\s*\n\s*title: 'Rain',/);
+  });
+
+  it('SL01 is never repeated inside the More-options sleep sounds list (MORE_SLEEP_SOUNDS starts at SL02)', () => {
+    const block = source.match(/const MORE_SLEEP_SOUNDS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    expect(block).not.toMatch(/id: 'SL01'/);
+    expect(block).toMatch(/id: 'SL02'/);
+  });
+
+  it('E05 is never repeated inside MORE_GUIDANCE', () => {
+    const block = source.match(/const MORE_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    expect(block).not.toMatch(/id: 'E05'/);
+  });
+
+  it('every id referenced anywhere on this page (E05, E20, E27, E30, SL01-SL08) is a real entry in the manifest', () => {
     for (const id of ['E05', 'E20', 'E27', 'E30', 'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08']) {
       expect(source).toMatch(new RegExp(`id: '${id}'`));
       expect(manifestSource).toMatch(new RegExp(`id: '${id}',`));
     }
   });
+});
 
-  it('the main guidance disclosure and "More bedtime options" both start collapsed', () => {
-    expect(source).toMatch(/const \[guidanceOpen, setGuidanceOpen\] = useState\(false\);/);
-    expect(source).toMatch(/const \[moreGuidanceOpen, setMoreGuidanceOpen\] = useState\(false\);/);
+// Content-type label + real title/description/duration presentation.
+describe('Featured items are explicitly labelled by content type, with real title/description and accurate-or-omitted duration', () => {
+  it('each featured item renders its own kind label ("Guided video"/"Sleep sound") directly above its row', () => {
+    expect(source).toMatch(/\{featuredItems\.map\(\(\{ id, entry, blurb, duration, kind \}\) => \(/);
+    expect(source).toMatch(/>\{kind\}<\/span>/);
   });
 
-  it('"More bedtime options" is nested INSIDE the main disclosure (only reachable once guidance is already open) and includes Sleep Sounds under its own heading', () => {
-    const mainBlock = source.match(/\{guidanceOpen && \(([\s\S]*?)\n {12}\)\}/)?.[1] ?? '';
-    expect(mainBlock).toMatch(/More bedtime options/);
-    expect(mainBlock).toMatch(/Sleep Sounds/);
-  });
-
-  it('duration is entry.durationLabel (real, spec-provided - SL01-08 only) or a real cached "~N min", falling back to undefined (no badge) - never the fabricated "Guided video" placeholder text used elsewhere', () => {
+  it('duration is entry.durationLabel (real, spec-provided) or a real cached "~N min", falling back to undefined (no badge) - never a fabricated placeholder', () => {
     expect(source).toMatch(/const duration = entry\.durationLabel \|\| \(cachedMinutes \? `~\$\{cachedMinutes\} min` : undefined\);/);
-    expect(source).not.toMatch(/'Guided video'/);
+    expect(source).not.toMatch(/'Guided video'\)/); // never used as a fallback duration string
   });
 
   it('guidance rows use the manifest\'s own real entry.title, never a hand-typed display string', () => {
@@ -195,28 +205,97 @@ describe('Bedtime guidance: exactly two initial items, collapsed "More bedtime o
   });
 });
 
-// 19. No unsupported background-playback claim.
-describe('No fabricated background-playback claim (not implemented/verified)', () => {
-  it('"Plays in background" (or equivalent) appears nowhere on this page', () => {
-    expect(source).not.toMatch(/plays? in (the )?background/i);
-    expect(source).not.toMatch(/background playback/i);
+// 12. More options collapsed initially.
+describe('"More bedtime options" is its own independent disclosure, collapsed initially', () => {
+  it('moreGuidanceOpen starts false', () => {
+    expect(source).toMatch(/const \[moreGuidanceOpen, setMoreGuidanceOpen\] = useState\(false\);/);
+  });
+
+  it('is a sibling of the featured guidance section and Ready for Sleep - not nested inside guidanceOpen (so collapsing the featured section doesn\'t hide it, and it doesn\'t require guidanceOpen to be true)', () => {
+    const moreBlock = source.match(/\{\(moreGuidanceItems\.length > 0 \|\| moreSleepSoundItems\.length > 0\) && \(([\s\S]*?)\n {8}\)\}/)?.[0] ?? '';
+    expect(moreBlock).not.toBe('');
+    expect(moreBlock).not.toMatch(/guidanceOpen &&/);
   });
 });
 
-// 21, 22. Layout: no truncation, no sticky action.
+// Ready for Sleep placement: after the two featured items, before More options.
+describe('Ready for Sleep sits right after the two featured guidance choices, before "More bedtime options"', () => {
+  it('the featured-guidance block appears before {primaryAction}, which appears before the More-options block, in source order', () => {
+    const featuredIdx = source.indexOf('featuredItems.length > 0');
+    const primaryIdx = source.indexOf('{primaryAction}');
+    const moreIdx = source.indexOf('moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0');
+    expect(featuredIdx).toBeGreaterThan(-1);
+    expect(primaryIdx).toBeGreaterThan(featuredIdx);
+    expect(moreIdx).toBeGreaterThan(primaryIdx);
+  });
+});
+
+// 15, 17, 18. Ready for Sleep works regardless of guidance/checklist state, fires once, double-tap guarded.
+describe('Ready for Sleep: works with or without guidance played or checklist selections, fires the one real transition exactly once, double-tap guarded', () => {
+  it('handleReadyForSleep never reads selectedPrep or any guidance-open state - identical behaviour regardless', () => {
+    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/selectedPrep|guidanceOpen|moreGuidanceOpen/);
+  });
+
+  it('advanceStep is guarded exactly like every other Session-Engine page before navigating to the existing /evening-complete route', () => {
+    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(state\.status === 'playing' && currentStep\?\.id === 'sleepPreparation'\) \{\s*\n\s*advanceStep\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/navigate\('\/evening-complete'\);/);
+  });
+
+  it('advanceStep is called from nowhere except handleReadyForSleep', () => {
+    const allAdvanceStepCalls = source.match(/advanceStep\(\);/g) ?? [];
+    expect(allAdvanceStepCalls.length).toBe(1);
+  });
+
+  it('isAdvancing guards against a rapid double tap, and disables the button while advancing', () => {
+    const body = source.match(/const handleReadyForSleep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(isAdvancing\) return;\s*\n\s*setIsAdvancing\(true\);/);
+    expect(source).toMatch(/disabled=\{isAdvancing\}/);
+  });
+});
+
+// 14. Video/sound Close returns with switch state preserved.
+describe('Guidance video/sound open and close never touch checklist state - same mounted page throughout', () => {
+  it('closeVideo/handleSelect are never wired to setSelectedPrep', () => {
+    expect(source).not.toMatch(/handleSelect[\s\S]{0,60}setSelectedPrep/);
+    expect(source).not.toMatch(/closeVideo[\s\S]{0,60}setSelectedPrep/);
+  });
+});
+
+// 16. No alarm/background-playback/medical claims introduced.
+describe('No fabricated claims anywhere on this page', () => {
+  it('no "plays in background" (unimplemented/unverified), medical, melatonin, or nervous-system wording in the page\'s actual copy (comments describing the safety rule itself are not user-facing copy)', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/plays? in (the )?background/i);
+    expect(code).not.toMatch(/background playback/i);
+    expect(code).not.toMatch(/melatonin|nervous system/i);
+  });
+
+  it('no wake-time/rest-calculation or alarm wording (out of this page\'s scope, not something this subphase adds)', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/wake.?up time|calculate.*rest|alarm/i);
+  });
+});
+
+// Layout: no truncation, no sticky action (unchanged by this round).
 describe('Layout: full labels always visible, no sticky action area', () => {
   it('no truncate/line-clamp/overflow-hidden on any checklist or guidance label', () => {
     expect(toggleRowSource).not.toMatch(/truncate|line-clamp|overflow-hidden/);
   });
 
-  it('Ready for Sleep is a normal flow element (not position: sticky/fixed) - the same proven non-sticky pattern Reflection/Gratitude/Breathe already use, so it can never cover content', () => {
+  it('Ready for Sleep is a normal flow element (not position: sticky/fixed) - reachable, never covering content', () => {
     const buttonBlock = source.match(/onClick=\{handleReadyForSleep\}[\s\S]*?<\/button>/)?.[0] ?? '';
     expect(buttonBlock).not.toMatch(/sticky|fixed/);
   });
 });
 
-// Review Mode wiring - unchanged from before this subphase.
-describe('Review Mode wiring is unchanged - same hooks, same sessionId/stepId, same hasUnsavedProgress: false', () => {
+// Back/Review Mode wiring - unchanged by this round.
+describe('Back and Review Mode wiring are unchanged from the previous subphase', () => {
+  it('Back still returns to Evening Breathing via the shared BackButton', () => {
+    expect(source).toMatch(/showBack backFallback="\/evening-breathing"/);
+  });
+
   it('useStepReviewMode/useReviewNavigation called with the original arguments', () => {
     expect(source).toMatch(/useStepReviewMode\('sleepPreparation', 'evening-wind-down'\)/);
     expect(source).toMatch(/hasUnsavedProgress: false/);

@@ -20,14 +20,12 @@ import { getStepLabel } from '../lib/stepLabels';
  * Phase 3 (Prepare for Rest subphase) — PrepareForRest
  *
  * Fifth (terminal-before-completion) step of the evening-wind-down
- * session. Redesigned from a static, non-interactive checklist + a long
- * permanently-visible video/Sleep Sounds list into four optional,
- * independently toggleable preparation actions plus a compact, collapsed
- * bedtime-guidance disclosure - matching the tap-first/collapsed-guidance
- * approach already approved for Reflection/Gratitude, adapted here for a
- * genuinely multi-select (never single-select) checklist, so the control
- * is a plain toggle button (PrepareToggleRow, aria-pressed), never a
- * radio (Reflection/Gratitude's AnswerOptionButton).
+ * session. Four optional, independently toggleable preparation actions
+ * (PrepareToggleRow - a real switch, role="switch"/aria-checked, never a
+ * radio) plus a bedtime-content section that is DISCOVERABLE (expanded by
+ * default, explicit "video or sleep sound" heading) rather than a vague
+ * collapsed "guidance" row a user might bypass without understanding what
+ * it offers.
  *
  * CHECKLIST STATE - plain local React state only, deliberately
  *   Nothing about which preparation actions are toggled is written
@@ -40,47 +38,49 @@ import { getStepLabel } from '../lib/stepLabels';
  *   existing places that clear routine-scoped local state) - genuinely
  *   shared infrastructure well outside this subphase's own scope ("this
  *   task covers only... Prepare for Rest"). Plain component state already
- *   satisfies every requirement that matters: selections survive opening
- *   and closing a guidance video (the modal is layered on this same
- *   mounted page, never a real navigation), toggling can never leak
- *   between users or carry a stale selection into a new day (there is
- *   nothing stored to leak or carry), and "Start over" trivially clears
- *   it (a fresh mount has no prior state to begin with). The one thing
- *   this does NOT do is survive a full Back-then-forward ROUND TRIP
- *   (leaving to Evening Breathing and actually returning unmounts and
- *   remounts this page) - disclosed here rather than silently claimed.
+ *   satisfies every requirement that matters: switches survive opening
+ *   and closing a video/sound (the modal is layered on this same mounted
+ *   page, never a real navigation), toggling can never leak between
+ *   users or carry a stale selection into a new day (there is nothing
+ *   stored to leak or carry), and "Start over" trivially clears it (a
+ *   fresh mount has no prior state to begin with). The one thing this
+ *   does NOT do is survive a full Back-then-forward ROUND TRIP (leaving
+ *   to Evening Breathing and actually returning unmounts and remounts
+ *   this page) - disclosed here rather than silently claimed.
  *
  * advanceStep() is guarded exactly like every other Session-Engine-
  * consuming page in this codebase — see Reflection.jsx's own doc comment
  * for the full reasoning. sleepPreparation -> completion is immediately
- * adjacent, so advanceStep() (not advanceToStep) is correct here,
- * unchanged from before this subphase. `isAdvancing` guards against a
- * rapid double-tap firing this (and the one real completion event it
- * guards) twice before the resulting navigate() unmounts this page.
+ * adjacent, so advanceStep() (not advanceToStep) is correct here.
+ * `isAdvancing` guards against a rapid double-tap firing this (and the
+ * one real completion event it guards) twice before the resulting
+ * navigate() unmounts this page.
  *
- * GUIDANCE: E05 (Night-time Calm) and E30 (Peaceful Sleep) are the two
- * strongest, most literally sleep/night-specific matches in the real
- * catalogue (both a "Watch:" title AND description name sleep/night
- * directly) - shown first, expanded. E20 (Quieting the Mind) and E27
- * (Deep Relaxation) are real but more general relaxation content, and
- * SL01-08 (the existing real Sleep Sounds library) are a different kind
- * of content entirely (ambient sound, not a guided video) - both live
- * under the further-collapsed "More bedtime options" rather than
- * padding the initial two-item view. No id here is invented; every one
- * already existed on this exact page before this subphase.
+ * FEATURED GUIDANCE (round 2 correction): exactly one guided video (E05,
+ * "Night-time Calm" - the strongest, most literally sleep/night-specific
+ * real video) and one real Sleep Sound (SL01, "Rain" - this library's own
+ * first/flagship item) are shown immediately, expanded by default, each
+ * explicitly labelled by content type ("Guided video"/"Sleep sound") so
+ * a user understands what's on offer without an extra tap. Ready for
+ * Sleep is placed immediately after these two, so it stays quickly
+ * reachable without scrolling past a long list - "More bedtime options"
+ * (E20/E27/E30 plus the remaining SL02-08) is its own, separately
+ * collapsed disclosure AFTER Ready for Sleep, for a user who wants to
+ * keep browsing. Neither featured id is duplicated inside More options.
  */
-const INITIAL_GUIDANCE = [
-  { id: 'E05', blurb: 'A short guided video to ease toward sleep.' },
-  { id: 'E30', blurb: 'A guided video to ease you into peaceful sleep.' }
+const FEATURED_GUIDANCE = [
+  { id: 'E05', kind: 'Guided video', blurb: 'A short guided video to ease toward sleep.' },
+  { id: 'SL01', kind: 'Sleep sound', blurb: 'Settle into the steady rhythm of gentle rain.' }
 ];
 
 const MORE_GUIDANCE = [
+  { id: 'E30', blurb: 'A guided video to ease you into peaceful sleep.' },
   { id: 'E20', blurb: 'A guided video to quiet a busy mind before rest.' },
   { id: 'E27', blurb: 'A guided video for deep physical relaxation.' }
 ];
 
-const SLEEP_SOUND_VIDEOS = [
-  { id: 'SL01', blurb: 'Settle into the steady rhythm of gentle rain.' },
+// SL01 is featured above - not repeated here.
+const MORE_SLEEP_SOUNDS = [
   { id: 'SL02', blurb: 'Rest with slow waves meeting a quiet shore.' },
   { id: 'SL03', blurb: 'Unwind among soft woodland sounds.' },
   { id: 'SL04', blurb: 'Relax beside the warmth of a gently crackling fire.' },
@@ -99,18 +99,15 @@ const PREP_ITEMS = [
   { id: 'finish', icon: 'nights_stay', title: 'Let the day finish.', support: 'Everything else can wait until tomorrow.' }
 ];
 
-const buildGuidanceItem = ({ id, blurb }) => {
+const buildGuidanceItem = ({ id, blurb, kind }) => {
   const entry = getBetaVideoById(id);
   if (!entry) return null;
   const cachedMinutes = getCachedDurationMinutes(id);
   // "show cached/known duration only when accurate; otherwise omit
-  // duration—never fabricate it" - unlike Reflection/Gratitude's own
-  // guidance (which falls back to a plain "Guided video" label), this
-  // subphase's own approved copy is to omit the badge entirely when no
-  // real duration is known - BetaVideoRow already renders no badge at
-  // all when `duration` is falsy.
+  // duration—never fabricate it" - BetaVideoRow already renders no badge
+  // at all when `duration` is falsy.
   const duration = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : undefined);
-  return { id, entry, blurb, duration };
+  return { id, entry, blurb, duration, kind };
 };
 
 export const PrepareForRest = () => {
@@ -132,7 +129,9 @@ export const PrepareForRest = () => {
   } = useProtectedVideo();
 
   const [selectedPrep, setSelectedPrep] = useState(() => new Set());
-  const [guidanceOpen, setGuidanceOpen] = useState(false);
+  // Expanded by default (round 2 correction) - discoverability, not a
+  // hidden extra tap, is the whole point of this fix.
+  const [guidanceOpen, setGuidanceOpen] = useState(true);
   const [moreGuidanceOpen, setMoreGuidanceOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
 
@@ -154,9 +153,30 @@ export const PrepareForRest = () => {
     navigate('/evening-complete');
   };
 
-  const initialGuidanceItems = INITIAL_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
+  const featuredItems = FEATURED_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
   const moreGuidanceItems = MORE_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
-  const sleepSoundItems = SLEEP_SOUND_VIDEOS.map(buildGuidanceItem).filter(Boolean);
+  const moreSleepSoundItems = MORE_SLEEP_SOUNDS.map(buildGuidanceItem).filter(Boolean);
+
+  const primaryAction = isReviewMode ? (
+    currentStep && (
+      <button
+        onClick={() => navigate(routeForStep(currentStep.id))}
+        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px]"
+      >
+        <span>Return to {getStepLabel(currentStep.id)}</span>
+        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+      </button>
+    )
+  ) : (
+    <button
+      onClick={handleReadyForSleep}
+      disabled={isAdvancing}
+      className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-70"
+    >
+      <span>Ready for Sleep</span>
+      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+    </button>
+  );
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing">
@@ -186,8 +206,8 @@ export const PrepareForRest = () => {
           ))}
         </div>
 
-        {initialGuidanceItems.length > 0 && (
-          <div className="space-y-2">
+        {featuredItems.length > 0 && (
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => setGuidanceOpen((v) => !v)}
@@ -195,9 +215,9 @@ export const PrepareForRest = () => {
               aria-controls="prepare-for-rest-guidance"
               className="w-full flex items-center justify-between gap-3 glass-panel rounded-2xl p-4 min-h-[44px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span className="text-sm font-semibold text-on-surface">Would some bedtime guidance help?</span>
+              <span className="text-sm font-semibold text-on-surface text-left">Choose a bedtime video or sleep sound</span>
               <span
-                className="material-symbols-outlined text-on-surface-variant transition-transform"
+                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
                 style={{ transform: guidanceOpen ? 'rotate(180deg)' : 'none' }}
                 aria-hidden="true"
               >
@@ -205,64 +225,54 @@ export const PrepareForRest = () => {
               </span>
             </button>
             {guidanceOpen && (
-              <div id="prepare-for-rest-guidance" className="space-y-2">
-                {initialGuidanceItems.map(({ id, entry, blurb, duration }) => (
-                  <BetaVideoRow
-                    key={id}
-                    title={entry.title}
-                    description={blurb}
-                    duration={duration}
-                    onClick={() => handleSelect(id)}
-                  />
+              <div id="prepare-for-rest-guidance" className="space-y-3">
+                <p className="text-xs text-on-surface-variant px-1">Optional — play something calming, or continue when you're ready.</p>
+                {featuredItems.map(({ id, entry, blurb, duration, kind }) => (
+                  <div key={id} className="space-y-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">{kind}</span>
+                    <BetaVideoRow title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
+                  </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
 
-                {(moreGuidanceItems.length > 0 || sleepSoundItems.length > 0) && (
+        {primaryAction}
+
+        {(moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0) && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setMoreGuidanceOpen((v) => !v)}
+              aria-expanded={moreGuidanceOpen}
+              aria-controls="prepare-for-rest-more-guidance"
+              className="text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors px-1 min-h-[44px] flex items-center gap-1"
+            >
+              <span
+                className="material-symbols-outlined text-sm transition-transform"
+                style={{ transform: moreGuidanceOpen ? 'rotate(180deg)' : 'none' }}
+                aria-hidden="true"
+              >
+                expand_more
+              </span>
+              <span>More bedtime options</span>
+            </button>
+            {moreGuidanceOpen && (
+              <div id="prepare-for-rest-more-guidance" className="space-y-4">
+                {moreGuidanceItems.length > 0 && (
                   <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setMoreGuidanceOpen((v) => !v)}
-                      aria-expanded={moreGuidanceOpen}
-                      aria-controls="prepare-for-rest-more-guidance"
-                      className="text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors px-1 min-h-[44px] flex items-center gap-1"
-                    >
-                      <span
-                        className="material-symbols-outlined text-sm transition-transform"
-                        style={{ transform: moreGuidanceOpen ? 'rotate(180deg)' : 'none' }}
-                        aria-hidden="true"
-                      >
-                        expand_more
-                      </span>
-                      <span>More bedtime options</span>
-                    </button>
-                    {moreGuidanceOpen && (
-                      <div id="prepare-for-rest-more-guidance" className="space-y-4">
-                        <div className="space-y-2">
-                          {moreGuidanceItems.map(({ id, entry, blurb, duration }) => (
-                            <BetaVideoRow
-                              key={id}
-                              title={entry.title}
-                              description={blurb}
-                              duration={duration}
-                              onClick={() => handleSelect(id)}
-                            />
-                          ))}
-                        </div>
-                        {sleepSoundItems.length > 0 && (
-                          <div className="space-y-2">
-                            <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
-                            {sleepSoundItems.map(({ id, entry, blurb, duration }) => (
-                              <BetaVideoRow
-                                key={id}
-                                title={entry.title}
-                                description={blurb}
-                                duration={duration}
-                                onClick={() => handleSelect(id)}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {moreGuidanceItems.map(({ id, entry, blurb, duration }) => (
+                      <BetaVideoRow key={id} title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
+                    ))}
+                  </div>
+                )}
+                {moreSleepSoundItems.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
+                    {moreSleepSoundItems.map(({ id, entry, blurb, duration }) => (
+                      <BetaVideoRow key={id} title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
+                    ))}
                   </div>
                 )}
               </div>
@@ -270,27 +280,6 @@ export const PrepareForRest = () => {
           </div>
         )}
       </div>
-
-      {isReviewMode ? (
-        currentStep && (
-          <button
-            onClick={() => navigate(routeForStep(currentStep.id))}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px]"
-          >
-            <span>Return to {getStepLabel(currentStep.id)}</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
-        )
-      ) : (
-        <button
-          onClick={handleReadyForSleep}
-          disabled={isAdvancing}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-70"
-        >
-          <span>Ready for Sleep</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
-      )}
 
       {/* Closing this leaves the user right here on Prepare for Rest —
           already "Evening Wind-down", no navigation needed for a return
