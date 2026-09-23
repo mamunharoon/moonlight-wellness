@@ -1,0 +1,52 @@
+// Build 15 Phase B — RecommendationCard.jsx regression guard. Source-level
+// checks - this repo's Vitest has no rendering engine.
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const source = readFileSync(fileURLToPath(new URL('./RecommendationCard.jsx', import.meta.url)), 'utf-8');
+
+describe('RecommendationCard.jsx — shell only, every value and action is a prop', () => {
+  it('holds no state and owns no recommendation logic of its own', () => {
+    expect(source).not.toMatch(/useState|useEffect/);
+  });
+
+  it('title, duration, description and match reason all come from props, never hardcoded copy', () => {
+    expect(source).toMatch(/\{title\}/);
+    expect(source).toMatch(/\{durationLabel\}/);
+    expect(source).toMatch(/\{description\}/);
+    expect(source).toMatch(/Why this: \{matchReason\}/);
+  });
+
+  it('the "Closest match" badge only renders when the caller says this is a closest match, never invented', () => {
+    expect(source).toMatch(/\{isClosestMatch && \(/);
+  });
+});
+
+describe('RecommendationCard.jsx — Start button: page owns label, busy and disabled state', () => {
+  it('startLabel and chooseAnotherLabel are required props (no default value), so each page keeps its own exact copy', () => {
+    expect(source).toMatch(/startLabel,/);
+    expect(source).not.toMatch(/startLabel = /);
+    expect(source).toMatch(/chooseAnotherLabel/);
+    expect(source).not.toMatch(/chooseAnotherLabel = /);
+  });
+
+  it('startDisabled and startBusy default to false, so a caller that never sets them (Meditate) gets its existing simpler behaviour unchanged', () => {
+    expect(source).toMatch(/startDisabled = false/);
+    expect(source).toMatch(/startBusy = false/);
+  });
+
+  it('the button is wired to disabled={startDisabled} and shows a busy label only when startBusy is true', () => {
+    expect(source).toMatch(/disabled=\{startDisabled\}/);
+    expect(source).toMatch(/\{startBusy \? 'Checking…' : startLabel\}/);
+  });
+
+  it('the Start button carries a visible focus-visible ring', () => {
+    expect(source).toMatch(/onClick=\{onStart\}[\s\S]{0,300}focus-visible:ring-2 focus-visible:ring-primary/);
+  });
+
+  it('"Choose another" only renders when the caller says it should (showChooseAnother), not unconditionally', () => {
+    expect(source).toMatch(/\{showChooseAnother && \(/);
+    expect(source).toMatch(/onClick=\{onChooseAnother\}/);
+  });
+});

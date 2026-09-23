@@ -119,7 +119,11 @@ describe('Home.jsx — "Watch: How WakeWise works" Introduction replay control',
     const groupMatch = homeSource.match(/<div className="space-y-2">\s*\{greetingText[\s\S]*?<\/Link>\s*<\/div>\s*<\/div>/);
     expect(groupMatch).not.toBeNull();
     const group = groupMatch[0];
-    expect(group).toMatch(/<h2 className="text-3xl font-extrabold text-on-surface tracking-tight">\{greetingText\}<\/h2>/);
+    // Build 15 Phase B: greeting bumped text-3xl -> text-4xl for stronger
+    // visual hierarchy, per the approved design direction - the group
+    // structure itself (still the first thing in this space-y-2 wrapper)
+    // is what this test actually guards.
+    expect(group).toMatch(/<h2 className="text-4xl font-extrabold text-on-surface tracking-tight">\{greetingText\}<\/h2>/);
     expect(group).toMatch(/<div className="flex justify-center">/);
     expect(group).toMatch(/<Link\s+to="\/introduction"/);
     // The link itself carries no inline style and no negative-margin utility.

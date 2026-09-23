@@ -66,14 +66,14 @@ describe('AnytimeReset.jsx — required navigation controls and Back semantics',
     expect(body).toMatch(/else if \(step === 'recommend'\) setStep\('duration'\);/);
   });
 
-  it('step 1 (need) uses the shared BackButton with fallback="/" - Home is the real exit from step 1', () => {
-    expect(source).toMatch(/step === 'need' \? \(\s*<BackButton fallback="\/" \/>/);
+  it('step 1 (need) tells the shared JourneyHeader to use the real BackButton with fallback="/" - Home is the real exit from step 1 (JourneyHeader.jsx\'s own test file covers what it does with this prop)', () => {
+    expect(source).toMatch(/<JourneyHeader\s*\n\s*showBackButton=\{step === 'need'\}\s*\n\s*backFallback="\/"/);
   });
 
-  it('a dedicated Close control navigates to Home directly', () => {
+  it('a dedicated Close control navigates to Home directly (Phase B: wired via JourneyHeader\'s onClose prop - its own test file asserts the real aria-label="Close" markup)', () => {
     const body = source.match(/const handleClose = \(\) => [\s\S]*?;/)?.[0] ?? '';
     expect(body).toMatch(/navigate\('\/'\)/);
-    expect(source).toMatch(/aria-label="Close"[\s\S]{0,60}onClick=\{handleClose\}|onClick=\{handleClose\}[\s\S]{0,120}aria-label="Close"/);
+    expect(source).toMatch(/onClose=\{handleClose\}/);
   });
 
   it('Change need and Change time controls exist and route to the correct steps', () => {
@@ -81,8 +81,8 @@ describe('AnytimeReset.jsx — required navigation controls and Back semantics',
     expect(source).toMatch(/const handleChangeTime = \(\) => setStep\('duration'\);/);
   });
 
-  it('Choose another only renders when more than one item is available, and advances without ever resetting need/duration', () => {
-    expect(source).toMatch(/items\.length > 1 &&/);
+  it('Choose another only renders when more than one item is available (Phase B: passed as RecommendationCard\'s showChooseAnother prop), and advances without ever resetting need/duration', () => {
+    expect(source).toMatch(/showChooseAnother=\{items\.length > 1\}/);
     const body = source.match(/const handleChooseAnother = \(\) => [\s\S]*?;/)?.[0] ?? '';
     expect(body).toMatch(/setOptionIndex\(\(i\) => i \+ 1\)/);
     expect(body).not.toMatch(/setNeedId|setDurationId/);
@@ -96,14 +96,19 @@ describe('AnytimeReset.jsx — required navigation controls and Back semantics',
 });
 
 describe('AnytimeReset.jsx — 44x44 touch targets', () => {
-  it('need chips carry min-h-[44px]', () => {
-    const body = source.match(/aria-label="What do you need right now\?"[\s\S]*?<\/div>\s*<\/div>\s*\)\}/)?.[0] ?? '';
-    expect(body).toMatch(/min-h-\[44px\]/);
+  // Build 15 Phase B: need chips and duration rows are now the shared
+  // SelectionChip/SelectionRow components (their own test files assert
+  // the actual min-h-[44px]/selected-state markup) - this file's job is
+  // only to confirm AnytimeReset.jsx actually renders them, wired to the
+  // real need/duration data and handlers.
+  it('the need grid renders one SelectionChip per real ANYTIME_RESET_NEEDS entry, wired to handleSelectNeed', () => {
+    expect(source).toMatch(/\{ANYTIME_RESET_NEEDS\.map\(\(need\) => \(\s*\n\s*<SelectionChip/);
+    expect(source).toMatch(/onClick=\{\(\) => handleSelectNeed\(need\.id\)\}/);
   });
 
-  it('duration options carry min-h-[44px]', () => {
-    const body = source.match(/aria-label="How much time do you have\?"[\s\S]*?<\/div>\s*<\/div>\s*\)\}/)?.[0] ?? '';
-    expect(body).toMatch(/min-h-\[44px\]/);
+  it('the duration list renders one SelectionRow per real ANYTIME_RESET_DURATIONS entry, wired to handleSelectDuration', () => {
+    expect(source).toMatch(/\{ANYTIME_RESET_DURATIONS\.map\(\(duration\) => \(\s*\n\s*<SelectionRow/);
+    expect(source).toMatch(/onClick=\{\(\) => handleSelectDuration\(duration\.id\)\}/);
   });
 
   it('Change need / Change time controls carry min-h-[44px]', () => {
@@ -111,26 +116,22 @@ describe('AnytimeReset.jsx — 44x44 touch targets', () => {
     expect(body).toMatch(/min-h-\[44px\]/);
   });
 
-  it('the step-back and Close controls are explicit 44x44 (w-11 h-11)', () => {
-    const backBtn = source.match(/onClick=\{handleStepBack\}[\s\S]{0,300}/)?.[0] ?? '';
-    expect(backBtn).toMatch(/w-11 h-11/);
-    const closeBtn = source.match(/onClick=\{handleClose\}[\s\S]{0,300}/)?.[0] ?? '';
-    expect(closeBtn).toMatch(/w-11 h-11/);
+  it('the step-back and Close handlers are wired through to the shared JourneyHeader (its own test file asserts the real w-11 h-11 markup)', () => {
+    expect(source).toMatch(/onStepBack=\{handleStepBack\}/);
+    expect(source).toMatch(/onClose=\{handleClose\}/);
   });
 });
 
 describe('AnytimeReset.jsx — selected state visible beyond colour alone', () => {
-  it('need chips use aria-pressed reflecting selection', () => {
-    expect(source).toMatch(/aria-pressed=\{needId === need\.id\}/);
+  // SelectionChip/SelectionRow's own test files assert aria-pressed +
+  // border/check-icon/font-weight markup; this file confirms the real
+  // needId/durationId comparison is what's actually passed as `selected`.
+  it('need chips receive the real needId === need.id comparison as `selected`, not a hardcoded value', () => {
+    expect(source).toMatch(/selected=\{needId === need\.id\}/);
   });
 
-  it('duration options use aria-pressed reflecting selection', () => {
-    expect(source).toMatch(/aria-pressed=\{durationId === duration\.id\}/);
-  });
-
-  it('selected chips/options carry a border-primary class, not color/background alone', () => {
-    expect(source).toMatch(/isSelected[\s\S]*?border-primary|needId === need\.id[\s\S]{0,40}\n[\s\S]{0,120}border-primary/);
-    expect(source).toMatch(/durationId === duration\.id \? 'border-primary/);
+  it('duration rows receive the real durationId === duration.id comparison as `selected`', () => {
+    expect(source).toMatch(/selected=\{durationId === duration\.id\}/);
   });
 });
 
@@ -179,10 +180,10 @@ describe('AnytimeReset.jsx — desktop layout: bounded/centred container, never 
     expect(rootOpenTag).toMatch(/mx-auto/);
   });
 
-  it('horizontal padding is applied via safe-area-aware calc(), never a bare fixed px value that could double up with a safe-area inset elsewhere', () => {
+  it('horizontal padding is safe-area-aware AND responsive (Phase B: 20px default, clamped down to 16px on very small screens) - never a bare fixed px value that could double up with a safe-area inset elsewhere', () => {
     const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
-    expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+    expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-left\)\)'/);
+    expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-right\)\)'/);
   });
 
   it('width stays fluid (max-w-md + w-full), never a fixed pixel width that could overflow a narrow mobile viewport', () => {
@@ -222,8 +223,10 @@ describe('AnytimeReset.jsx — auth-loading guard and server-revalidated Start (
     expect(body).toMatch(/\} catch \{\s*\n\s*setSignInPromptOpen\(true\);/);
   });
 
-  it('the Start button is disabled while auth is loading or being revalidated, so a tap cannot race either check', () => {
-    expect(source).toMatch(/onClick=\{handleBegin\}\s*\n\s*disabled=\{authLoading \|\| verifyingAuth\}/);
+  it('the Start button is disabled while auth is loading or being revalidated, so a tap cannot race either check (Phase B: passed as RecommendationCard\'s startDisabled/startBusy props, same booleans as before)', () => {
+    expect(source).toMatch(/onStart=\{handleBegin\}/);
+    expect(source).toMatch(/startDisabled=\{authLoading \|\| verifyingAuth\}/);
+    expect(source).toMatch(/startBusy=\{verifyingAuth\}/);
   });
 
   it('this stays a read-only client-side pre-check only - get-beta-video-url remains the real server-side gate, never bypassed or weakened here', () => {
@@ -239,12 +242,16 @@ describe('AnytimeReset.jsx — cancelling sign-in preserves the recommendation a
   });
 });
 
-describe('AnytimeReset.jsx — actual duration always shown, closest-match always labelled', () => {
-  it('renders the item\'s own real duration via formatDuration, never a hardcoded label', () => {
-    expect(source).toMatch(/\{formatDuration\(current\.anytimeReset\.durationSeconds\)\}/);
+describe('AnytimeReset.jsx — actual duration always shown, closest-match always labelled (Phase B: passed as RecommendationCard props)', () => {
+  it('passes the item\'s own real duration via formatDuration as durationLabel, never a hardcoded label', () => {
+    expect(source).toMatch(/durationLabel=\{formatDuration\(current\.anytimeReset\.durationSeconds\)\}/);
   });
 
-  it('shows "Closest match" whenever matchQuality is not exact', () => {
-    expect(source).toMatch(/recommendation\.matchQuality === 'closest'[\s\S]{0,200}Closest match/);
+  it('passes isClosestMatch from the real matchQuality check, not a hardcoded value - RecommendationCard.jsx\'s own test asserts it renders "Closest match" when true', () => {
+    expect(source).toMatch(/isClosestMatch=\{recommendation\.matchQuality === 'closest'\}/);
+  });
+
+  it('passes the item\'s own real matchReason as matchReason, never a hardcoded string', () => {
+    expect(source).toMatch(/matchReason=\{current\.matchReason\}/);
   });
 });

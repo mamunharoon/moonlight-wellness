@@ -26,15 +26,16 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const source = read('./Meditate.jsx');
 
 describe('Meditate.jsx — the on-screen back control itself is already correct (unchanged by this fix)', () => {
-  it('is a real accessible button with type="button" and the required "Go back" name', () => {
-    const body = source.match(/<button\s+type="button"\s+onClick=\{handleStepBack\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(body).not.toBe('');
-    expect(body).toMatch(/aria-label="Go back"/);
-  });
+  // Build 15 Phase B: the back/Close header markup (the button element
+  // itself, its aria-label, its w-11 h-11 touch target, BackButton reuse
+  // on the first step) moved into the shared <JourneyHeader> component -
+  // that markup/accessibility guarantee is now covered by
+  // journey/JourneyHeader.test.js. What stays here is that Meditate.jsx
+  // still wires its OWN handleStepBack/step logic into JourneyHeader
+  // correctly, which is the actual thing this regression fix is about.
 
-  it('meets the 44x44px minimum touch target (w-11 h-11 in this app\'s Tailwind scale)', () => {
-    const body = source.match(/<button\s+type="button"\s+onClick=\{handleStepBack\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(body).toMatch(/w-11 h-11/);
+  it('passes handleStepBack and the correct showBackButton condition (duration is still the wizard\'s first step) into JourneyHeader', () => {
+    expect(source).toMatch(/<JourneyHeader\s*\n\s*showBackButton=\{step === 'duration'\}\s*\n\s*backFallback="\/"\s*\n\s*onStepBack=\{handleStepBack\}/);
   });
 
   it('steps back exactly one wizard level: need -> duration, recommend -> need, pure local state, no navigate() call', () => {
@@ -42,10 +43,6 @@ describe('Meditate.jsx — the on-screen back control itself is already correct 
     expect(body).toMatch(/if \(step === 'need'\) setStep\('duration'\);/);
     expect(body).toMatch(/else if \(step === 'recommend'\) setStep\('need'\);/);
     expect(body).not.toMatch(/navigate\(/);
-  });
-
-  it('the duration step (the wizard\'s first step) uses the real, shared BackButton instead, falling back to Home', () => {
-    expect(source).toMatch(/step === 'duration' \? \(\s*\n\s*<BackButton fallback="\/" \/>/);
   });
 });
 

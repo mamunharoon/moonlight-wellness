@@ -540,11 +540,32 @@ export const Home = () => {
   // a literal, directly-grep-able reference to that routine's own handler
   // (handleMorningAction/handleEveningAction/setActiveDialog(...)) - never
   // a generically-named prop indirection.
-  const nextStepCardBody = (card) => (
+  // Build 15 Phase B — `stepProgressLabel` is an OPTIONAL third param, used
+  // only by the in-progress card variants below. It's the exact same
+  // "Step X of Y" string `resolveStepLabel` already computes from real
+  // Session Registry data (already used elsewhere on this page, for the
+  // stale-choice card and cross-routine banner) - never a new value, just
+  // a second place the same real data is shown, so a paused routine's
+  // card states its progress as plainly as its title already does.
+  const nextStepCardBody = (card, stepProgressLabel) => (
     <>
-      <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
-        {card.eyebrow}
-      </span>
+      {/* inline-flex (not flex/block) deliberately - Morning's cards are
+          text-center, Evening's are not, and an inline-level box is what
+          lets this chip row inherit whichever alignment its own card
+          ancestor already uses (the same way the original bare <span>
+          did) rather than this wrapper imposing its own justify-content
+          and silently re-centering Evening's otherwise left-aligned
+          cards. */}
+      <div className="inline-flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+          {card.eyebrow}
+        </span>
+        {stepProgressLabel && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">
+            {stepProgressLabel}
+          </span>
+        )}
+      </div>
       <div className="space-y-2">
         <h3 className="text-2xl font-bold leading-tight text-on-surface">{card.title}</h3>
         {card.supportingText && (
@@ -714,7 +735,7 @@ export const Home = () => {
           touch target regardless of the shorter label's own line height. */}
       <div className="space-y-2">
         {greetingText && (
-          <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
+          <h2 className="text-4xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
         )}
         <div className="flex justify-center">
           <Link
@@ -743,7 +764,18 @@ export const Home = () => {
               both explicit choices are always shown side by side. */}
           {morningCardState === 'not-started' && morningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]"
+              className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm"
+              // Build 15 Phase B fix: an inline style, not the
+              // bg-morning-tint/10 utility class - .glass-panel's own
+              // plain-CSS `background` shorthand sits later in the
+              // compiled stylesheet than any Tailwind utility (it isn't
+              // inside @layer utilities), so it silently wins over a
+              // same-specificity bg-* class every time, discovered live
+              // during this phase's own visual verification. An inline
+              // style always wins regardless of stylesheet order - the
+              // same fix already established for the safe-area padding
+              // elsewhere in this app.
+              style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
               role="region"
               aria-label="Unfinished previous Rise & Reset routine"
             >
@@ -781,7 +813,10 @@ export const Home = () => {
               recommended card, copy varying by the real time of day
               (morning/afternoon/evening-night) per nextStepCard.js. */}
           {morningCardState === 'not-started' && !morningHasStaleChoice && (
-            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+            <div
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
+            >
               {nextStepCardBody(morningNotStartedCard)}
               <button
                 type="button"
@@ -795,8 +830,11 @@ export const Home = () => {
 
           {/* MORNING — paused today. */}
           {morningCardState === 'in-progress' && (
-            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
-              {nextStepCardBody(morningInProgressCard)}
+            <div
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
+            >
+              {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex))}
               <button
                 type="button"
                 onClick={handleMorningAction}
@@ -816,7 +854,10 @@ export const Home = () => {
 
           {/* MORNING — completed today. */}
           {morningCardState === 'completed' && (
-            <div className="glass-panel p-8 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] dark:from-[#1e1a17] dark:to-[#2d221c]">
+            <div
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
+            >
               {nextStepCardBody(morningCompletedCard)}
               <button
                 type="button"
@@ -837,7 +878,8 @@ export const Home = () => {
               Morning stale-choice card exactly. */}
           {eveningCardState === 'not-started' && eveningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent"
+              className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
               role="region"
               aria-label="Unfinished previous Evening Wind-Down routine"
             >
@@ -871,7 +913,10 @@ export const Home = () => {
 
           {/* EVENING — not started, no stale choice. */}
           {eveningCardState === 'not-started' && !eveningHasStaleChoice && (
-            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+            <div
+              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
+            >
               {nextStepCardBody(eveningNotStartedCard)}
               <button
                 type="button"
@@ -885,8 +930,11 @@ export const Home = () => {
 
           {/* EVENING — paused today. */}
           {eveningCardState === 'in-progress' && (
-            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
-              {nextStepCardBody(eveningInProgressCard)}
+            <div
+              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
+            >
+              {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex))}
               <button
                 type="button"
                 onClick={handleEveningAction}
@@ -906,7 +954,10 @@ export const Home = () => {
 
           {/* EVENING — completed today. */}
           {eveningCardState === 'completed' && (
-            <div className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm bg-gradient-to-br from-[#121b2e]/30 to-transparent">
+            <div
+              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
+            >
               {nextStepCardBody(eveningCompletedCard)}
               <button
                 type="button"
@@ -969,7 +1020,7 @@ export const Home = () => {
             aria-describedby="quick-action-tip-anytime-reset"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-xl">bolt</span>
+            <span className="material-symbols-outlined text-primary text-2xl">bolt</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Anytime Reset</span>
             <span
               id="quick-action-tip-anytime-reset"
@@ -987,7 +1038,7 @@ export const Home = () => {
             aria-describedby="quick-action-tip-meditate"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-xl">spa</span>
+            <span className="material-symbols-outlined text-primary text-2xl">spa</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Meditate</span>
             <span
               id="quick-action-tip-meditate"
@@ -1002,7 +1053,7 @@ export const Home = () => {
             aria-describedby="quick-action-tip-browse-exercises"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-xl">video_library</span>
+            <span className="material-symbols-outlined text-primary text-2xl">video_library</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Browse exercises</span>
             <span
               id="quick-action-tip-browse-exercises"
@@ -1017,7 +1068,7 @@ export const Home = () => {
             aria-describedby="quick-action-tip-sleep-sounds"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-xl">bedtime</span>
+            <span className="material-symbols-outlined text-primary text-2xl">bedtime</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
             <span
               id="quick-action-tip-sleep-sounds"

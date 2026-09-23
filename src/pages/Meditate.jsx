@@ -11,7 +11,29 @@ import { recommendMeditations } from '../lib/meditationRecommendations';
 import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
-import { BackButton } from '../components/BackButton';
+import { JourneyHeader } from '../components/journey/JourneyHeader';
+import { SelectionChip } from '../components/journey/SelectionChip';
+import { SelectionRow } from '../components/journey/SelectionRow';
+import { RecommendationCard } from '../components/journey/RecommendationCard';
+
+// Build 15 Phase B — Material Symbols icon per need, for the restyled
+// SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
+// of scope this phase) - never an emoji, per the approved design
+// direction. Purely decorative (aria-hidden inside SelectionChip); the
+// 8 need ids/labels themselves are completely unchanged. Deliberately a
+// separate lookup from AnytimeReset.jsx's own NEED_ICONS - the two
+// pages' need lists only partially overlap (e.g. Meditate has
+// "mindfulness"/"gratitude"/"self-compassion", Anytime Reset doesn't).
+const NEED_ICONS = {
+  calm: 'air',
+  focus: 'center_focus_strong',
+  mindfulness: 'psychology',
+  'stress-relief': 'self_improvement',
+  'body-awareness': 'accessibility_new',
+  gratitude: 'favorite',
+  'self-compassion': 'volunteer_activism',
+  'deep-relaxation': 'nightlight'
+};
 
 /*
  * Meditation experience (WakeWise "Meditate")
@@ -162,7 +184,16 @@ export const Meditate = () => {
     });
   };
 
+  // Build 15 Phase B — "Back/Close alignment" per the approved design:
+  // Anytime Reset's header already carries a Close control that returns
+  // to Home from any step; Meditate's own header never had one. Adding
+  // it here is a deliberate, explicitly-approved header-consistency
+  // change, not a new route or new behaviour - it navigates to the same
+  // '/' every existing BackButton fallback on step 1 already goes to.
+  const handleClose = () => navigate('/');
+
   const durationLabel = (group) => (group.description ? `${group.label} — ${group.description}` : group.label);
+  const stepIndex = step === 'duration' ? 0 : step === 'need' ? 1 : 2;
   const formatDuration = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -173,49 +204,41 @@ export const Meditate = () => {
     <div
       className="max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
       style={{
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        // Build 15 Phase B — 20px mobile margin, reducing safely to 16px
+        // on very small screens, combined with the existing
+        // safe-area-inset handling in one calc - matches
+        // AnytimeReset.jsx's identical mechanism for the identical
+        // requirement.
+        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
         paddingTop: 'calc(1rem + env(safe-area-inset-top))'
       }}
     >
-      <div className="flex items-center gap-3">
-        {step === 'duration' ? (
-          <BackButton fallback="/" />
-        ) : (
-          <button
-            type="button"
-            onClick={handleStepBack}
-            aria-label="Go back"
-            className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
-        )}
-      </div>
+      <JourneyHeader
+        showBackButton={step === 'duration'}
+        backFallback="/"
+        onStepBack={handleStepBack}
+        onClose={handleClose}
+        stepIndex={stepIndex}
+        stepCount={3}
+      />
 
       {step === 'duration' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <span className="material-symbols-outlined text-primary text-3xl">spa</span>
+            <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">spa</span>
             <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">How much time do you have?</h1>
             <p className="text-xs text-on-surface-variant">We'll only suggest sessions that genuinely fit.</p>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3" role="group" aria-label="How much time do you have?">
             {MEDITATION_DURATION_GROUPS.map((group) => (
-              <button
+              <SelectionRow
                 key={group.id}
-                type="button"
+                label={group.label}
+                description={group.description}
+                selected={durationGroupId === group.id}
                 onClick={() => handleSelectDuration(group.id)}
-                className="w-full text-left glass-panel rounded-2xl p-5 flex items-center justify-between border-white/10 hover:bg-white/5 active:scale-[0.99] transition-all min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <span>
-                  <span className="block text-sm font-bold text-on-surface">{group.label}</span>
-                  {group.description && (
-                    <span className="block text-xs text-on-surface-variant mt-0.5">{group.description}</span>
-                  )}
-                </span>
-                <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -227,16 +250,15 @@ export const Meditate = () => {
             <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">What would help right now?</h1>
             <p className="text-xs text-on-surface-variant">{durationGroupId && durationLabel(MEDITATION_DURATION_GROUPS.find((g) => g.id === durationGroupId))}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3" role="group" aria-label="What would help right now?">
             {MEDITATION_NEEDS.map((need) => (
-              <button
+              <SelectionChip
                 key={need.id}
-                type="button"
+                label={need.label}
+                icon={NEED_ICONS[need.id]}
+                selected={needId === need.id}
                 onClick={() => handleSelectNeed(need.id)}
-                className="glass-panel rounded-2xl p-4 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <span className="text-sm font-semibold text-on-surface">{need.label}</span>
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -252,41 +274,21 @@ export const Meditate = () => {
           </div>
 
           {current ? (
-            <div className="glass-panel rounded-3xl p-5 space-y-3 border-white/10">
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-base font-bold text-on-surface">{current.title}</h2>
-                <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0 bg-white/5 px-2 py-1 rounded-full">
-                  {formatDuration(current.meditation.durationSeconds)}
-                </span>
-              </div>
-              <p className="text-xs text-on-surface-variant leading-relaxed">{current.description}</p>
-              {recommendation.matchQuality === 'closest' && (
-                <p className="text-[11px] text-secondary font-semibold uppercase tracking-wider">Closest match</p>
-              )}
-              <p className="text-xs text-on-surface-variant/80 italic">Why this: {current.matchReason}</p>
-
-              <button
-                type="button"
-                onClick={handleBegin}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-              >
-                <span>Begin</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-
-              {items.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleChooseAnother}
-                  className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Choose Another
-                </button>
-              )}
-            </div>
+            <RecommendationCard
+              title={current.title}
+              durationLabel={formatDuration(current.meditation.durationSeconds)}
+              description={current.description}
+              isClosestMatch={recommendation.matchQuality === 'closest'}
+              matchReason={current.matchReason}
+              onStart={handleBegin}
+              startLabel="Begin"
+              onChooseAnother={handleChooseAnother}
+              showChooseAnother={items.length > 1}
+              chooseAnotherLabel="Choose Another"
+            />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">
-              <span className="material-symbols-outlined text-on-surface-variant/50 text-3xl">search_off</span>
+              <span className="material-symbols-outlined text-on-surface-variant/50 text-3xl" aria-hidden="true">search_off</span>
               <p className="text-sm text-on-surface-variant">No session matches that combination yet.</p>
             </div>
           )}
@@ -295,14 +297,14 @@ export const Meditate = () => {
             <button
               type="button"
               onClick={handleChangeTime}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px]"
+              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Change time
             </button>
             <button
               type="button"
               onClick={handleChangeNeed}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px]"
+              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Change need
             </button>

@@ -8,7 +8,26 @@ import { recommendAnytimeReset } from '../lib/anytimeResetRecommendations';
 import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
-import { BackButton } from '../components/BackButton';
+import { JourneyHeader } from '../components/journey/JourneyHeader';
+import { SelectionChip } from '../components/journey/SelectionChip';
+import { SelectionRow } from '../components/journey/SelectionRow';
+import { RecommendationCard } from '../components/journey/RecommendationCard';
+
+// Build 15 Phase B — Material Symbols icon per need, for the restyled
+// SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
+// of scope this phase) - never an emoji, per the approved design
+// direction. Purely decorative (aria-hidden inside SelectionChip); the
+// 8 need ids/labels themselves are completely unchanged.
+const NEED_ICONS = {
+  calm: 'air',
+  focus: 'center_focus_strong',
+  energy: 'bolt',
+  'stress-relief': 'self_improvement',
+  'body-reset': 'accessibility_new',
+  'quiet-time': 'nightlight',
+  'better-mood': 'mood',
+  'not-sure': 'help'
+};
 
 /*
  * WakeWise — Anytime Reset (Build 15 UX remediation)
@@ -205,63 +224,52 @@ export const AnytimeReset = () => {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
+  const stepIndex = step === 'need' ? 0 : step === 'duration' ? 1 : 2;
+
   return (
     <div
       className="max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
       style={{
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        // Build 15 Phase B — 20px mobile margin, reducing safely to 16px
+        // on very small screens (clamp between the two, scaling on
+        // viewport width in between) combined with the existing
+        // safe-area-inset handling in one calc - a Tailwind responsive
+        // class can't also carry the safe-area addition without an
+        // inline style winning and making the class dead, so this stays
+        // a single inline mechanism for both.
+        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
         paddingTop: 'calc(1rem + env(safe-area-inset-top))'
       }}
     >
-      <div className="flex items-center justify-between gap-3">
-        {step === 'need' ? (
-          <BackButton fallback="/" />
-        ) : (
-          <button
-            type="button"
-            onClick={handleStepBack}
-            aria-label="Go back"
-            className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label="Close"
-          className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">close</span>
-        </button>
-      </div>
+      <JourneyHeader
+        showBackButton={step === 'need'}
+        backFallback="/"
+        onStepBack={handleStepBack}
+        onClose={handleClose}
+        stepIndex={stepIndex}
+        stepCount={3}
+      />
 
       {step === 'need' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <span className="material-symbols-outlined text-primary text-3xl">bolt</span>
+            <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">bolt</span>
             <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take an Anytime Reset</h1>
-            <p className="text-xs text-on-surface-variant">Choose what you need and how much time you have.</p>
+            <p className="text-sm text-on-surface-variant">Choose what you need and how much time you have.</p>
           </div>
           <div className="space-y-1">
             <h2 className="text-sm font-bold text-on-surface">What do you need right now?</h2>
           </div>
           <div className="grid grid-cols-2 gap-3" role="group" aria-label="What do you need right now?">
             {ANYTIME_RESET_NEEDS.map((need) => (
-              <button
+              <SelectionChip
                 key={need.id}
-                type="button"
+                label={need.label}
+                icon={NEED_ICONS[need.id]}
+                selected={needId === need.id}
                 onClick={() => handleSelectNeed(need.id)}
-                aria-pressed={needId === need.id}
-                className={`relative p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary ${
-                  needId === need.id
-                    ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5'
-                    : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
-                }`}
-              >
-                {need.label}
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -271,22 +279,16 @@ export const AnytimeReset = () => {
         <div className="space-y-6">
           <div className="space-y-1">
             <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">How much time do you have?</h1>
-            <p className="text-xs text-on-surface-variant">{ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label}</p>
+            <p className="text-sm text-on-surface-variant">{ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label}</p>
           </div>
           <div className="space-y-3" role="group" aria-label="How much time do you have?">
             {ANYTIME_RESET_DURATIONS.map((duration) => (
-              <button
+              <SelectionRow
                 key={duration.id}
-                type="button"
+                label={duration.label}
+                selected={durationId === duration.id}
                 onClick={() => handleSelectDuration(duration.id)}
-                aria-pressed={durationId === duration.id}
-                className={`w-full text-left glass-panel rounded-2xl p-5 flex items-center justify-between border transition-all min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary ${
-                  durationId === duration.id ? 'border-primary bg-primary-container/20' : 'border-white/10 hover:bg-white/5'
-                } active:scale-[0.99]`}
-              >
-                <span className={`text-sm font-bold ${durationId === duration.id ? 'text-primary' : 'text-on-surface'}`}>{duration.label}</span>
-                <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -296,48 +298,29 @@ export const AnytimeReset = () => {
         <div className="space-y-6">
           <div className="space-y-1">
             <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Recommended for you</h1>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm text-on-surface-variant">
               {ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label} · {ANYTIME_RESET_DURATIONS.find((d) => d.id === durationId)?.label}
             </p>
           </div>
 
           {current ? (
-            <div className="glass-panel rounded-3xl p-5 space-y-3 border-white/10">
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-base font-bold text-on-surface">{current.title}</h2>
-                <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0 bg-white/5 px-2 py-1 rounded-full">
-                  {formatDuration(current.anytimeReset.durationSeconds)}
-                </span>
-              </div>
-              <p className="text-xs text-on-surface-variant leading-relaxed">{current.description}</p>
-              {recommendation.matchQuality === 'closest' && (
-                <p className="text-[11px] text-secondary font-semibold uppercase tracking-wider">Closest match</p>
-              )}
-              <p className="text-xs text-on-surface-variant/80 italic">Why this: {current.matchReason}</p>
-
-              <button
-                type="button"
-                onClick={handleBegin}
-                disabled={authLoading || verifyingAuth}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none"
-              >
-                <span>{verifyingAuth ? 'Checking…' : 'Start'}</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-
-              {items.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleChooseAnother}
-                  className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Choose another
-                </button>
-              )}
-            </div>
+            <RecommendationCard
+              title={current.title}
+              durationLabel={formatDuration(current.anytimeReset.durationSeconds)}
+              description={current.description}
+              isClosestMatch={recommendation.matchQuality === 'closest'}
+              matchReason={current.matchReason}
+              onStart={handleBegin}
+              startLabel="Start"
+              startDisabled={authLoading || verifyingAuth}
+              startBusy={verifyingAuth}
+              onChooseAnother={handleChooseAnother}
+              showChooseAnother={items.length > 1}
+              chooseAnotherLabel="Choose another"
+            />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">
-              <span className="material-symbols-outlined text-on-surface-variant/50 text-3xl">search_off</span>
+              <span className="material-symbols-outlined text-on-surface-variant/50 text-3xl" aria-hidden="true">search_off</span>
               <p className="text-sm text-on-surface-variant">No reset matches that combination yet.</p>
             </div>
           )}
@@ -346,14 +329,14 @@ export const AnytimeReset = () => {
             <button
               type="button"
               onClick={handleChangeNeed}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px]"
+              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Change need
             </button>
             <button
               type="button"
               onClick={handleChangeTime}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px]"
+              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Change time
             </button>

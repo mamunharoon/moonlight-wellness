@@ -18,9 +18,12 @@ describe('Meditate.jsx — desktop layout: bounded/centred container, never full
     expect(rootOpenTag).toMatch(/mx-auto/);
   });
 
-  it('horizontal/top padding is applied via safe-area-aware calc(), never a bare fixed px value that could double up with a safe-area inset elsewhere', () => {
-    expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  it('horizontal padding is safe-area-aware AND carries the Phase B 20px-reducing-to-16px clamp; top padding stays a bare safe-area calc()', () => {
+    // Build 15 Phase B: the left/right rule gained a clamp(1rem, 4vw,
+    // 1.25rem) mobile-margin term (matching AnytimeReset.jsx's identical
+    // mechanism) - top padding is unaffected, still the plain Phase A calc().
+    expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-left\)\)'/);
+    expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-right\)\)'/);
     expect(rootOpenTag).toMatch(/paddingTop:\s*'calc\(1rem \+ env\(safe-area-inset-top\)\)'/);
   });
 

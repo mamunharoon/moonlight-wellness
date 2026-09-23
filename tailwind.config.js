@@ -37,9 +37,13 @@ export default {
         // Build 15 Phase A — shared Morning/Evening tint tokens.
         // Additive only, not yet consumed by any file (see
         // src/index.css's own comment on the same pair).
-        "morning-tint": "var(--color-morning-tint)",
+        // Build 15 Phase B fix: rgb(var(--x) / <alpha-value>) (not the
+        // plain var(--x) every other token above uses) so Tailwind can
+        // actually generate the /10, /20 opacity-modified utilities
+        // Home.jsx now depends on - see src/index.css's matching comment.
+        "morning-tint": "rgb(var(--color-morning-tint) / <alpha-value>)",
         "on-morning-tint": "var(--color-on-morning-tint)",
-        "evening-tint": "var(--color-evening-tint)",
+        "evening-tint": "rgb(var(--color-evening-tint) / <alpha-value>)",
         "on-evening-tint": "var(--color-on-evening-tint)",
 
         // Stage 3 tokens — additive only, namespaced, never consumed by

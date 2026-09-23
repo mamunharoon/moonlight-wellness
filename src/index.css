@@ -52,9 +52,26 @@
        not invented: morning-tint sits mid-gradient toward the warmer
        #ffebd2 stop; evening-tint is the exact #121b2e anchor already in
        use. */
-    --color-morning-tint: #fff2e2;
+    /* Build 15 Phase B fix: morning-tint/evening-tint are stored as
+       "R G B" channel triplets (not a literal hex string like every
+       other token above) because this phase is the first to actually
+       consume them with a Tailwind opacity modifier (bg-morning-tint/10,
+       bg-evening-tint/20 in Home.jsx). Tailwind can only generate an
+       opacity-modified utility when the color resolves through
+       rgb(var(--x) / <alpha-value>) (see the matching tailwind.config.js
+       mapping) - a plain var(--x) hex reference silently produces NO
+       rule at all for any /<n> variant, discovered live during this
+       phase's own responsive/visual verification (bg-primary/10 has the
+       identical, pre-existing gap, confirmed on the untouched "YOUR NEXT
+       STEP" badge elsewhere on this page - out of Phase B's scope to fix
+       app-wide, so left alone; only the two tokens this phase newly
+       depends on are converted). #fff2e2 -> 255 242 226, #121b2e ->
+       18 27 46 - same colors as Phase A picked, not new values. on-* text
+       tokens below are unaffected: still unused with opacity, still
+       plain hex. */
+    --color-morning-tint: 255 242 226;
     --color-on-morning-tint: #5a3820;
-    --color-evening-tint: #121b2e;
+    --color-evening-tint: 18 27 46;
     --color-on-evening-tint: #dae2fd;
   }
 
