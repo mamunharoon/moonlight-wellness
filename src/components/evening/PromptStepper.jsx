@@ -373,7 +373,16 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           data, never padded or invented here). Closing the video leaves
           the user on this exact question with this exact answer/custom-
           field state untouched - BetaVideoModal is only ever mounted
-          here, layered on top, never navigating anywhere. */}
+          here, layered on top, never navigating anywhere.
+
+          Evening selectable-control visual refinement (Build 15): moved
+          off the generic translucent glass-panel onto the same deep
+          surface-container background every Evening row now shares, but
+          deliberately kept a neutral white/15 border (not the periwinkle
+          evening-accent border) - a disclosure is not an answer choice,
+          and must stay recognisably different from a radio/switch row,
+          not just visually coordinated with it. Its own expand/collapse
+          chevron is unchanged. */}
       {guidanceItems.length > 0 && (
         <div className="space-y-2">
           <button
@@ -381,7 +390,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             onClick={() => setGuidanceOpen((v) => !v)}
             aria-expanded={guidanceOpen}
             aria-controls={`${activePrompt.id}-guidance`}
-            className="w-full flex items-center justify-between gap-3 glass-panel rounded-2xl p-4 min-h-[44px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="text-sm font-semibold text-on-surface">Would some guidance help?</span>
             <span

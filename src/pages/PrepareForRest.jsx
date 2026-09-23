@@ -208,12 +208,17 @@ export const PrepareForRest = () => {
 
         {featuredItems.length > 0 && (
           <div className="space-y-3">
+            {/* Evening selectable-control visual refinement (Build 15):
+                same deep surface-container background as the toggle rows
+                above, but a neutral white/15 border (not periwinkle) -
+                this disclosure must stay recognisably different from the
+                switches, not just visually coordinated with them. */}
             <button
               type="button"
               onClick={() => setGuidanceOpen((v) => !v)}
               aria-expanded={guidanceOpen}
               aria-controls="prepare-for-rest-guidance"
-              className="w-full flex items-center justify-between gap-3 glass-panel rounded-2xl p-4 min-h-[44px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
             >
               <span className="text-sm font-semibold text-on-surface text-left">Choose a bedtime video or sleep sound</span>
               <span

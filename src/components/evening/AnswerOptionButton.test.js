@@ -69,15 +69,16 @@ describe('AnswerOptionButton - button interaction contract', () => {
   });
 });
 
-describe('AnswerOptionButton - unselected state', () => {
-  it('deep surface-container background, a subtle white/15 border, off-white readable label at medium weight', () => {
-    expect(source).toMatch(/bg-surface-container border-white\/15/);
+describe('AnswerOptionButton - unselected state (Build 15 visual refinement)', () => {
+  it('deep surface-container background, a visible evening-accent/55 border (calculated ~3.4:1 against the row, clearing the 3:1 AA non-text floor - see the contrast-computation describe block below), off-white readable label at medium weight', () => {
+    expect(source).toMatch(/bg-surface-container border-evening-accent\/55/);
     expect(source).toMatch(/text-on-surface font-medium/);
   });
 
-  it('the radio glyph is an outlined, empty circle (border-on-surface-variant) with no inner dot', () => {
+  it('the radio glyph is a strong evening-accent ring with an explicit dark navy centre (surface-container-lowest) - not the old pale border-on-surface-variant outline, no inner dot', () => {
     const unselectedRadio = source.match(/selected \? tokens\.radioFill : ('[^']*')/)?.[1] ?? '';
-    expect(unselectedRadio).toBe("'border-on-surface-variant'");
+    expect(unselectedRadio).toBe("'border-evening-accent bg-surface-container-lowest'");
+    expect(source).not.toMatch(/border-on-surface-variant/);
     expect(source).toMatch(/\{selected && <span/); // the inner dot only ever renders when selected
   });
 });
@@ -92,7 +93,7 @@ describe('AnswerOptionButton - readOnly mode (Evening completed-review)', () => 
     // The selected/unselected branch that decides colour classes does not
     // itself branch on `readOnly` at all - only the interactive-affordance
     // classes above do. Same tokens, same contrast, in both modes.
-    const colourBranch = source.match(/\$\{\s*selected\s*\?\s*`\$\{tokens\.tint\} \$\{tokens\.border\}`\s*\n\s*: `bg-surface-container border-white\/15 \$\{readOnly \? '' : 'hover:bg-white\/10'\}`\s*\}/);
+    const colourBranch = source.match(/\$\{\s*selected\s*\?\s*`\$\{tokens\.tint\} \$\{tokens\.border\}`\s*\n\s*: `bg-surface-container border-evening-accent\/55 \$\{readOnly \? '' : 'hover:bg-white\/10'\}`\s*\}/);
     expect(colourBranch).not.toBeNull();
   });
 
@@ -144,6 +145,40 @@ describe('New colour tokens - contrast-verified, additive only (unchanged by thi
       return (l1 + 0.05) / (l2 + 0.05);
     };
     expect(contrast('#f4c56a', '#3a2408')).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('Build 15 selectable-control visual refinement - real, computed WCAG contrast for the new unselected-state colours', () => {
+  const relLum = (hex) => {
+    const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
+    const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  };
+  const contrast = (a, b) => {
+    const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  };
+  const blend = (fgHex, alpha, bgHex) => {
+    const fg = fgHex.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const bg = bgHex.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+    const out = fg.map((c, i) => Math.round(alpha * c + (1 - alpha) * bg[i]));
+    return '#' + out.map((c) => c.toString(16).padStart(2, '0')).join('');
+  };
+  const surfaceContainer = '#171f33';
+  const surfaceContainerLowest = '#060e20';
+  const eveningAccent = '#9fb4f0';
+
+  it('the unselected row border (evening-accent/55) clears the 3:1 AA non-text boundary against the row background', () => {
+    const blended = blend(eveningAccent, 0.55, surfaceContainer);
+    expect(contrast(blended, surfaceContainer)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the unselected radio\'s full-strength evening-accent ring clears the 3:1 AA non-text boundary against the row background', () => {
+    expect(contrast(eveningAccent, surfaceContainer)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the unselected radio\'s dark centre (surface-container-lowest) clears the 3:1 AA non-text boundary against its own surrounding ring', () => {
+    expect(contrast(surfaceContainerLowest, eveningAccent)).toBeGreaterThanOrEqual(3);
   });
 });
 

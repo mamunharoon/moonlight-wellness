@@ -49,6 +49,18 @@
        4.5:1 AA floor. */
     --color-evening-accent: #9fb4f0;
     --color-on-evening-accent: #0b1326;
+
+    /* Evening selectable-control visual refinement (Build 15) — the one
+       new token this pass needs. Reuses --color-evening-accent above for
+       every unselected row/radio border and every "on" switch track -
+       deliberately not a second, near-identical blue. This token is only
+       for the switch's OFF track: a muted deep slate, calculated (not
+       chosen by eye) to clear 3:1 against both surface-container (the
+       row background, ~3.2:1) and the dark navy knob fill (~3.7:1),
+       while staying visually calmer than the accent so On vs Off reads
+       clearly from the track colour alone, before the knob position is
+       even considered. */
+    --color-evening-track-off: #686d7a;
     --color-background: #0b1326;
     --color-on-background: #dae2fd;
     --color-surface: #0b1326;

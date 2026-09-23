@@ -72,14 +72,16 @@ describe('PrepareToggleRow - a real switch (role="switch"/aria-checked), never r
 });
 
 // 3. Off knob/track state.
-describe('PrepareToggleRow - OFF state: muted track, knob on the left, no full colour', () => {
-  it('track is a muted grey (bg-white/20) when off, row keeps its deep surface-container background', () => {
-    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-white\/20'/);
-    expect(toggleRowSource).toMatch(/'bg-surface-container border-white\/15/);
+describe('PrepareToggleRow - OFF state: muted track, knob on the left, no full colour (Build 15 visual refinement)', () => {
+  it('track is a muted deep slate (bg-evening-track-off, calculated ~3.2:1 against the row) when off, row keeps its deep surface-container background with a visible evening-accent/55 border', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-evening-track-off'/);
+    expect(toggleRowSource).toMatch(/'bg-surface-container border-evening-accent\/55/);
   });
 
-  it('the knob sits at the left (translate-x-0) when off', () => {
+  it('the knob sits at the left (translate-x-0) when off, and is a dark navy fill (surface-container-lowest) with a thin evening-accent ring - not the old bright bg-on-surface circle', () => {
     expect(toggleRowSource).toMatch(/selected \? 'translate-x-5' : 'translate-x-0'/);
+    expect(toggleRowSource).toMatch(/bg-surface-container-lowest border border-evening-accent/);
+    expect(toggleRowSource).not.toMatch(/bg-on-surface transition-transform/);
   });
 });
 
@@ -90,12 +92,70 @@ describe('PrepareToggleRow - ON state: subtle tint only (never a full bright-blu
     expect(toggleRowSource).not.toMatch(/'bg-evening-accent border-evening-accent/);
   });
 
-  it('the switch track itself fills solid evening-accent blue when on - the strong colour lives in the switch, not the row', () => {
-    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-white\/20'/);
+  it('the switch track itself fills solid evening-accent blue when on - the strong colour lives in the switch, not the row - and the knob stays dark navy in both states (only the track colour and position change)', () => {
+    expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-evening-track-off'/);
+    // The knob's own className has no selected-conditional colour branch at
+    // all - the same dark-navy-plus-ring fill renders in both states.
+    const knobClassMatch = toggleRowSource.match(/className=\{`absolute top-0\.5 left-0\.5 w-5 h-5 rounded-full ([^$]+?) transition-transform/);
+    expect(knobClassMatch?.[1]).toBe('bg-surface-container-lowest border border-evening-accent');
   });
 
   it('the title becomes bold and accent-coloured when on (never colour alone) - the support text/icon stay as they were, keeping the row itself visually calm', () => {
     expect(toggleRowSource).toMatch(/selected \? 'text-evening-accent font-bold' : 'text-on-surface font-medium'/);
+  });
+});
+
+// Build 15 selectable-control visual refinement - new evening-track-off
+// token, and real, computed WCAG contrast for every new colour pairing
+// this refinement introduces (row border, switch track/knob) - genuinely
+// calculated, not merely asserted, matching this repo's own established
+// precedent (see AnswerOptionButton.test.js's gratitude-accent contrast
+// test).
+describe('evening-track-off - new additive token, contrast-verified', () => {
+  it('index.css defines it without touching evening-accent/gratitude-accent/primary', () => {
+    expect(cssSource).toMatch(/--color-evening-track-off: #686d7a;/);
+    expect(cssSource).toMatch(/--color-evening-accent: #9fb4f0;/); // unchanged
+  });
+
+  it('tailwind.config.js exposes it as a real utility-generating colour', () => {
+    expect(tailwindConfigSource).toMatch(/"evening-track-off": "var\(--color-evening-track-off\)"/);
+  });
+
+  const relLum = (hex) => {
+    const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
+    const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  };
+  const contrast = (a, b) => {
+    const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  };
+  const surfaceContainer = '#171f33';
+  const surfaceContainerLowest = '#060e20';
+  const trackOff = '#686d7a';
+  const eveningAccent = '#9fb4f0';
+
+  it('track (off) vs row background clears the 3:1 AA non-text boundary', () => {
+    expect(contrast(trackOff, surfaceContainer)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('knob fill (surface-container-lowest) vs track (off) clears the 3:1 AA non-text boundary - the knob stays clearly distinguishable from its own track', () => {
+    expect(contrast(surfaceContainerLowest, trackOff)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('knob fill (surface-container-lowest) vs track (on, evening-accent) clears the 3:1 AA non-text boundary by a wide margin', () => {
+    expect(contrast(surfaceContainerLowest, eveningAccent)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('evening-accent/55 row border vs row background clears the 3:1 AA non-text boundary', () => {
+    const blend = (fgHex, alpha, bgHex) => {
+      const fg = fgHex.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+      const bg = bgHex.replace('#', '').match(/../g).map((h) => parseInt(h, 16));
+      const out = fg.map((c, i) => Math.round(alpha * c + (1 - alpha) * bg[i]));
+      return '#' + out.map((c) => c.toString(16).padStart(2, '0')).join('');
+    };
+    const blended = blend(eveningAccent, 0.55, surfaceContainer);
+    expect(contrast(blended, surfaceContainer)).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -49,6 +49,22 @@
  * aligned radio glyph plus a left-aligned label needs a full-width row to
  * stay readable; every question now renders one column of these rows.
  *
+ * Evening selectable-control visual refinement (Build 15): the row's own
+ * unselected border and the radio's own unselected ring both moved from a
+ * near-invisible neutral (white/15, on-surface-variant) to
+ * evening-accent - the same calm periwinkle Prepare for Rest's switches
+ * already use - so every Evening selectable row now shares one visual
+ * language. Calculated, not eyeballed: evening-accent/55 measures ~3.4:1
+ * against the row's own surface-container background (clears the 3:1 AA
+ * non-text floor); the unselected radio's full-strength evening-accent
+ * ring measures ~8:1. The unselected radio's centre is now an explicit
+ * dark fill (surface-container-lowest) rather than transparent - ~9.4:1
+ * against its own ring, satisfying "centre against its surrounding
+ * circle" as its own measured pair, not just "whatever the row happens to
+ * show through." Selected state is unchanged: Reflection's peach/
+ * Gratitude's gold identity, the same filled-ring-plus-dot construction,
+ * still never a full bright row fill, still never a checkmark.
+ *
  * `readOnly` (Evening completed-review work, additive - every existing
  * active-journey caller omits it and is completely unaffected):
  *   Uses the native `disabled` attribute on the real radio input, never a
@@ -86,7 +102,7 @@ export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflect
       } ${
         selected
           ? `${tokens.tint} ${tokens.border}`
-          : `bg-surface-container border-white/15 ${readOnly ? '' : 'hover:bg-white/10'}`
+          : `bg-surface-container border-evening-accent/55 ${readOnly ? '' : 'hover:bg-white/10'}`
       }`}
     >
       <input
@@ -103,7 +119,7 @@ export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflect
       <span
         aria-hidden="true"
         className={`relative w-5 h-5 rounded-full border-2 shrink-0 transition-colors ${
-          selected ? tokens.radioFill : 'border-on-surface-variant'
+          selected ? tokens.radioFill : 'border-evening-accent bg-surface-container-lowest'
         }`}
       >
         {selected && <span className={`absolute inset-0 m-auto w-2 h-2 rounded-full ${tokens.dot}`} />}

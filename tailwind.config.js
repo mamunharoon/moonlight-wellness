@@ -32,6 +32,7 @@ export default {
         // selected accent (see src/index.css's matching comment).
         "evening-accent": "var(--color-evening-accent)",
         "on-evening-accent": "var(--color-on-evening-accent)",
+        "evening-track-off": "var(--color-evening-track-off)",
         "background": "var(--color-background)",
         "on-background": "var(--color-on-background)",
         "surface": "var(--color-surface)",
