@@ -36,8 +36,9 @@ describe('Home.jsx daypart greeting wiring', () => {
 });
 
 describe('Home.jsx Morning/Evening selector wiring', () => {
-  it('renders the Morning and Evening pills as real, clickable controls, not static status text', () => {
+  it('renders the Morning, Anytime, and Evening cards as real, clickable controls, not static status text', () => {
     expect(homeSource).toMatch(/onClick=\{\(\) => setSelectedPeriod\('morning'\)\}/);
+    expect(homeSource).toMatch(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}/);
     expect(homeSource).toMatch(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}/);
   });
 
@@ -64,29 +65,40 @@ describe('Home.jsx Morning/Evening selector wiring', () => {
     expect(homeSource).toMatch(/const morningDaypart = resolveMorningDaypart\(timeState\);/);
   });
 
-  it('defaults the pill highlight from the real clock (existing daypart rules) until the user actually picks one', () => {
-    expect(homeSource).toMatch(
-      /const activePeriod = selectedPeriod \?\? \(timeState === 'evening' \|\| timeState === 'night' \? 'evening' : 'morning'\);/
-    );
+  it('Build 15 — defaults the card highlight from an active routine first, then the real clock, with a completed Morning deferring to Anytime rather than blocking a useful default', () => {
+    expect(homeSource).toMatch(/const activePeriod = selectedPeriod \?\? defaultPeriod;/);
+    const defaultPeriodBody = homeSource.match(/const defaultPeriod = \(\(\) => \{[\s\S]*?\}\)\(\);/)?.[0] ?? '';
+    expect(defaultPeriodBody).toMatch(/if \(morningCardState === 'in-progress'\) return 'morning';/);
+    expect(defaultPeriodBody).toMatch(/if \(eveningCardState === 'in-progress'\) return 'evening';/);
+    expect(defaultPeriodBody).toMatch(/if \(timeState === 'evening' \|\| timeState === 'night'\) return 'evening';/);
+    expect(defaultPeriodBody).toMatch(/return morningCardState === 'completed' \? 'anytime' : 'morning';/);
+    expect(defaultPeriodBody).toMatch(/return 'anytime';/);
   });
 });
 
-describe('Home.jsx Morning/Evening selector styling (selected-state fix)', () => {
-  it('uses the semantically correct tab pattern (role="tablist"/"tab" + aria-selected), not the previous aria-pressed', () => {
-    expect(homeSource).toMatch(/role="tablist" aria-label="Time of day"/);
+describe('Home.jsx Morning/Anytime/Evening selector styling (Build 15 "Today\'s Rhythm")', () => {
+  it('uses the semantically correct tab pattern (role="tablist"/"tab" + aria-selected), not aria-pressed', () => {
+    expect(homeSource).toMatch(/role="tablist" aria-label="Today's rhythm"/);
     expect(homeSource).toMatch(/role="tab"/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'morning'\}/);
+    expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'anytime'\}/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'evening'\}/);
     expect(homeSource).not.toMatch(/aria-pressed=\{/);
   });
 
-  it('gives the active pill a solid, bordered accent fill - each option keeping its own distinct colour', () => {
+  it('gives the active card a solid, bordered accent fill - each of the three keeping its own distinct, approved colour identity (Morning sunrise gold, Anytime WakeWise peach, Evening soft blue)', () => {
+    expect(homeSource).toMatch(/'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'/);
     expect(homeSource).toMatch(/'bg-primary text-on-primary border-primary shadow-sm'/);
-    expect(homeSource).toMatch(/'bg-secondary text-on-secondary border-secondary shadow-sm'/);
+    expect(homeSource).toMatch(/'bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm'/);
   });
 
-  it('never gives the inactive pill a visible border, so it can never look stronger than the active one', () => {
+  it('never gives an inactive card a visible border, so it can never look stronger than the active one', () => {
     const inactiveClassMatches = homeSource.match(/'bg-white\/5 text-on-surface-variant\/60 border-transparent hover:bg-white\/10'/g) ?? [];
-    expect(inactiveClassMatches.length).toBe(2);
+    expect(inactiveClassMatches.length).toBe(3);
+  });
+
+  it('shows no numeric completion count anywhere in the selector - only the existing ✓ prefix/label convention', () => {
+    const selectorBlock = homeSource.slice(homeSource.indexOf("Today's Rhythm"), homeSource.indexOf('Build 10 remediation'));
+    expect(selectorBlock).not.toMatch(/\d+ of \d+/);
   });
 });

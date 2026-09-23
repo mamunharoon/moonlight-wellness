@@ -56,16 +56,16 @@ describe('Home.jsx — in-progress routine cards show real step progress, not a 
 });
 
 describe('Home.jsx — quick-action tiles: icon bump only, everything else from the prior fix untouched (Phase B)', () => {
-  it('all four tile icons are bumped to text-2xl', () => {
-    expect(source).toMatch(/text-primary text-2xl">bolt</);
+  it('all four tile icons are bumped to text-2xl (Build 15 — first tile is now Breathe\'s "air" icon, replacing "bolt" now that Anytime Reset has its own Today\'s Rhythm card)', () => {
+    expect(source).toMatch(/text-primary text-2xl">air</);
     expect(source).toMatch(/text-primary text-2xl">spa</);
     expect(source).toMatch(/text-primary text-2xl">video_library</);
     expect(source).toMatch(/text-primary text-2xl">bedtime</);
   });
 
-  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage)', () => {
+  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage), and again by Build 15\'s own Anytime Reset -> Breathe swap', () => {
     const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(['/anytime-reset', '/meditate', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
+    expect(hrefs).toEqual(['/breathe-standalone', '/meditate', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 });
 

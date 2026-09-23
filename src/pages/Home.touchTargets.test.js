@@ -17,30 +17,37 @@ const recommendationCardSource = readFileSync(
   'utf-8'
 );
 
-describe('Home.jsx — Morning/Evening tabs now meet the 44px minimum, selected state and switching logic unchanged', () => {
-  it('both tabs carry min-h-[44px] plus a flex-centered layout so the box (not just its content) is guaranteed 44px', () => {
+describe('Home.jsx — Build 15 "Today\'s Rhythm" cards meet the 44px minimum, selected state and switching logic intact', () => {
+  it('all three cards carry min-h-[64px] plus a flex-centered layout so the box (not just its content) comfortably clears 44px', () => {
     const morningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('morning'\)\}[\s\S]{0,300}/)?.[0] ?? '';
+    const anytimeTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}[\s\S]{0,300}/)?.[0] ?? '';
     const eveningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}[\s\S]{0,300}/)?.[0] ?? '';
-    expect(morningTab).toMatch(/min-h-\[44px\] flex items-center justify-center/);
-    expect(eveningTab).toMatch(/min-h-\[44px\] flex items-center justify-center/);
+    expect(morningTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
+    expect(anytimeTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
+    expect(eveningTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
   });
 
-  it('both tabs now carry a visible focus-visible ring, which they never had before this remediation', () => {
+  it('all three cards carry a visible focus-visible ring', () => {
     const morningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('morning'\)\}[\s\S]{0,500}/)?.[0] ?? '';
+    const anytimeTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}[\s\S]{0,500}/)?.[0] ?? '';
     const eveningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}[\s\S]{0,500}/)?.[0] ?? '';
-    expect(morningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
-    expect(eveningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
+    expect(morningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-morning-accent/);
+    expect(anytimeTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
+    expect(eveningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent/);
   });
 
-  it('selected-state styling and switching logic (setSelectedPeriod, aria-selected) are byte-for-byte unchanged', () => {
+  it('selected-state styling and switching logic (setSelectedPeriod, aria-selected) are intact for all three cards', () => {
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'morning'\}/);
+    expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'anytime'\}/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'evening'\}/);
+    expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm/);
     expect(homeSource).toMatch(/bg-primary text-on-primary border-primary shadow-sm/);
-    expect(homeSource).toMatch(/bg-secondary text-on-secondary border-secondary shadow-sm/);
+    expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm/);
   });
 
-  it('the compact py-2/text-[10px] visual footprint is preserved - only the invisible hit box grew', () => {
-    expect(homeSource).toMatch(/text-\[10px\] font-bold uppercase tracking-wider py-2 rounded-full/);
+  it('the compact text-[10px] label footprint is preserved on all three cards', () => {
+    const labelMatches = homeSource.match(/text-\[10px\] font-bold uppercase tracking-wider/g) ?? [];
+    expect(labelMatches.length).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -347,21 +347,39 @@ export const Home = () => {
   // step, which is exactly what this redesign exists to fix).
   const morningDaypart = resolveMorningDaypart(timeState);
 
-  // Morning/Evening selector: null means "automatic" (the timeState
-  // logic above decides) - only becomes 'morning'/'evening' once the user
-  // actually taps a pill, and then stays that way for the rest of this
-  // page view (component state, not persisted - a fresh visit re-derives
-  // from the real clock again). Home redesign: both routines are now
+  // Morning/Anytime/Evening selector: null means "automatic" (the logic
+  // below decides) - only becomes 'morning'/'anytime'/'evening' once the
+  // user actually taps a card, and then stays that way for the rest of
+  // this page view (component state, not persisted - a fresh visit
+  // re-derives automatically again). Home redesign: all three are
   // reachable/actionable at any real time once selected (or by default,
   // per the fallback below) - Morning's own copy already varies by
   // daypart via morningDaypart above; Evening's copy is intentionally
   // constant regardless of clock time, per the approved design.
   const [selectedPeriod, setSelectedPeriod] = useState(null);
-  // Which pill looks active, and which routine's card actually renders.
-  // Once the user has picked one, show that choice; otherwise reflect the
-  // real clock (existing daypart rules) - evening/night lean the Evening
-  // pill, everything else leans Morning.
-  const activePeriod = selectedPeriod ?? (timeState === 'evening' || timeState === 'night' ? 'evening' : 'morning');
+  // Build 15 — Today's Rhythm default selection. An active routine
+  // (genuinely in-progress right now) always takes priority over the
+  // clock. Otherwise: evening/night hours lean Evening (the existing
+  // daypart rule, unchanged); morning hours lean Morning UNLESS it's
+  // already completed today, since a completed Morning must not keep
+  // blocking a useful default suggestion - Anytime is shown instead;
+  // every other time (daytime, once Morning is behind you) defaults to
+  // Anytime. Evening's own detail card already shows Review once
+  // completed regardless of which card is selected - no separate rule
+  // needed here for that.
+  const defaultPeriod = (() => {
+    if (morningCardState === 'in-progress') return 'morning';
+    if (eveningCardState === 'in-progress') return 'evening';
+    if (timeState === 'evening' || timeState === 'night') return 'evening';
+    if (timeState === 'daytime-morning' || timeState === 'before-wake') {
+      return morningCardState === 'completed' ? 'anytime' : 'morning';
+    }
+    return 'anytime';
+  })();
+  // Which card looks active, and which routine's/Anytime's detail card
+  // actually renders. Once the user has picked one, show that choice;
+  // otherwise use the real-context default above.
+  const activePeriod = selectedPeriod ?? defaultPeriod;
 
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
@@ -595,58 +613,77 @@ export const Home = () => {
 
       <TimezoneBanner />
 
-      {/* 1. Morning/Evening selector — also shows each ritual's daily
-          completion status (the ✓ prefix), same as before this was made
-          functional. Segmented-control styling fix: the previous
-          treatment gave the INACTIVE pill glass-panel's own visible
-          border while the active pill had none at all - backwards from
-          what a selected state should look like, and genuinely
-          confusing. Active now gets each option's own solid accent fill
-          (bg-primary/text-on-primary for Morning, bg-secondary/
-          text-on-secondary for Evening - the same high-contrast pairs
-          already used for this app's primary CTA buttons elsewhere, not
-          a new colour choice) with a matching border and a subtle shadow
-          for depth; inactive drops the border entirely and uses a much
-          quieter fill, so there is never any ambiguity about which one
-          is selected. role="tablist"/"tab" + aria-selected is the
-          semantically correct ARIA pattern for a mutually-exclusive
-          segmented selector like this one (replacing the previous
-          aria-pressed, which is for independent toggle buttons, not a
-          tab-like choice) - keyboard/touch/screen-reader operability is
-          unaffected, since these remain plain, fully-focusable <button>
-          elements with only their role/state attributes and visual
-          classes changed. */}
-      <div className="flex gap-2" role="tablist" aria-label="Time of day">
-        <button
-          type="button"
-          role="tab"
-          onClick={() => setSelectedPeriod('morning')}
-          aria-selected={activePeriod === 'morning'}
-          className={`flex-1 min-h-[44px] flex items-center justify-center text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            activePeriod === 'morning'
-              ? 'bg-primary text-on-primary border-primary shadow-sm'
-              : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
-          }`}
-        >
-          {isMorningDone ? '✓ Morning' : 'Morning'}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          onClick={() => setSelectedPeriod('evening')}
-          aria-selected={activePeriod === 'evening'}
-          className={`flex-1 min-h-[44px] flex items-center justify-center text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            activePeriod === 'evening'
-              ? 'bg-secondary text-on-secondary border-secondary shadow-sm'
-              : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
-          }`}
-        >
-          {isEveningDone ? '✓ Evening' : 'Evening'}
-        </button>
+      {/* 1. Build 15 — "Today's Rhythm" selector. Replaces the old 2-pill
+          Morning/Evening tablist with three always-visible compact cards
+          (Morning/Anytime/Evening), each its own approved colour identity
+          (morning-accent sunrise gold / primary WakeWise peach /
+          evening-accent soft blue - see tailwind.config.js's own comment
+          on morning-accent), so Anytime Reset finally sits alongside the
+          other two rituals instead of living only in the quick-actions
+          grid below. Tapping a card only changes which one is selected
+          (and therefore which larger detail card renders below) - it
+          never navigates on its own, exactly like the pills it replaces.
+          Completion is shown as a non-colour ✓ indicator + label, never a
+          numeric "X of Y" count (no such data exists in this app - see
+          the Phase 1 investigation). role="tablist"/"tab" + aria-selected
+          remains the correct ARIA pattern for this mutually-exclusive
+          selector. */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 mb-2 px-1">
+          Today's Rhythm
+        </p>
+        <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Today's rhythm">
+          <button
+            type="button"
+            role="tab"
+            onClick={() => setSelectedPeriod('morning')}
+            aria-selected={activePeriod === 'morning'}
+            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-morning-accent ${
+              activePeriod === 'morning'
+                ? 'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'
+                : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
+            }`}
+          >
+            <span className="material-symbols-outlined text-xl">wb_twilight</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">
+              {isMorningDone ? '✓ Morning' : 'Morning'}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            onClick={() => setSelectedPeriod('anytime')}
+            aria-selected={activePeriod === 'anytime'}
+            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              activePeriod === 'anytime'
+                ? 'bg-primary text-on-primary border-primary shadow-sm'
+                : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
+            }`}
+          >
+            <span className="material-symbols-outlined text-xl">bolt</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">Anytime</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            onClick={() => setSelectedPeriod('evening')}
+            aria-selected={activePeriod === 'evening'}
+            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent ${
+              activePeriod === 'evening'
+                ? 'bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm'
+                : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
+            }`}
+          >
+            <span className="material-symbols-outlined text-xl">bedtime</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">
+              {isEveningDone ? '✓ Evening' : 'Evening'}
+            </span>
+          </button>
+        </div>
         {isMeditatedToday && (
-          <span className="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-2 rounded-full bg-tertiary/15 text-tertiary">
+          <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-full bg-tertiary/15 text-tertiary">
             ✓ Meditated today
-          </span>
+          </p>
         )}
       </div>
 
@@ -1000,6 +1037,39 @@ export const Home = () => {
         </>
       )}
 
+      {/* Build 15 — ANYTIME. Unlike Morning/Evening, this isn't a
+          routine with its own start/pause/complete state (no such
+          tracking exists for Anytime Reset anywhere in this codebase -
+          see the Phase 1 investigation), so there is no not-started/
+          in-progress/completed branching here - just a single, honest
+          "available anytime" card that opens the same /anytime-reset
+          flow the quick-action tile always has. No streak, duration, or
+          completion-count copy is invented for it. */}
+      {activePeriod === 'anytime' && (
+        <div
+          className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+          style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.05)' }}
+        >
+          <div className="space-y-2">
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+              Available anytime
+            </span>
+            <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
+              Take a moment to reset
+            </h3>
+            <p className="text-sm text-on-surface-variant font-medium">
+              A short guided pause whenever you need one - no need to wait for Morning or Evening.
+            </p>
+          </div>
+          <Link
+            to="/anytime-reset"
+            className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+          >
+            Start Anytime Reset
+          </Link>
+        </div>
+      )}
+
       {/* 6. Active intentions — always visible, one fixed position, right
           below the recommended card+button, for both guests (gated on
           tap, not on visibility - onRequireSignIn) and registered users. */}
@@ -1021,12 +1091,16 @@ export const Home = () => {
           Or choose something quick
         </p>
         <div className="grid grid-cols-4 gap-2.5">
-          {/* Build 15 UX remediation: replaces the former "Need a
-              moment?" tile (-> /support) with Anytime Reset, keeping the
-              quick-action row at exactly four choices per the approved
-              design. /support itself is untouched and still reachable
-              (Library, Support.jsx's own sub-flows, existing tests) -
-              only this one Home tile's destination changed.
+          {/* Build 15 — Anytime Reset now has its own "Today's Rhythm"
+              card above (see the activePeriod === 'anytime' block), so
+              this first quick-action tile is freed up for a standalone
+              Breathe entry point (-> /breathe-standalone, QuietBreathing
+              with its own pattern picker/Begin gesture - see
+              standaloneBreathe.test.js), keeping the row at exactly four
+              choices per the approved design. /support itself is
+              untouched and still reachable (Library, Support.jsx's own
+              sub-flows, existing tests) - only this one Home tile's
+              destination changed.
 
               Desktop/keyboard tooltip, added alongside this fix: each
               tile is a `group` with a `role="tooltip"` span, hidden by
@@ -1044,18 +1118,18 @@ export const Home = () => {
               normal mobile tap. min-h-[44px] (already present) and the
               tile's own full tap area are unchanged. */}
           <Link
-            to="/anytime-reset"
-            aria-describedby="quick-action-tip-anytime-reset"
+            to="/breathe-standalone"
+            aria-describedby="quick-action-tip-breathe"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-2xl">bolt</span>
-            <span className="text-[11px] font-semibold text-on-surface leading-tight">Anytime Reset</span>
+            <span className="material-symbols-outlined text-primary text-2xl">air</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Breathe</span>
             <span
-              id="quick-action-tip-anytime-reset"
+              id="quick-action-tip-breathe"
               role="tooltip"
               className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
             >
-              Anytime Reset
+              Breathe
             </span>
           </Link>
           {/* Meditation experience: quick action, not a fifth bottom-nav

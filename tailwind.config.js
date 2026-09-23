@@ -28,6 +28,17 @@ export default {
         "gratitude-accent": "var(--color-gratitude-accent)",
         "on-gratitude-accent": "var(--color-on-gratitude-accent)",
 
+        // Build 15 — Home's "Today's Rhythm" Morning selector card needs
+        // its own identity distinct from Anytime's peach (primary) and
+        // Evening's blue (evening-accent). Reuses this exact same
+        // already-contrast-verified warm gold value (see the comment
+        // above) rather than inventing a second, near-identical gold -
+        // a second Tailwind name for the SAME CSS variable, not a new
+        // colour. Morning's own existing full detail card below is
+        // unaffected - it keeps using `primary` exactly as it always has.
+        "morning-accent": "var(--color-gratitude-accent)",
+        "on-morning-accent": "var(--color-on-gratitude-accent)",
+
         // Prepare for Rest subphase — the four preparation toggles'
         // selected accent (see src/index.css's matching comment).
         "evening-accent": "var(--color-evening-accent)",

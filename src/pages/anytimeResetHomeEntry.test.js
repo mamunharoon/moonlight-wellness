@@ -1,6 +1,13 @@
 // Anytime Reset — Home entry point + routing regression guard (Build 15).
 // Source-level checks (Home.jsx/App.jsx aren't rendered in this repo's
 // Vitest - see Meditate.jsx's own sibling for the established pattern).
+//
+// Build 15 Home refinement — Anytime Reset moved off the quick-action row
+// onto its own "Today's Rhythm" card (see Home.greeting.test.js's
+// selector coverage and the activePeriod === 'anytime' detail-card
+// assertions below), freeing the first quick-action tile for a
+// standalone Breathe entry point instead (see standaloneBreathe.test.js).
+// /anytime-reset itself is untouched either way.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +15,22 @@ import { fileURLToPath } from 'node:url';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const homeSource = read('./Home.jsx');
 const appSource = read('../App.jsx');
+
+describe('Home.jsx — Anytime Reset now lives in its own "Today\'s Rhythm" card', () => {
+  it('the Today\'s Rhythm selector includes an Anytime card, and its own detail card routes to /anytime-reset, not /support', () => {
+    expect(homeSource).toMatch(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}/);
+    const anytimeStart = homeSource.indexOf("{activePeriod === 'anytime' && (");
+    const anytimeEnd = homeSource.indexOf('{/* 6. Active intentions', anytimeStart);
+    const anytimeDetailCard = anytimeStart > -1 && anytimeEnd > -1 ? homeSource.slice(anytimeStart, anytimeEnd) : '';
+    expect(anytimeDetailCard.length).toBeGreaterThan(0);
+    expect(anytimeDetailCard).toMatch(/to="\/anytime-reset"/);
+    expect(anytimeDetailCard).not.toMatch(/to="\/support"/);
+  });
+
+  it('the former "Need a moment?" label no longer appears anywhere in Home.jsx', () => {
+    expect(homeSource).not.toMatch(/Need a moment\?/);
+  });
+});
 
 describe('Home.jsx — quick-action row stays at exactly four tiles', () => {
   const quickActionBlock = homeSource.match(/Or choose something quick[\s\S]*?grid grid-cols-4 gap-2\.5">([\s\S]*?)<\/div>\s*<\/div>/)?.[1] ?? '';
@@ -21,23 +44,20 @@ describe('Home.jsx — quick-action row stays at exactly four tiles', () => {
     expect(links).toHaveLength(4);
   });
 
-  it('the four tiles are exactly: Anytime Reset, Meditate, Explore Library, Sleep & Unwind (in that order)', () => {
+  it('the four tiles are exactly: Breathe, Meditate, Explore Library, Sleep & Unwind (in that order) - Anytime Reset moved to its own Today\'s Rhythm card, see the describe block above', () => {
     const labels = [...quickActionBlock.matchAll(/text-\[11px\] font-semibold text-on-surface leading-tight">([^<]+)</g)].map((m) => m[1]);
-    expect(labels).toEqual(['Anytime Reset', 'Meditate', 'Explore Library', 'Sleep &amp; Unwind']);
+    expect(labels).toEqual(['Breathe', 'Meditate', 'Explore Library', 'Sleep &amp; Unwind']);
   });
 
-  it('the former "Need a moment?" label no longer appears anywhere in Home.jsx', () => {
-    expect(homeSource).not.toMatch(/Need a moment\?/);
-  });
-
-  it('the Anytime Reset tile routes to /anytime-reset, not /support', () => {
-    const tileMatch = quickActionBlock.match(/to="\/anytime-reset"[\s\S]{0,700}Anytime Reset/);
+  it('the Breathe tile routes to the standalone /breathe-standalone destination, not /support or the old /anytime-reset slot', () => {
+    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[\s\S]{0,700}Breathe/);
     expect(tileMatch).toBeTruthy();
     expect(quickActionBlock).not.toMatch(/to="\/support"/);
+    expect(quickActionBlock).not.toMatch(/to="\/anytime-reset"/);
   });
 
-  it('the Anytime Reset tile carries min-h-[44px], matching the other three', () => {
-    const tileMatch = quickActionBlock.match(/to="\/anytime-reset"[^>]*className="([^"]*)"/);
+  it('the Breathe tile carries min-h-[44px], matching the other three', () => {
+    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[^>]*className="([^"]*)"/);
     expect(tileMatch).toBeTruthy();
     expect(tileMatch[1]).toMatch(/min-h-\[44px\]/);
   });

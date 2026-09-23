@@ -9,6 +9,11 @@
 // so Library.jsx knows to show its own contextual Back control - see
 // libraryHomeReturnContext.test.js for the Library-side coverage. Every
 // other destination/tooltip/touch-target guarantee below is unchanged.
+//
+// Build 15 Home refinement - Anytime Reset moved off this row onto its
+// own "Today's Rhythm" card (see Home.greeting.test.js's selector
+// coverage), freeing the first tile for a standalone Breathe entry point
+// (-> /breathe-standalone; see standaloneBreathe.test.js).
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)), 'utf-8');
 
 const TILES = [
-  { href: '/anytime-reset', label: 'Anytime Reset', tipId: 'quick-action-tip-anytime-reset' },
+  { href: '/breathe-standalone', label: 'Breathe', tipId: 'quick-action-tip-breathe' },
   { href: '/meditate', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
   { href: '/library?from=home', label: 'Explore Library', tipId: 'quick-action-tip-browse-exercises' },
   { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep &amp; Unwind', tipId: 'quick-action-tip-sleep-sounds' }
