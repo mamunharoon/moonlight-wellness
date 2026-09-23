@@ -970,13 +970,30 @@ export const Home = () => {
                   Begin Evening Wind-Down
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => navigate('/review/reflection?q=1')}
-                  className="block w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all"
-                >
-                  Review Tonight's Journey
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/review/reflection?q=1')}
+                    className="block w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all"
+                  >
+                    Review Tonight's Journey
+                  </button>
+                  {/* Edit Tonight's Responses (Build 15) — a visible
+                      secondary action here too, kept to just this one
+                      addition so Home's own compact card stays
+                      uncluttered; Redo Tonight's Wind-Down (a rarer,
+                      destructive action with its own confirmation) is
+                      reachable via Review's own "Evening Summary" return
+                      action on the full completed-Evening screen, not
+                      duplicated here. */}
+                  <button
+                    type="button"
+                    onClick={() => navigate('/edit/evening?q=1')}
+                    className="block w-full py-3 rounded-xl glass-panel text-on-surface font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                  >
+                    Edit Tonight's Responses
+                  </button>
+                </div>
               )}
             </div>
           )}

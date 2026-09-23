@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
 
 // Client-side counterpart to the routine_responses migration
 // (20260919120000) - Reflection.jsx/Gratitude.jsx's prompt answers, keyed
@@ -77,5 +78,97 @@ export const deleteRoutineResponse = async ({ userId, sessionId, stepId, promptI
     }
   } catch (e) {
     console.warn('Routine response clear skipped:', e.message);
+  }
+};
+
+/**
+ * Edit Tonight's Responses (Build 15) — saves every CHANGED answer across
+ * both Reflection and Gratitude in one call. `entries` is a
+ * { stepId, promptId, response }[] (see eveningJourneyQuestions.js's own
+ * computeChangedEntries - the only intended source of this array).
+ *
+ * Genuinely atomic, with no RPC and no schema change: a single
+ * `.upsert()` call given an ARRAY of rows compiles to one
+ * `INSERT ... ON CONFLICT DO UPDATE` SQL statement covering every row at
+ * once - Postgres itself guarantees that statement is all-or-nothing (a
+ * constraint violation on any one row rolls back the whole statement,
+ * never a partial write). `step_id` differing across rows within the
+ * same array (Reflection vs Gratitude) does not change this - the
+ * conflict target already includes step_id, so each row still resolves
+ * to its own distinct existing-or-new row.
+ *
+ * Unlike upsertRoutineResponse/deleteRoutineResponse above, this never
+ * swallows a failure - it returns an explicit { ok, error } result so
+ * the caller can show an honest recoverable error state instead of
+ * silently reporting success after a failed write.
+ */
+export const upsertRoutineResponsesBatch = async ({ userId, sessionId, localDate, entries }) => {
+  if (!supabase || !userId) return { ok: false, error: new Error('Not authenticated') };
+  const rows = (entries ?? [])
+    .map((entry) => ({ ...entry, response: typeof entry.response === 'string' ? entry.response.trim() : '' }))
+    .filter((entry) => entry.response)
+    .map((entry) => ({
+      user_id: userId,
+      session_id: sessionId,
+      step_id: entry.stepId,
+      prompt_id: entry.promptId,
+      local_date: localDate,
+      response: entry.response
+    }));
+  if (rows.length === 0) return { ok: true };
+  try {
+    const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: CONFLICT_TARGET });
+    if (error) return { ok: false, error };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e };
+  }
+};
+
+// Redo Tonight's Wind-Down (Build 15) — the exact set of Reflection/
+// Gratitude prompt ids this deletion is allowed to ever touch, derived
+// from the same shared question configuration every other Evening
+// surface already uses (never a second, hand-maintained list that could
+// silently drift). A future Evening step that persists its own
+// routine_responses rows (e.g. a future Prepare for Rest question) is
+// NOT in this list and is therefore structurally unreachable by this
+// deletion, by construction - not by convention.
+const EVENING_REFLECTION_GRATITUDE_PROMPT_IDS = [...REFLECTION_PROMPTS, ...GRATITUDE_PROMPTS].map((p) => p.id);
+const EVENING_REFLECTION_GRATITUDE_STEP_IDS = ['reflection', 'gratitude'];
+const EVENING_WIND_DOWN_SESSION_ID = 'evening-wind-down';
+
+/**
+ * Redo Tonight's Wind-Down (Build 15) — deliberately named for its exact,
+ * narrow scope rather than a generic "delete all of today's Evening
+ * rows" helper (approved correction: a broader helper would also reach
+ * any future Evening step's own persisted rows, which must never happen
+ * here). Deletes ONLY this user's own Reflection/Gratitude rows for the
+ * evening-wind-down session on the one given local date - the session id
+ * is not a parameter, it is the fixed literal this function's own name
+ * promises.
+ *
+ * One atomic SQL DELETE (Postgres guarantees all-or-nothing for a single
+ * statement, matching upsertRoutineResponsesBatch's own reasoning
+ * above). `.select('prompt_id')` on the delete makes Supabase return the
+ * rows it actually removed, so the caller can distinguish "matched and
+ * removed N rows" from "matched zero rows" (a legitimate outcome for an
+ * all-skipped completed journey) - both are `ok: true`; only a genuine
+ * query/RLS/network error is ever `ok: false`, so a caller can never
+ * mistake a failed delete for an empty-but-successful one.
+ */
+export const deleteEveningReflectionGratitudeResponsesForDate = async ({ userId, localDate }) => {
+  if (!supabase || !userId) return { ok: false, error: new Error('Not authenticated') };
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .delete()
+      .match({ user_id: userId, session_id: EVENING_WIND_DOWN_SESSION_ID, local_date: localDate })
+      .in('step_id', EVENING_REFLECTION_GRATITUDE_STEP_IDS)
+      .in('prompt_id', EVENING_REFLECTION_GRATITUDE_PROMPT_IDS)
+      .select('prompt_id');
+    if (error) return { ok: false, error };
+    return { ok: true, deletedCount: data?.length ?? 0 };
+  } catch (e) {
+    return { ok: false, error: e };
   }
 };

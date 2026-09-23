@@ -34,13 +34,31 @@ import { ConfirmDialog } from './ConfirmDialog';
  * exact wording (e.g. EveningSceneShell's "Leave evening routine? Your
  * unsaved progress may be lost.") — optional, defaulting to the original
  * generic copy so every existing caller is unaffected.
+ *
+ * `onBeforeLeave` (Edit Tonight's Responses, Build 15 — additive, every
+ * existing caller omits it and is completely unaffected): an optional
+ * `() => boolean` checked only on the ORDINARY (non-active-routine-step)
+ * path, right before this button would otherwise call goBack(fallback).
+ * Returning `false` cancels this tap's navigation entirely, leaving the
+ * caller free to show its own confirmation (e.g. "Discard your
+ * changes?") and navigate itself once the user actually confirms.
+ * Returning anything else (including undefined, or the prop being
+ * omitted) proceeds exactly as before. This exists because the
+ * active-routine-step confirmation above only ever fires for a route
+ * that is the Session Engine's own current live step
+ * (useActiveRoutineStep) — Edit Tonight's Responses is deliberately
+ * never coupled to the Session Engine at all, so that mechanism can
+ * never protect its own unsaved draft; a second, narrower hook was
+ * needed rather than widening the active-routine-step concept to
+ * something it was never meant to describe.
  */
 export const BackButton = ({
   fallback = '/',
   label = 'Go back',
   className = '',
   confirmTitle = 'Leave this routine?',
-  confirmMessage = 'Your current progress may be paused.'
+  confirmMessage = 'Your current progress may be paused.',
+  onBeforeLeave
 }) => {
   const location = useLocation();
   const { goBack } = useNavigationHistory();
@@ -54,6 +72,7 @@ export const BackButton = ({
       setConfirmOpen(true);
       return;
     }
+    if (onBeforeLeave && onBeforeLeave() === false) return;
     goBack(fallback);
   };
 

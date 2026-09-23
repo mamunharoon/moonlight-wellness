@@ -1,14 +1,17 @@
-import { useEffect } from 'react';
+/* eslint-disable no-unused-vars */
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useAuth } from '../context/AuthContext';
 import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
-import { getEveningCompletionKey } from '../lib/dailyCompletion';
+import { getEveningCompletionKey, clearEveningCompletionKey } from '../lib/dailyCompletion';
+import { deleteEveningReflectionGratitudeResponsesForDate } from '../lib/routineResponses';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -49,9 +52,13 @@ import { getEveningCompletionKey } from '../lib/dailyCompletion';
  */
 export const EveningComplete = () => {
   const navigate = useNavigate();
-  const { state, currentStep, completeSession, resetSession } = useSession();
+  const { state, currentStep, completeSession, resetSession, resetRoutine } = useSession();
   const { isGuest } = useAuth();
   const { effectiveTimezone, userId } = useAlarm();
+
+  const [redoConfirmOpen, setRedoConfirmOpen] = useState(false);
+  const [isRedoing, setIsRedoing] = useState(false);
+  const [redoError, setRedoError] = useState(false);
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
@@ -85,6 +92,52 @@ export const EveningComplete = () => {
     resetSession();
   };
 
+  const handleRedoTap = () => {
+    setRedoError(false);
+    setRedoConfirmOpen(true);
+  };
+
+  /*
+   * Redo Tonight's Wind-Down (Build 15) — failure-safe order, exactly as
+   * approved: (1) validate eligibility, (2) resolve today's local date
+   * ONCE and hold that exact value for the whole operation, (3) guard
+   * against rapid double taps, (4) the one narrowly-scoped atomic
+   * delete, (5) check it actually succeeded, (6) only then clear the
+   * completion flag, (7) only then reset the Evening routine, (8)
+   * navigate to the canonical Evening start. Any failure at (1) or (5)
+   * stops here — no flag clear, no routine reset, no navigation — the
+   * existing completed journey is left exactly as it was, still fully
+   * reviewable, with a friendly retry available.
+   */
+  const handleConfirmRedo = async () => {
+    if (isRedoing) return;
+    setIsRedoing(true);
+    setRedoError(false);
+
+    const localDate = getZonedParts(effectiveTimezone, devNow()).dateKey;
+    const isEligible = !isGuest && Boolean(userId) && localStorage.getItem(getEveningCompletionKey(userId)) === localDate;
+    if (!isEligible) {
+      setIsRedoing(false);
+      setRedoConfirmOpen(false);
+      setRedoError(true);
+      return;
+    }
+
+    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId, localDate });
+    if (!result.ok) {
+      setIsRedoing(false);
+      setRedoConfirmOpen(false);
+      setRedoError(true);
+      return;
+    }
+
+    clearEveningCompletionKey(userId);
+    resetRoutine('evening-wind-down');
+    setRedoConfirmOpen(false);
+    setIsRedoing(false);
+    navigate('/evening-wind-down');
+  };
+
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
@@ -111,6 +164,17 @@ export const EveningComplete = () => {
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         )}
+        {/* Edit Tonight's Responses (Build 15) — a clearly visible
+            secondary action, deliberately never styled like the primary
+            Review button above (see the approved button hierarchy). */}
+        {!isGuest && (
+          <button
+            onClick={() => navigate('/edit/evening?q=1')}
+            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span>Edit Tonight's Responses</span>
+          </button>
+        )}
         <button
           onClick={() => navigate('/library?category=sleep-soundscapes')}
           className={`w-full py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all ${
@@ -122,6 +186,26 @@ export const EveningComplete = () => {
           <span>Choose a Sleep Experience</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
+        {/* Redo Tonight's Wind-Down (Build 15) — quiet, destructive-tinted
+            text-only action, deliberately NOT a filled/primary Continue-
+            style button, so it never visually competes with Review. */}
+        {!isGuest && (
+          <>
+            {redoError && (
+              <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
+                <p className="text-sm text-on-surface">
+                  Couldn't redo tonight's Wind-Down. Your existing journey is unchanged — please try again.
+                </p>
+              </div>
+            )}
+            <button
+              onClick={handleRedoTap}
+              className="w-full py-3 text-center text-sm font-semibold text-red-300 hover:text-red-200 active:scale-95 transition-all"
+            >
+              Redo Tonight's Wind-Down
+            </button>
+          </>
+        )}
         <button
           onClick={handleReturnHome}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
@@ -129,6 +213,18 @@ export const EveningComplete = () => {
           Return Home
         </button>
       </div>
+
+      <ConfirmDialog
+        open={redoConfirmOpen}
+        title="Redo tonight's Wind-Down?"
+        message="This will permanently delete tonight's saved Reflection and Gratitude responses and restart the Evening journey from the beginning. If you leave before completing it again, your previous responses cannot be restored."
+        confirmLabel="Delete Responses & Redo"
+        cancelLabel="Keep Existing Journey"
+        destructive
+        confirmPending={isRedoing}
+        onConfirm={handleConfirmRedo}
+        onDismiss={() => setRedoConfirmOpen(false)}
+      />
     </EveningSceneShell>
   );
 };

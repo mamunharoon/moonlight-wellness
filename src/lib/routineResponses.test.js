@@ -1,0 +1,225 @@
+// Edit Tonight's Responses / Redo Tonight's Wind-Down (Build 15) —
+// genuine behavioural tests for upsertRoutineResponsesBatch and
+// deleteEveningReflectionGratitudeResponsesForDate: real execution
+// against a mocked Supabase query builder, asserting on the EXACT calls
+// made (table, match/in filters, payload shape) and the EXACT result
+// returned - not source-string assertions. loadRoutineResponse/
+// upsertRoutineResponse/deleteRoutineResponse (the pre-existing
+// functions) are unchanged by this work and are not re-tested here.
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
+
+// A minimal fake Postgrest-style chainable query builder. Each method
+// records its own call and returns the same chain object, so tests can
+// assert on the exact sequence/arguments of .match()/.in()/.in() calls
+// regardless of call order elsewhere. The chain becomes a real Promise
+// only at whichever method the real implementation actually awaits
+// (.upsert() for the batch save, .select() for the scoped delete) -
+// matching how the real supabase-js query builder is itself "thenable"
+// at any point in its own chain.
+let lastChain;
+const makeChain = (result) => {
+  const chain = {
+    matchArgs: undefined,
+    inCalls: [],
+    upsertArgs: undefined,
+    selectArgs: undefined,
+    match: vi.fn((...args) => {
+      chain.matchArgs = args;
+      return chain;
+    }),
+    in: vi.fn((...args) => {
+      chain.inCalls.push(args);
+      return chain;
+    }),
+    delete: vi.fn(() => chain),
+    upsert: vi.fn((...args) => {
+      chain.upsertArgs = args;
+      return Promise.resolve(result);
+    }),
+    select: vi.fn((...args) => {
+      chain.selectArgs = args;
+      return Promise.resolve(result);
+    })
+  };
+  return chain;
+};
+
+const mockFrom = vi.fn();
+
+vi.mock('./supabaseClient', () => ({
+  supabase: { from: mockFrom }
+}));
+
+const { upsertRoutineResponsesBatch, deleteEveningReflectionGratitudeResponsesForDate } = await import('./routineResponses');
+
+const setResult = (result) => {
+  lastChain = makeChain(result);
+  mockFrom.mockReturnValue(lastChain);
+};
+
+beforeEach(() => {
+  mockFrom.mockReset();
+  setResult({ error: null, data: [] });
+});
+
+describe('upsertRoutineResponsesBatch - one atomic call across both sections', () => {
+  it('sends exactly one .upsert() call for a Reflection change and a Gratitude change together, on the correct table and conflict target', async () => {
+    const result = await upsertRoutineResponsesBatch({
+      userId: 'user-1',
+      sessionId: 'evening-wind-down',
+      localDate: '2026-09-22',
+      entries: [
+        { stepId: 'reflection', promptId: 'went-well', response: 'Helped someone' },
+        { stepId: 'gratitude', promptId: 'grateful-now', response: 'A small comfort' }
+      ]
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(mockFrom).toHaveBeenCalledWith('routine_responses');
+    expect(lastChain.upsert).toHaveBeenCalledTimes(1);
+
+    const [rows, options] = lastChain.upsertArgs;
+    expect(options).toEqual({ onConflict: 'user_id,session_id,step_id,prompt_id,local_date' });
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        {
+          user_id: 'user-1',
+          session_id: 'evening-wind-down',
+          step_id: 'reflection',
+          prompt_id: 'went-well',
+          local_date: '2026-09-22',
+          response: 'Helped someone'
+        },
+        {
+          user_id: 'user-1',
+          session_id: 'evening-wind-down',
+          step_id: 'gratitude',
+          prompt_id: 'grateful-now',
+          local_date: '2026-09-22',
+          response: 'A small comfort'
+        }
+      ])
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it('trims each response before sending, and never sends a blank/whitespace-only entry', async () => {
+    const result = await upsertRoutineResponsesBatch({
+      userId: 'user-1',
+      sessionId: 'evening-wind-down',
+      localDate: '2026-09-22',
+      entries: [
+        { stepId: 'reflection', promptId: 'went-well', response: '  Got outside or moved  ' },
+        { stepId: 'reflection', promptId: 'challenged', response: '   ' }
+      ]
+    });
+
+    expect(result).toEqual({ ok: true });
+    const [rows] = lastChain.upsertArgs;
+    expect(rows).toEqual([
+      {
+        user_id: 'user-1',
+        session_id: 'evening-wind-down',
+        step_id: 'reflection',
+        prompt_id: 'went-well',
+        local_date: '2026-09-22',
+        response: 'Got outside or moved'
+      }
+    ]);
+  });
+
+  it('never calls Supabase at all when every entry is blank - a genuine no-op, matching upsertRoutineResponse\'s own convention', async () => {
+    const result = await upsertRoutineResponsesBatch({
+      userId: 'user-1',
+      sessionId: 'evening-wind-down',
+      localDate: '2026-09-22',
+      entries: [{ stepId: 'reflection', promptId: 'went-well', response: '' }]
+    });
+    expect(result).toEqual({ ok: true });
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('returns an explicit failure result on a Supabase error - never a silent/false success (a real caller can detect this, unlike upsertRoutineResponse)', async () => {
+    setResult({ error: { message: 'network error' } });
+    const result = await upsertRoutineResponsesBatch({
+      userId: 'user-1',
+      sessionId: 'evening-wind-down',
+      localDate: '2026-09-22',
+      entries: [{ stepId: 'reflection', promptId: 'went-well', response: 'Helped someone' }]
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it('refuses to run without an authenticated userId, without ever calling Supabase', async () => {
+    const result = await upsertRoutineResponsesBatch({
+      userId: null,
+      sessionId: 'evening-wind-down',
+      localDate: '2026-09-22',
+      entries: [{ stepId: 'reflection', promptId: 'went-well', response: 'Helped someone' }]
+    });
+    expect(result.ok).toBe(false);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+});
+
+describe('deleteEveningReflectionGratitudeResponsesForDate - narrowly scoped, never a generic broad delete', () => {
+  it('matches only user_id/session_id(evening-wind-down)/local_date - never step_id/prompt_id in the match itself (those are scoped via .in())', async () => {
+    await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    expect(mockFrom).toHaveBeenCalledWith('routine_responses');
+    expect(lastChain.delete).toHaveBeenCalledTimes(1);
+    expect(lastChain.matchArgs).toEqual([{ user_id: 'user-1', session_id: 'evening-wind-down', local_date: '2026-09-22' }]);
+  });
+
+  it('scopes step_id to exactly [reflection, gratitude] - no other step is ever reachable, protecting any future Evening step\'s own persisted rows', async () => {
+    await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    const stepIdCall = lastChain.inCalls.find(([field]) => field === 'step_id');
+    expect(stepIdCall[1]).toEqual(['reflection', 'gratitude']);
+  });
+
+  it('scopes prompt_id to exactly the 6 allowlisted Reflection/Gratitude ids - not one more, not one fewer', async () => {
+    await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    const promptIdCall = lastChain.inCalls.find(([field]) => field === 'prompt_id');
+    const expectedIds = [...REFLECTION_PROMPTS, ...GRATITUDE_PROMPTS].map((p) => p.id);
+    expect(promptIdCall[1]).toHaveLength(6);
+    expect(promptIdCall[1].sort()).toEqual(expectedIds.sort());
+    // A hypothetical unrelated Evening response row (a different prompt
+    // id, e.g. a future step) is structurally unreachable: it is simply
+    // not a member of this allowlist, so no .in() filter this function
+    // constructs could ever match it.
+    expect(promptIdCall[1]).not.toContain('unrelated-future-prompt');
+  });
+
+  it('a successful zero-row delete (an all-skipped completed journey) is reported as ok:true, never mistaken for a failure', async () => {
+    setResult({ data: [], error: null });
+    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    expect(result).toEqual({ ok: true, deletedCount: 0 });
+  });
+
+  it('a genuine query/RLS/network failure is reported as ok:false, never conflated with an empty-but-successful delete', async () => {
+    setResult({ data: null, error: { message: 'permission denied' } });
+    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(result.deletedCount).toBeUndefined();
+  });
+
+  it('a successful delete with rows removed reports the real deleted count', async () => {
+    setResult({ data: [{ prompt_id: 'went-well' }, { prompt_id: 'grateful-now' }], error: null });
+    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    expect(result).toEqual({ ok: true, deletedCount: 2 });
+  });
+
+  it('refuses to run without an authenticated userId, without ever calling Supabase', async () => {
+    const result = await deleteEveningReflectionGratitudeResponsesForDate({ userId: null, localDate: '2026-09-22' });
+    expect(result.ok).toBe(false);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('the resolved local date is used exactly as given, for this one call only - the caller (EveningComplete.jsx) is responsible for resolving it once and passing the same value throughout', async () => {
+    await deleteEveningReflectionGratitudeResponsesForDate({ userId: 'user-1', localDate: '2026-09-22' });
+    expect(lastChain.matchArgs[0].local_date).toBe('2026-09-22');
+  });
+});

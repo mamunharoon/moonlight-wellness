@@ -143,3 +143,43 @@ export const GRATITUDE_PROMPTS = [
     ]
   }
 ];
+
+// Build 15 — Edit Tonight's Responses (EditEveningResponses.jsx). One
+// combined, ordered list spanning both sections so a single controller
+// page/route can own ONE draft across all six questions (approved
+// correction: two independently-mounted Edit pages would lose a
+// Reflection draft the moment navigation crossed into Gratitude, since
+// that would unmount the page holding it). Each entry keeps its own
+// `stepId` so the eventual batch save can address the correct
+// routine_responses row - REFLECTION_PROMPTS/GRATITUDE_PROMPTS
+// themselves are untouched, this is a derived, read-only combination.
+export const EVENING_EDIT_PROMPTS = [
+  ...REFLECTION_PROMPTS.map((prompt) => ({ ...prompt, stepId: 'reflection', accent: 'reflection' })),
+  ...GRATITUDE_PROMPTS.map((prompt) => ({ ...prompt, stepId: 'gratitude', accent: 'gratitude' }))
+];
+
+/**
+ * Edit Tonight's Responses — pure diff between the originally-loaded
+ * answers and the in-memory draft, used both to decide "is there
+ * anything unsaved" (Cancel/exit confirmation) and to build the exact
+ * payload for one atomic batch save. Deliberately excludes:
+ *   - unchanged values (draft === original, trimmed) - never re-saved;
+ *   - blank drafts (trimmed to '') - Build 15 Edit does not support
+ *     clearing an answer to blank (approved scope: "replace, not
+ *     remove" - see routineResponses.js's own deleteRoutineResponse for
+ *     the separate explicit-clear path this deliberately does not use).
+ * A blank draft on a prompt that already had a saved answer is simply
+ * not included in the save payload - the original answer is left
+ * exactly as it was, never silently deleted.
+ */
+export const computeChangedEntries = (original, draft, prompts) => {
+  const changed = [];
+  for (const prompt of prompts) {
+    const draftValue = (draft?.[prompt.id] ?? '').trim();
+    const originalValue = (original?.[prompt.id] ?? '').trim();
+    if (draftValue && draftValue !== originalValue) {
+      changed.push({ stepId: prompt.stepId, promptId: prompt.id, response: draftValue });
+    }
+  }
+  return changed;
+};

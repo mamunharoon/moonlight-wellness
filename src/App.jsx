@@ -62,6 +62,7 @@ const EveningBreathing = lazy(() => import('./pages/EveningBreathing').then((m) 
 const PrepareForRest = lazy(() => import('./pages/PrepareForRest').then((m) => ({ default: m.PrepareForRest })));
 const ReflectionReview = lazy(() => import('./pages/ReflectionReview').then((m) => ({ default: m.ReflectionReview })));
 const GratitudeReview = lazy(() => import('./pages/GratitudeReview').then((m) => ({ default: m.GratitudeReview })));
+const EditEveningResponses = lazy(() => import('./pages/EditEveningResponses').then((m) => ({ default: m.EditEveningResponses })));
 const Support = lazy(() => import('./pages/Support').then((m) => ({ default: m.Support })));
 const PanicMode = lazy(() => import('./pages/PanicMode').then((m) => ({ default: m.PanicMode })));
 const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m.Meditate })));
@@ -216,6 +217,15 @@ function App() {
                     GratitudeReview.jsx's own doc comments. */}
                 <Route path="review/reflection" element={withFallback(<ReflectionReview />)} />
                 <Route path="review/gratitude" element={withFallback(<GratitudeReview />)} />
+
+                {/* Edit Tonight's Responses (Build 15) — one shared edit
+                    session across all six Reflection+Gratitude questions,
+                    addressed by a single `?q=1..6` route (never two
+                    separate pages - see EditEveningResponses.jsx's own
+                    doc comment for why that would lose a Reflection draft
+                    the moment navigation crossed into Gratitude). Also
+                    not coupled to the Session Engine. */}
+                <Route path="edit/evening" element={withFallback(<EditEveningResponses />)} />
 
                 {/* Support & Calm, Sprint 1: lightweight grounding/panic/
                     stress/breathing support flow. Full-bleed (same

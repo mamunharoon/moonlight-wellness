@@ -50,7 +50,14 @@ describe('Completed Evening actions - authenticated vs guest (items 1-4)', () =>
   it('"Start over"/"Start a New Wind-Down" are not offered anywhere on this screen - the investigation found the data model cannot safely support a second same-day session', () => {
     expect(eveningCompleteSource).not.toMatch(/Start [Oo]ver/);
     expect(eveningCompleteSource).not.toMatch(/Start a New Wind-Down/);
-    expect(eveningCompleteSource).not.toMatch(/resetRoutine|startSession/);
+    // startSession is still never used here - a fresh Evening session is
+    // always begun via the canonical /evening-wind-down flow, never
+    // started directly from this screen. resetRoutine IS now used (Build
+    // 15's own, separately-approved Redo Tonight's Wind-Down feature -
+    // see redoEveningWindDown.test.js), but only inside
+    // handleConfirmRedo, gated behind explicit confirmation and a
+    // successful deletion - covered in that file, not re-asserted here.
+    expect(eveningCompleteSource).not.toMatch(/startSession/);
   });
 });
 

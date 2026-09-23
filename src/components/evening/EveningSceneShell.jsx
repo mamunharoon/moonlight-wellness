@@ -64,7 +64,7 @@ import { BackButton } from '../BackButton';
  * specificity would otherwise have. confirmTitle/confirmMessage give
  * the "leave routine" confirmation evening-specific wording.
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', children }) => {
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
@@ -110,6 +110,7 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
               confirmTitle="Leave evening routine?"
               confirmMessage="Your unsaved progress may be lost."
               className="!bg-black/55 !border-white/40"
+              onBeforeLeave={onBeforeLeave}
             />
           </div>
         )}

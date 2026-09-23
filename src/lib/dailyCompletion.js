@@ -50,3 +50,13 @@ const scopedKey = (baseKey, userId) => (userId ? `${baseKey}:${userId}` : baseKe
 export const getMorningCompletionKey = (userId) => scopedKey(MORNING_DONE_KEY, userId);
 export const getEveningCompletionKey = (userId) => scopedKey(EVENING_DONE_KEY, userId);
 export const getMeditationCompletionKey = (userId) => scopedKey(MEDITATION_DONE_KEY, userId);
+
+// Redo Tonight's Wind-Down (Build 15) — clears only the CURRENT identity's
+// own Evening completion flag, never Morning's or another user's (see
+// scopedKey above). Only ever called after tonight's Reflection/Gratitude
+// rows have already been deleted successfully - see
+// deleteEveningReflectionGratitudeResponsesForDate's own doc comment in
+// routineResponses.js for the exact failure-safe order this must follow.
+export const clearEveningCompletionKey = (userId) => {
+  localStorage.removeItem(getEveningCompletionKey(userId));
+};
