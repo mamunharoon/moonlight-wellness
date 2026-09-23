@@ -130,6 +130,21 @@ describe('Layout bottom-nav clearance — real arithmetic proof (parsed from the
   });
 });
 
+describe('Layout bottom-nav Phase A type-scale bump (icons/labels "could be larger" per tester feedback)', () => {
+  it('nav icon and label are bumped one step (24px/11px), matching the approved Phase A plan', () => {
+    expect(layoutSource).toMatch(/material-symbols-outlined text-\[24px\]/);
+    expect(layoutSource).toMatch(/text-\[11px\] font-bold leading-none/);
+  });
+
+  it('the nav bar itself was NOT grown to fit the larger type - h-[72px] is unchanged, so the bottom-nav clearance arithmetic proved above still holds without modification', () => {
+    expect(layoutSource).toMatch(/<nav className="[^"]*\bh-\[72px\]/);
+  });
+
+  it('the 44x44 touch target is unaffected by the type bump - min-w/min-h-[44px] on each nav item is unchanged', () => {
+    expect(layoutSource).toMatch(/flex-1 min-w-\[44px\] min-h-\[44px\]/);
+  });
+});
+
 describe('Capacitor iOS content-inset regression guard', () => {
   it('never lets the native WKWebView auto-inset itself, so CSS env() stays the single source of truth (no duplicate padding)', () => {
     expect(capacitorConfig.ios.contentInset).toBe('never');

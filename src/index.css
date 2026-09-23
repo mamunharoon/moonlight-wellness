@@ -39,6 +39,23 @@
     --color-surface-container: #171f33;
     --color-surface-high: #222a3d;
     --color-surface-highest: #2d3449;
+
+    /* Build 15 Phase A — shared Morning/Evening tint tokens. Additive
+       only: defined here, not yet applied anywhere (wiring them into a
+       real screen is a later phase, not this one). Formalises the two
+       literal gradient-stop colors Home.jsx and Affirmation.jsx already
+       hardcode independently (`from-[#fffdfa]...to-[#ffebd2]` for
+       Morning, `from-[#121b2e]/30` for Evening) - the app's only
+       existing Morning/Evening visual differentiation - into real,
+       named, reusable tokens instead of a copy-pasted arbitrary-value
+       string. Values are taken directly from those existing gradients,
+       not invented: morning-tint sits mid-gradient toward the warmer
+       #ffebd2 stop; evening-tint is the exact #121b2e anchor already in
+       use. */
+    --color-morning-tint: #fff2e2;
+    --color-on-morning-tint: #5a3820;
+    --color-evening-tint: #121b2e;
+    --color-on-evening-tint: #dae2fd;
   }
 
   body {

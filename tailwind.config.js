@@ -34,6 +34,14 @@ export default {
         "surface-container-high": "var(--color-surface-high)",
         "surface-container-highest": "var(--color-surface-highest)",
 
+        // Build 15 Phase A — shared Morning/Evening tint tokens.
+        // Additive only, not yet consumed by any file (see
+        // src/index.css's own comment on the same pair).
+        "morning-tint": "var(--color-morning-tint)",
+        "on-morning-tint": "var(--color-on-morning-tint)",
+        "evening-tint": "var(--color-evening-tint)",
+        "on-evening-tint": "var(--color-on-evening-tint)",
+
         // Stage 3 tokens — additive only, namespaced, never consumed by
         // any existing Stage 2 file. See src/styles/stage3-tokens.css.
         "stage3-ink": "var(--stage3-ink)",

@@ -135,9 +135,16 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
   // problem (its background is always the app's plain dark surface).
   const isEvening = sessionId === EVENING_SESSION_ID;
 
+  // Build 15 Phase A — restyle only: base label bumped 10px→11px and the
+  // active-step emphasis strengthened (scale-105→scale-110) per the
+  // approved "stronger typography hierarchy" direction. The evening
+  // colour-contrast fix above (isEvening branch, WCAG-verified live) is
+  // completely untouched - only size/scale changed, never the
+  // color/opacity logic that keeps this readable against the evening
+  // gradient.
   return (
     <div
-      className={`w-full flex justify-between items-center px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[10px] uppercase tracking-wider font-semibold ${
+      className={`w-full flex justify-between items-center px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[11px] uppercase tracking-wider font-semibold ${
         isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/40'
       }`}
     >
@@ -147,7 +154,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
 
         const labelClassName = `transition-all duration-300 ${
           isActive
-            ? 'text-primary font-bold scale-105'
+            ? 'text-primary font-bold scale-110'
             : isCompleted
             ? (isEvening ? 'text-on-surface' : 'text-secondary')
             : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')

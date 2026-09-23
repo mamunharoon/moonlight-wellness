@@ -185,10 +185,18 @@ export const Layout = () => {
                       : 'text-on-surface-variant/70 hover:text-on-surface active:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
+                  {/* Build 15 Phase A — icon/label bumped one step
+                      (22px→24px, 10px→11px) per tester feedback ("text
+                      and icons could be larger"). Nav bar height
+                      (h-[72px] below) and the min-w/min-h-[44px] touch
+                      target are both already generous enough that this
+                      fits without growing the bar - verified live, no
+                      change to nav height or the bottom-nav clearance
+                      math needed. */}
+                  <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
                     {item.icon}
                   </span>
-                  <span className="text-[10px] font-bold leading-none">{item.label}</span>
+                  <span className="text-[11px] font-bold leading-none">{item.label}</span>
                 </Link>
               );
             })}

@@ -170,7 +170,14 @@ export const Meditate = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-4">
+    <div
+      className="max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
+      style={{
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+      }}
+    >
       <div className="flex items-center gap-3">
         {step === 'duration' ? (
           <BackButton fallback="/" />
