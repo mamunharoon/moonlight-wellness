@@ -21,9 +21,9 @@ describe('Home.jsx — quick-action row stays at exactly four tiles', () => {
     expect(links).toHaveLength(4);
   });
 
-  it('the four tiles are exactly: Anytime Reset, Meditate, Browse exercises, Sleep sounds (in that order)', () => {
+  it('the four tiles are exactly: Anytime Reset, Meditate, Explore Library, Sleep & Unwind (in that order)', () => {
     const labels = [...quickActionBlock.matchAll(/text-\[11px\] font-semibold text-on-surface leading-tight">([^<]+)</g)].map((m) => m[1]);
-    expect(labels).toEqual(['Anytime Reset', 'Meditate', 'Browse exercises', 'Sleep sounds']);
+    expect(labels).toEqual(['Anytime Reset', 'Meditate', 'Explore Library', 'Sleep &amp; Unwind']);
   });
 
   it('the former "Need a moment?" label no longer appears anywhere in Home.jsx', () => {

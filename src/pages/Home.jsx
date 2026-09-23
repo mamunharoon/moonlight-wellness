@@ -1040,13 +1040,13 @@ export const Home = () => {
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-2xl">video_library</span>
-            <span className="text-[11px] font-semibold text-on-surface leading-tight">Browse exercises</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Explore Library</span>
             <span
               id="quick-action-tip-browse-exercises"
               role="tooltip"
               className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
             >
-              Browse exercises
+              Explore Library
             </span>
           </Link>
           <Link
@@ -1055,13 +1055,13 @@ export const Home = () => {
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-primary text-2xl">bedtime</span>
-            <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep sounds</span>
+            <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep &amp; Unwind</span>
             <span
               id="quick-action-tip-sleep-sounds"
               role="tooltip"
               className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
             >
-              Sleep sounds
+              Sleep &amp; Unwind
             </span>
           </Link>
         </div>

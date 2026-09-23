@@ -18,8 +18,8 @@ const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)
 const TILES = [
   { href: '/anytime-reset', label: 'Anytime Reset', tipId: 'quick-action-tip-anytime-reset' },
   { href: '/meditate', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
-  { href: '/library?from=home', label: 'Browse exercises', tipId: 'quick-action-tip-browse-exercises' },
-  { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep sounds', tipId: 'quick-action-tip-sleep-sounds' }
+  { href: '/library?from=home', label: 'Explore Library', tipId: 'quick-action-tip-browse-exercises' },
+  { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep &amp; Unwind', tipId: 'quick-action-tip-sleep-sounds' }
 ];
 
 describe('Home — quick-action row stays exactly four tiles, unchanged destinations', () => {
