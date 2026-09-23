@@ -2,45 +2,59 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
+import { BreathingPatternRow } from '../components/BreathingPatternRow';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
+import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { useAuth } from '../context/AuthContext';
 import { setPendingContent } from '../lib/pendingContent';
+import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 
 // Background Music — same shared, reserved interactive-breathing loop id
-// as EveningBreathing.jsx (see that file's own comment, and
-// docs/background-music-asset-manifest.md). One ambient loop serves both
-// screens; there is no cadence-locked narration here for it to conflict
-// with, so the same asset works regardless of this screen's own 4-4-8
-// cycle timing.
+// as EveningBreathing.jsx/Breathe.jsx.
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
+const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';
 
 /*
  * Solas — Support & Calm, Sprint 1 Phase 2: Quiet Breathing
  *
- * Reuses BreathingRing (src/components/BreathingRing.jsx) exactly as
- * EveningBreathing.jsx does — same component, no visual changes — only
- * the cadence differs: inhale 4 / hold 4 / exhale 8 (16s/cycle) per this
- * batch's spec, gentler than both Breathe.jsx's 4-4-6 morning cycle and
- * EveningBreathing.jsx's 4-7-8 evening cycle. No ProgressIndicator, no
- * session copy beyond one short line — "keep visual stimulation
- * extremely low" means the ring is the only thing to look at.
+ * Build 15 — extended with an explicit, additive `standalone` prop
+ * (approved Option A) rather than a second parallel page. Every existing
+ * caller (Support's own embedded usage, `standalone` omitted/false) is
+ * COMPLETELY UNCHANGED: same fixed 4-4-8 pattern, no picker, same
+ * MusicEntryChoice-gated auto-start-once-chosen behaviour, same
+ * `/support`/`/support-complete` back-fallback/completion route, same
+ * JSX structure, same InteractiveAmbientMusic mount position (between
+ * the ring and the Continue/Skip buttons) - none of this is inferred
+ * from a URL parameter, only from this one explicit, controlled prop the
+ * ROUTE ITSELF decides (see App.jsx's two separate route registrations).
  *
- * No Session Engine (no useSession/advanceStep) and no audio, matching
- * every other Support & Calm page and this batch's explicit exclusions.
- * Continue and Skip both go straight to /support-complete, exactly like
- * EveningBreathing's own Continue/Skip pairing; the timer additionally
- * auto-advances after a fixed number of cycles so the screen never runs
- * forever with no way to know it's "done" if the user takes no action.
+ * `standalone={true}` (the new Home-launched Breathe entry) is a
+ * genuinely different rendering path: real pattern selection (the same
+ * three real cadences Morning Breathe offers, defaulting to this
+ * screen's own established 4-4-8), a Background music preference, and a
+ * real "Begin Breathing" gesture - nothing starts on mount. No Session
+ * Engine coupling either way (this file has never imported useSession).
+ *
+ * Because `standalone` is a fixed prop for the lifetime of one mounted
+ * instance (the router decides it, not runtime state), branching the
+ * top-level render on it is safe - React never has to reconcile between
+ * the two top-level shapes mid-life. Only the STANDALONE branch's own
+ * internal pre-start/active transition needs InteractiveAmbientMusic to
+ * be a single, stable, never-remounted instance (see MorningFlow.jsx's
+ * own fix/doc comment for exactly why two separate mount points across a
+ * hasBegun transition orphans audio started via a ref) - so its own
+ * InteractiveAmbientMusic sits once, outside that inner ternary, with
+ * conditional props instead of two mount points. Non-standalone never
+ * has this transition at all (hasBegun starts true and never changes),
+ * so its own single, original mount position is already safe exactly as
+ * it always was.
  */
-const CYCLE_SECONDS = 16; // 4 inhale + 4 hold + 8 exhale
-const TOTAL_CYCLES = 4;
-const TOTAL_SECONDS = CYCLE_SECONDS * TOTAL_CYCLES;
-
-export const QuietBreathing = () => {
+export const QuietBreathing = ({ standalone = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGuest } = useAuth();
@@ -50,9 +64,27 @@ export const QuietBreathing = () => {
     setPendingContent({ returnPath: `${location.pathname}${location.search}` });
     navigate('/auth');
   };
+
+  // Build 15 — standalone mode's own return targets. Support's existing
+  // embedded usage keeps its exact original targets, unconditionally.
+  const backFallback = standalone ? '/' : '/support';
+  const completionRoute = standalone ? '/' : '/support-complete';
+
+  // Pattern selection - standalone only. Non-standalone (Support) never
+  // renders a picker and always uses the fixed 'quiet' pattern, exactly
+  // as before this phase - selectedPatternId simply never changes away
+  // from its default when !standalone, since no picker UI exists to
+  // change it.
+  const [selectedPatternId, setSelectedPatternId] = useState(DEFAULT_STANDALONE_PATTERN_ID);
+  const activePattern = getBreathingPatternById(selectedPatternId) ?? getBreathingPatternById(DEFAULT_STANDALONE_PATTERN_ID);
+
   const [breatheState, setBreatheState] = useState('Inhale');
-  const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
-  // See EveningBreathing.jsx's identical block for the full rationale.
+  const [secondsLeft, setSecondsLeft] = useState(activePattern.totalSeconds);
+
+  // Legacy entry-choice gate - Support's own existing, byte-for-byte
+  // unchanged behaviour (see MusicEntryChoice.jsx's own doc comment).
+  // Standalone mode never renders MusicEntryChoice and never reads
+  // awaitingMusicChoice for its own gate - see hasBegun/canRun below.
   const [musicChoiceMade, setMusicChoiceMade] = useState(false);
   const musicPlayerRef = useRef(null);
   const musicEligible = isInteractiveMusicEligible({
@@ -69,40 +101,155 @@ export const QuietBreathing = () => {
     setMusicChoiceMade(true);
   };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice) { /* no-op to satisfy blind linter */ }
+  // Build 15 — standalone mode's own real pre-start gate. Non-standalone
+  // starts (and stays) true: Support's own screen has never had a
+  // separate "Begin" concept - awaitingMusicChoice alone remains its
+  // only gate, unchanged.
+  const [hasBegun, setHasBegun] = useState(() => !standalone);
+  const [musicPreferenceOn, setMusicPreferenceOn] = useState(() => {
+    if (isGuest) return false;
+    return musicEligible && getMusicPreference();
+  });
+  const handleToggleMusicPreference = () => {
+    setMusicPreferenceOn((prev) => {
+      const next = !prev;
+      setMusicPreference(next);
+      return next;
+    });
+  };
+  // Double-tap protection - see Breathe.jsx's identical rationale.
+  const hasBegunOnceRef = useRef(false);
+  const handleBeginBreathing = () => {
+    if (hasBegunOnceRef.current) return;
+    hasBegunOnceRef.current = true;
+    setSecondsLeft(activePattern.totalSeconds);
+    setBreatheState('Inhale');
+    setHasBegun(true);
+    if (musicEligible && musicPreferenceOn && !isGuest) {
+      musicPlayerRef.current?.start();
+    }
+  };
+
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow) { /* no-op to satisfy blind linter */ }
+
+  // The single gate the countdown effect uses: standalone waits for
+  // hasBegun; non-standalone (Support) preserves its exact original gate
+  // (awaitingMusicChoice alone) - never affected by hasBegun at all.
+  const canRun = standalone ? hasBegun : !awaitingMusicChoice;
 
   useEffect(() => {
-    if (awaitingMusicChoice) return;
+    if (!canRun) return;
 
     if (secondsLeft <= 0) {
-      navigate('/support-complete');
+      navigate(completionRoute);
       return;
     }
 
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
         const nextSec = prev - 1;
-        const cycleTime = (TOTAL_SECONDS - nextSec) % CYCLE_SECONDS;
-        if (cycleTime < 4) {
-          setBreatheState('Inhale');
-        } else if (cycleTime < 8) {
-          setBreatheState('Hold');
-        } else {
-          setBreatheState('Exhale');
-        }
+        setBreatheState(resolveBreathPhase(activePattern, nextSec));
         return nextSec;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, awaitingMusicChoice]);
+  }, [secondsLeft, navigate, canRun, activePattern, completionRoute]);
 
   const handleAdvance = () => {
-    navigate('/support-complete');
+    navigate(completionRoute);
   };
 
+  if (standalone) {
+    return (
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback}>
+        {!hasBegun ? (
+          <>
+            <div className="text-center space-y-2">
+              <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Mindful Breathing</span>
+              <h2 className="text-2xl font-bold text-on-surface">Choose Your Breathing Practice</h2>
+              <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
+                Choose a breathing rhythm, then begin when you&rsquo;re ready.
+              </p>
+            </div>
+
+            <div className="space-y-3" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern) => (
+                <BreathingPatternRow
+                  key={pattern.id}
+                  pattern={pattern}
+                  selected={selectedPatternId === pattern.id}
+                  onSelect={setSelectedPatternId}
+                  groupName="breathing-pattern"
+                />
+              ))}
+            </div>
+
+            {musicEligible && (
+              <MusicPreferenceToggle
+                isOn={musicPreferenceOn}
+                onToggle={handleToggleMusicPreference}
+                isGuest={isGuest}
+                onSignIn={confirmSignInForMusic}
+                description="Play gentle music during your breathing practice."
+              />
+            )}
+
+            <div className="space-y-3 w-full">
+              <button
+                type="button"
+                onClick={handleBeginBreathing}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              >
+                <span>Begin Breathing</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Just breathe. There is nowhere else to be.
+              </p>
+
+              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+            </div>
+
+            <div className="space-y-3 w-full">
+              <button
+                onClick={handleAdvance}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                <span>Continue</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+              <button
+                onClick={handleAdvance}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Skip
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic
+            instance, never remounted across the pre-start -> active
+            transition above - see MorningFlow.jsx's identical fix/doc
+            comment for the full rationale. */}
+        <InteractiveAmbientMusic
+          ref={musicPlayerRef}
+          musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
+          suspended={false}
+          hideToggle={!hasBegun}
+        />
+      </EveningSceneShell>
+    );
+  }
+
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback}>
       {awaitingMusicChoice && (
         <MusicEntryChoice
           onStartWithMusic={handleStartWithMusic}

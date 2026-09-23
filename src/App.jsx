@@ -247,6 +247,15 @@ function App() {
                 <Route path="quiet-breathing" element={withFallback(<QuietBreathing />)} />
                 <Route path="support-complete" element={withFallback(<SupportComplete />)} />
 
+                {/* Build 15 — standalone Breathe (Home's own Breathe quick
+                    action). Reuses QuietBreathing.jsx's own real pattern
+                    picker/Begin-gesture design via its additive
+                    `standalone` prop - no Session Engine coupling (this
+                    file has never imported useSession), returns to Home
+                    (not /support-complete), never touches Support's own
+                    unchanged, non-standalone route above. */}
+                <Route path="breathe-standalone" element={withFallback(<QuietBreathing standalone />)} />
+
                 {/* Meditation experience: Today's "Meditate" quick action
                     and the Library's Meditation filter both route here.
                     Reuses the existing media catalogue/player/guest-access

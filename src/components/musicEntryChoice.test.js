@@ -109,10 +109,10 @@ describe.each([
     expect(source).toMatch(/const awaitingMusicChoice = musicEligible && !musicChoiceMade;/);
   });
 
-  it("the countdown effect's own guard includes awaitingMusicChoice, and it's in that effect's dependency array", () => {
-    const guardLine = source.match(/if \([^)]*awaitingMusicChoice[^)]*\) return;/);
-    expect(guardLine).not.toBeNull();
-    const depsWithFlag = source.match(/\}, \[[^\]]*awaitingMusicChoice[^\]]*\]\);/g) ?? [];
+  it("the countdown effect's own guard is derived from awaitingMusicChoice (via the shared canRun gate, Build 15 - QuietBreathing.jsx also supports a standalone mode with its own separate hasBegun gate, so canRun = standalone ? hasBegun : !awaitingMusicChoice - non-standalone's own effective behaviour is unchanged: !awaitingMusicChoice alone), and canRun is in that effect's dependency array", () => {
+    expect(source).toMatch(/const canRun = standalone \? hasBegun : !awaitingMusicChoice;/);
+    expect(source).toMatch(/if \(!canRun\) return;/);
+    const depsWithFlag = source.match(/\}, \[[^\]]*canRun[^\]]*\]\);/g) ?? [];
     expect(depsWithFlag.length).toBeGreaterThan(0);
   });
 

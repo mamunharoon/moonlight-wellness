@@ -172,10 +172,15 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
     expect(mountCount).toBe(1);
   });
 
-  it('QuietBreathing.jsx renders the same shared player with IB01, not an independent copy, and also never passes `suspended`', () => {
+  it('QuietBreathing.jsx (non-standalone, Support\'s own unchanged usage) renders the same shared player with IB01, not an independent copy, and also never passes `suspended` - the standalone branch below is a separate, later `return` and never reached by Support\'s own usage', () => {
     expect(quietBreathingSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(quietBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} \/>/);
-    expect(quietBreathingSource).not.toMatch(/suspended=/);
+    // Scoped to the non-standalone `return` (after the `if (standalone)`
+    // early return) - the standalone branch's own InteractiveAmbientMusic
+    // mount legitimately does pass `suspended` (always false) and is a
+    // completely separate JSX tree, never reached when !standalone.
+    const nonStandaloneReturn = quietBreathingSource.slice(quietBreathingSource.lastIndexOf('return (\n    <EveningSceneShell'));
+    expect(nonStandaloneReturn).not.toMatch(/suspended=/);
   });
 
   it('both reserve the exact same shared breathing/grounding asset id - one loop serves both screens', () => {
