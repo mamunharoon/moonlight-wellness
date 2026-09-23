@@ -244,7 +244,7 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
 
   it('onClear is only invoked after an explicit two-step confirmation, never on a single tap', () => {
     expect(promptStepperSource).toMatch(/const handleRequestClear = \(\) => setConfirmingClear\(true\);/);
-    expect(promptStepperSource).toMatch(/const handleConfirmClear = \(\) => \{[\s\S]*?onClear\?\.\(activePrompt\.id\);\s*\n\s*\};/);
+    expect(promptStepperSource).toMatch(/const handleConfirmClear = \(\) => \{[\s\S]*?onClear\?\.\(promptId\);\s*\n\s*\};/);
     expect(promptStepperSource).not.toMatch(/onClick=\{.*onClear/);
   });
 
@@ -252,9 +252,26 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
     expect(promptStepperSource).toMatch(/const handleCancelClear = \(\) => setConfirmingClear\(false\);/);
   });
 
-  it('the clear confirmation resets whenever the active prompt changes (Previous/Next), so a stray tap can never confirm-clear the wrong prompt', () => {
-    expect(promptStepperSource).toMatch(/const goPrevious = \(\) => \{\s*\n\s*if \(isFirst\) return;\s*\n\s*setConfirmingClear\(false\);/);
-    expect(promptStepperSource).toMatch(/const handleNext = \(\) => \{\s*\n\s*if \(isLast\) \{\s*\n\s*onComplete\?\.\(answers\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*setConfirmingClear\(false\);/);
+  // Phase 3 (Reflection/Gratitude tap-first redesign, back-navigation
+  // fix): activeIndex moved from this component's own internal useState
+  // to a prop CONTROLLED by the calling page (Reflection.jsx/Gratitude.jsx
+  // derive it from their own allowlisted `?q=` route param) - see those
+  // two pages' own tests for the route-param/back-destination contract.
+  // The confirm-clear and guidance-disclosure UI state still reset
+  // whenever the active question changes, now adjusted directly during
+  // render when the activeIndex prop changes, rather than inline in
+  // goPrevious/handleNext (both removed - see the next test).
+  it('activeIndex is a controlled prop, not internal state - confirm-clear/guidance-disclosure reset when it changes, adjusted directly during render (React\'s own documented pattern) rather than a useEffect, so this never causes an extra committed render', () => {
+    expect(promptStepperSource).not.toMatch(/const \[activeIndex, setActiveIndex\]/);
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete \}\) => \{/);
+    expect(promptStepperSource).toMatch(/if \(activeIndex !== prevActiveIndex\) \{\s*\n\s*setPrevActiveIndex\(activeIndex\);\s*\n\s*setConfirmingClear\(false\);\s*\n\s*setGuidanceOpen\(false\);\s*\n\s*\}/);
+    expect(promptStepperSource).not.toMatch(/useEffect\(/);
+  });
+
+  it('no in-card Previous button remains - Back is exclusively the shared page-level BackButton\'s job now (see EveningSceneShell\'s own showBack/backFallback)', () => {
+    expect(promptStepperSource).not.toMatch(/goPrevious/);
+    expect(promptStepperSource).not.toMatch(/>Previous</);
+    expect(promptStepperSource).not.toMatch(/const isFirst/);
   });
 });
 
@@ -588,7 +605,17 @@ describe('Reflection.jsx/Gratitude.jsx - userId comes from useAlarm(), not useAu
   });
 });
 
-describe('PromptStepper.jsx - onChange is debounced, avoiding an out-of-order-write race', () => {
+describe('PromptStepper.jsx - single-select persistence (Build 15, Phase 3): preset taps commit immediately, free text stays debounced, Skip/Clear cancel any pending save', () => {
+  it('a preset tap (handleSelectPreset) commits and saves immediately - no debounce, since a tap is one discrete action, not a keystroke stream - and collapses the custom field, since a preset is now the sole authoritative answer', () => {
+    const body = promptStepperSource.match(/const handleSelectPreset = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/clearPendingSave\(activePrompt\.id\);/);
+    expect(body).toMatch(/setAnswers\(\(prev\) => \(\{ \.\.\.prev, \[activePrompt\.id\]: value \}\)\);/);
+    expect(body).toMatch(/setCustomOpenByPrompt\(\(prev\) => \(\{ \.\.\.prev, \[activePrompt\.id\]: false \}\)\);/);
+    expect(body).toMatch(/onChange\?\.\(activePrompt\.id, value\);/);
+    expect(body).not.toMatch(/setTimeout/);
+  });
+
   // Bug fix, found live: firing onChange (an async Supabase upsert) on
   // every keystroke with no ordering guarantee let a slower earlier
   // request's write land AFTER a faster later one's - reproduced live
@@ -597,11 +624,11 @@ describe('PromptStepper.jsx - onChange is debounced, avoiding an out-of-order-wr
   // collapses a burst of keystrokes into one save; local `answers` state
   // (and therefore handleComplete's own final flush) is unaffected since
   // it still updates synchronously on every keystroke, never debounced.
-  it('debounces the onChange call per-prompt, clearing any pending timer for that prompt on each keystroke', () => {
+  it('free-text typing (handleCustomChange) still debounces the onChange call per-prompt, clearing any pending timer for that prompt on each keystroke', () => {
     expect(promptStepperSource).toMatch(/const debounceTimersRef = useRef\(\{\}\);/);
-    const body = promptStepperSource.match(/const handleValueChange = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/setAnswers\(\(prev\) => \(\{ \.\.\.prev, \[activePrompt\.id\]: value \}\)\);/);
-    expect(body).toMatch(/clearTimeout\(debounceTimersRef\.current\[promptId\]\);/);
+    const body = promptStepperSource.match(/const handleCustomChange = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setAnswers\(\(prev\) => \(\{ \.\.\.prev, \[promptId\]: value \}\)\);/);
+    expect(body).toMatch(/clearPendingSave\(promptId\);/);
     expect(body).toMatch(/debounceTimersRef\.current\[promptId\] = setTimeout\(\(\) => \{\s*\n\s*onChange\?\.\(promptId, value\);\s*\n\s*\}, CHANGE_DEBOUNCE_MS\);/);
     // local state must update synchronously (not inside the debounced
     // timer) so handleComplete's flush always has the true latest value
@@ -609,6 +636,31 @@ describe('PromptStepper.jsx - onChange is debounced, avoiding an out-of-order-wr
     const timeoutIdx = body.indexOf('setTimeout(');
     expect(setAnswersIdx).toBeGreaterThan(-1);
     expect(setAnswersIdx).toBeLessThan(timeoutIdx);
+  });
+
+  // Persistence-safety fix, found while implementing Skip's "does not
+  // fabricate or overwrite an answer" guarantee: typing (debounced 400ms)
+  // then tapping Skip before that timer fired used to leave the pending
+  // save scheduled - it would land AFTER Skip's own delete, silently
+  // resurrecting the "skipped" answer. Skip (and Clear) now cancel any
+  // pending save for the active prompt first.
+  it('Skip cancels any pending debounced save for the active prompt before clearing its answer', () => {
+    const body = promptStepperSource.match(/const handleSkip = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    const clearIdx = body.indexOf('clearPendingSave(promptId)');
+    const deleteIdx = body.indexOf('delete rest[promptId]');
+    expect(clearIdx).toBeGreaterThan(-1);
+    expect(deleteIdx).toBeGreaterThan(clearIdx);
+  });
+
+  it('Clear also cancels any pending debounced save before deleting the answer', () => {
+    const body = promptStepperSource.match(/const handleConfirmClear = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/clearPendingSave\(promptId\);/);
+  });
+
+  it('Next/Skip on a non-last question call onAdvance(activeIndex + 1) - a real navigate() owned by the calling page, never local setState', () => {
+    expect(promptStepperSource).toMatch(/onAdvance\?\.\(activeIndex \+ 1\);/);
+    expect(promptStepperSource).not.toMatch(/setActiveIndex/);
   });
 });
 

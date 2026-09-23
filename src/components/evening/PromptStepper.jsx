@@ -1,4 +1,13 @@
+/* eslint-disable no-unused-vars */
 import { useRef, useState } from 'react';
+import { SelectionChip } from '../journey/SelectionChip';
+import { SelectionRow } from '../journey/SelectionRow';
+import { BetaVideoRow } from '../BetaVideoRow';
+import { BetaVideoModal } from '../BetaVideoModal';
+import { SignInPromptDialog } from '../SignInPromptDialog';
+import { useProtectedVideo } from '../../hooks/useProtectedVideo';
+import { getBetaVideoById } from '../../lib/betaVideoManifest';
+import { getCachedDurationMinutes } from '../../lib/durationCache';
 
 // Reflection/Gratitude persistence race fix: firing onChange (an async
 // Supabase upsert - see routineResponses.js) on every single keystroke,
@@ -11,125 +20,227 @@ import { useRef, useState } from 'react';
 // handleComplete's own final flush always has the true latest value
 // regardless) collapses a burst of keystrokes into one save, which both
 // fixes the race in the overwhelming common case and cuts the number of
-// writes drastically.
+// writes drastically. Only applies to actual free-text typing - a preset
+// tap is a single discrete action, not a keystroke stream, and commits
+// immediately (see handleSelectPreset).
 const CHANGE_DEBOUNCE_MS = 400;
 
 /*
- * Stage 4 Batch F2 — PromptStepper
+ * Phase 3 (Reflection/Gratitude tap-first redesign) — PromptStepper
  *
- * Generic "one question per screen" sub-stepper, meant to be reused by
- * both Reflection and Gratitude (F4, not this batch) instead of each
- * writing its own 3-question pagination logic. Mirrors the precedent
- * already proven in MorningFlow.jsx: several small steps nested inside
- * ONE Session Engine step, using local component state for the
- * sub-navigation rather than creating extra Session Engine steps for
- * every individual question.
+ * Generic "one question per screen" sub-stepper shared by Reflection.jsx
+ * and Gratitude.jsx. Each question now shows tap-first preset choices
+ * (never a large required-looking text area up front), an optional
+ * collapsed custom-answer field, and an optional collapsed guidance
+ * disclosure - see each prop's own doc below.
  *
- * Purely presentational/local-state — no Session Engine, no Supabase,
- * no navigation. The parent page owns what happens with each answer
- * (e.g. writing to journal_entries) and what happens after the final
- * prompt (e.g. advanceStep()) via onComplete. Not wired into any real
- * screen yet — this batch is shared infrastructure only.
+ * CONTROLLED ACTIVE INDEX (Phase 3 back-navigation fix)
+ *   `activeIndex` is now owned by the CALLING PAGE, not this component -
+ *   the page derives it from an allowlisted `?q=` route param and is the
+ *   one thing that actually calls navigate() to move between questions,
+ *   so the shared circular BackButton (rendered by EveningSceneShell,
+ *   entirely outside this component) can send Back to the exact right
+ *   destination - see Reflection.jsx/Gratitude.jsx for the full mapping,
+ *   including Gratitude Q1's Back correctly landing on Reflection's own
+ *   Q3 rather than its Q1. This component no longer renders its own
+ *   in-card "Previous" button at all - Back is the shared control's job
+ *   now, exclusively.
+ *
+ * SINGLE PROTECTED-VIDEO OWNER
+ *   This component owns the one `useProtectedVideo()` instance and the
+ *   one `<BetaVideoModal>`/guidance `<SignInPromptDialog>` for BOTH
+ *   Reflection and Gratitude now - each page no longer instantiates its
+ *   own (Reflection.jsx used to; Gratitude.jsx never had guidance at
+ *   all). Prevents two competing owners of the same "which video is
+ *   open" state from ever existing on one page.
+ *
+ * SINGLE-SELECT PERSISTENCE (Build 15 - routine_responses stores one
+ * plain-text string per question, no schema change this phase)
+ *   Exactly one of {a selected preset, custom text} is ever the answer -
+ *   never both, never concatenated, never JSON/delimiters/ids. Which one
+ *   is "selected" is derived, not separately stored: if the current
+ *   answer string exactly equals one of `options`, that chip/row reads
+ *   as selected; otherwise (non-empty, no match) it's a custom answer -
+ *   this is also how a historical free-text response loads correctly as
+ *   a custom answer, and how a historical response that happens to match
+ *   a preset's exact wording restores as that preset selected, with zero
+ *   extra stored flags. Tapping a different preset always explicitly,
+ *   immediately replaces whatever was there (preset or custom) - a
+ *   single deterministic rule, no confirmation step, matching every
+ *   other tap-to-select control in this app (SelectionChip/SelectionRow
+ *   never ask "are you sure" on reselection elsewhere either).
  *
  * PROPS
- *   prompts         array of { id, label, placeholder? } — rendered one
- *                   at a time, in order.
- *   initialAnswers  { [promptId]: value } map, optional. Seeds the
- *                   stepper's own local state ONCE, at mount (e.g.
- *                   previously-saved Reflection/Gratitude responses
- *                   loaded from routine_responses). Since the load is
- *                   async, the calling page must wait for it to resolve
- *                   before ever rendering this component (e.g. behind
- *                   its own `responsesLoaded &&` guard) - this component
- *                   itself never re-seeds after mount (which would fight
- *                   the user's own typing, and calling setState directly
- *                   in an effect is a pattern this codebase avoids).
- *   onChange        (promptId, value) => void, optional. Called on every
- *                   keystroke for the currently active prompt.
- *   onComplete      (answers) => void, optional. Called once, when Next
- *                   or Skip is pressed on the final prompt. `answers` is
- *                   a { [promptId]: value } map of everything entered —
- *                   skipped prompts are simply absent from the map.
- *   onClear         (promptId) => void, optional. Called only after the
- *                   user has explicitly confirmed clearing an existing
- *                   answer (see the inline confirm below) - the parent
- *                   owns the actual delete (routineResponses.js's
- *                   deleteRoutineResponse). Cancelling never calls this.
- *
- * Previous/Next/Skip reuse the same button styling already established
- * by every existing morning page (glass-panel for secondary actions,
- * bg-primary for the primary action) — no new visual language invented.
+ *   prompts       array of { id, label, options: string[], layout?:
+ *                 'grid' | 'rows', guidance?: [{ id, blurb }] }.
+ *                 `layout` defaults to 'grid' (2-column SelectionChip);
+ *                 'rows' renders full-width SelectionRow instead, for a
+ *                 question whose option labels are too long to stay
+ *                 fully readable two-up at 320px (see Reflection.jsx's
+ *                 own comment on why its first question uses this).
+ *                 `guidance` is optional and capped at 2 items by the
+ *                 calling page's own data - this component renders
+ *                 whatever it's given, never invents or pads a third.
+ *   activeIndex   number (controlled - see above).
+ *   initialAnswers  { [promptId]: value } map, optional. Seeds this
+ *                 component's own local answer state ONCE, at mount
+ *                 (e.g. previously-saved responses loaded from
+ *                 routine_responses). Since the load is async, the
+ *                 calling page must wait for it to resolve before ever
+ *                 rendering this component - this component itself never
+ *                 re-seeds after mount.
+ *   onChange      (promptId, value) => void, optional. Called whenever
+ *                 the active prompt's answer changes - immediately for a
+ *                 preset tap or a Clear, debounced for free-text typing.
+ *   onClear       (promptId) => void, optional. Called only after the
+ *                 user has explicitly confirmed clearing an existing
+ *                 answer - the parent owns the actual delete
+ *                 (routineResponses.js's deleteRoutineResponse).
+ *   onAdvance     (nextIndex) => void, optional. Called when Next or Skip
+ *                 moves off a prompt that is NOT the last one - the
+ *                 calling page turns this into a real navigate() to the
+ *                 next question's own `?q=` route, which is also what
+ *                 makes the shared BackButton land correctly afterward.
+ *   onComplete    (answers) => void, optional. Called once, only when
+ *                 Next or Skip is pressed on the LAST prompt. `answers`
+ *                 is a { [promptId]: value } map of everything entered -
+ *                 skipped prompts are simply absent from the map.
  */
-export const PromptStepper = ({ prompts, initialAnswers, onChange, onComplete, onClear }) => {
-  const [activeIndex, setActiveIndex] = useState(0);
+export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete }) => {
   const [answers, setAnswers] = useState(initialAnswers ?? {});
-  // Confirm-before-clear (a review-mode-only affordance, but harmless if
-  // ever shown elsewhere) - reset whenever the active prompt changes so
-  // a stray tap can never confirm-clear the WRONG prompt after Next/
-  // Previous.
+  // Per-prompt "Add your own" disclosure - lazily seeded once at mount so
+  // a historical free-text answer (one that doesn't match any preset for
+  // its own question) starts already expanded and visible, never hidden
+  // behind an extra tap the first time this page loads it.
+  const [customOpenByPrompt, setCustomOpenByPrompt] = useState(() => {
+    const seed = {};
+    for (const p of prompts) {
+      const value = (initialAnswers ?? {})[p.id];
+      seed[p.id] = Boolean(value && !p.options?.includes(value));
+    }
+    return seed;
+  });
+  // Confirm-before-clear and the guidance disclosure are both per-visit,
+  // not per-answer state - reset whenever the active question changes so
+  // a stray tap left over from the previous question can never confirm-
+  // clear or appear expanded on the wrong one. Adjusted directly during
+  // render (React's own documented pattern for "reset state when a prop
+  // changes" - see "You Might Not Need An Effect") rather than in a
+  // useEffect, so this never causes an extra committed/painted render.
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [guidanceOpen, setGuidanceOpen] = useState(false);
+  const [prevActiveIndex, setPrevActiveIndex] = useState(activeIndex);
+  if (activeIndex !== prevActiveIndex) {
+    setPrevActiveIndex(activeIndex);
+    setConfirmingClear(false);
+    setGuidanceOpen(false);
+  }
+
   const debounceTimersRef = useRef({});
 
+  const {
+    openVideo,
+    handleSelect: handleSelectVideo,
+    closeVideo,
+    promptOpen: videoPromptOpen,
+    dismissPrompt: dismissVideoPrompt,
+    confirmSignIn: confirmVideoSignIn,
+    confirmCreateAccount: confirmVideoCreateAccount
+  } = useProtectedVideo();
+
   const activePrompt = prompts[activeIndex];
-  const isFirst = activeIndex === 0;
   const isLast = activeIndex === prompts.length - 1;
 
   if (!activePrompt) return null;
 
-  const hasExistingAnswer = Boolean(answers[activePrompt.id]?.trim());
+  const currentValue = answers[activePrompt.id] ?? '';
+  const hasExistingAnswer = Boolean(currentValue.trim());
+  const selectedOption = activePrompt.options?.find((opt) => opt === currentValue) ?? null;
+  const isCustomOpen = customOpenByPrompt[activePrompt.id] ?? false;
 
-  const handleRequestClear = () => setConfirmingClear(true);
-  const handleCancelClear = () => setConfirmingClear(false);
-  const handleConfirmClear = () => {
-    setAnswers((prev) => {
-      const rest = { ...prev };
-      delete rest[activePrompt.id];
-      return rest;
-    });
-    setConfirmingClear(false);
-    onClear?.(activePrompt.id);
+  const clearPendingSave = (promptId) => {
+    clearTimeout(debounceTimersRef.current[promptId]);
+    delete debounceTimersRef.current[promptId];
   };
 
-  const handleValueChange = (value) => {
+  // A tap is one discrete action, not a keystroke stream - commits and
+  // saves immediately, deterministically replacing whatever answer (a
+  // different preset or custom text) was there before. Also collapses
+  // the custom field, since a preset is now the authoritative answer.
+  const handleSelectPreset = (value) => {
+    clearPendingSave(activePrompt.id);
     setAnswers((prev) => ({ ...prev, [activePrompt.id]: value }));
+    setCustomOpenByPrompt((prev) => ({ ...prev, [activePrompt.id]: false }));
+    onChange?.(activePrompt.id, value);
+  };
+
+  const handleCustomChange = (value) => {
     const promptId = activePrompt.id;
-    clearTimeout(debounceTimersRef.current[promptId]);
+    setAnswers((prev) => ({ ...prev, [promptId]: value }));
+    clearPendingSave(promptId);
     debounceTimersRef.current[promptId] = setTimeout(() => {
       onChange?.(promptId, value);
     }, CHANGE_DEBOUNCE_MS);
   };
 
-  const goPrevious = () => {
-    if (isFirst) return;
-    setConfirmingClear(false);
-    setActiveIndex((i) => i - 1);
+  const handleToggleCustom = () => {
+    setCustomOpenByPrompt((prev) => ({ ...prev, [activePrompt.id]: !prev[activePrompt.id] }));
   };
 
-  // Next keeps whatever was typed for the active prompt (already synced into
-  // `answers` via handleValueChange on every keystroke) and advances.
+  const handleRequestClear = () => setConfirmingClear(true);
+  const handleCancelClear = () => setConfirmingClear(false);
+  const handleConfirmClear = () => {
+    const promptId = activePrompt.id;
+    clearPendingSave(promptId);
+    setAnswers((prev) => {
+      const rest = { ...prev };
+      delete rest[promptId];
+      return rest;
+    });
+    setCustomOpenByPrompt((prev) => ({ ...prev, [promptId]: false }));
+    setConfirmingClear(false);
+    onClear?.(promptId);
+  };
+
+  // Next keeps whatever the active prompt's answer currently is (already
+  // synced into `answers` via handleSelectPreset/handleCustomChange) and
+  // advances - to the next question via onAdvance, or completes via
+  // onComplete on the last one.
   const handleNext = () => {
     if (isLast) {
       onComplete?.(answers);
       return;
     }
-    setConfirmingClear(false);
-    setActiveIndex((i) => i + 1);
+    onAdvance?.(activeIndex + 1);
   };
 
-  // Skip is distinct from Next: it discards any value typed for the active
-  // prompt before advancing, so a skipped prompt is genuinely skipped, not
-  // silently recorded — matching the design intent that Skip stays a real
-  // "leave this one blank" affordance, not a same-effect alias for Next.
+  // Skip is distinct from Next: it discards any value for the active
+  // prompt (and cancels any pending debounced save for it, so a save
+  // scheduled just before Skip can never land afterward and silently
+  // resurrect the "skipped" answer) before advancing - a skipped prompt
+  // is genuinely skipped, not silently recorded.
   const handleSkip = () => {
+    const promptId = activePrompt.id;
+    clearPendingSave(promptId);
     const rest = { ...answers };
-    delete rest[activePrompt.id];
+    delete rest[promptId];
     setAnswers(rest);
     if (isLast) {
       onComplete?.(rest);
       return;
     }
-    setActiveIndex((i) => i + 1);
+    onAdvance?.(activeIndex + 1);
   };
+
+  const guidanceItems = (activePrompt.guidance ?? [])
+    .map(({ id, blurb }) => {
+      const entry = getBetaVideoById(id);
+      if (!entry) return null;
+      const cachedMinutes = getCachedDurationMinutes(id);
+      const duration = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');
+      return { id, entry, blurb, duration };
+    })
+    .filter(Boolean);
 
   return (
     <div className="space-y-6 w-full">
@@ -147,15 +258,69 @@ export const PromptStepper = ({ prompts, initialAnswers, onChange, onComplete, o
           {activeIndex + 1} of {prompts.length}
         </p>
         <h2 className="font-serif italic text-2xl text-on-surface">{activePrompt.label}</h2>
+        <p className="text-xs text-on-surface-variant">Choose the option that feels closest, or add your own.</p>
       </div>
 
-      <textarea
-        value={answers[activePrompt.id] ?? ''}
-        onChange={(e) => handleValueChange(e.target.value)}
-        placeholder={activePrompt.placeholder ?? ''}
-        rows={4}
-        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
-      />
+      {activePrompt.layout === 'rows' ? (
+        <div className="space-y-3" role="group" aria-label={activePrompt.label}>
+          {activePrompt.options?.map((option) => (
+            <SelectionRow
+              key={option}
+              label={option}
+              selected={selectedOption === option}
+              onClick={() => handleSelectPreset(option)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3" role="group" aria-label={activePrompt.label}>
+          {activePrompt.options?.map((option) => (
+            <SelectionChip
+              key={option}
+              label={option}
+              selected={selectedOption === option}
+              onClick={() => handleSelectPreset(option)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Optional "Add your own" - collapsed by default, unless the
+          loaded answer is a historical custom response (seeded above).
+          The textarea is always bound directly to the same single answer
+          value every preset chip/row also writes to - editing it is what
+          actually deselects a previously-tapped preset (the moment the
+          value diverges from every option string), matching the single-
+          select persistence contract's own "entering a custom answer
+          deselects the preset" rule. */}
+      <div>
+        <button
+          type="button"
+          onClick={handleToggleCustom}
+          aria-expanded={isCustomOpen}
+          aria-controls={`${activePrompt.id}-custom-field`}
+          className="flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors px-1 min-h-[44px]"
+        >
+          <span
+            className="material-symbols-outlined text-sm transition-transform"
+            style={{ transform: isCustomOpen ? 'rotate(90deg)' : 'none' }}
+            aria-hidden="true"
+          >
+            chevron_right
+          </span>
+          <span>Add your own</span>
+        </button>
+        {isCustomOpen && (
+          <textarea
+            id={`${activePrompt.id}-custom-field`}
+            value={currentValue}
+            onChange={(e) => handleCustomChange(e.target.value)}
+            placeholder="Write your own answer..."
+            rows={3}
+            className="mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
+          />
+        )}
+      </div>
 
       {/* Explicit clear confirmation - only offered when this prompt
           already has a real answer (nothing to clear otherwise).
@@ -194,16 +359,47 @@ export const PromptStepper = ({ prompts, initialAnswers, onChange, onComplete, o
         )
       )}
 
-      <div className="flex gap-3">
-        {!isFirst && (
+      {/* Optional guidance - collapsed by default on every question, a
+          maximum of two real catalogue items (the calling page's own
+          data, never padded or invented here). Closing the video leaves
+          the user on this exact question with this exact answer/custom-
+          field state untouched - BetaVideoModal is only ever mounted
+          here, layered on top, never navigating anywhere. */}
+      {guidanceItems.length > 0 && (
+        <div className="space-y-2">
           <button
-            onClick={goPrevious}
-            className="flex-1 py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 !border-white/40"
+            type="button"
+            onClick={() => setGuidanceOpen((v) => !v)}
+            aria-expanded={guidanceOpen}
+            aria-controls={`${activePrompt.id}-guidance`}
+            className="w-full flex items-center justify-between gap-3 glass-panel rounded-2xl p-4 min-h-[44px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
-            <span>Previous</span>
+            <span className="text-sm font-semibold text-on-surface">Would some guidance help?</span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant transition-transform"
+              style={{ transform: guidanceOpen ? 'rotate(180deg)' : 'none' }}
+              aria-hidden="true"
+            >
+              expand_more
+            </span>
           </button>
-        )}
+          {guidanceOpen && (
+            <div id={`${activePrompt.id}-guidance`} className="space-y-2">
+              {guidanceItems.map(({ id, entry, blurb, duration }) => (
+                <BetaVideoRow
+                  key={id}
+                  title={entry.title}
+                  description={blurb}
+                  duration={duration}
+                  onClick={() => handleSelectVideo(id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-3">
         <button
           onClick={handleNext}
           className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
@@ -219,6 +415,16 @@ export const PromptStepper = ({ prompts, initialAnswers, onChange, onComplete, o
       >
         Skip
       </button>
+
+      {openVideo && (
+        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+      )}
+      <SignInPromptDialog
+        open={videoPromptOpen}
+        onSignIn={confirmVideoSignIn}
+        onCreateAccount={confirmVideoCreateAccount}
+        onDismiss={dismissVideoPrompt}
+      />
     </div>
   );
 };

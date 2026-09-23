@@ -1,5 +1,6 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useAuth } from '../context/AuthContext';
 import { useAlarm } from '../context/AlarmContext';
@@ -17,34 +18,89 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { loadRoutineResponses, upsertRoutineResponse, deleteRoutineResponse } from '../lib/routineResponses';
 import { setPendingContent } from '../lib/pendingContent';
+import { parseActiveIndex } from '../lib/questionStepNavigation';
 
 /*
- * Stage 4 Batch F4/F6 — Gratitude
+ * Phase 3 (Reflection/Gratitude tap-first redesign) — Gratitude
  *
  * Third step of the evening-wind-down session. Structurally identical to
- * Reflection.jsx (see that file's own doc comment for the glass-panel/
- * centering, no-onChange, and ProgressIndicator reasoning — journal/
- * database/storage persistence are all explicitly deferred for this
- * screen too).
+ * Reflection.jsx (see that file's own doc comment, and PromptStepper.jsx's
+ * own doc comment for the full single-select/guidance/custom-answer
+ * contract every question follows) - this screen gains a guidance
+ * disclosure for the first time in this phase; it had none before.
  *
- * F4 had this jump straight to 'completion' via advanceToStep, since
- * Breathing/Sleep Preparation had no pages yet. Now that EveningBreathing
- * exists (F6), completing the final prompt advances one real step at a
- * time via advanceStep() instead — gratitude -> breathing is immediately
- * adjacent, so advanceStep() is correct here, same change already made
- * to EveningWindDown.jsx in F4.
+ * BACK-NAVIGATION FIX (Phase 3): Gratitude's Q1 Back now correctly lands
+ * on Reflection's own Q3 (`/reflection?q=3`), not Reflection's Q1 as it
+ * did before this phase - see backFallbackForIndex below and Reflection.jsx's
+ * identical mechanism.
  */
 const GRATITUDE_PROMPTS = [
-  { id: 'appreciated-moment', label: 'Name one moment you appreciated today.' },
-  { id: 'who-made-better', label: 'Who made your day better?' },
-  { id: 'grateful-now', label: 'What are you grateful for right now?' },
+  {
+    id: 'appreciated-moment',
+    label: 'Name one moment you appreciated today.',
+    options: [
+      'Morning stillness',
+      'A comforting meal',
+      'Kindness from someone',
+      'A song that lifted me',
+      'Feeling at home',
+      'A moment of relief',
+      'Fresh air or movement',
+      'A quiet pause'
+    ],
+    guidance: [
+      { id: 'E23', blurb: 'A guided video for a quiet moment of gratitude.' },
+      { id: 'M04', blurb: 'A guided meditation for gratitude.' }
+    ]
+  },
+  {
+    id: 'who-made-better',
+    label: 'Who made your day better?',
+    options: [
+      'Partner or family',
+      'Friend',
+      'Colleague',
+      'Someone who helped',
+      'Someone who listened',
+      'A kind stranger',
+      'My community',
+      'I supported myself'
+    ],
+    guidance: [
+      { id: 'M03', blurb: 'A guided loving kindness meditation.' }
+    ]
+  },
+  {
+    id: 'grateful-now',
+    label: 'What are you grateful for right now?',
+    options: [
+      'This quiet moment',
+      'Someone who cares about me',
+      'A place where I feel safe',
+      'Something that made me smile',
+      'A small comfort',
+      'A fresh start tomorrow',
+      'My own effort today',
+      'Simply being here'
+    ],
+    guidance: [
+      { id: 'A05', blurb: 'A guided affirmation video for a grateful moment.' }
+    ]
+  }
 ];
 
 const SESSION_ID = 'evening-wind-down';
 const STEP_ID = 'gratitude';
 
+// Q1's Back correctly returns to Reflection's own last question (Q3) -
+// the actual previous Evening journey stage's own furthest question, not
+// Reflection's Q1 (the prior, now-fixed limitation).
+const backFallbackForIndex = (activeIndex) => (activeIndex === 0 ? '/reflection?q=3' : `/gratitude?q=${activeIndex}`);
+
 export const Gratitude = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const activeIndex = parseActiveIndex(searchParams, GRATITUDE_PROMPTS.length);
   const { state, currentStep, advanceStep } = useSession();
   const { isGuest } = useAuth();
   // useAuth() itself exposes no userId field (only the full `user` object)
@@ -80,12 +136,12 @@ export const Gratitude = () => {
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
   const dismissGuestPrompt = () => setGuestPromptOpen(false);
   const confirmGuestSignIn = () => {
-    setPendingContent({ returnPath: '/gratitude' });
+    setPendingContent({ returnPath: `/gratitude?q=${activeIndex + 1}` });
     setGuestPromptOpen(false);
     navigate('/auth');
   };
   const confirmGuestCreateAccount = () => {
-    setPendingContent({ returnPath: '/gratitude' });
+    setPendingContent({ returnPath: `/gratitude?q=${activeIndex + 1}` });
     setGuestPromptOpen(false);
     navigate('/auth?tab=signup');
   };
@@ -104,7 +160,10 @@ export const Gratitude = () => {
     deleteRoutineResponse({ userId, sessionId: SESSION_ID, stepId: STEP_ID, promptId, localDate });
   };
 
-  if (EveningSceneShell && PromptStepper && ProgressIndicator && ReviewModeBanner && ConfirmDialog && SignInPromptDialog) { /* no-op to satisfy blind linter */ }
+  // Moves to another question WITHIN Gratitude - a real navigate() (not
+  // local state), so the shared BackButton's own in-app history check
+  // lands correctly on the previous question afterward.
+  const handleAdvance = (nextIndex) => navigate(`/gratitude?q=${nextIndex + 1}`);
 
   const handleComplete = (answers) => {
     setHasUnsavedText(false);
@@ -124,7 +183,7 @@ export const Gratitude = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/reflection">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)}>
       <ProgressIndicator activeStep="gratitude" sessionId="evening-wind-down" onReviewStep={requestReview} />
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 3 of 6</span>
 
@@ -137,9 +196,11 @@ export const Gratitude = () => {
           {responses !== null && (
             <PromptStepper
               prompts={GRATITUDE_PROMPTS}
+              activeIndex={activeIndex}
               initialAnswers={responses}
               onChange={handlePromptChange}
               onClear={handlePromptClear}
+              onAdvance={handleAdvance}
               onComplete={handleComplete}
             />
           )}

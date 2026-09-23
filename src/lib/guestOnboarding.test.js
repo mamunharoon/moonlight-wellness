@@ -103,6 +103,15 @@ describe('Every audio/video entry point invokes the same authentication gate (us
   // comment), so useProtectedVideo is no longer imported by either.
   // MorningStart.jsx is deleted entirely (the former /morning-start
   // video-selection screen is removed from the routine).
+  //
+  // Phase 3 (Reflection/Gratitude tap-first redesign): Reflection.jsx no
+  // longer imports useProtectedVideo directly - per-question guidance
+  // moved into PromptStepper.jsx, which now owns the single
+  // useProtectedVideo instance shared by every Reflection AND Gratitude
+  // question (Gratitude gained guidance for the first time this phase).
+  // Both pages are still gated end-to-end; the import just moved one
+  // level down into their shared component - see the dedicated check
+  // below.
   const VIDEO_GATED_PAGES = [
     '../pages/Breathe.jsx',
     '../pages/Grounding.jsx',
@@ -110,7 +119,6 @@ describe('Every audio/video entry point invokes the same authentication gate (us
     '../pages/Meditate.jsx',
     '../pages/MorningFlow.jsx',
     '../pages/PrepareForRest.jsx',
-    '../pages/Reflection.jsx',
     '../pages/Support.jsx'
   ];
 
@@ -122,6 +130,12 @@ describe('Every audio/video entry point invokes the same authentication gate (us
     for (const page of VIDEO_GATED_PAGES) {
       expect(read(page)).toMatch(/useProtectedVideo/);
     }
+  });
+
+  it('Reflection.jsx/Gratitude.jsx no longer import useProtectedVideo directly - PromptStepper.jsx (their shared component) is the single owner instead', () => {
+    expect(read('../pages/Reflection.jsx')).not.toMatch(/useProtectedVideo/);
+    expect(read('../pages/Gratitude.jsx')).not.toMatch(/useProtectedVideo/);
+    expect(read('../components/evening/PromptStepper.jsx')).toMatch(/useProtectedVideo/);
   });
 });
 

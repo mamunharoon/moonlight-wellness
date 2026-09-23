@@ -49,9 +49,11 @@ describe('PromptStepper evening-safe colour tokens', () => {
     expect(source).not.toMatch(/placeholder:text-on-surface-variant\/40/);
   });
 
-  it('gives the Previous/Skip buttons a visible, important-forced border (overriding glass-panel\'s own faint default)', () => {
+  it('gives the Skip button a visible, important-forced border (overriding glass-panel\'s own faint default) - the in-card Previous button was removed in Phase 3 (back navigation is now the shared page-level BackButton\'s job only), so exactly one match remains, not the former two', () => {
     const matches = source.match(/!border-white\/40/g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(matches.length).toBe(1);
+    expect(source).not.toMatch(/>Previous</);
+    expect(source).not.toMatch(/goPrevious/);
   });
 });
 

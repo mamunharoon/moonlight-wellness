@@ -25,8 +25,15 @@ const completeSource = read('../../pages/EveningComplete.jsx');
 describe('Evening Wind-down back-navigation chain', () => {
   it('every step shows the back control (showBack), each falling back to the step before it', () => {
     expect(windDownSource).toMatch(/showBack backFallback="\/"/);
-    expect(reflectionSource).toMatch(/showBack backFallback="\/evening-wind-down"/);
-    expect(gratitudeSource).toMatch(/showBack backFallback="\/reflection"/);
+    // Phase 3 back-navigation fix: Reflection/Gratitude each have 3
+    // internal questions now, addressed by their own `?q=` route param -
+    // backFallback is a per-question COMPUTED value (backFallbackForIndex),
+    // not a single static string, so the shared BackButton lands on the
+    // exact previous question (or, for Q1, the actual previous Evening
+    // journey stage) - see eveningFlow.questionBackNavigation.test.js for
+    // the full per-question destination matrix this replaces.
+    expect(reflectionSource).toMatch(/showBack backFallback=\{backFallbackForIndex\(activeIndex\)\}/);
+    expect(gratitudeSource).toMatch(/showBack backFallback=\{backFallbackForIndex\(activeIndex\)\}/);
     expect(breathingSource).toMatch(/showBack backFallback="\/gratitude"/);
     expect(prepareSource).toMatch(/showBack backFallback="\/evening-breathing"/);
     expect(completeSource).toMatch(/showBack backFallback="\/"/);
