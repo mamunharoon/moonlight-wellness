@@ -120,8 +120,10 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
   });
 
-  it('InteractiveAmbientMusic is mounted pre-start with hideToggle, and nothing calls .start() outside handleBeginBreathing/handleResumeWithMusic', () => {
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{false\} hideToggle \/>/);
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and nothing calls .start() outside handleBeginBreathing/handleResumeWithMusic', () => {
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    const mountCount = (breatheSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
+    expect(mountCount).toBe(1);
     const startCalls = breatheSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
     expect(startCalls.length).toBe(2);
   });
@@ -188,8 +190,10 @@ describe('EveningBreathing.jsx - fixed 4-7-8 pattern, no selector, but the same 
     expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming\) return;/);
   });
 
-  it('InteractiveAmbientMusic is mounted pre-start with hideToggle, and Begin is the only place (besides Resume with Music) that starts it', () => {
-    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\} suspended=\{false\} hideToggle \/>/);
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle, and Begin is the only place (besides Resume with Music) that starts it', () => {
+    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? manuallyPaused : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    const mountCount = (eveningBreathingSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
+    expect(mountCount).toBe(1);
     const startCalls = eveningBreathingSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
     expect(startCalls.length).toBe(2);
   });

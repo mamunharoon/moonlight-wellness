@@ -460,11 +460,6 @@ export const MorningFlow = () => {
               Exit routine
             </button>
           </div>
-
-          {/* Mounted early (hidden toggle) purely so its ref/audio element
-              already exist before Begin is tapped - see
-              handleBeginStretching above. Renders nothing visible here. */}
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={false} hideToggle />
         </>
       ) : (
         <>
@@ -530,35 +525,56 @@ export const MorningFlow = () => {
               );
             })}
           </div>
-
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
-
-          {/* Immediately below the countdown/music toggle, ABOVE the
-              Stretching Sessions video rows below - visible in the initial
-              viewport with no scroll. See Breathe.jsx's identical panel. */}
-          {isInterrupted && !openVideo && (
-            <ExercisePausedPanel
-              onResumeExercise={handleResumeExercise}
-              onResumeWithMusic={handleResumeWithMusic}
-              showResumeWithMusic={musicEligible}
-              isGuest={isGuest}
-              onSignIn={confirmSignIn}
-            />
-          )}
-
-          {/* Usability remediation - see Breathe.jsx's identical block for the
-              full rationale. */}
-          {!isInterrupted && !openVideo && (
-            <button
-              type="button"
-              onClick={handlePauseExercise}
-              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-            >
-              <span className="material-symbols-outlined text-sm">pause</span>
-              <span>Pause Exercise</span>
-            </button>
-          )}
         </>
+      )}
+
+      {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
+          never remounted across the pre-start -> active transition. It
+          used to be rendered as two separate JSX elements inside the two
+          ternary branches above (one hidden pre-start, one visible
+          active) — that meant tapping Begin (which flips hasBegun and
+          therefore swaps ternary branches) unmounted the very instance
+          whose ref.start() the Begin handler had just called, orphaning
+          the audio element mid-fetch/mid-play (its own unmount cleanup
+          would pause/clear it moments later). One stable element with
+          conditional props (hideToggle/suspended) instead - matches the
+          same reasoning "Resume with Music" already relies on elsewhere
+          in this file: the instance must already be mounted, and stay
+          mounted, for a ref-triggered start() to be safe. */}
+      {!isRepeatGated && (
+        <InteractiveAmbientMusic
+          ref={musicPlayerRef}
+          musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID}
+          suspended={hasBegun ? (Boolean(openVideo) || manuallyPaused) : false}
+          hideToggle={!hasBegun}
+        />
+      )}
+
+      {/* Immediately below the countdown/music toggle, ABOVE the
+          Stretching Sessions video rows below - visible in the initial
+          viewport with no scroll. See Breathe.jsx's identical panel.
+          Both only ever apply once the exercise has genuinely begun. */}
+      {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
+        <ExercisePausedPanel
+          onResumeExercise={handleResumeExercise}
+          onResumeWithMusic={handleResumeWithMusic}
+          showResumeWithMusic={musicEligible}
+          isGuest={isGuest}
+          onSignIn={confirmSignIn}
+        />
+      )}
+
+      {/* Usability remediation - see Breathe.jsx's identical block for the
+          full rationale. */}
+      {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (
+        <button
+          type="button"
+          onClick={handlePauseExercise}
+          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+        >
+          <span className="material-symbols-outlined text-sm">pause</span>
+          <span>Pause Exercise</span>
+        </button>
       )}
 
       <div className="space-y-3">

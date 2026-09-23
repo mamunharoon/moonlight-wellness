@@ -235,11 +235,6 @@ export const EveningBreathing = () => {
               Skip
             </button>
           </div>
-
-          {/* Mounted early (hidden toggle) purely so its ref/audio element
-              already exist before Begin is tapped. Renders nothing
-              visible here. */}
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={false} hideToggle />
         </>
       ) : (
         <>
@@ -253,62 +248,76 @@ export const EveningBreathing = () => {
 
             <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
           </div>
+        </>
+      )}
 
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={manuallyPaused} />
+      {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
+          never remounted across the pre-start -> active transition - see
+          MorningFlow.jsx's identical fix/doc comment for the full
+          rationale (a ref-triggered start() on an instance that's about
+          to unmount orphans the audio element). */}
+      {!isRepeatGated && (
+        <InteractiveAmbientMusic
+          ref={musicPlayerRef}
+          musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
+          suspended={hasBegun ? manuallyPaused : false}
+          hideToggle={!hasBegun}
+        />
+      )}
 
-          {manuallyPaused && (
-            <ExercisePausedPanel
-              onResumeExercise={handleResumeExercise}
-              onResumeWithMusic={handleResumeWithMusic}
-              showResumeWithMusic={musicEligible}
-              isGuest={isGuest}
-              onSignIn={confirmSignInForMusic}
-            />
-          )}
+      {hasBegun && !isRepeatGated && manuallyPaused && (
+        <ExercisePausedPanel
+          onResumeExercise={handleResumeExercise}
+          onResumeWithMusic={handleResumeWithMusic}
+          showResumeWithMusic={musicEligible}
+          isGuest={isGuest}
+          onSignIn={confirmSignInForMusic}
+        />
+      )}
 
-          {!manuallyPaused && (
-            <button
-              type="button"
-              onClick={handlePauseExercise}
-              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-            >
-              <span className="material-symbols-outlined text-sm">pause</span>
-              <span>Pause Exercise</span>
-            </button>
-          )}
+      {hasBegun && !isRepeatGated && !manuallyPaused && (
+        <button
+          type="button"
+          onClick={handlePauseExercise}
+          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+        >
+          <span className="material-symbols-outlined text-sm">pause</span>
+          <span>Pause Exercise</span>
+        </button>
+      )}
 
-          <div className="space-y-3 w-full">
-            {isReviewMode ? (
-              currentStep && (
-                <button
-                  onClick={() => navigate(routeForStep(currentStep.id))}
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-                >
-                  <span>Return to {getStepLabel(currentStep.id)}</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-              )
-            ) : (
-              <>
-                {!manuallyPaused && (
-                  <button
-                    onClick={handleAdvance}
-                    className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-                  >
-                    <span>Continue</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
-                )}
+      {hasBegun && !isRepeatGated && (
+        <div className="space-y-3 w-full">
+          {isReviewMode ? (
+            currentStep && (
+              <button
+                onClick={() => navigate(routeForStep(currentStep.id))}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              >
+                <span>Return to {getStepLabel(currentStep.id)}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            )
+          ) : (
+            <>
+              {!manuallyPaused && (
                 <button
                   onClick={handleAdvance}
-                  className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
                 >
-                  Skip
+                  <span>Continue</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </button>
-              </>
-            )}
-          </div>
-        </>
+              )}
+              <button
+                onClick={handleAdvance}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+              >
+                Skip
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       <ConfirmDialog

@@ -103,8 +103,10 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
     expect(preStartBranch).not.toMatch(/Stretching Progress/);
   });
 
-  it('InteractiveAmbientMusic is mounted pre-start with hideToggle (so its ref exists before Begin) but nothing calls .start() on it outside handleBeginStretching/handleResumeWithMusic', () => {
-    expect(source).toMatch(/<InteractiveAmbientMusic ref=\{musicPlayerRef\} musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\} suspended=\{false\} hideToggle \/>/);
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points across the pre-start/active transition - a real bug found and fixed this phase: a ref-triggered start() on an instance about to unmount orphans the audio), hidden pre-start via hideToggle, with nothing calling .start() outside handleBeginStretching/handleResumeWithMusic', () => {
+    expect(source).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    const mountCount = (source.match(/<InteractiveAmbientMusic/g) ?? []).length;
+    expect(mountCount).toBe(1);
     const startCalls = source.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
     // Exactly two legitimate call sites: handleBeginStretching and
     // handleResumeWithMusic - never a third, and never inside a useEffect.

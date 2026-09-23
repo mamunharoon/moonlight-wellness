@@ -335,11 +335,6 @@ export const Breathe = () => {
               Exit routine
             </button>
           </div>
-
-          {/* Mounted early (hidden toggle) purely so its ref/audio element
-              already exist before Begin is tapped - see
-              handleBeginBreathing above. Renders nothing visible here. */}
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={false} hideToggle />
         </>
       ) : (
         <>
@@ -354,35 +349,47 @@ export const Breathe = () => {
           {/* Breathing Ring Visualizer — src/components/BreathingRing.jsx */}
           <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
 
-          <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} suspended={Boolean(openVideo) || manuallyPaused} />
-
-          {isInterrupted && !openVideo && (
-            <ExercisePausedPanel
-              onResumeExercise={handleResumeExercise}
-              onResumeWithMusic={handleResumeWithMusic}
-              showResumeWithMusic={musicEligible}
-              isGuest={isGuest}
-              onSignIn={confirmSignIn}
-            />
-          )}
-
-          {!isInterrupted && !openVideo && (
-            <button
-              type="button"
-              onClick={handlePauseExercise}
-              className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
-            >
-              <span className="material-symbols-outlined text-sm">pause</span>
-              <span>Pause Exercise</span>
-            </button>
-          )}
-
           <div className="text-center space-y-2">
             <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
               {activePattern.supportingLabel ? `${activePattern.supportingLabel} (${activePattern.label})` : activePattern.label}
             </span>
           </div>
         </>
+      )}
+
+      {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
+          never remounted across the pre-start -> active transition - see
+          MorningFlow.jsx's identical fix/doc comment for the full
+          rationale (a ref-triggered start() on an instance that's about
+          to unmount orphans the audio element). */}
+      {!isRepeatGated && (
+        <InteractiveAmbientMusic
+          ref={musicPlayerRef}
+          musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
+          suspended={hasBegun ? (Boolean(openVideo) || manuallyPaused) : false}
+          hideToggle={!hasBegun}
+        />
+      )}
+
+      {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
+        <ExercisePausedPanel
+          onResumeExercise={handleResumeExercise}
+          onResumeWithMusic={handleResumeWithMusic}
+          showResumeWithMusic={musicEligible}
+          isGuest={isGuest}
+          onSignIn={confirmSignIn}
+        />
+      )}
+
+      {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (
+        <button
+          type="button"
+          onClick={handlePauseExercise}
+          className="w-full py-4 glass-panel text-on-surface rounded-full font-bold flex items-center justify-center gap-2 border-white/10"
+        >
+          <span className="material-symbols-outlined text-sm">pause</span>
+          <span>Pause Exercise</span>
+        </button>
       )}
 
       {BREATHE_VIDEOS.map(({ id, blurb }) => {
