@@ -141,43 +141,38 @@ describe('Approved real guidance catalogue mapping - real ids only, capped at 2 
   });
 });
 
-describe('Layout: Reflection Q1 uses full-width rows (long labels), every other question uses the 2-column grid', () => {
-  it('Reflection "went-well" declares layout: \'rows\' - its own approved labels run up to 34 characters, too long for a readable 2-up grid at 320px', () => {
-    expect(reflectionSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',\s*\n\s*layout: 'rows',/);
-  });
-
-  it('every other Reflection/Gratitude question has no layout override (defaults to the 2-column grid in PromptStepper)', () => {
-    const otherReflection = reflectionSource.replace(/id: 'went-well',[\s\S]*?\},\n {2}\{/, '{');
-    expect(otherReflection).not.toMatch(/layout: 'rows'/);
-    expect(gratitudeSource).not.toMatch(/layout: 'rows'/);
-  });
-
-  // Phase 3 UX correction: physical-device feedback that the shared
-  // SelectionChip/SelectionRow controls (checkmark/chevron, subtle tint)
-  // read as small tick controls, not clear buttons. Reflection/Gratitude
-  // now use a dedicated AnswerOptionButton instead - SelectionChip/
-  // SelectionRow are UNTOUCHED and still used exactly as before by
-  // ChangeIntention.jsx/AnytimeReset.jsx/Meditate.jsx (see
-  // answerOptionButton.test.js's own "does not touch" check).
-  it('PromptStepper renders the same AnswerOptionButton for both layouts - full-width rows (space-y-3) when layout === \'rows\', a 2-column grid (centered) otherwise - never the old SelectionChip/SelectionRow', () => {
-    expect(promptStepperSource).toMatch(/activePrompt\.layout === 'rows' \? \(/);
+// Phase 3 UX correction, round 2: physical-device feedback that a fully
+// filled coloured button read as too bright, and that the intended
+// pattern was a contrasting RADIO selector. Every question now renders
+// its options as a single column of full-width AnswerOptionButton radio
+// rows - the earlier 2-column grid (built for the previous compact chip
+// style) is gone entirely, since a right-aligned radio glyph plus a
+// left-aligned label needs the full row width to stay readable.
+// SelectionChip/SelectionRow remain UNTOUCHED and still used exactly as
+// before by ChangeIntention.jsx/AnytimeReset.jsx/Meditate.jsx (see
+// AnswerOptionButton.test.js's own "does not touch" check).
+describe('Layout: every Reflection/Gratitude question renders as one column of full-width radio rows', () => {
+  it('PromptStepper renders exactly one options container per question - role="radiogroup", space-y-3, AnswerOptionButton rows - never a 2-column grid and never the old SelectionChip/SelectionRow', () => {
+    expect(promptStepperSource).toMatch(/<div className="space-y-3" role="radiogroup" aria-label=\{activePrompt\.label\}>/);
     expect(promptStepperSource).toMatch(/<AnswerOptionButton/);
-    expect(promptStepperSource).toMatch(/grid grid-cols-2 gap-3/);
+    expect(promptStepperSource).not.toMatch(/grid grid-cols-2/);
+    expect(promptStepperSource).not.toMatch(/role="group"/);
     expect(promptStepperSource).not.toMatch(/<SelectionRow/);
     expect(promptStepperSource).not.toMatch(/<SelectionChip/);
     expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionChip'/);
     expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionRow'/);
   });
 
-  it('the grid layout passes centered (narrower tiles read better centered), rows does not (a wide rectangle reads better left-aligned) - and accent is passed straight through from the page, not decided in PromptStepper', () => {
-    const gridBlock = promptStepperSource.match(/grid grid-cols-2 gap-3[\s\S]*?<\/div>/)?.[0] ?? '';
-    expect(gridBlock).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}[\s\S]{0,40}centered/);
-    const rowsBlock = promptStepperSource.match(/space-y-3" role="group"[\s\S]*?<\/div>/)?.[0] ?? '';
-    expect(rowsBlock).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}/);
-    expect(rowsBlock).not.toMatch(/centered/);
+  it('each AnswerOptionButton receives accent (passed straight through from the page, not decided in PromptStepper) and groupName (the active question\'s own id, scoping native radio-group keyboard behaviour to this question only)', () => {
+    expect(promptStepperSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}[\s\S]{0,60}groupName=\{activePrompt\.id\}/);
   });
 
-  it('every approved option string across both pages is short enough to stay fully readable and unclipped even in the 2-column grid (<= 34 chars - the longest, Reflection Q1\'s own, is the one question routed to full-width rows instead)', () => {
+  it('Reflection "went-well" keeps its own (now purely historical, unread) layout: \'rows\' field - harmless since PromptStepper no longer branches on it, left as-is rather than editing data that already matches the new universal behaviour', () => {
+    expect(reflectionSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',\s*\n\s*layout: 'rows',/);
+    expect(promptStepperSource).not.toMatch(/activePrompt\.layout ===/);
+  });
+
+  it('every approved option string across both pages is short enough to stay fully readable and unclipped in a full-width row', () => {
     const allOptions = [...Object.values(REFLECTION_OPTIONS).flat(), ...Object.values(GRATITUDE_OPTIONS).flat()];
     for (const label of allOptions) {
       expect(label.length).toBeLessThanOrEqual(34);
@@ -295,7 +290,7 @@ describe('Phase 3 UX correction - each page passes its own section accent throug
   it('PromptStepper declares accent as a prop and forwards it verbatim to every AnswerOptionButton - it never picks a colour itself', () => {
     expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent \}\) => \{/);
     const accentUsages = promptStepperSource.match(/accent=\{accent\}/g) ?? [];
-    expect(accentUsages.length).toBe(2); // one per layout branch (rows, grid)
+    expect(accentUsages.length).toBe(1); // one options render (the old rows/grid branch is gone)
   });
 });
 

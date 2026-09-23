@@ -1,8 +1,9 @@
-// Phase 3 UX correction — AnswerOptionButton. Physical-device feedback:
-// the original preset controls (checkmark + subtle tint, or a chevron
-// row) read as small tick/navigation controls, not clear buttons, on a
-// real iPhone. No DOM rendering in this repo's Vitest - source-level
-// checks, matching every other regression guard in this codebase.
+// Phase 3 UX correction, round 2 — AnswerOptionButton (radio selector).
+// Physical-device feedback: the first correction (a fully filled coloured
+// button) read as too bright/heavy; the intended pattern was a
+// contrasting radio selector. No DOM rendering in this repo's Vitest -
+// source-level checks, matching every other regression guard in this
+// codebase.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -10,73 +11,104 @@ import { fileURLToPath } from 'node:url';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
 const source = read('./AnswerOptionButton.jsx');
+const promptStepperSource = read('./PromptStepper.jsx');
 const cssSource = read('../../index.css');
 const tailwindConfigSource = read('../../../tailwind.config.js');
 
-describe('AnswerOptionButton - button interaction contract', () => {
-  it('the entire surface is one real <button> (never a <div> with an onClick), so the whole area is tappable and keyboard-activatable', () => {
-    expect(source).toMatch(/<button\s*\n\s*type="button"\s*\n\s*onClick=\{onClick\}/);
+describe('AnswerOptionButton - semantic radio, not a styled button/switch', () => {
+  it('a real native <input type="radio"> carries the actual selected state - never role="switch", never a hand-rolled role="radio" div needing manual aria-checked/keydown handling', () => {
+    // Strip the file's own doc comment (which discusses, in prose, the
+    // role="radio"/aria-checked approach this component deliberately did
+    // NOT take) before asserting on the real code below it.
+    const code = source.replace(/\/\*[\s\S]*?\*\//, '');
+    expect(source).toMatch(/<input\s*\n\s*type="radio"/);
+    expect(code).not.toMatch(/role="switch"/);
+    expect(code).not.toMatch(/role="radio"/);
+    expect(code).not.toMatch(/aria-checked/);
   });
 
+  it('checked is driven directly by the `selected` prop, and the whole row is one <label> wrapping the input - clicking anywhere in the row activates it, not only the visual circle', () => {
+    expect(source).toMatch(/checked=\{selected\}/);
+    expect(source).toMatch(/onChange=\{onClick\}/);
+    expect(source).toMatch(/<label\s*\n\s*className=/);
+  });
+
+  it('the input carries the question\'s own groupName as its `name`, so every option for the SAME question shares one native radio group (real arrow-key cycling/Home/End, for free, per question) - never leaking across different questions', () => {
+    expect(source).toMatch(/name=\{groupName\}/);
+  });
+
+  it('PromptStepper wraps the options container in role="radiogroup" (not role="group") and passes each option its own groupName', () => {
+    expect(promptStepperSource).toMatch(/role="radiogroup"/);
+    expect(promptStepperSource).not.toMatch(/role="group"/);
+    expect(promptStepperSource).toMatch(/groupName=\{activePrompt\.id\}/);
+  });
+});
+
+describe('AnswerOptionButton - button interaction contract', () => {
   it('meets the 52px minimum height and full width, comfortably exceeding the 44x44 minimum hit area', () => {
     expect(source).toMatch(/min-h-\[52px\]/);
     expect(source).toMatch(/w-full/);
   });
 
-  it('the complete label renders in a plain block span with no truncate/line-clamp/overflow-hidden - never clipped', () => {
+  it('the complete label renders in a plain span with no truncate/line-clamp/overflow-hidden - never clipped', () => {
     expect(source).not.toMatch(/truncate|line-clamp|overflow-hidden/);
-    expect(source).toMatch(/<span className="block text-sm leading-snug">\{label\}<\/span>/);
+    expect(source).toMatch(/\{label\}/);
   });
 
-  it('never renders a navigation chevron or a separate checkmark/tick icon - selection is conveyed by the button\'s own fill/border/weight only', () => {
-    expect(source).not.toMatch(/chevron_right|chevron_left|check_circle|check\b/);
+  it('never renders a navigation chevron or a separate checkmark/tick icon - selection is conveyed by the radio glyph\'s own fill/dot, plus row tint/border/weight, never any icon glyph', () => {
+    expect(source).not.toMatch(/chevron_right|chevron_left|check_circle|material-symbols-outlined/);
   });
 
-  it('keyboard focus gets a visible ring', () => {
-    expect(source).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
+  it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden)', () => {
+    expect(source).toMatch(/has-\[:focus-visible\]:ring-2 has-\[:focus-visible\]:ring-primary/);
   });
 });
 
 describe('AnswerOptionButton - unselected state', () => {
-  it('deep surface-container background, a subtle white/blue-grey border, off-white readable label at regular/medium weight - no navigation-implying icon', () => {
-    expect(source).toMatch(/'bg-surface-container border-white\/15 text-on-surface font-medium/);
+  it('deep surface-container background, a subtle white/15 border, off-white readable label at medium weight', () => {
+    expect(source).toMatch(/'bg-surface-container border-white\/15/);
+    expect(source).toMatch(/text-on-surface font-medium/);
+  });
+
+  it('the radio glyph is an outlined, empty circle (border-on-surface-variant) with no inner dot', () => {
+    const unselectedRadio = source.match(/selected \? tokens\.radioFill : ('[^']*')/)?.[1] ?? '';
+    expect(unselectedRadio).toBe("'border-on-surface-variant'");
+    expect(source).toMatch(/\{selected && <span/); // the inner dot only ever renders when selected
   });
 });
 
-describe('AnswerOptionButton - selected state (never colour alone)', () => {
-  it('Reflection reuses the app\'s own existing primary/on-primary tokens (WakeWise\'s established peach/coral, already contrast-paired) rather than a second near-duplicate peach', () => {
-    expect(source).toMatch(/reflection: 'bg-primary border-primary text-on-primary'/);
+describe('AnswerOptionButton - selected state (subtle row tint, never a fully filled/bright block, never colour alone)', () => {
+  it('the row itself only gets a SUBTLE colour tint (bg-*/10) and a full-strength border - never a fully filled/bright background', () => {
+    expect(source).toMatch(/reflection: \{ text: 'text-primary', border: 'border-primary', tint: 'bg-primary\/10'/);
+    expect(source).toMatch(/gratitude: \{ text: 'text-gratitude-accent', border: 'border-gratitude-accent', tint: 'bg-gratitude-accent\/10'/);
+    expect(source).not.toMatch(/tint: 'bg-primary'[^/]/);
   });
 
-  it('Gratitude uses the new gratitude-accent/on-gratitude-accent pair (a warm sunrise gold with no prior token in this app)', () => {
-    expect(source).toMatch(/gratitude: 'bg-gratitude-accent border-gratitude-accent text-on-gratitude-accent'/);
+  it('the radio glyph itself carries the strong, saturated colour when selected - filled circle plus a small, contrasting inner dot, never a tick/checkmark', () => {
+    expect(source).toMatch(/radioFill: 'border-primary bg-primary', dot: 'bg-on-primary'/);
+    expect(source).toMatch(/radioFill: 'border-gratitude-accent bg-gratitude-accent', dot: 'bg-on-gratitude-accent'/);
   });
 
-  it('selected also gets bold weight and an inset/pressed shadow - never a checkmark - and aria-pressed carries the real accessible state', () => {
-    expect(source).toMatch(/font-bold shadow-\[inset_0_2px_5px_rgba\(0,0,0,0\.22\)\]/);
-    expect(source).toMatch(/aria-pressed=\{selected\}/);
+  it('selected label text is bold and coloured (never colour alone - weight changes too), row border switches to the full-strength accent border', () => {
+    expect(source).toMatch(/\$\{tokens\.text\} font-bold/);
+    expect(source).toMatch(/\$\{tokens\.tint\} \$\{tokens\.border\}/);
   });
 });
 
-describe('New colour tokens - contrast-verified, additive only', () => {
+describe('New colour tokens - contrast-verified, additive only (unchanged by this round)', () => {
   it('index.css defines gratitude-accent/on-gratitude-accent - not reusing or overwriting any existing token', () => {
     expect(cssSource).toMatch(/--color-gratitude-accent: #f4c56a;/);
     expect(cssSource).toMatch(/--color-on-gratitude-accent: #3a2408;/);
-    // still exactly the original primary pair, unchanged
     expect(cssSource).toMatch(/--color-primary: #ffc5b7;/);
     expect(cssSource).toMatch(/--color-on-primary: #5a1c0c;/);
   });
 
-  it('tailwind.config.js exposes gratitude-accent/on-gratitude-accent as real utility-generating colours, additive alongside every existing token', () => {
+  it('tailwind.config.js exposes gratitude-accent/on-gratitude-accent as real utility-generating colours', () => {
     expect(tailwindConfigSource).toMatch(/"gratitude-accent": "var\(--color-gratitude-accent\)"/);
     expect(tailwindConfigSource).toMatch(/"on-gratitude-accent": "var\(--color-on-gratitude-accent\)"/);
-    expect(tailwindConfigSource).toMatch(/"primary": "var\(--color-primary\)"/);
   });
 
-  it('#f4c56a text on #3a2408 (and vice versa) measures well above the 4.5:1 AA floor for normal text', () => {
-    // Real WCAG relative-luminance contrast computation, not a source
-    // regex - this is genuinely pure/computable, so it's executed for
-    // real rather than merely asserted as a comment.
+  it('#f4c56a text on #3a2408 (and vice versa) measures well above the 4.5:1 AA floor for normal text - genuinely computed, not merely asserted', () => {
     const relLum = (hex) => {
       const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
       const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));

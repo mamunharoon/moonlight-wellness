@@ -70,14 +70,13 @@ const CHANGE_DEBOUNCE_MS = 400;
  *   never ask "are you sure" on reselection elsewhere either).
  *
  * PROPS
- *   prompts       array of { id, label, options: string[], layout?:
- *                 'grid' | 'rows', guidance?: [{ id, blurb }] }.
- *                 `layout` defaults to 'grid' (2-column SelectionChip);
- *                 'rows' renders full-width SelectionRow instead, for a
- *                 question whose option labels are too long to stay
- *                 fully readable two-up at 320px (see Reflection.jsx's
- *                 own comment on why its first question uses this).
- *                 `guidance` is optional and capped at 2 items by the
+ *   prompts       array of { id, label, options: string[], guidance?:
+ *                 [{ id, blurb }] }. Every question renders its options as
+ *                 a single column of full-width AnswerOptionButton radio
+ *                 rows (see that component's own doc comment for why the
+ *                 earlier 2-column grid was dropped once each row grew a
+ *                 right-aligned radio glyph). `guidance` is optional and
+ *                 capped at 2 items by the
  *                 calling page's own data - this component renders
  *                 whatever it's given, never invents or pads a third.
  *   activeIndex   number (controlled - see above).
@@ -265,32 +264,27 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
         <p className="text-xs text-on-surface-variant">Choose the option that feels closest, or add your own.</p>
       </div>
 
-      {activePrompt.layout === 'rows' ? (
-        <div className="space-y-3" role="group" aria-label={activePrompt.label}>
-          {activePrompt.options?.map((option) => (
-            <AnswerOptionButton
-              key={option}
-              label={option}
-              selected={selectedOption === option}
-              onClick={() => handleSelectPreset(option)}
-              accent={accent}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3" role="group" aria-label={activePrompt.label}>
-          {activePrompt.options?.map((option) => (
-            <AnswerOptionButton
-              key={option}
-              label={option}
-              selected={selectedOption === option}
-              onClick={() => handleSelectPreset(option)}
-              accent={accent}
-              centered
-            />
-          ))}
-        </div>
-      )}
+      {/* Phase 3 UX correction, round 2: every question now renders as a
+          single column of full-width radio rows - the old 2-column grid
+          (a compact, centred, icon-topped tile) was designed around the
+          previous filled-chip style and has no room for a left-aligned
+          label plus a right-aligned radio glyph at a realistic 320px
+          column width. `activePrompt.layout` is no longer read here;
+          Reflection's own `went-well` question keeps its (now redundant,
+          harmless) `layout: 'rows'` field in its data rather than editing
+          data that already matches the new universal behaviour. */}
+      <div className="space-y-3" role="radiogroup" aria-label={activePrompt.label}>
+        {activePrompt.options?.map((option) => (
+          <AnswerOptionButton
+            key={option}
+            label={option}
+            selected={selectedOption === option}
+            onClick={() => handleSelectPreset(option)}
+            accent={accent}
+            groupName={activePrompt.id}
+          />
+        ))}
+      </div>
 
       {/* Optional "Add your own" - collapsed by default, unless the
           loaded answer is a historical custom response (seeded above).
