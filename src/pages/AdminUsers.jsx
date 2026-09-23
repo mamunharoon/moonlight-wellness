@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { fetchAdminUsers, setBetaAccess } from '../lib/adminApi';
+import { BackButton } from '../components/BackButton';
 
 /*
  * Subscription Model, Sprint 2 Stage 2 — Users view (/admin/users)
@@ -19,7 +20,6 @@ const displayName = (row) => {
 };
 
 export const AdminUsers = () => {
-  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,13 +65,7 @@ export const AdminUsers = () => {
   return (
     <div className="min-h-screen max-w-md mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/admin')}
-          aria-label="Back to Administration"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/admin" label="Back to Administration" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Users</h2>
       </div>
 

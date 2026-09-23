@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Fragment, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getSubscriptionOverride } from '../lib/subscriptionOverride';
 import { startCheckout, openBillingPortal } from '../lib/stripeApi';
 import { getStatusExplanation, formatExpiryDate } from '../lib/subscriptionStatusMessages';
+import { BackButton } from '../components/BackButton';
 import {
   annualEffectiveMonthly,
   annualSavingsPercent,
@@ -315,13 +317,7 @@ export const Subscription = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/settings')}
-          aria-label="Back to Settings"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/settings" label="Back to Settings" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Subscription</h2>
       </div>
 

@@ -1,8 +1,9 @@
-﻿import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿/* eslint-disable no-unused-vars */
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
+import { BackButton } from '../components/BackButton';
 
 const JOURNAL_KEY = 'moonlight_journal_entries';
 
@@ -27,7 +28,6 @@ const readGuestJournalEntries = () => {
 };
 
 export const Journey = () => {
-  const navigate = useNavigate();
   const { userId, intentions } = useAlarm();
   const { loading: authLoading, isGuest } = useAuth();
   const [entries, setEntries] = useState([]);
@@ -76,13 +76,7 @@ export const Journey = () => {
           than relying on <Layout>'s generic header, which has no
           per-route back button. */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/profile')}
-          aria-label="Back to Profile"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary shrink-0"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/profile" label="Back to Profile" />
         <div>
           <h2 className="font-headline-lg text-2xl md:text-3xl text-on-surface font-bold tracking-tight">Your Journey</h2>
           <p className="text-on-surface-variant font-body-md mt-1">

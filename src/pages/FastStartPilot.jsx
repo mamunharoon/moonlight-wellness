@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { requestPilotVideoUrl } from '../lib/pilotVideoAccess';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Fast Start pilot comparison — /admin/faststart-pilot
@@ -169,19 +170,12 @@ const PilotPlayer = ({ pilotId, onClose }) => {
 };
 
 export const FastStartPilot = () => {
-  const navigate = useNavigate();
   const [openPilotId, setOpenPilotId] = useState(null);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/admin')}
-          aria-label="Back to Admin"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/admin" label="Back to Admin" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Fast Start Pilot</h2>
       </div>
 

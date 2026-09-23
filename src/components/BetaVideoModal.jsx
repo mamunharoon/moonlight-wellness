@@ -473,7 +473,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
           <button
             onClick={handleClose}
             aria-label="Close"
-            className="w-9 h-9 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all shrink-0"
+            className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
           >
             <span className="material-symbols-outlined text-on-surface-variant text-xl">close</span>
           </button>
@@ -620,7 +620,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
                     <button
                       type="button"
                       onClick={handleClose}
-                      className="px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                      className="min-h-[44px] px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       Close Video
                     </button>

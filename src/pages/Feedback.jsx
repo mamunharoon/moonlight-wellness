@@ -1,9 +1,11 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FEEDBACK_CATEGORIES } from '../lib/feedbackCategories';
 import { recordFeedbackSubmission, getFeedbackHistory } from '../lib/feedbackStorage';
 import { trackEvent } from '../lib/analyticsEvents';
 import { CONTACT_INFO } from '../lib/legalContent';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Closed Beta Preparation, Phase A — Feedback
@@ -54,13 +56,7 @@ export const Feedback = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/beta')}
-            aria-label="Back to Beta Program"
-            className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
+          <BackButton fallback="/beta" label="Back to Beta Program" />
           <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Send Feedback</h2>
         </div>
 
@@ -113,13 +109,7 @@ export const Feedback = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/beta')}
-          aria-label="Back to Beta Program"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/beta" label="Back to Beta Program" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Send Feedback</h2>
       </div>
 

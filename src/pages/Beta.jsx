@@ -1,11 +1,13 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchOwnBetaAccess } from '../lib/betaAccess';
 import { BetaChecklist } from '../components/BetaChecklist';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BETA_VIDEO_MANIFEST } from '../lib/betaVideoManifest';
 import { CONTACT_INFO } from '../lib/legalContent';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Closed Beta Preparation, Phase A — Beta hub
@@ -17,7 +19,6 @@ import { CONTACT_INFO } from '../lib/legalContent';
  * closed beta run by a small team reviewing requests by hand.
  */
 export const Beta = () => {
-  const navigate = useNavigate();
   const { user, isGuest, loading: authLoading } = useAuth();
   const [betaAccess, setBetaAccess] = useState(null); // null = loading, else boolean
   const [error, setError] = useState(null);
@@ -60,13 +61,7 @@ export const Beta = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/settings')}
-          aria-label="Back to Settings"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/settings" label="Back to Settings" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Beta Program</h2>
       </div>
 

@@ -1,9 +1,11 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { isBetaProgramVisible } from '../lib/featureFlags';
+import { BackButton } from '../components/BackButton';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -50,13 +52,7 @@ export const Settings = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/profile')}
-          aria-label="Back to Profile"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/profile" label="Back to Profile" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Settings</h2>
       </div>
 

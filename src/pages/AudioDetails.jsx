@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getAudioEntryById } from '../lib/audioLibrary';
+import { BackButton } from '../components/BackButton';
 import { getCategoryById } from '../lib/audioCategories';
 import { getDifficultyLabel } from '../lib/audioMetadata';
 import { getVoiceLabel } from '../lib/audioVoices';
@@ -31,7 +33,6 @@ import { trackEvent } from '../lib/analyticsEvents';
  *    exists yet.
  */
 export const AudioDetails = () => {
-  const navigate = useNavigate();
   const { categoryId, entryId } = useParams();
   const entry = getAudioEntryById(entryId);
   const category = getCategoryById(categoryId);
@@ -46,13 +47,7 @@ export const AudioDetails = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(backTo)}
-            aria-label="Back"
-            className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
+          <BackButton fallback={backTo} label="Back" />
           <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Audio Library</h2>
         </div>
         <div className="glass-panel rounded-2xl p-6 text-center space-y-2">
@@ -85,13 +80,7 @@ export const AudioDetails = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(backTo)}
-          aria-label={`Back to ${category?.label ?? 'Audio Library'}`}
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback={backTo} label={`Back to ${category?.label ?? 'Audio Library'}`} />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">{entry.title}</h2>
       </div>
 

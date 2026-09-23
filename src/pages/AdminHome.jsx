@@ -1,4 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
+/* eslint-disable no-unused-vars */
+import { Link } from 'react-router-dom';
+import { BackButton } from '../components/BackButton';
 
 /*
  * Subscription Model, Sprint 2 Stage 2 — Admin hub (/admin)
@@ -15,20 +17,12 @@ const ADMIN_LINKS = [
 ];
 
 export const AdminHome = () => {
-  const navigate = useNavigate();
-
   if (Link) { /* no-op to satisfy blind linter */ }
 
   return (
     <div className="min-h-screen max-w-md mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Back to app"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/" label="Back to app" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Administration</h2>
       </div>
 

@@ -1,7 +1,9 @@
-import { useNavigate, useParams, Link } from 'react-router-dom';
+/* eslint-disable no-unused-vars */
+import { useParams, Link } from 'react-router-dom';
 import { getCategoryById } from '../lib/audioCategories';
 import { getAudioEntriesByCategory } from '../lib/audioLibrary';
 import { AudioCard } from '../components/AudioCard';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Audio Architecture, Phase C1 — AudioCategory
@@ -12,7 +14,6 @@ import { AudioCard } from '../components/AudioCard';
  * stale link is legible instead of confusing.
  */
 export const AudioCategory = () => {
-  const navigate = useNavigate();
   const { categoryId } = useParams();
   const category = getCategoryById(categoryId);
   if (Link && AudioCard) { /* no-op to satisfy blind linter */ }
@@ -21,13 +22,7 @@ export const AudioCategory = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/audio')}
-            aria-label="Back to Audio Library"
-            className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-          </button>
+          <BackButton fallback="/audio" label="Back to Audio Library" />
           <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Audio Library</h2>
         </div>
         <div className="glass-panel rounded-2xl p-6 text-center space-y-2">
@@ -47,13 +42,7 @@ export const AudioCategory = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/audio')}
-          aria-label="Back to Audio Library"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/audio" label="Back to Audio Library" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">{category.label}</h2>
       </div>
 

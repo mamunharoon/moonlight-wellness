@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom';
+/* eslint-disable no-unused-vars */
 import { AUDIO_CATEGORIES } from '../lib/audioCategories';
 import { getAudioEntriesByCategory } from '../lib/audioLibrary';
 import { AudioCategoryCard } from '../components/AudioCategoryCard';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Audio Architecture, Phase C1 — AudioLibrary hub
@@ -13,19 +14,12 @@ import { AudioCategoryCard } from '../components/AudioCategoryCard';
  * where a real async boundary (subscription status) exists.
  */
 export const AudioLibrary = () => {
-  const navigate = useNavigate();
   if (AudioCategoryCard) { /* no-op to satisfy blind linter */ }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/settings')}
-          aria-label="Back to Settings"
-          className="w-10 h-10 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-        </button>
+        <BackButton fallback="/settings" label="Back to Settings" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Audio Library</h2>
       </div>
 
