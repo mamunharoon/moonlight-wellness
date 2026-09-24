@@ -50,8 +50,19 @@ describe('musicEnabled is driven by the <audio> element\'s own native events, ne
   it('onPlay/onPause on the <audio> element are the only two places setMusicEnabledState is ever called', () => {
     const setCalls = playerSource.match(/setMusicEnabledState\(/g) ?? [];
     expect(setCalls.length).toBe(2);
-    expect(playerSource).toMatch(/onPlay=\{\(\) => setMusicEnabledState\(true\)\}/);
+    expect(playerSource).toMatch(/onPlay=\{\(\) => \{\s*\n\s*setMusicEnabledState\(true\);/);
     expect(playerSource).toMatch(/onPause=\{\(\) => setMusicEnabledState\(false\)\}/);
+  });
+
+  // Regression test for a real bug found during guest-access verification:
+  // start()'s own `await audio.play()` can settle noticeably later than
+  // the native 'play' event that actually drives musicEnabled - leaving
+  // isBusyRef stuck true and the toggle silently unresponsive to an Off
+  // tap for that whole gap, even with audio audibly already playing.
+  it('onPlay also clears isBusyRef the moment playback is genuinely confirmed, not only in start()\'s own finally', () => {
+    const onPlayBody = playerSource.match(/onPlay=\{\(\) => \{[\s\S]*?\n {8}\}\}/)?.[0] ?? '';
+    expect(onPlayBody).not.toBe('');
+    expect(onPlayBody).toMatch(/isBusyRef\.current = false;/);
   });
 
   it('no useEffect body anywhere in the file calls setMusicEnabledState directly (would trip react-hooks/set-state-in-effect)', () => {

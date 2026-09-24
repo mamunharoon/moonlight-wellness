@@ -214,7 +214,23 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         aria-hidden="true"
         className="hidden"
         onError={() => setLoadError(true)}
-        onPlay={() => setMusicEnabledState(true)}
+        onPlay={() => {
+          setMusicEnabledState(true);
+          // Latent pre-existing bug, exposed by testing this toggle
+          // through a genuine full cycle for the first time (guest
+          // access): the native 'play' event fires as soon as playback
+          // audibly begins, but start()'s own `await audio.play()` can
+          // settle noticeably later - leaving isBusyRef true and the
+          // toggle silently unresponsive to an Off tap for that whole
+          // gap even though music is clearly already playing. Clearing
+          // the busy guard here, at the earliest moment playback is
+          // actually confirmed, fixes that without weakening the guard
+          // during the fetch itself (isBusyRef still blocks a duplicate
+          // start() for the entire fetch + play-pending window up to
+          // this point) - see start()'s own `finally` for the failure
+          // path, which still handles a play() that never fires 'play'.
+          isBusyRef.current = false;
+        }}
         onPause={() => setMusicEnabledState(false)}
       />
 
