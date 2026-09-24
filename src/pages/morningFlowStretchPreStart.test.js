@@ -26,10 +26,19 @@ describe('formatTotalDuration - real execution', () => {
     expect(formatTotalDuration(59)).toBe('59s');
   });
 
-  it('formats a minute or more as rounded minutes', () => {
-    expect(formatTotalDuration(60)).toBe('~1 min');
+  it('formats a non-exact minute or more as rounded minutes, with "~" signalling real rounding', () => {
     expect(formatTotalDuration(80)).toBe('~1 min');
     expect(formatTotalDuration(160)).toBe('~3 mins');
+  });
+
+  // Build 15 Box/Coherent addition — exact-minute correction: a genuine
+  // whole-minute total never carries "~" (nothing was rounded). This is
+  // a real, reachable state here too, not just a Breathing-pattern
+  // concern: exactly 3 of the 4 movements selected, at the standard 20s
+  // each, totals exactly 60s.
+  it('formats an EXACT whole-minute total with no "~" - the total was not rounded, so the copy must not imply it was', () => {
+    expect(formatTotalDuration(60)).toBe('1 min');
+    expect(formatTotalDuration(120)).toBe('2 mins');
   });
 });
 

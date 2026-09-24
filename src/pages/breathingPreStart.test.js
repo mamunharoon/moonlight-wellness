@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
+import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase, formatCadence } from '../lib/breathingPatterns';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const breatheSource = read('./Breathe.jsx');
@@ -17,25 +17,81 @@ const eveningBreathingSource = read('./EveningBreathing.jsx');
 // ---------------------------------------------------------------------
 // Shared config - real execution.
 // ---------------------------------------------------------------------
-describe('BREATHING_PATTERNS - exactly the three real, already-shipped cadences', () => {
-  it('contains exactly 3 patterns with the real ids/labels/totals', () => {
-    expect(BREATHING_PATTERNS).toHaveLength(3);
-    expect(BREATHING_PATTERNS.map((p) => p.id)).toEqual(['morning', 'evening', 'quiet']);
-    expect(BREATHING_PATTERNS.map((p) => p.label)).toEqual(['4-4-6 Breathing', '4-7-8 Breathing', '4-4-8 Breathing']);
-    expect(BREATHING_PATTERNS.map((p) => p.totalSeconds)).toEqual([56, 76, 64]);
+describe('BREATHING_PATTERNS - exactly the five real, approved cadences (Build 15 Box/Coherent addition)', () => {
+  it('contains exactly 5 patterns with the real ids/labels/totals, in the approved picker order', () => {
+    expect(BREATHING_PATTERNS).toHaveLength(5);
+    expect(BREATHING_PATTERNS.map((p) => p.id)).toEqual(['morning', 'evening', 'quiet', 'box', 'coherent']);
+    expect(BREATHING_PATTERNS.map((p) => p.label)).toEqual([
+      '4-4-6 Breathing',
+      '4-7-8 Breathing',
+      '4-4-8 Breathing',
+      'Box Breathing',
+      'Coherent Breathing'
+    ]);
+    expect(BREATHING_PATTERNS.map((p) => p.totalSeconds)).toEqual([56, 76, 64, 64, 60]);
   });
 
-  it('computed totals match cycleSeconds * totalCycles for every pattern - the totals were not hand-typed independently of the cadence', () => {
+  // The original three patterns' own numbers are unchanged by this
+  // addition - re-asserted explicitly, not just implied by the array
+  // above, per the approved "byte-equivalent" requirement.
+  it('the original three patterns retain their exact original cadence/timing, untouched by this addition', () => {
+    const morning = getBreathingPatternById('morning');
+    const evening = getBreathingPatternById('evening');
+    const quiet = getBreathingPatternById('quiet');
+    expect(morning).toMatchObject({ inhaleSeconds: 4, holdSeconds: 4, exhaleSeconds: 6, cycleSeconds: 14, totalCycles: 4, totalSeconds: 56 });
+    expect(evening).toMatchObject({ inhaleSeconds: 4, holdSeconds: 7, exhaleSeconds: 8, cycleSeconds: 19, totalCycles: 4, totalSeconds: 76 });
+    expect(quiet).toMatchObject({ inhaleSeconds: 4, holdSeconds: 4, exhaleSeconds: 8, cycleSeconds: 16, totalCycles: 4, totalSeconds: 64 });
+  });
+
+  it('Box Breathing: 4-4-4-4, 4 cycles, 64s total - the approved configuration exactly', () => {
+    const box = getBreathingPatternById('box');
+    expect(box).toMatchObject({
+      inhaleSeconds: 4,
+      holdSeconds: 4,
+      exhaleSeconds: 4,
+      holdAfterExhaleSeconds: 4,
+      cycleSeconds: 16,
+      totalCycles: 4,
+      totalSeconds: 64
+    });
+  });
+
+  it('Coherent Breathing: 5-5 with no hold at all, 6 cycles, 60s total - the approved configuration exactly', () => {
+    const coherent = getBreathingPatternById('coherent');
+    expect(coherent).toMatchObject({
+      inhaleSeconds: 5,
+      holdSeconds: 0,
+      exhaleSeconds: 5,
+      holdAfterExhaleSeconds: 0,
+      cycleSeconds: 10,
+      totalCycles: 6,
+      totalSeconds: 60
+    });
+  });
+
+  it('computed totals match cycleSeconds * totalCycles for every pattern, and every phase (including the new holdAfterExhaleSeconds) sums to exactly cycleSeconds - the totals were not hand-typed independently of the cadence', () => {
     for (const pattern of BREATHING_PATTERNS) {
       expect(pattern.cycleSeconds * pattern.totalCycles).toBe(pattern.totalSeconds);
-      expect(pattern.inhaleSeconds + pattern.holdSeconds + pattern.exhaleSeconds).toBe(pattern.cycleSeconds);
+      expect(pattern.inhaleSeconds + pattern.holdSeconds + pattern.exhaleSeconds + pattern.holdAfterExhaleSeconds).toBe(pattern.cycleSeconds);
     }
   });
 
-  it('only the morning pattern carries a supportingLabel ("Deep Belly Breath") - it is never applied to a pattern it wasn\'t written for', () => {
+  it('holdAfterExhaleSeconds is explicit (never undefined) on every pattern - 0 for every pattern except Box', () => {
+    for (const pattern of BREATHING_PATTERNS) {
+      expect(typeof pattern.holdAfterExhaleSeconds).toBe('number');
+    }
+    expect(getBreathingPatternById('box').holdAfterExhaleSeconds).toBe(4);
+    for (const id of ['morning', 'evening', 'quiet', 'coherent']) {
+      expect(getBreathingPatternById(id).holdAfterExhaleSeconds).toBe(0);
+    }
+  });
+
+  it('only the morning pattern carries a supportingLabel ("Deep Belly Breath") - it is never applied to a pattern it wasn\'t written for, including the two new ones', () => {
     expect(getBreathingPatternById('morning').supportingLabel).toBe('Deep Belly Breath');
     expect(getBreathingPatternById('evening').supportingLabel).toBeNull();
     expect(getBreathingPatternById('quiet').supportingLabel).toBeNull();
+    expect(getBreathingPatternById('box').supportingLabel).toBeNull();
+    expect(getBreathingPatternById('coherent').supportingLabel).toBeNull();
   });
 
   it('getBreathingPatternById returns null for an unknown id, never throws, never fabricates a pattern', () => {
@@ -43,12 +99,14 @@ describe('BREATHING_PATTERNS - exactly the three real, already-shipped cadences'
   });
 });
 
-describe('resolveBreathPhase - real execution, reproduces each screen\'s own original cutoffs exactly', () => {
+describe('resolveBreathPhase - real execution, reproduces each screen\'s own original cutoffs exactly, plus the two new patterns', () => {
   const morning = getBreathingPatternById('morning');
   const evening = getBreathingPatternById('evening');
   const quiet = getBreathingPatternById('quiet');
+  const box = getBreathingPatternById('box');
+  const coherent = getBreathingPatternById('coherent');
 
-  it('4-4-6 (Morning): inhale 0-3, hold 4-7, exhale 8-13 within each 14s cycle', () => {
+  it('4-4-6 (Morning): inhale 0-3, hold 4-7, exhale 8-13 within each 14s cycle - byte-identical to before this addition', () => {
     expect(resolveBreathPhase(morning, 56)).toBe('Inhale'); // cycleTime 0
     expect(resolveBreathPhase(morning, 53)).toBe('Inhale'); // cycleTime 3
     expect(resolveBreathPhase(morning, 52)).toBe('Hold'); // cycleTime 4
@@ -57,7 +115,7 @@ describe('resolveBreathPhase - real execution, reproduces each screen\'s own ori
     expect(resolveBreathPhase(morning, 43)).toBe('Exhale'); // cycleTime 13
   });
 
-  it('4-7-8 (Evening): inhale 0-3, hold 4-10, exhale 11-18 within each 19s cycle', () => {
+  it('4-7-8 (Evening): inhale 0-3, hold 4-10, exhale 11-18 within each 19s cycle - byte-identical to before this addition', () => {
     expect(resolveBreathPhase(evening, 76)).toBe('Inhale'); // cycleTime 0
     expect(resolveBreathPhase(evening, 73)).toBe('Inhale'); // cycleTime 3
     expect(resolveBreathPhase(evening, 72)).toBe('Hold'); // cycleTime 4
@@ -66,7 +124,7 @@ describe('resolveBreathPhase - real execution, reproduces each screen\'s own ori
     expect(resolveBreathPhase(evening, 58)).toBe('Exhale'); // cycleTime 18
   });
 
-  it('4-4-8 (Quiet): inhale 0-3, hold 4-7, exhale 8-15 within each 16s cycle', () => {
+  it('4-4-8 (Quiet): inhale 0-3, hold 4-7, exhale 8-15 within each 16s cycle - byte-identical to before this addition', () => {
     expect(resolveBreathPhase(quiet, 64)).toBe('Inhale'); // cycleTime 0
     expect(resolveBreathPhase(quiet, 61)).toBe('Inhale'); // cycleTime 3
     expect(resolveBreathPhase(quiet, 60)).toBe('Hold'); // cycleTime 4
@@ -80,6 +138,72 @@ describe('resolveBreathPhase - real execution, reproduces each screen\'s own ori
     expect(resolveBreathPhase(morning, 42)).toBe('Inhale');
     expect(resolveBreathPhase(morning, 38)).toBe('Hold');
     expect(resolveBreathPhase(morning, 34)).toBe('Exhale');
+  });
+
+  // Box Breathing: inhale 0-3, hold 4-7, exhale 8-11, hold(-empty) 12-15,
+  // within each 16s cycle - the genuine fourth-phase case. Every boundary
+  // immediately before/after a transition is checked explicitly
+  // (3->4, 7->8, 11->12, 15->next-cycle 0), per the approved test plan.
+  it('Box (4-4-4-4): all four phases in order, both holds labelled the same literal "Hold" (approved - no separate "Hold empty" terminology)', () => {
+    expect(resolveBreathPhase(box, 64)).toBe('Inhale'); // cycleTime 0
+    expect(resolveBreathPhase(box, 61)).toBe('Inhale'); // cycleTime 3 (last Inhale second)
+    expect(resolveBreathPhase(box, 60)).toBe('Hold'); // cycleTime 4 (3->4 boundary: Inhale -> Hold)
+    expect(resolveBreathPhase(box, 57)).toBe('Hold'); // cycleTime 7 (last Hold second)
+    expect(resolveBreathPhase(box, 56)).toBe('Exhale'); // cycleTime 8 (7->8 boundary: Hold -> Exhale)
+    expect(resolveBreathPhase(box, 53)).toBe('Exhale'); // cycleTime 11 (last Exhale second)
+    expect(resolveBreathPhase(box, 52)).toBe('Hold'); // cycleTime 12 (11->12 boundary: Exhale -> second Hold)
+    expect(resolveBreathPhase(box, 49)).toBe('Hold'); // cycleTime 15 (last second-Hold second)
+  });
+
+  it('Box: the cycle boundary (15 -> next-cycle 0) returns to Inhale, exactly like the original three patterns\' own cycle wrap', () => {
+    expect(resolveBreathPhase(box, 48)).toBe('Inhale'); // cycleTime (64-48)%16 = 0, 2nd cycle starts
+  });
+
+  it('Box: all four complete cycles (4 total) reproduce the identical phase sequence', () => {
+    // 3rd cycle starts at secondsLeft = 64 - 32 = 32; 4th at 64 - 48 = 16
+    expect(resolveBreathPhase(box, 32)).toBe('Inhale');
+    expect(resolveBreathPhase(box, 28)).toBe('Hold');
+    expect(resolveBreathPhase(box, 24)).toBe('Exhale');
+    expect(resolveBreathPhase(box, 20)).toBe('Hold');
+    expect(resolveBreathPhase(box, 16)).toBe('Inhale');
+    expect(resolveBreathPhase(box, 12)).toBe('Hold');
+    expect(resolveBreathPhase(box, 8)).toBe('Exhale');
+    expect(resolveBreathPhase(box, 4)).toBe('Hold');
+  });
+
+  // Coherent Breathing: inhale 0-4, exhale 5-9 within each 10s cycle -
+  // 'Hold' is never returned at any point, for any secondsLeft value,
+  // since holdSeconds is 0 (the zero-duration-phase-skipped guarantee).
+  it('Coherent (5-5): inhale directly transitions to exhale, "Hold" never returned for any secondsLeft value across all 6 cycles', () => {
+    expect(resolveBreathPhase(coherent, 60)).toBe('Inhale'); // cycleTime 0
+    expect(resolveBreathPhase(coherent, 56)).toBe('Inhale'); // cycleTime 4 (last Inhale second)
+    expect(resolveBreathPhase(coherent, 55)).toBe('Exhale'); // cycleTime 5 (4->5 boundary: Inhale -> Exhale directly, no Hold)
+    expect(resolveBreathPhase(coherent, 51)).toBe('Exhale'); // cycleTime 9 (last Exhale second)
+    expect(resolveBreathPhase(coherent, 50)).toBe('Inhale'); // cycleTime 0, 2nd cycle
+    // Every single second across all 6 cycles (60 values) is Inhale or
+    // Exhale - never Hold.
+    for (let secondsLeft = 60; secondsLeft >= 1; secondsLeft--) {
+      expect(resolveBreathPhase(coherent, secondsLeft)).not.toBe('Hold');
+    }
+  });
+});
+
+describe('formatCadence - real execution, the exact approved copy for every pattern', () => {
+  it('the three original patterns keep their exact original cadence text - byte-identical to before this addition', () => {
+    expect(formatCadence(getBreathingPatternById('morning'))).toBe('Inhale 4s · Hold 4s · Exhale 6s');
+    expect(formatCadence(getBreathingPatternById('evening'))).toBe('Inhale 4s · Hold 7s · Exhale 8s');
+    expect(formatCadence(getBreathingPatternById('quiet'))).toBe('Inhale 4s · Hold 4s · Exhale 8s');
+  });
+
+  it('Box Breathing shows all four segments, in phase order: Inhale 4s · Hold 4s · Exhale 4s · Hold 4s', () => {
+    expect(formatCadence(getBreathingPatternById('box'))).toBe('Inhale 4s · Hold 4s · Exhale 4s · Hold 4s');
+  });
+
+  it('Coherent Breathing shows exactly two segments - never "Hold 0s", never an empty phase, never a pause placeholder', () => {
+    const cadence = formatCadence(getBreathingPatternById('coherent'));
+    expect(cadence).toBe('Inhale 5s · Exhale 5s');
+    expect(cadence).not.toMatch(/Hold/);
+    expect(cadence.split(' · ')).toHaveLength(2);
   });
 });
 
@@ -106,7 +230,22 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
   it('never fabricates a pattern name - BreathingPatternRow itself only ever renders pattern.label, sourced from the shared config', () => {
     const rowSource = read('../components/BreathingPatternRow.jsx');
     expect(rowSource).toMatch(/\{pattern\.label\}/);
-    expect(rowSource).not.toMatch(/4-4-6 Breathing|4-7-8 Breathing|4-4-8 Breathing/); // no hard-coded label duplicated locally
+    // no hard-coded label duplicated locally, for any of the five patterns
+    // (the file's own doc comments may mention these names in prose -
+    // strip comments first, matching this codebase's established
+    // convention, so only the actual rendered code is checked).
+    const code = rowSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/4-4-6 Breathing|4-7-8 Breathing|4-4-8 Breathing|Box Breathing|Coherent Breathing/);
+  });
+
+  // Build 15 Box/Coherent addition — the guided-video section (a
+  // separate, pre-existing feature, completely independent of the
+  // interactive pattern picker above) is untouched by adding the two new
+  // interactive patterns. B02/B04 remain real, reachable guided videos.
+  it('the existing guided Box/Coherent breathing videos (B02/B04) remain in BREATHING_SESSION_VIDEOS, untouched by the new interactive patterns', () => {
+    expect(breatheSource).toMatch(/\{ id: 'B02', blurb: 'A guided video for box breathing\.' \}/);
+    expect(breatheSource).toMatch(/\{ id: 'B04', blurb: 'A guided video for coherent breathing\.' \}/);
+    expect(breatheSource).toMatch(/\{BREATHING_SESSION_VIDEOS\.map\(\(\{ id, blurb \}\) => \{/);
   });
 });
 

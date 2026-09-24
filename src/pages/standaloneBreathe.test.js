@@ -76,6 +76,16 @@ describe('Support\'s own embedded (non-standalone) usage is preserved exactly', 
     const nonStandaloneReturn = source.slice(source.lastIndexOf('return (\n    <EveningSceneShell'));
     expect(nonStandaloneReturn).toMatch(/Just breathe\. There is nowhere else to be\./);
   });
+
+  // Build 15 Box/Coherent addition — Support's flow is confirmed
+  // completely unreachable-from for either new pattern: it never renders
+  // a picker at all (see the test above), and its own fixed default is
+  // unconditionally 'quiet' - Box/Coherent's own ids never appear
+  // anywhere in the non-standalone return branch.
+  it('Box/Coherent are structurally unreachable from Support\'s own flow - their ids never appear in the non-standalone return branch', () => {
+    const nonStandaloneReturn = source.slice(source.lastIndexOf('return (\n    <EveningSceneShell'));
+    expect(nonStandaloneReturn).not.toMatch(/'box'|'coherent'/);
+  });
 });
 
 // ---------------------------------------------------------------------
@@ -91,8 +101,20 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(source).toMatch(/if \(standalone\) \{\s*\n\s*return \(/);
   });
 
-  it('defaults to the quiet 4-4-8 pattern (the approved "sensible documented default")', () => {
+  it('defaults to the quiet 4-4-8 pattern (the approved "sensible documented default") - unaffected by the Build 15 Box/Coherent addition', () => {
     expect(source).toMatch(/const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';/);
+  });
+
+  // Build 15 Box/Coherent addition — the standalone picker iterates the
+  // shared array generically (no per-id filtering), so both new patterns
+  // automatically appear here with zero code change to this file - this
+  // is exactly what's checked below: the map call has no filter/slice
+  // applied to BREATHING_PATTERNS before it.
+  it('the standalone picker maps the FULL shared BREATHING_PATTERNS array with no filtering - both Box and Coherent automatically appear here', () => {
+    const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
+    expect(standaloneReturn).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
+    expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.filter\(/);
+    expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.slice\(/);
   });
 
   it('nothing starts on mount - hasBegun defaults to false in standalone mode, gating the countdown entirely via canRun', () => {

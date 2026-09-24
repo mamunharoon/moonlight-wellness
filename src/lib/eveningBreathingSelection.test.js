@@ -57,6 +57,17 @@ describe('saveEveningBreathingPattern / loadEveningBreathingPattern - round trip
     expect(loadEveningBreathingPattern('user-a', '2026-09-24')).toBe('quiet');
   });
 
+  // Build 15 Box/Coherent addition — the persistence helper validates
+  // via getBreathingPatternById generically (no hardcoded id list of its
+  // own), so both new ids round-trip correctly with zero code change -
+  // asserted explicitly here rather than left implied.
+  it('the two new pattern ids (box, coherent) round-trip correctly - persistence is generic, not tied to a hardcoded id list', () => {
+    saveEveningBreathingPattern('user-a', 'box', '2026-09-24');
+    expect(loadEveningBreathingPattern('user-a', '2026-09-24')).toBe('box');
+    saveEveningBreathingPattern('user-a', 'coherent', '2026-09-24');
+    expect(loadEveningBreathingPattern('user-a', '2026-09-24')).toBe('coherent');
+  });
+
   it('returns null when nothing has ever been saved for this identity', () => {
     expect(loadEveningBreathingPattern('user-a', '2026-09-24')).toBeNull();
   });

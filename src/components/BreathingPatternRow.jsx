@@ -1,4 +1,5 @@
 import { formatTotalDuration } from '../lib/formatDuration';
+import { formatCadence } from '../lib/breathingPatterns';
 
 /*
  * Build 15 — BreathingPatternRow
@@ -65,7 +66,7 @@ export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, ac
           {pattern.label}
         </span>
         <span className="block text-xs text-on-surface-variant mt-1">
-          Inhale {pattern.inhaleSeconds}s · Hold {pattern.holdSeconds}s · Exhale {pattern.exhaleSeconds}s
+          {formatCadence(pattern)}
         </span>
         <span className="block text-[10px] text-on-surface-variant/70 mt-1 uppercase font-semibold tracking-wide">
           {formatTotalDuration(pattern.totalSeconds)}
