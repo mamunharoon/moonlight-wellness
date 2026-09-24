@@ -181,10 +181,16 @@ export const PrepareForRest = () => {
     </button>
   );
 
+  // Journey Embedding — Meditation is now the real preceding step
+  // (Breathing -> Meditate (optional) -> Prepare for Rest), so Back must
+  // return there, not skip over it straight to Evening Breathing.
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-meditate" showExit>
       <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 5 of 6</span>
+      {/* Journey Embedding (correction) — Meditate is now a counted step
+          (5) immediately before this one, so Prepare for Rest is Step 6 of
+          7, not 5 of 6. */}
+      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 6 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />

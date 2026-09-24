@@ -355,8 +355,8 @@ describe('Layout: full labels always visible, no sticky action area', () => {
 
 // Back/Review Mode wiring - unchanged by this round.
 describe('Back and Review Mode wiring are unchanged from the previous subphase', () => {
-  it('Back still returns to Evening Breathing via the shared BackButton', () => {
-    expect(source).toMatch(/showBack backFallback="\/evening-breathing"/);
+  it('Back now returns to Evening Meditate (Journey Embedding\'s optional step, the real immediately-preceding step) rather than skipping over it to Evening Breathing', () => {
+    expect(source).toMatch(/showBack backFallback="\/evening-meditate"/);
   });
 
   it('useStepReviewMode/useReviewNavigation called with the original arguments', () => {

@@ -214,12 +214,13 @@ describe('12. State remains user/date scoped', () => {
 });
 
 describe('13. Existing full Morning order tests remain passing', () => {
-  it('the canonical registry order is unchanged: Intend -> Stretch -> Breathe -> Affirm -> Complete (alarm first as the pre-routine entry state)', () => {
+  it('the canonical registry order is unchanged apart from Journey Embedding\'s own approved insertion: Intend -> Stretch -> Breathe -> Meditate (optional) -> Affirm -> Complete (alarm first as the pre-routine entry state)', () => {
     expect(MORNING_ROUTINE_SESSION.steps.map((s) => s.id)).toEqual([
       MORNING_STEP_IDS.ALARM,
       MORNING_STEP_IDS.INTENTION,
       MORNING_STEP_IDS.STRETCH,
       MORNING_STEP_IDS.BREATHE,
+      MORNING_STEP_IDS.MEDITATE,
       MORNING_STEP_IDS.AFFIRMATION,
       MORNING_STEP_IDS.COMPLETE,
     ]);

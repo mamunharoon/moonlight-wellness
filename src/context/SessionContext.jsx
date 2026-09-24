@@ -17,6 +17,7 @@ import {
   unpinRoutineDate
 } from '../session/routineProgress';
 import { runMorningFlowMigration } from '../session/morningFlowMigration';
+import { runEmbeddedMeditationMigration } from '../session/embeddedMeditationMigration';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
 
 // Morning-flow reorder migration — run once, at module-evaluation time,
@@ -30,6 +31,13 @@ import { onSignOutBroadcast } from '../lib/signOutCleanup';
 // effects before parent effects. See morningFlowMigration.js's own doc
 // comment for the full migration behaviour.
 runMorningFlowMigration();
+// Journey Embedding (Self-Guided Meditation) migration — same reasoning,
+// same call-site pattern, run immediately after the one above. Each
+// migration is independently gated by its own marker key and touches only
+// the exact keys it documents, so running both here in sequence is safe
+// regardless of order — see embeddedMeditationMigration.js's own doc
+// comment for the full migration behaviour.
+runEmbeddedMeditationMigration();
 
 /*
  * Stage 3C — Session Engine core, provider (Ticket Group 2)

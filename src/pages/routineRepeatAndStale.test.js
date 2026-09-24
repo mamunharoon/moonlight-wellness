@@ -183,7 +183,7 @@ describe('"today\'s routine remains independently available" after a previous-da
   });
 });
 
-describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind-Down Step 1 of 6, not Reflection Step 2', () => {
+describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind-Down Step 1 of 7, not Reflection Step 2', () => {
   it('RoutineDetail.jsx\'s own "Start Routine" for Wind-Down resolves to a plain navigation once past the (Guest Onboarding) auth check - it never starts the Session Engine itself, deferring entirely to EveningWindDown.jsx\'s own Begin button', () => {
     // Guest Onboarding revision: 'wind-down' now requires auth too (see
     // guestOnboarding.test.js for the full guest-gating regression suite)
@@ -201,8 +201,8 @@ describe('Fresh-start parity fix — "Repeat Evening Routine" must begin at Wind
     expect(routineDetailSource).toMatch(/if \(routineId === 'rise-reset'\) \{\s*\n\s*beginRiseAndReset\(\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*navigate\(detail\.startRoute\);/);
   });
 
-  it('EveningWindDown.jsx genuinely displays "Step 1 of 6" as its own real screen, and only starts/advances the session once ITS OWN Begin button is tapped', () => {
-    expect(eveningWindDownSource).toMatch(/Step 1 of 6/);
+  it('EveningWindDown.jsx genuinely displays "Step 1 of 7" (Journey Embedding correction; was Step 1 of 6) as its own real screen, and only starts/advances the session once ITS OWN Begin button is tapped', () => {
+    expect(eveningWindDownSource).toMatch(/Step 1 of 7/);
     expect(eveningWindDownSource).toMatch(/startSession\('evening-wind-down'\);\s*\n\s*advanceStep\(\);\s*\n\s*navigate\('\/reflection'\);/);
   });
 

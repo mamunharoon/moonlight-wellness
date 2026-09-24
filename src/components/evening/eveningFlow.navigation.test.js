@@ -27,6 +27,10 @@ const windDownSource = read('../../pages/EveningWindDown.jsx');
 const reflectionSource = read('../../pages/Reflection.jsx');
 const gratitudeSource = read('../../pages/Gratitude.jsx');
 const breathingSource = read('../../pages/EveningBreathing.jsx');
+// Journey Embedding — the new optional step, now the real immediately-
+// preceding step for Prepare for Rest (Breathing -> Meditate -> Prepare
+// for Rest).
+const meditateSource = read('../../pages/EveningMeditate.jsx');
 const prepareSource = read('../../pages/PrepareForRest.jsx');
 const completeSource = read('../../pages/EveningComplete.jsx');
 const reflectionReviewSource = read('../../pages/ReflectionReview.jsx');
@@ -37,6 +41,7 @@ const ACTIVE_JOURNEY_PAGES = {
   Reflection: reflectionSource,
   Gratitude: gratitudeSource,
   EveningBreathing: breathingSource,
+  EveningMeditate: meditateSource,
   PrepareForRest: prepareSource,
 };
 
@@ -56,7 +61,12 @@ describe('Evening Wind-down back-navigation chain', () => {
     // missing `?q=3` meant Back landed on Gratitude Q1 (parseActiveIndex
     // defaults a missing q to index 0), not Gratitude Q3 as required.
     expect(breathingSource).toMatch(/showBack backFallback="\/gratitude\?q=3"/);
-    expect(prepareSource).toMatch(/showBack backFallback="\/evening-breathing"/);
+    // Journey Embedding — Meditate's own Back returns to Evening Breathing
+    // (the real preceding step), and Prepare for Rest's own Back now
+    // returns to Meditate instead of skipping over it straight to
+    // Breathing.
+    expect(meditateSource).toMatch(/showBack backFallback="\/evening-breathing"/);
+    expect(prepareSource).toMatch(/showBack backFallback="\/evening-meditate"/);
     expect(completeSource).toMatch(/showBack backFallback="\/"/);
   });
 
@@ -87,7 +97,7 @@ describe('Build 15 Evening UX correction — Back never interrupts the active se
 });
 
 describe('Build 15 Evening UX correction — dedicated Exit/X control on every active-journey screen, never on Evening Complete', () => {
-  it('all five active-journey screens pass showExit to EveningSceneShell', () => {
+  it('all six active-journey screens pass showExit to EveningSceneShell (Journey Embedding added Evening Meditate as a sixth)', () => {
     for (const source of Object.values(ACTIVE_JOURNEY_PAGES)) {
       expect(source).toMatch(/<EveningSceneShell[^>]*\bshowExit\b/);
     }

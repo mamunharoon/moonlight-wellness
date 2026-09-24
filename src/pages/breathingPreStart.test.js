@@ -390,9 +390,9 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(eveningBreathingSource).not.toMatch(/morning-routine/);
   });
 
-  it('Prepare for Rest/Reflection/Gratitude/Review/Edit/Redo are untouched - the only exercise-advancement target is /prepare-for-rest (the pre-existing /auth sign-in redirect for guest music is unrelated and unchanged)', () => {
+  it('Reflection/Gratitude/Review/Edit/Redo are untouched - the only exercise-advancement target is /evening-meditate (Journey Embedding\'s optional step, now immediately after Breathing), and the pre-existing /auth sign-in redirect for guest music is unrelated and unchanged', () => {
     const navigateTargets = [...eveningBreathingSource.matchAll(/navigate\('([^']+)'\)/g)].map((m) => m[1]);
-    expect(new Set(navigateTargets)).toEqual(new Set(['/prepare-for-rest', '/auth']));
+    expect(new Set(navigateTargets)).toEqual(new Set(['/evening-meditate', '/auth']));
   });
 
   it('never renders a hand-typed cadence/duration preview string outside BreathingPatternRow - no second source of truth for the pattern label/cadence', () => {

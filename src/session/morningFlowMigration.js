@@ -1,6 +1,26 @@
-import { SESSION_STORAGE_KEY, SESSION_STORAGE_VERSION } from './sessionPersistence';
-import { ROUTINE_PROGRESS_KEY, ROUTINE_PROGRESS_VERSION, PINNED_DATE_KEY } from './routineProgress';
+import { SESSION_STORAGE_KEY } from './sessionPersistence';
+import { ROUTINE_PROGRESS_KEY, PINNED_DATE_KEY } from './routineProgress';
 import { SESSION_STATUS } from './sessionReducer';
+
+// Journey Embedding fix — this migration's own FIXED historical target
+// (the shape it was written against: Morning's 'start' removal, v1 -> v2),
+// deliberately no longer importing the live SESSION_STORAGE_VERSION/
+// ROUTINE_PROGRESS_VERSION constants for its own version decisions.
+// embeddedMeditationMigration.js bumped those constants again (2 -> 3) for
+// an unrelated, later shape change - if this file kept writing whatever
+// the live constant currently is, an Evening entry "carried forward byte-
+// for-byte" here would get mislabeled 3 directly, and the later migration
+// (which checks `parsed.version === SESSION_STORAGE_VERSION` to decide
+// whether a blob is already current) would then wrongly treat it as
+// already-migrated and skip the v2->v3 discard it still genuinely needs -
+// silently resuming that Evening session at the wrong step. Each
+// migration in the chain must only ever claim the exact version IT ITSELF
+// understands, so the next migration in the chain still sees a blob that
+// looks exactly like what its own "not yet migrated" check expects,
+// regardless of how many later migrations have since bumped the live
+// constant. Marker-gated (below) either way, so this never re-runs.
+const MORNING_FLOW_TARGET_VERSION = 2;
+const MORNING_FLOW_ROUTINE_TARGET_VERSION = 2;
 
 /*
  * Morning-flow reorder — one-time, targeted migration (Intend/Stretch/
@@ -112,15 +132,16 @@ const migrateSessionProgress = () => {
     return false;
   }
 
-  if (!parsed || typeof parsed !== 'object' || parsed.version === SESSION_STORAGE_VERSION) {
-    return false; // already current version (or unrecognisable) - nothing to migrate
+  if (!parsed || typeof parsed !== 'object' || parsed.version === MORNING_FLOW_TARGET_VERSION) {
+    return false; // already at this migration's own target version (or unrecognisable) - nothing to migrate
   }
 
   const state = parsed.state;
   if (state && state.sessionId === EVENING_SESSION_ID) {
     // Evening's shape did not change - carry it forward byte-for-byte,
-    // only the wrapper version advances.
-    safeSet(SESSION_STORAGE_KEY, JSON.stringify({ version: SESSION_STORAGE_VERSION, state }));
+    // only the wrapper version advances to THIS migration's own fixed
+    // target (2) - never the live, possibly-since-bumped constant.
+    safeSet(SESSION_STORAGE_KEY, JSON.stringify({ version: MORNING_FLOW_TARGET_VERSION, state }));
     return false;
   }
 
@@ -147,7 +168,7 @@ const migrateRoutineProgress = () => {
     return false;
   }
 
-  if (!parsed || typeof parsed !== 'object' || parsed.version === ROUTINE_PROGRESS_VERSION) {
+  if (!parsed || typeof parsed !== 'object' || parsed.version === MORNING_FLOW_ROUTINE_TARGET_VERSION) {
     return false;
   }
 
@@ -164,7 +185,7 @@ const migrateRoutineProgress = () => {
     survivingRoutines[EVENING_SESSION_ID] = routines[EVENING_SESSION_ID];
   }
 
-  safeSet(ROUTINE_PROGRESS_KEY, JSON.stringify({ version: ROUTINE_PROGRESS_VERSION, routines: survivingRoutines }));
+  safeSet(ROUTINE_PROGRESS_KEY, JSON.stringify({ version: MORNING_FLOW_ROUTINE_TARGET_VERSION, routines: survivingRoutines }));
   return wasUnfinishedMorning;
 };
 

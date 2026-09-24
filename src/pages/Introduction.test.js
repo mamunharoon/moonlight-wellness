@@ -408,3 +408,27 @@ describe('Introduction is routed and reachable from Profile', () => {
     expect(guestGuardIndex === -1 || rowIndex < guestGuardIndex).toBe(true);
   });
 });
+
+describe('Journey Embedding — Welcome card optional-meditation context, accessible-only (no new visible line, no crowding)', () => {
+  it('Morning and Evening cards each carry a `note` naming the 2/5/10-minute optional addition - Calming Pause does not (no meditation involved)', () => {
+    const morningCard = introductionSource.match(/\{\s*id: 'morning',[\s\S]*?\n {2}\},/)?.[0] ?? '';
+    const sleepCard = introductionSource.match(/\{\s*id: 'sleep',[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
+    expect(morningCard).toMatch(/note: 'Meditation is optional and can add 2, 5 or 10 minutes\.'/);
+    expect(sleepCard).toMatch(/note: 'Meditation is optional and can add 2, 5 or 10 minutes\.'/);
+    expect(calmCard).not.toMatch(/note:/);
+  });
+
+  it('the note is folded into an explicit aria-label on the card button - not a third visible text line', () => {
+    expect(introductionSource).toMatch(/aria-label=\{card\.note \? `\$\{card\.title\}\. \$\{card\.subtitle\}\. \$\{card\.note\}` : undefined\}/);
+    // Still exactly one title span and one subtitle span per card - no new
+    // <span> was added for the note.
+    expect(introductionSource).toMatch(/<span className="block text-base font-bold text-on-surface">\{card\.title\}<\/span>/);
+    expect(introductionSource).toMatch(/<span className=\{`block text-xs font-medium \$\{card\.subtitleClass\}`\}>\{card\.subtitle\}<\/span>/);
+  });
+
+  it('Welcome subtitles use "From" wording, never a flat number that a 10-minute meditation choice would make inaccurate', () => {
+    expect(introductionSource).toMatch(/subtitle: 'Rise & Reset · From 5 min'/);
+    expect(introductionSource).toMatch(/subtitle: 'Begin Wind-Down · From 10 min'/);
+  });
+});

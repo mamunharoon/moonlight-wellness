@@ -20,12 +20,23 @@ import { BackButton } from '../BackButton';
  * (the active dot is both wider and filled), never colour alone, and a
  * visually-hidden "Step X of Y" string keeps it accurate for VoiceOver
  * even though the dots themselves are `aria-hidden`.
+ *
+ * `showCloseButton` (Journey Embedding fix, additive - every existing
+ * caller keeps the default `true` and is completely unaffected): lets a
+ * caller that is ALREADY wrapped in its own outer shell with its own
+ * whole-journey exit control (Evening's embedded meditation, inside
+ * EveningSceneShell's own `showExit`/ExitEveningButton) suppress this
+ * header's own Close button, so two controls with two different meanings
+ * never render at the same corner. The Back arrow (when `showBackButton`
+ * is false) is unaffected either way - it still renders and still calls
+ * `onStepBack`.
  */
 export const JourneyHeader = ({
   showBackButton,
   backFallback = '/',
   onStepBack,
   onClose,
+  showCloseButton = true,
   stepIndex,
   stepCount
 }) => (
@@ -43,14 +54,16 @@ export const JourneyHeader = ({
           <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
         </button>
       )}
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
-        <span className="material-symbols-outlined text-on-surface-variant">close</span>
-      </button>
+      {showCloseButton && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <span className="material-symbols-outlined text-on-surface-variant">close</span>
+        </button>
+      )}
     </div>
 
     {stepCount > 1 && (

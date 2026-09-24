@@ -200,8 +200,13 @@ export const Breathe = () => {
     if (!hasBegun || isInterrupted || isRepeatGated || isConfirming) return;
 
     if (secondsLeft <= 0) {
-      setJourneyStep('affirmation');
-      navigate('/affirmation');
+      // Journey Embedding — Meditate is now the next step (optional,
+      // inserted immediately after Breathe in MORNING_ROUTINE_SESSION).
+      // mirrorBreathingExitRef.current() is unchanged: it already advances
+      // the Session Engine from whatever the registry's real NEXT step is
+      // after 'breathe' - no logic change needed there, only this route.
+      setJourneyStep('meditate');
+      navigate('/morning-meditate');
       mirrorBreathingExitRef.current();
       return;
     }
@@ -234,14 +239,14 @@ export const Breathe = () => {
   };
 
   const handleComplete = () => {
-    setJourneyStep('affirmation');
-    navigate('/affirmation');
+    setJourneyStep('meditate');
+    navigate('/morning-meditate');
     mirrorBreathingExitRef.current();
   };
 
   const handleSkip = () => {
-    setJourneyStep('affirmation');
-    navigate('/affirmation');
+    setJourneyStep('meditate');
+    navigate('/morning-meditate');
     mirrorBreathingExitRef.current();
   };
 

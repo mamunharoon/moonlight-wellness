@@ -117,6 +117,21 @@ export const MORNING_ROUTINE_SESSION = {
       audioCue: null,
     },
     {
+      // Journey Embedding (Self-Guided Meditation) — optional, inserted
+      // immediately after BREATHE per the approved order. skippable: true
+      // ("Skip meditation" on the pre-start screen). durationSeconds: null
+      // — unlike breathe's one fixed value, this step's real duration
+      // varies by the user's own 2/5/10-minute choice (meditationDurations.js)
+      // and is skippable to zero, so no single fixed number describes it,
+      // same reasoning already used for `stretch` above.
+      id: MORNING_STEP_IDS.MEDITATE,
+      route: '/morning-meditate',
+      skippable: true,
+      durationSeconds: null,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
       id: MORNING_STEP_IDS.AFFIRMATION,
       route: '/affirmation',
       skippable: true, // "Skip" button (currently identical to Continue)
@@ -228,6 +243,18 @@ export const EVENING_ROUTINE_SESSION = {
       route: '/evening-breathing',
       skippable: true,
       durationSeconds: 76,
+      atmosphereRequest: null,
+      audioCue: null,
+    },
+    {
+      // Journey Embedding (Self-Guided Meditation) — optional, inserted
+      // immediately after BREATHING per the approved order. Same reasoning
+      // as MORNING_STEP_IDS.MEDITATE above: skippable, no single fixed
+      // durationSeconds (varies 2/5/10 min by user choice, or 0 if skipped).
+      id: EVENING_STEP_IDS.MEDITATION,
+      route: '/evening-meditate',
+      skippable: true,
+      durationSeconds: null,
       atmosphereRequest: null,
       audioCue: null,
     },

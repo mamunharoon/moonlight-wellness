@@ -153,7 +153,12 @@ export const EveningBreathing = () => {
     if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming) return;
 
     if (secondsLeft <= 0) {
-      navigate('/prepare-for-rest');
+      // Journey Embedding — Meditation is now the next step (optional,
+      // inserted immediately after Breathing in EVENING_ROUTINE_SESSION).
+      // mirrorExitRef.current() is unchanged: it already advances the
+      // Session Engine from whatever the registry's real NEXT step is
+      // after 'breathing' - no logic change needed there, only this route.
+      navigate('/evening-meditate');
       mirrorExitRef.current();
       return;
     }
@@ -186,7 +191,7 @@ export const EveningBreathing = () => {
   };
 
   const handleAdvance = () => {
-    navigate('/prepare-for-rest');
+    navigate('/evening-meditate');
     mirrorExitRef.current();
   };
 
@@ -196,7 +201,8 @@ export const EveningBreathing = () => {
     // defaults a missing q to index 0), not Gratitude Q3 as required.
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" showExit>
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 6</span>
+      {/* Journey Embedding (correction) — total is now 7, not 6. */}
+      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />

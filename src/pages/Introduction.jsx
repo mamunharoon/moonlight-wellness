@@ -195,7 +195,17 @@ const WELCOME_CARDS = [
     iconClass: 'bg-morning-accent/15 text-morning-accent',
     subtitleClass: 'text-morning-accent',
     title: 'Start my morning',
-    subtitle: 'Rise & Reset · 5 min',
+    // Journey Embedding — 'From 5 min' rather than a flat '5 min': the new
+    // optional Meditate step (2/5/10 min, skippable) means the routine's
+    // true length now varies by the user's own choice, and "From" is
+    // truthful at every one of those durations, including the widest
+    // (10-minute) choice - never a claim that a recommended duration is
+    // the maximum possible total. `note` is accessible-only (folded into
+    // this card's own aria-label below), not a third visible text line -
+    // the compact single-line title/subtitle row has no room to add one
+    // without crowding.
+    subtitle: 'Rise & Reset · From 5 min',
+    note: 'Meditation is optional and can add 2, 5 or 10 minutes.',
     requiresAuth: true
   },
   {
@@ -216,7 +226,9 @@ const WELCOME_CARDS = [
     iconClass: 'bg-evening-accent/15 text-evening-accent',
     subtitleClass: 'text-evening-accent',
     title: 'Wind down for sleep',
-    subtitle: 'Begin Wind-Down · 10 min',
+    // Journey Embedding — same "From" treatment as the Morning card above.
+    subtitle: 'Begin Wind-Down · From 10 min',
+    note: 'Meditation is optional and can add 2, 5 or 10 minutes.',
     requiresAuth: true
   }
 ];
@@ -518,6 +530,14 @@ export const Introduction = () => {
               type="button"
               onClick={() => handleCardTap(card)}
               disabled={saving}
+              // Journey Embedding — an explicit aria-label folding in
+              // card.note (when present) so screen-reader users hear the
+              // "+2/5/10 minutes optional" context this card's own visible
+              // text doesn't have room to show without crowding. Omitted
+              // entirely for a card with no note (Calming Pause), so its
+              // accessible name still derives naturally from the visible
+              // title/subtitle exactly as before.
+              aria-label={card.note ? `${card.title}. ${card.subtitle}. ${card.note}` : undefined}
               className="w-full text-left glass-panel rounded-2xl p-4 flex items-center gap-3.5 hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             >
               <span className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 ${card.iconClass}`}>

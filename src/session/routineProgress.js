@@ -41,13 +41,16 @@ import { getZonedParts, getCachedTimezone } from '../lib/timezone';
  * rather than silently carrying it into today or silently discarding it.
  */
 
-// Exported (not just module-local) so morningFlowMigration.js can perform
-// its own targeted, selective read/rewrite of this exact store without
-// duplicating these literals — see that module's own doc comment for why
-// a blunt version-mismatch rejection here would be wrong for this store
-// (it would discard a perfectly valid Evening entry alongside Morning's).
+// Exported (not just module-local) so morningFlowMigration.js/
+// embeddedMeditationMigration.js can each perform their own targeted,
+// selective read/rewrite of this exact store without duplicating these
+// literals — see morningFlowMigration.js's own doc comment for why a
+// blunt version-mismatch rejection here would be wrong for this store (it
+// would discard a perfectly valid Evening entry alongside Morning's), and
+// embeddedMeditationMigration.js's own doc comment for why THIS bump
+// (2 -> 3) discards an unfinished entry for either routine.
 export const ROUTINE_PROGRESS_KEY = 'moonlight_routine_progress';
-export const ROUTINE_PROGRESS_VERSION = 2;
+export const ROUTINE_PROGRESS_VERSION = 3;
 
 // "Resume Previous Routine" remediation — a small, separate store mapping
 // sessionId -> the ORIGINAL local dateKey a stale routine was resumed

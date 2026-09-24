@@ -17,11 +17,19 @@ import { useSession } from '../context/SessionContext';
 // Morning-flow redesign: 'start' removed — morningFlowMigration.js clears
 // any pre-existing 'start' value from moonlight_journey_step on first
 // load after this deploy, so this map never needs to resolve it.
+// Journey Embedding — 'meditate' added so a Morning session paused ON the
+// new embedded meditation step is correctly recognised as "active" by this
+// legacy fallback too (Breathe.jsx now writes setJourneyStep('meditate')
+// alongside the Session Engine's own advance - see that file's own doc
+// comment). Evening has no legacy tracker at all (this map is Morning-only,
+// see this file's own doc comment above) so 'meditation' needs no entry
+// here.
 const LEGACY_STEP_PATHS = {
   alarm: '/alarm-trigger',
   affirmation: '/affirmation',
   stretch: '/morning-flow',
   breathe: '/breathe',
+  meditate: '/morning-meditate',
   intention: '/intention-setup',
   complete: '/session-complete'
 };

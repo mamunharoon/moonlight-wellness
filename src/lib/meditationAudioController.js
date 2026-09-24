@@ -78,11 +78,15 @@ export const createMeditationAudioController = ({
       started = true;
       if (!isCurrent()) audio.pause();
     } catch (error) {
-      // Signed-URL failure, network failure, or a play() rejection
-      // (e.g. an anonymous/guest session - the Edge Function requires a
-      // signed-in, non-anonymous user) - the meditation continues silently
-      // without music; lastError is exposed only for a small, unobtrusive
-      // status line, never surfaced as a blocking error.
+      // Signed-URL failure, network failure, or a play() rejection (e.g. a
+      // transient network error, or the browser blocking autoplay) - NOT a
+      // guest-vs-signed-in distinction: IM01/IM02 are both in
+      // GUEST_ALLOWED_IDS (supabase/functions/_shared/betaVideoUrlAccess.ts),
+      // so a guest's requestBetaVideoUrl call succeeds exactly like a
+      // signed-in user's (see SelfGuidedMeditation.jsx's own doc comment).
+      // Either way, the meditation continues silently without music;
+      // lastError is exposed only for a small, unobtrusive status line,
+      // never surfaced as a blocking error.
       lastError = error;
     } finally {
       isBusy = false;

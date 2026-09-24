@@ -78,7 +78,15 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
       eyebrow: 'YOUR NEXT STEP',
       title: variant.title,
       supportingText: variant.explanation,
-      duration: 'About 5–10 minutes',
+      // Journey Embedding — the optional Meditate/Meditation step (2, 5 or
+      // 10 minutes, user's own choice, skippable to zero) can extend the
+      // routine beyond the old flat "About 5–10 minutes" range, which is
+      // now inaccurate at the high end for anyone who takes it. Never
+      // states a recommended duration as the maximum possible total (the
+      // 10-minute meditation choice would make that claim false) -
+      // "plus optional meditation" names the addition without pretending
+      // to total it, matching the approved copy exactly.
+      duration: 'About 5–10 minutes, plus optional meditation',
       buttonLabel: variant.buttonLabel
     };
   }
@@ -106,7 +114,7 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
     eyebrow: 'YOUR NEXT STEP',
     title: 'Begin your Evening Wind-Down',
     supportingText: 'Reflect on your day, release what you no longer need and prepare gently for rest.',
-    duration: 'About 5–10 minutes',
+    duration: 'About 5–10 minutes, plus optional meditation',
     buttonLabel: 'Begin Evening Wind-Down'
   };
 };

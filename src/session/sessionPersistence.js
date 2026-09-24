@@ -50,7 +50,16 @@ export const SESSION_STORAGE_KEY = 'moonlight_session_progress';
 // Evening snapshot byte-for-byte under the new version wrapper, so by the
 // time loadSessionState() below runs, an Evening session in progress is
 // never lost to this bump — only Morning's now-stale step positions are.
-export const SESSION_STORAGE_VERSION = 2;
+//
+// Bumped 2 -> 3 for Journey Embedding (Self-Guided Meditation) — both
+// MORNING_ROUTINE_SESSION and EVENING_ROUTINE_SESSION gained a new step
+// ('meditate'/'meditation', inserted immediately after breathe/breathing),
+// shifting every subsequent stepIndex in BOTH registries. See
+// embeddedMeditationMigration.js for the one-time, targeted migration that
+// runs before this module's own version-mismatch check ever sees a v2
+// blob — unlike the v1->v2 migration, THIS one discards a live/paused
+// snapshot for either session (not just Morning), since both changed shape.
+export const SESSION_STORAGE_VERSION = 3;
 export const SESSION_STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12 hours — provisional, see doc comment above
 
 const VALID_STATUSES = Object.values(SESSION_STATUS);

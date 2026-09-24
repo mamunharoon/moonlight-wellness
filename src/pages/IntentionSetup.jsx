@@ -13,8 +13,10 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 
 /*
- * Morning-flow redesign — Intention step, now Step 1 of 4 (was Step 5 of
- * 5, immediately before Complete). Home's "Begin Rise & Reset",
+ * Morning-flow redesign — Intention step, now Step 1 of 5 (Journey
+ * Embedding correction; was Step 1 of 4 before Meditate was counted, and
+ * Step 5 of 5 before that, immediately before Complete). Home's "Begin
+ * Rise & Reset",
  * RoutineDetail's "Start Routine", and AlarmActive's slide-to-unlock all
  * now start the Session Engine directly at this step (see each file's
  * own updated startSession(..., { startIndex: getStepIndex(...,
@@ -238,7 +240,8 @@ export const IntentionSetup = () => {
             <span className="w-16 h-16 rounded-full bg-morning-accent/10 border border-morning-accent/25 shadow-morning-glow flex items-center justify-center">
               <span className="material-symbols-outlined text-morning-accent text-3xl">wb_sunny</span>
             </span>
-            <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 4</span>
+            {/* Journey Embedding (correction) — total is now 5, not 4. */}
+            <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 5</span>
             <h1 className="font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention</h1>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
               We'll begin by setting an intention for today, then move gently through stretching, grounding, and a closing affirmation to carry with you.

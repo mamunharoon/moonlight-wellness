@@ -183,7 +183,14 @@ describe('timedExercisePause.js - pause-and-resume-exact-state, strictly isolate
 describe('ProgressIndicator.jsx - completed steps become real, focusable review buttons', () => {
   it('only completed steps (idx < activeIndex) with an onReviewStep handler render as buttons - current/future steps never do', () => {
     expect(progressIndicatorSource).toMatch(/const isCompleted = idx < activeIndex;/);
-    expect(progressIndicatorSource).toMatch(/isCompleted && onReviewStep \? \(/);
+    // Journey Embedding - a completed step is also excluded from review
+    // (isReviewable) when its id is in NON_REVIEWABLE_STEP_IDS
+    // ('meditate'/'meditation') - see that constant's own doc comment.
+    // Every OTHER step's reviewability is unaffected: isReviewable is
+    // still exactly `isCompleted && onReviewStep` whenever the step id
+    // isn't in that narrow allowlist.
+    expect(progressIndicatorSource).toMatch(/const isReviewable = isCompleted && onReviewStep && !NON_REVIEWABLE_STEP_IDS\.has\(step\.key\);/);
+    expect(progressIndicatorSource).toMatch(/isReviewable \? \(/);
   });
 
   it('the review button has a descriptive aria-label naming the step being reviewed', () => {

@@ -97,15 +97,34 @@ const EVENING_SESSION_ID = 'evening-wind-down';
 // video-selection screen is no longer part of the routine at all — see
 // sessionConstants.js's MORNING_STEP_IDS). Order is derived from the
 // registry (session.steps, read above); this is a visibility filter only.
+// Journey Embedding — 'meditate'/'meditation' added to each session's
+// visible set, immediately after breathe/breathing (matching the
+// registry's own real step order - see sessionDefinitions.js). Meditation
+// is shown here as a real progress-bar stage, and (corrected) is also
+// counted in MORNING_DISPLAY_STEP_NUMBERS/EVENING_DISPLAY_STEP_NUMBERS in
+// sessionConstants.js - the two are consistent with each other.
 const VISIBLE_STEP_IDS_BY_SESSION = {
-  [MORNING_SESSION_ID]: new Set(['intention', 'stretch', 'breathe', 'affirmation', 'complete']),
-  [EVENING_SESSION_ID]: new Set(['windDown', 'reflection', 'gratitude', 'breathing', 'sleepPreparation', 'completion']),
+  [MORNING_SESSION_ID]: new Set(['intention', 'stretch', 'breathe', 'meditate', 'affirmation', 'complete']),
+  [EVENING_SESSION_ID]: new Set(['windDown', 'reflection', 'gratitude', 'breathing', 'meditation', 'sleepPreparation', 'completion']),
 };
 
 const FALLBACK_STEP_IDS_BY_SESSION = {
-  [MORNING_SESSION_ID]: ['intention', 'stretch', 'breathe', 'affirmation', 'complete'],
-  [EVENING_SESSION_ID]: ['windDown', 'reflection', 'gratitude', 'breathing', 'sleepPreparation', 'completion'],
+  [MORNING_SESSION_ID]: ['intention', 'stretch', 'breathe', 'meditate', 'affirmation', 'complete'],
+  [EVENING_SESSION_ID]: ['windDown', 'reflection', 'gratitude', 'breathing', 'meditation', 'sleepPreparation', 'completion'],
 };
+
+// Review Mode — Journey Embedding: meditation is shown as a completed
+// stage in progress (the ✓ + label still render) but is deliberately never
+// clickable from Review Mode - it has no dedicated review/detail screen to
+// jump back into (unlike affirmation/reflection/etc, which show real
+// entered content on review), and starting a NEW meditation from a
+// completed-step tap would be a surprising, unintended side effect. A
+// narrow id allowlist here, checked as one extra condition on the existing
+// isCompleted && onReviewStep branch below, rather than a new prop or a
+// second code path - every other step's reviewability is completely
+// unaffected (the Set check is additive-only: removing it changes nothing
+// for any id not in it).
+const NON_REVIEWABLE_STEP_IDS = new Set(['meditate', 'meditation']);
 
 const getVisibleStepIds = (sessionId) => {
   const visibleIds = VISIBLE_STEP_IDS_BY_SESSION[sessionId] ?? VISIBLE_STEP_IDS_BY_SESSION[MORNING_SESSION_ID];
@@ -165,46 +184,82 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
   // completely untouched - only size/scale changed, never the
   // color/opacity logic that keeps this readable against the evening
   // gradient.
+  // Journey Embedding — narrow-screen crowding fix, real-execution-measured
+  // (see the Phase 1 audit): Evening's 7 labels overflow at 320/375/390px
+  // (up to 92px at 320px) and Morning's 6 labels overflow at 320px, once
+  // meditation is added — neither text-shrinking nor horizontal scrolling
+  // (both explicitly rejected). Below Tailwind's own `sm` (640px) breakpoint,
+  // render a compact "current stage + Step X of Y" summary instead of the
+  // full dot row; at `sm` and above, the existing full row (unchanged
+  // markup/classes) renders exactly as before. Both blocks are always in
+  // the DOM — CSS (`sm:hidden` / `hidden sm:flex`) decides which is visible,
+  // so there is no JS viewport check, no layout thrash on resize, and no
+  // risk of a hydration/measurement mismatch. The compact block's own
+  // sr-only step list keeps every label available as real accessible
+  // context at any width — "accessible segments," not merely two labels.
+  const activeStepLabel = steps[activeIndex]?.label ?? '';
+
+  const renderStep = (step, idx) => {
+    const isCompleted = idx < activeIndex;
+    const isActive = idx === activeIndex;
+    const isReviewable = isCompleted && onReviewStep && !NON_REVIEWABLE_STEP_IDS.has(step.key);
+
+    const labelClassName = `transition-all duration-300 ${
+      isActive
+        ? (isMorning ? 'text-morning-accent font-bold scale-110' : isEvening ? 'text-evening-accent font-bold scale-110' : 'text-primary font-bold scale-110')
+        : isCompleted
+        ? (isEvening ? 'text-on-surface' : 'text-secondary')
+        : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')
+    }`;
+
+    return (
+      <div key={step.key} className="flex items-center gap-1">
+        {isReviewable ? (
+          <button
+            type="button"
+            onClick={() => onReviewStep(step.key)}
+            aria-label={`Review completed ${step.label} step`}
+            className={`${labelClassName} min-w-[44px] min-h-[44px] flex items-center justify-center -my-3.5 py-3.5 -mx-1 px-1 hover:opacity-80 active:scale-95 transition-transform`}
+          >
+            ✓ {step.label}
+          </button>
+        ) : (
+          <span className={labelClassName}>
+            {isCompleted ? '✓' : ''} {step.label}
+          </span>
+        )}
+        {idx < steps.length - 1 && (
+          <span className={isEvening ? 'text-on-surface-variant/70 mx-0.5' : 'text-on-surface-variant/20 mx-0.5'}>·</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
-      className={`w-full flex justify-between items-center px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[11px] uppercase tracking-wider font-semibold ${
+      className={`w-full px-2 py-4 border-b border-white/5 select-none shrink-0 z-50 text-[11px] uppercase tracking-wider font-semibold ${
         isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/40'
       }`}
     >
-      {steps.map((step, idx) => {
-        const isCompleted = idx < activeIndex;
-        const isActive = idx === activeIndex;
+      {/* Compact presentation — below sm (640px) only. */}
+      <div className="flex sm:hidden items-center justify-center gap-2">
+        <span className={isMorning ? 'text-morning-accent font-bold' : isEvening ? 'text-evening-accent font-bold' : 'text-primary font-bold'}>
+          {activeStepLabel}
+        </span>
+        <span aria-hidden="true" className="text-on-surface-variant/40">·</span>
+        <span className="text-on-surface-variant/70 normal-case tracking-normal font-medium">
+          Step {activeIndex + 1} of {steps.length}
+        </span>
+        <span className="sr-only">
+          {steps.map((step, idx) => `${step.label}${idx < activeIndex ? ' (completed)' : idx === activeIndex ? ' (current)' : ''}`).join(', ')}
+        </span>
+      </div>
 
-        const labelClassName = `transition-all duration-300 ${
-          isActive
-            ? (isMorning ? 'text-morning-accent font-bold scale-110' : isEvening ? 'text-evening-accent font-bold scale-110' : 'text-primary font-bold scale-110')
-            : isCompleted
-            ? (isEvening ? 'text-on-surface' : 'text-secondary')
-            : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')
-        }`;
-
-        return (
-          <div key={step.key} className="flex items-center gap-1">
-            {isCompleted && onReviewStep ? (
-              <button
-                type="button"
-                onClick={() => onReviewStep(step.key)}
-                aria-label={`Review completed ${step.label} step`}
-                className={`${labelClassName} min-w-[44px] min-h-[44px] flex items-center justify-center -my-3.5 py-3.5 -mx-1 px-1 hover:opacity-80 active:scale-95 transition-transform`}
-              >
-                ✓ {step.label}
-              </button>
-            ) : (
-              <span className={labelClassName}>
-                {isCompleted ? '✓' : ''} {step.label}
-              </span>
-            )}
-            {idx < steps.length - 1 && (
-              <span className={isEvening ? 'text-on-surface-variant/70 mx-0.5' : 'text-on-surface-variant/20 mx-0.5'}>·</span>
-            )}
-          </div>
-        );
-      })}
+      {/* Full dot-separated row — sm (640px) and above, unchanged from
+          before this fix (same classes, same per-step render). */}
+      <div className="hidden sm:flex justify-between items-center">
+        {steps.map((step, idx) => renderStep(step, idx))}
+      </div>
     </div>
   );
 };

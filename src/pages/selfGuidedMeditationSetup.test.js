@@ -1,13 +1,15 @@
-// Source-level regression guard for SelfGuidedMeditation.jsx's JSX-bound
-// structure (routing, defaults, control wiring) - this repo's Vitest has no
-// rendering engine (environment: 'node', see vite.config.js), matching
-// every comparable existing regression guard (libraryHomeReturnContext.
-// test.js, meditateBackNavigation.test.js, Home.quickActionTiles.test.js).
-// The actual timer/audio/prompt BEHAVIOUR this page wires together is
-// covered by real-execution tests in src/lib/meditationSessionController.
-// test.js, meditationSession.test.js and meditationStyles.test.js - this
-// file only checks that the page uses those real modules correctly and
-// exposes the required controls.
+// Source-level regression guard for SelfGuidedMeditation.jsx's own
+// remaining JSX-bound structure (routing, context resolution, composition
+// of the extracted shared pieces) - this repo's Vitest has no rendering
+// engine (environment: 'node', see vite.config.js).
+//
+// Journey Embedding (Phase 2) — this page's timer/controller/audio glue
+// moved to src/hooks/useMeditationSession.js (covered by
+// useMeditationSession.test.js), and its setup/active JSX moved to
+// MeditationSetupPanel.jsx/MeditationActiveSession.jsx (covered by their
+// own test files) - this file now only checks what genuinely remains in
+// SelfGuidedMeditation.jsx itself: context resolution, the hook wiring,
+// and that standalone's own defaults/copy/navigation are unchanged.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -23,96 +25,22 @@ describe('App.jsx — routes are registered outside <Layout>, same placement as 
   });
 });
 
-describe('SelfGuidedMeditation.jsx — no autoplay before Begin', () => {
-  it('createMeditationSessionController is only ever constructed inside handleBegin, never at module/mount time', () => {
-    const outsideHandleBegin = source.replace(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/, '');
-    expect(outsideHandleBegin).not.toMatch(/createMeditationSessionController\(/);
-    const handleBeginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(handleBeginBody).toMatch(/createMeditationSessionController\(/);
+describe('SelfGuidedMeditation.jsx — reuses the shared modules, no duplicated timer/audio/controls logic', () => {
+  it('imports useMeditationSession rather than owning the controller/interval itself', () => {
+    expect(source).toMatch(/import \{ useMeditationSession \} from '\.\.\/hooks\/useMeditationSession';/);
+    expect(source).not.toMatch(/createMeditationSessionController\(/);
+    expect(source).not.toMatch(/setInterval\(/);
   });
 
-  it('no effect calls begin()/start() on mount - the controller is only ever begun from handleBegin', () => {
-    expect(source).not.toMatch(/useEffect\(\(\) => \{[\s\S]{0,200}\.begin\(\)/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — repeated Begin taps cannot create duplicates', () => {
-  it('handleBegin is guarded by a ref, checked and set before any controller work happens', () => {
-    const body = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(beganRef\.current\) return;/);
-    expect(body).toMatch(/beganRef\.current = true;/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — cleanup on unmount/route change', () => {
-  it('a mount effect with an empty dependency array returns a cleanup that destroys the controller and clears the interval', () => {
-    expect(source).toMatch(/useEffect\(\(\) => \(\) => cleanupSession\(\), \[\]\);/);
-    const cleanupBody = source.match(/const cleanupSession = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(cleanupBody).toMatch(/stopInterval\(\);/);
-    expect(cleanupBody).toMatch(/controllerRef\.current\?\.destroy\(\);/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — five styles, three durations, correct defaults', () => {
-  it('imports the real MEDITATION_STYLES/MEDITATION_DURATIONS data modules rather than inlining a second copy', () => {
-    expect(source).toMatch(/from '\.\.\/lib\/meditationStyles';/);
-    expect(source).toMatch(/from '\.\.\/lib\/meditationDurations';/);
+  it('imports the shared setup/active presentation components rather than inlining their JSX again', () => {
+    expect(source).toMatch(/import \{ MeditationSetupPanel \} from '\.\.\/components\/journey\/MeditationSetupPanel';/);
+    expect(source).toMatch(/import \{ MeditationActiveSession \} from '\.\.\/components\/journey\/MeditationActiveSession';/);
   });
 
-  it('defaults styleId to Quiet Meditation and durationId to 5 minutes when there is no Meditate Again/Choose Another preset', () => {
-    expect(source).toMatch(/DEFAULT_MEDITATION_STYLE_ID/);
-    expect(source).toMatch(/DEFAULT_MEDITATION_DURATION_ID/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — Choose your sound: three choices, style-aware default, no guest gating', () => {
-  it('imports the real MEDITATION_SOUNDS/getSuggestedSoundIdForStyle/toControllerSoundId - no second copy of the sound data', () => {
-    expect(source).toMatch(/from '\.\.\/lib\/meditationSounds';/);
-    expect(source).toMatch(/MEDITATION_SOUNDS/);
-    expect(source).toMatch(/getSuggestedSoundIdForStyle/);
-    expect(source).toMatch(/toControllerSoundId/);
-  });
-
-  it('never imports/renders the old boolean MusicPreferenceToggle any more - replaced by the three-way radiogroup', () => {
-    expect(source).not.toMatch(/MusicPreferenceToggle/);
-  });
-
-  it('renders the "Choose your sound" radiogroup on both setup and the active screen, mapping over MEDITATION_SOUNDS', () => {
-    const matches = source.match(/role="radiogroup" aria-label="Choose your sound"/g) ?? [];
-    expect(matches.length).toBe(2); // one on setup, one on the active screen - see the "active session" describe block below
-    expect(source).toMatch(/\{MEDITATION_SOUNDS\.map\(\(sound\) => \(/);
-  });
-
-  it('fresh setup (no preset) seeds soundId from the default style\'s suggested sound, not a hardcoded universal default', () => {
-    const body = source.match(/const \[soundId, setSoundIdState\] = useState\(\(\) =>[\s\S]*?\);/)?.[0] ?? '';
-    expect(body).toMatch(/isValidMeditationSoundId\(preset\?\.soundId\)/);
-    expect(body).toMatch(/getSuggestedSoundIdForStyle\(styleId\)/);
-  });
-
-  it('a valid restored preset\'s soundId counts as an explicit choice from the very first render', () => {
-    expect(source).toMatch(/const \[soundExplicit, setSoundExplicit\] = useState\(\(\) => isValidMeditationSoundId\(preset\?\.soundId\)\);/);
-  });
-
-  it('selecting a style only updates the suggested sound while no explicit choice has been made yet', () => {
-    const body = source.match(/const handleSelectStyle = \(newStyleId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!soundExplicit\) \{/);
-    expect(body).toMatch(/getSuggestedSoundIdForStyle\(newStyleId\)/);
-  });
-
-  it('selecting any sound marks the choice explicit going forward', () => {
-    const body = source.match(/const handleSelectSound = \(newSoundId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/setSoundExplicit\(true\);/);
-  });
-
-  it('the style radiogroup is wired to handleSelectStyle (not a bare setState) so the suggestion logic actually runs', () => {
-    expect(source).toMatch(/onSelect=\{\(\) => handleSelectStyle\(s\.id\)\}/);
-  });
-
-  it('no isGuest/onSignIn/auth redirect anywhere near sound selection - IM01 and IM02 are both server-allowlisted for guests', () => {
-    const soundSectionCode = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(soundSectionCode).not.toMatch(/isGuest/);
-    expect(soundSectionCode).not.toMatch(/onSignIn/);
-    expect(soundSectionCode).not.toMatch(/'\/auth'/);
+  it('never re-imports MEDITATION_STYLES/MEDITATION_DURATIONS/MEDITATION_SOUNDS directly - that data now lives only inside the shared setup/active components', () => {
+    expect(source).not.toMatch(/MEDITATION_STYLES/);
+    expect(source).not.toMatch(/MEDITATION_DURATIONS/);
+    expect(source).not.toMatch(/MEDITATION_SOUNDS/);
   });
 });
 
@@ -122,116 +50,69 @@ describe('SelfGuidedMeditation.jsx — allowlisted entry context, never a raw re
   });
 });
 
-describe('SelfGuidedMeditation.jsx — Explore Guided Meditations opens the real Library category', () => {
-  it('navigates to the real Library Meditation category with the meditation-setup context marker', () => {
-    expect(source).toMatch(/navigate\('\/library\?category=meditation&from=meditation-setup'\);/);
+describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no context-specific overrides passed to the hook', () => {
+  it('seeds useMeditationSession only from the restored preset - never a Morning/Evening-style hardcoded style/duration/sound', () => {
+    const body = source.match(/const session = useMeditationSession\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(body).toMatch(/initialStyleId: preset\?\.styleId/);
+    expect(body).toMatch(/initialDurationId: preset\?\.durationId/);
+    expect(body).toMatch(/initialSoundId: preset\?\.soundId/);
   });
 
-  it('never invents guided content - no hardcoded video/exercise id list is added here', () => {
-    expect(source).not.toMatch(/getCatalogEntryById|BETA_VIDEO_MANIFEST/);
+  it('the setup panel renders in NON-compact mode - every option still shows immediately, no disclosure/Skip button', () => {
+    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact=\{false\}/);
+    expect(source).not.toMatch(/<MeditationSetupPanel[\s\S]*?onSkip=/);
+  });
+
+  it('still recommends 5 minutes (getRecommendedDurationId() called with no context argument)', () => {
+    expect(source).toMatch(/recommendedDurationId=\{getRecommendedDurationId\(\)\}/);
+  });
+
+  it('still offers Explore Guided Meditations, navigating to the real Library Meditation category', () => {
+    expect(source).toMatch(/onExploreGuided=\{handleExploreGuided\}/);
+    expect(source).toMatch(/navigate\('\/library\?category=meditation&from=meditation-setup'\);/);
   });
 });
 
-describe('SelfGuidedMeditation.jsx — Back/Close controls on both setup and active screens', () => {
+describe('SelfGuidedMeditation.jsx — completion reproduces the exact original navigate target', () => {
+  it('onComplete navigates to /self-guided-meditation-complete with the finished session state, including `from`', () => {
+    const body = source.match(/const handleComplete = \(finished\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/navigate\('\/self-guided-meditation-complete', \{ state: \{ \.\.\.finished, from: searchParams\.get\('from'\) \|\| null \} \}\);/);
+  });
+
+  it('never opens any other route on completion', () => {
+    const body = source.match(/const handleComplete = \(finished\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const navigateCalls = body.match(/navigate\(/g) ?? [];
+    expect(navigateCalls.length).toBe(1);
+  });
+});
+
+describe('SelfGuidedMeditation.jsx — End Session reproduces the exact original navigate-away behaviour', () => {
+  it('performLeave stops the session via the hook then navigates to context.fallback - byte-identical net effect to before extraction', () => {
+    const body = source.match(/const performLeave = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/session\.endSession\(\);/);
+    expect(body).toMatch(/navigate\(context\.fallback\);/);
+  });
+
+  it('the active screen wires performLeave as onRequestLeave - MeditationActiveSession owns its own confirmation, never a duplicated dialog here', () => {
+    expect(source).toMatch(/onRequestLeave=\{performLeave\}/);
+    expect(source).not.toMatch(/ConfirmDialog/);
+  });
+});
+
+describe('SelfGuidedMeditation.jsx — Back/Close on the setup screen (pre-Begin), unchanged', () => {
   it('setup renders JourneyHeader with a real Back button (step 1 shape) falling back to the resolved context', () => {
     expect(source).toMatch(/<JourneyHeader showBackButton backFallback=\{context\.fallback\} onClose=\{\(\) => navigate\(context\.fallback\)\}\s*\/>/);
   });
-
-  it('the active screen renders JourneyHeader with Back/Close both routed through the leave-confirmation gate, never a silent direct navigate', () => {
-    expect(source).toMatch(/<JourneyHeader showBackButton=\{false\} onStepBack=\{handleRequestLeave\} onClose=\{handleRequestLeave\}\s*\/>/);
-  });
 });
 
-describe('SelfGuidedMeditation.jsx — leave-confirmation dialog, exact approved copy', () => {
-  it('title, message and both action labels match exactly', () => {
-    expect(source).toMatch(/title="Leave meditation\?"/);
-    expect(source).toMatch(/message="Your current meditation will end\."/);
-    expect(source).toMatch(/confirmLabel="End and Leave"/);
-    expect(source).toMatch(/cancelLabel="Continue Meditation"/);
-  });
-
-  it('uses the established mild-destructive severity, never the strong/red destructive one - "should not appear alarming"', () => {
-    const block = source.match(/<ConfirmDialog[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/mildDestructive/);
-    expect(block).not.toMatch(/\bdestructive\b(?!\s*=\s*\{false\})/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — End Session uses quiet caution styling, not alarming bright red', () => {
-  it('the End Session button reuses the existing mild-destructive colour token (#b3555f, same as ConfirmDialog.jsx), never Tailwind red/bg-red', () => {
-    const block = source.match(/aria-label="End meditation session"[\s\S]{0,20}className="([^"]+)"/)?.[1] ?? '';
-    expect(block).toMatch(/#b3555f/);
-    expect(block).not.toMatch(/bg-red/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — accessible radios for style and duration', () => {
-  it('both groups use role="radiogroup" with a real native <input type="radio">', () => {
-    expect(source).toMatch(/role="radiogroup" aria-label="Meditation style"/);
-    expect(source).toMatch(/role="radiogroup" aria-label="Duration"/);
-    expect(source).toMatch(/<input type="radio" name=\{groupName\}/);
-  });
-
-  it('styles render in the approved order via a single map over MEDITATION_STYLES (never a hand-duplicated list)', () => {
-    expect(source).toMatch(/\{MEDITATION_STYLES\.map\(\(s\) => \(/);
-  });
-
-  it('durations render via a single map over MEDITATION_DURATIONS, with the recommended sublabel driven by data, not hardcoded per row', () => {
-    expect(source).toMatch(/\{MEDITATION_DURATIONS\.map\(\(d\) => \(/);
-    expect(source).toMatch(/sublabel=\{d\.recommended \? 'Recommended' : null\}/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — touch targets and no fixed-width overflow at 320px', () => {
-  it('every interactive row/button/toggle carries the 44px minimum', () => {
-    const minHeightMatches = source.match(/min-h-\[44px\]/g) ?? [];
-    expect(minHeightMatches.length).toBeGreaterThanOrEqual(5);
-  });
-
-  it('no element uses a fixed pixel width wider than a 320px viewport (w-[###px]) - only relative/max-w utilities', () => {
-    expect(source).not.toMatch(/w-\[\d{3,}px\]/);
-  });
-
-  it('safe-area insets are respected the same way Meditate.jsx already establishes', () => {
-    expect(source).toMatch(/env\(safe-area-inset-left\)/);
-    expect(source).toMatch(/env\(safe-area-inset-right\)/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — reduced motion', () => {
+describe('SelfGuidedMeditation.jsx — reduced motion, unchanged', () => {
   it('reads both the manual override and the OS-level media query, matching this app\'s one established pattern', () => {
     expect(source).toMatch(/getReducedMotionPreference\(\)/);
     expect(source).toMatch(/prefers-reduced-motion: reduce/);
   });
 
-  it('passes reducedMotion through to the progress ring rather than animating unconditionally', () => {
+  it('passes reducedMotion through to MeditationActiveSession rather than animating unconditionally', () => {
     expect(source).toMatch(/reducedMotion=\{reducedMotion\}/);
-  });
-});
-
-describe('SelfGuidedMeditation.jsx — active session: sound can be seen and changed live', () => {
-  it('handleSelectSound drives the live controller\'s setSoundId only while active, converting the UI sentinel first', () => {
-    const body = source.match(/const handleSelectSound = \(newSoundId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(phase === 'active'\) \{/);
-    expect(body).toMatch(/controllerRef\.current\?\.setSoundId\(toControllerSoundId\(newSoundId\)\);/);
-  });
-
-  it('a genuine playback failure reverts both the real controller and the displayed selection to No Music, and flags the unavailable message', () => {
-    const beginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(beginBody).toMatch(/if \(latestSnapshot\.audioError\) \{/);
-    expect(beginBody).toMatch(/current\.setSoundId\(null\);/);
-    expect(beginBody).toMatch(/setSoundIdState\('none'\);/);
-    expect(beginBody).toMatch(/setSoundUnavailable\(true\);/);
-  });
-
-  it('the unavailable message container reserves its height unconditionally, so switching tracks never shifts the layout', () => {
-    const activeScreenBlock = source.slice(source.indexOf("if (phase === 'active'"), source.indexOf('\n  return (\n'));
-    expect(activeScreenBlock).toMatch(/min-h-\[1\.5em\]/);
-  });
-
-  it('completion reads the sound actually active at that moment from the live snapshot, never a stale value captured at Begin', () => {
-    const beginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(beginBody).toMatch(/soundId: latestSnapshot\.soundId \|\| 'none'/);
   });
 });
 
@@ -240,5 +121,15 @@ describe('SelfGuidedMeditation.jsx — this feature never touches Morning/Evenin
     expect(source).not.toMatch(/from '\.\.\/lib\/dailyCompletion'/);
     expect(source).not.toMatch(/from '\.\.\/context\/SessionContext'/);
     expect(source).not.toMatch(/useSession/);
+  });
+});
+
+describe('SelfGuidedMeditation.jsx — retains its existing Close/End behaviour, unaffected by the Evening-only duplicate-Close fix', () => {
+  it('does not pass showHeaderClose - MeditationActiveSession keeps its own default (true), so standalone\'s active screen still renders both Back and Close exactly as before', () => {
+    expect(source).not.toMatch(/showHeaderClose/);
+  });
+
+  it('End Session copy is still the component\'s own default (endCopy is never passed here)', () => {
+    expect(source).not.toMatch(/endCopy=/);
   });
 });

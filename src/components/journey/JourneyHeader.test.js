@@ -31,6 +31,22 @@ describe('JourneyHeader.jsx — Back/Close, presentation only', () => {
   });
 });
 
+describe('JourneyHeader.jsx — showCloseButton (Journey Embedding fix, additive; default true)', () => {
+  it('defaults to true - every existing caller that omits the prop keeps rendering the Close button exactly as before', () => {
+    expect(source).toMatch(/showCloseButton = true/);
+  });
+
+  it('the Close button only renders when showCloseButton is true - the Back arrow is unaffected either way (rendered by the sibling showBackButton branch, not gated on this prop)', () => {
+    const closeBlock = source.match(/\{showCloseButton && \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(closeBlock).toMatch(/onClick=\{onClose\}/);
+    expect(closeBlock).toMatch(/aria-label="Close"/);
+    // The back-arrow branch (showBackButton false) is a sibling, outside
+    // the showCloseButton-gated block entirely.
+    const backBranch = source.match(/\{showBackButton \? \([\s\S]*?\) : \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(backBranch).not.toMatch(/showCloseButton/);
+  });
+});
+
 describe('JourneyHeader.jsx — step progress dots (additive, VoiceOver-friendly)', () => {
   it('only renders the progress row when stepCount > 1, so a single-step caller sees no unexpected UI', () => {
     expect(source).toMatch(/\{stepCount > 1 && \(/);

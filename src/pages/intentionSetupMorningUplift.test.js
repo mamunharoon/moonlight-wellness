@@ -17,9 +17,9 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const source = read('./IntentionSetup.jsx');
 
 describe('IntentionSetup — intro phase visual uplift', () => {
-  it('the sun icon and "Step 1 of 4" label use the morning-accent gold token, not the generic peach/muted tokens they used before', () => {
+  it('the sun icon and "Step 1 of 5" label (Journey Embedding correction; was Step 1 of 4) use the morning-accent gold token, not the generic peach/muted tokens they used before', () => {
     expect(source).toMatch(/text-morning-accent text-3xl">wb_sunny/);
-    expect(source).toMatch(/text-\[10px\] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 4/);
+    expect(source).toMatch(/text-\[10px\] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 5/);
   });
 
   it('the icon sits in a restrained glow circle (morning-glow shadow token, sparing per its own tailwind.config.js comment) - not an ambient/default shadow on the whole screen', () => {

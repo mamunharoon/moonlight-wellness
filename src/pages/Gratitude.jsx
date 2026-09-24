@@ -136,7 +136,8 @@ export const Gratitude = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
       <ProgressIndicator activeStep="gratitude" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 3 of 6</span>
+      {/* Journey Embedding (correction) — total is now 7, not 6. */}
+      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 3 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />

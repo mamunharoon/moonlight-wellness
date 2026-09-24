@@ -33,7 +33,12 @@ export const ROUTINES = [
     sessionId: 'morning-routine',
     category: 'Morning Awakening',
     title: 'Rise & Reset',
-    duration: '5 min',
+    // Journey Embedding — 'From 5 min', matching Introduction.jsx's own
+    // Welcome card copy exactly, now that the optional Meditate step can
+    // extend this routine beyond a flat 5 minutes. Dormant data (Routines
+    // is not in the visible navigation - see App.jsx's own redirect
+    // comments) but kept consistent rather than left stale.
+    duration: 'From 5 min',
     stepCount: 5,
     description: 'Curated sequence featuring a gentle morning affirmation, light muscle stretching, and grounding breath.',
     // Circadian Colors — dawn gold, matching every other Morning surface
@@ -59,7 +64,9 @@ export const ROUTINES = [
     sessionId: 'evening-wind-down',
     category: 'Nightrest',
     title: 'Begin Wind-Down',
-    duration: '10 min',
+    // Journey Embedding — 'From 10 min', same reasoning as Rise & Reset
+    // above.
+    duration: 'From 10 min',
     stepCount: 5,
     description: 'Wind down with brief, personal gratitude journal logging, calming breathing loops, and sleep soundscapes.',
     // Circadian Colors — twilight lavender, matching every other

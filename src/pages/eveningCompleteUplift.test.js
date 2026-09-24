@@ -21,8 +21,8 @@ describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
     );
   });
 
-  it('the "Step 6 of 6" eyebrow is now evening-accent, not the generic peach primary', () => {
-    expect(source).toMatch(/<span className="block text-\[10px\] text-evening-accent uppercase font-bold tracking-wider">Step 6 of 6<\/span>/);
+  it('the "Step 7 of 7" eyebrow (Journey Embedding correction; was 6 of 6) is evening-accent, not the generic peach primary', () => {
+    expect(source).toMatch(/<span className="block text-\[10px\] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7<\/span>/);
   });
 
   it('the heading is still the exact original Newsreader italic copy, untouched', () => {

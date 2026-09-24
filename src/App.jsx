@@ -55,6 +55,9 @@ const SessionComplete = lazy(() => import('./pages/SessionComplete').then((m) =>
 const IntentionSetup = lazy(() => import('./pages/IntentionSetup').then((m) => ({ default: m.IntentionSetup })));
 const ChangeIntention = lazy(() => import('./pages/ChangeIntention').then((m) => ({ default: m.ChangeIntention })));
 const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ default: m.Affirmation })));
+// Journey Embedding (Self-Guided Meditation) — optional embedded step in
+// both Morning and Evening, inserted immediately after Breathe/Breathing.
+const MorningMeditate = lazy(() => import('./pages/MorningMeditate').then((m) => ({ default: m.MorningMeditate })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
 const Stage3Preview = lazy(() => import('./pages/Stage3Preview').then((m) => ({ default: m.Stage3Preview })));
@@ -65,6 +68,7 @@ const EveningComplete = lazy(() => import('./pages/EveningComplete').then((m) =>
 const Reflection = lazy(() => import('./pages/Reflection').then((m) => ({ default: m.Reflection })));
 const Gratitude = lazy(() => import('./pages/Gratitude').then((m) => ({ default: m.Gratitude })));
 const EveningBreathing = lazy(() => import('./pages/EveningBreathing').then((m) => ({ default: m.EveningBreathing })));
+const EveningMeditate = lazy(() => import('./pages/EveningMeditate').then((m) => ({ default: m.EveningMeditate })));
 const PrepareForRest = lazy(() => import('./pages/PrepareForRest').then((m) => ({ default: m.PrepareForRest })));
 const ReflectionReview = lazy(() => import('./pages/ReflectionReview').then((m) => ({ default: m.ReflectionReview })));
 const GratitudeReview = lazy(() => import('./pages/GratitudeReview').then((m) => ({ default: m.GratitudeReview })));
@@ -228,6 +232,13 @@ function App() {
                 <Route path="introduction" element={withFallback(<Introduction />)} />
                 <Route path="session-complete" element={withFallback(<SessionComplete />)} />
                 <Route path="affirmation" element={withFallback(<Affirmation />)} />
+                {/* Journey Embedding — Morning's optional embedded meditation
+                    step, between Breathe and Affirmation. Full-bleed, same
+                    placement as affirmation/intention-setup above (outside
+                    <Layout>) - matches the standalone Self-Guided Meditation
+                    page's own established chrome, and Breathe's other
+                    neighbor (Affirmation) already sits outside <Layout> too. */}
+                <Route path="morning-meditate" element={withFallback(<MorningMeditate />)} />
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
@@ -241,6 +252,11 @@ function App() {
                 <Route path="reflection" element={withFallback(<Reflection />)} />
                 <Route path="gratitude" element={withFallback(<Gratitude />)} />
                 <Route path="evening-breathing" element={withFallback(<EveningBreathing />)} />
+                {/* Journey Embedding — Evening's optional embedded meditation
+                    step, between Evening Breathing and Prepare for Rest.
+                    Full-bleed (EveningSceneShell), same placement as every
+                    other evening-wind-down step above. */}
+                <Route path="evening-meditate" element={withFallback(<EveningMeditate />)} />
                 <Route path="prepare-for-rest" element={withFallback(<PrepareForRest />)} />
                 <Route path="evening-complete" element={withFallback(<EveningComplete />)} />
 

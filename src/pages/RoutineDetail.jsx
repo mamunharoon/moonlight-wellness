@@ -23,7 +23,8 @@ import { useState } from 'react';
  * button does more than a plain link: it starts the Session Engine
  * itself (startSession('morning-routine', { startIndex: <the 'intention'
  * step> })) before navigating, so IntentionSetup.jsx opens directly as a
- * real, tracked "Step 1 of 4". Session Engine tracking is what lets
+ * real, tracked "Step 1 of 5" (Journey Embedding correction; was "Step 1
+ * of 4" before Meditate was counted). Session Engine tracking is what lets
  * Home's "Continue Rise & Reset" card, per-step Back/Skip/Exit, and
  * accurate step numbering all work consistently — see IntentionSetup.jsx,
  * MorningFlow.jsx, Breathe.jsx, Affirmation.jsx.

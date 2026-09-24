@@ -21,12 +21,13 @@ const progressIndicatorSource = read('../components/ProgressIndicator.jsx');
 const useActiveRoutineStepSource = read('../hooks/useActiveRoutineStep.js');
 
 describe('Approved Morning order: Intend -> Stretch -> Breathe -> Affirm -> Complete', () => {
-  it('the registry itself has exactly this order (alarm first, as the separate pre-routine entry state)', () => {
+  it('the registry itself has exactly this order (alarm first, as the separate pre-routine entry state; Journey Embedding adds optional meditate immediately after breathe)', () => {
     expect(MORNING_ROUTINE_SESSION.steps.map((s) => s.id)).toEqual([
       MORNING_STEP_IDS.ALARM,
       MORNING_STEP_IDS.INTENTION,
       MORNING_STEP_IDS.STRETCH,
       MORNING_STEP_IDS.BREATHE,
+      MORNING_STEP_IDS.MEDITATE,
       MORNING_STEP_IDS.AFFIRMATION,
       MORNING_STEP_IDS.COMPLETE,
     ]);
@@ -45,22 +46,22 @@ describe('Approved Morning order: Intend -> Stretch -> Breathe -> Affirm -> Comp
     expect(byId[MORNING_STEP_IDS.COMPLETE]).toBe('/session-complete');
   });
 
-  it('display numbering is Intend=1, Stretch=2, Breathe=3, Affirm=4, out of 4 total (start no longer counted)', () => {
-    expect(MORNING_DISPLAY_STEP_NUMBERS).toEqual({ intention: 1, stretch: 2, breathe: 3, affirmation: 4 });
-    expect(MORNING_DISPLAY_STEP_COUNT).toBe(4);
+  it('display numbering is Intend=1, Stretch=2, Breathe=3, Meditate=4, Affirm=5, out of 5 total (Journey Embedding correction: Meditate IS counted, same as every other activity step; start remains not counted)', () => {
+    expect(MORNING_DISPLAY_STEP_NUMBERS).toEqual({ intention: 1, stretch: 2, breathe: 3, meditate: 4, affirmation: 5 });
+    expect(MORNING_DISPLAY_STEP_COUNT).toBe(5);
   });
 
   it('Home.jsx\'s "Your Next Step" card never claims the stale 5-step count (Home redesign replaced step-counting copy with a duration estimate - see nextStepCard.js)', () => {
     expect(homeSource).not.toMatch(/5-step sequence/);
   });
 
-  it("ProgressIndicator's visible-step set for morning-routine no longer includes 'start'", () => {
+  it("ProgressIndicator's visible-step set for morning-routine no longer includes 'start', and now includes Journey Embedding's optional 'meditate'", () => {
     // Checked against the actual data structure line specifically, not the
     // whole file — this file's own doc comments legitimately discuss the
     // historical 'start' step in prose while explaining why it's gone.
     const visibleSetLine = progressIndicatorSource.match(/^const VISIBLE_STEP_IDS_BY_SESSION = \{[\s\S]*?\n\};$/m)?.[0] ?? '';
     expect(visibleSetLine).not.toMatch(/'start'/);
-    expect(visibleSetLine).toMatch(/\['intention', 'stretch', 'breathe', 'affirmation', 'complete'\]/);
+    expect(visibleSetLine).toMatch(/\['intention', 'stretch', 'breathe', 'meditate', 'affirmation', 'complete'\]/);
   });
 
   it("the legacy journeyStep fallback map no longer resolves 'start' to any route", () => {

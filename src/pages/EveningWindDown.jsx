@@ -90,7 +90,9 @@ export const EveningWindDown = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_twilight</span>
-        <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 6</span>
+        {/* Journey Embedding (correction) — total is now 7, not 6 (Meditate
+            is a counted step) - this screen's own number (1) is unchanged. */}
+        <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 7</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-Down</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           Together, we'll reflect on your day, notice something positive, release what's weighing on you, breathe slowly, and prepare for rest.

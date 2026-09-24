@@ -10,12 +10,14 @@ const STEP_LABELS = {
   stretch: 'Stretch',
   breathe: 'Breathe',
   intention: 'Intend',
+  meditate: 'Meditate',
   complete: 'Done',
   // evening-wind-down
   windDown: 'Wind Down',
   reflection: 'Reflect',
   gratitude: 'Gratitude',
   breathing: 'Breathe',
+  meditation: 'Meditate',
   sleepPreparation: 'Rest',
   completion: 'Done',
 };

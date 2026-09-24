@@ -43,14 +43,17 @@ describe('ProgressIndicator — Evening is provably unaffected by the new Mornin
     // itself is still exactly the Build 16 value, unchanged by that
     // addition.
     expect(source).toMatch(/isMorning \? 'text-morning-accent font-bold scale-110' : isEvening \? 'text-evening-accent font-bold scale-110' : 'text-primary font-bold scale-110'/);
-    // `isMorning` is read exactly once in the actual render logic (the
-    // active-step ternary above) - proof this phase did not also
-    // (accidentally or otherwise) gate any of the completed/unselected/
-    // separator branches on it. The other two occurrences of the string
-    // "isMorning" in the file are this doc comment's own prose, not code.
+    // `isMorning` is read exactly twice in the actual render logic (the
+    // full-row active-step ternary above, plus the compact-presentation
+    // active-label ternary Journey Embedding added alongside it - both
+    // gate ONLY the active step's colour, never completed/unselected/
+    // separator) - proof this phase did not also (accidentally or
+    // otherwise) gate any of the completed/unselected/separator branches
+    // on it. The other occurrences of the string "isMorning" in the file
+    // are this doc comment's own prose, not code.
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
     const isMorningCodeUsages = codeOnly.match(/isMorning/g) ?? [];
-    expect(isMorningCodeUsages.length).toBe(2); // the declaration + this one read
+    expect(isMorningCodeUsages.length).toBe(3); // the declaration + two reads (full row + compact)
   });
 
   it('a real Evening render (activeStep on a completed/unselected/active step, sessionId="evening-wind-down") is completely unreachable through the isMorning branch, since isMorning is false whenever isEvening is true', () => {

@@ -12,7 +12,9 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 
 /*
- * Morning-flow redesign — Affirm step (now Step 4 of 4, after Breathe).
+ * Morning-flow redesign — Affirm step (Journey Embedding correction: now
+ * Step 5 of 5, after Meditate; was Step 4 of 4, after Breathe, before
+ * Meditate was inserted and counted).
  *
  * Previously this screen showed one fixed generic quote plus optional
  * guided-video rows (E07/E11/E12/E21/E22/E24/E26, A01-A06) requiring a
@@ -87,7 +89,12 @@ export const Affirmation = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/breathe" />
+        {/* Journey Embedding — Meditate is now the real preceding step
+            (Breathe -> Meditate (optional) -> Affirm), so Back must return
+            there, not skip over it straight to Breathe - "Back returns to
+            the immediately preceding step" is the same rule every other
+            Morning page already follows. */}
+        <BackButton fallback="/morning-meditate" />
       </div>
       <ProgressIndicator activeStep="affirmation" onReviewStep={(stepId) => navigate(routeForStep(stepId))} />
 

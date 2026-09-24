@@ -137,7 +137,9 @@ export const EveningComplete = () => {
         <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent/25 shadow-evening-glow flex items-center justify-center">
           <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
         </span>
-        <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 6 of 6</span>
+        {/* Journey Embedding (correction) — Meditate is now a counted step,
+            so Evening Complete is Step 7 of 7, not 6 of 6. */}
+        <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Your Evening Wind-Down is complete</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           You've taken time to reflect, appreciate the day and prepare for rest.
