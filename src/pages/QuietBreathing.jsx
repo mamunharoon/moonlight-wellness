@@ -13,6 +13,11 @@ import { useAuth } from '../context/AuthContext';
 import { setPendingContent } from '../lib/pendingContent';
 import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
+import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -78,6 +83,24 @@ export const QuietBreathing = ({ standalone = false }) => {
   const [selectedPatternId, setSelectedPatternId] = useState(DEFAULT_STANDALONE_PATTERN_ID);
   const activePattern = getBreathingPatternById(selectedPatternId) ?? getBreathingPatternById(DEFAULT_STANDALONE_PATTERN_ID);
 
+  // Release-quality guided-breathing discoverability — standalone only
+  // (Support's own embedded usage is untouched, see below). Collapsed by
+  // default, same shared 7-entry catalogue Breathe.jsx now uses. This
+  // screen has no pause/interrupt system of its own (unlike Breathe.jsx/
+  // MorningFlow.jsx) - opening a video simply shows the existing
+  // BetaVideoModal overlay; it does not pause or affect the countdown,
+  // matching this page's own deliberately simple design.
+  const [guidedSessionsOpen, setGuidedSessionsOpen] = useState(false);
+  const {
+    openVideo,
+    handleSelect: handleSelectVideo,
+    closeVideo,
+    promptOpen,
+    dismissPrompt,
+    confirmSignIn: confirmSignInForVideo,
+    confirmCreateAccount: confirmCreateAccountForVideo
+  } = useProtectedVideo();
+
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(activePattern.totalSeconds);
 
@@ -130,7 +153,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     }
   };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BetaVideoModal && BetaVideoRow && SignInPromptDialog) { /* no-op to satisfy blind linter */ }
 
   // The single gate the countdown effect uses: standalone waits for
   // hasBegun; non-standalone (Support) preserves its exact original gate
@@ -205,6 +228,61 @@ export const QuietBreathing = ({ standalone = false }) => {
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
             </div>
+
+            {/* Release-quality guided-breathing discoverability -
+                standalone only. Collapsed by default, mirrors Breathe.jsx's
+                own identical disclosure using the same shared catalogue. */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setGuidedSessionsOpen((v) => !v)}
+                aria-expanded={guidedSessionsOpen}
+                aria-controls="standalone-breathe-guided-sessions"
+                className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                  style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+                  aria-hidden="true"
+                >
+                  expand_more
+                </span>
+              </button>
+              {guidedSessionsOpen && (
+                <div id="standalone-breathe-guided-sessions" className="space-y-4">
+                  <div className="space-y-3">
+                    {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                    {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -231,6 +309,60 @@ export const QuietBreathing = ({ standalone = false }) => {
                 Skip
               </button>
             </div>
+
+            {/* Same disclosure, reusing the same guidedSessionsOpen state -
+                still reachable once the exercise is active. */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setGuidedSessionsOpen((v) => !v)}
+                aria-expanded={guidedSessionsOpen}
+                aria-controls="standalone-breathe-guided-sessions-active"
+                className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                  style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+                  aria-hidden="true"
+                >
+                  expand_more
+                </span>
+              </button>
+              {guidedSessionsOpen && (
+                <div id="standalone-breathe-guided-sessions-active" className="space-y-4">
+                  <div className="space-y-3">
+                    {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                    {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -243,6 +375,16 @@ export const QuietBreathing = ({ standalone = false }) => {
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
           suspended={false}
           hideToggle={!hasBegun}
+        />
+
+        {openVideo && (
+          <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        )}
+        <SignInPromptDialog
+          open={promptOpen}
+          onSignIn={confirmSignInForVideo}
+          onCreateAccount={confirmCreateAccountForVideo}
+          onDismiss={dismissPrompt}
         />
       </EveningSceneShell>
     );

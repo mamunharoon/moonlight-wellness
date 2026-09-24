@@ -20,6 +20,7 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
 import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
+import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -30,28 +31,6 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
-
-// Each { id, blurb } pairs a manifest entry with this page's own short,
-// contextual line, matching the pattern already established for E08
-// here. E08 first since it was already here, E28 appended in the order
-// it was assigned to this screen.
-const BREATHE_VIDEOS = [
-  { id: 'E08', blurb: 'A guided video for this breathing exercise.' },
-  { id: 'E28', blurb: 'A guided video for slow, mindful breathing.' }
-];
-
-// B01-B05: a distinct "Breathing Sessions" collection, kept in its own
-// array/section (with its own heading) rather than merged into
-// BREATHE_VIDEOS above, specifically so "Deep Breathing Practice" (B01)
-// reads as its own thing next to the existing E08 "Deep Breathing" row on
-// this same page, not as a duplicate of it.
-const BREATHING_SESSION_VIDEOS = [
-  { id: 'B01', blurb: 'A guided video for a deep breathing practice.' },
-  { id: 'B02', blurb: 'A guided video for box breathing.' },
-  { id: 'B03', blurb: 'A guided video for 4-7-8 breathing.' },
-  { id: 'B04', blurb: 'A guided video for coherent breathing.' },
-  { id: 'B05', blurb: 'A guided video for alternate nostril breathing.' }
-];
 
 const DEFAULT_PATTERN_ID = 'morning';
 
@@ -103,6 +82,13 @@ export const Breathe = () => {
   // Build 15 — pattern selection, pre-start only. Defaults to Morning's
   // own established 4-4-6 pattern.
   const [selectedPatternId, setSelectedPatternId] = useState(() => pausedSnapshot?.patternId ?? DEFAULT_PATTERN_ID);
+  // Release-quality guided-breathing discoverability — one collapsed-by-
+  // default disclosure combining both video collections, mirroring
+  // MorningFlow.jsx's own "Explore guided stretching sessions" pattern:
+  // never forced open by Begin, reachable both pre-start and once the
+  // exercise is active (preserving the existing interrupt-to-watch
+  // affordance).
+  const [guidedSessionsOpen, setGuidedSessionsOpen] = useState(false);
   const activePattern = getBreathingPatternById(selectedPatternId) ?? BREATHING_PATTERNS[0];
 
   // hasBegun: false until the user explicitly taps "Begin Breathing" -
@@ -335,6 +321,62 @@ export const Breathe = () => {
               Exit routine
             </button>
           </div>
+
+          {/* Release-quality guided-breathing discoverability — collapsed
+              by default, mirrors PrepareForRest.jsx's own "Choose a
+              bedtime video or sleep sound" precedent: aria-expanded/
+              aria-controls, never navigates. */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setGuidedSessionsOpen((v) => !v)}
+              aria-expanded={guidedSessionsOpen}
+              aria-controls="breathe-guided-sessions"
+              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+              <span
+                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+                aria-hidden="true"
+              >
+                expand_more
+              </span>
+            </button>
+            {guidedSessionsOpen && (
+              <div id="breathe-guided-sessions" className="space-y-4">
+                <div className="space-y-3">
+                  {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                    const entry = getBetaVideoById(id);
+                    if (!entry) return null;
+                    return (
+                      <BetaVideoRow
+                        key={id}
+                        title={entry.title}
+                        description={blurb}
+                        onClick={() => handleSelectVideo(id)}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                  {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                    const entry = getBetaVideoById(id);
+                    if (!entry) return null;
+                    return (
+                      <BetaVideoRow
+                        key={id}
+                        title={entry.title}
+                        description={blurb}
+                        onClick={() => handleSelectVideo(id)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <>
@@ -392,34 +434,67 @@ export const Breathe = () => {
         </button>
       )}
 
-      {BREATHE_VIDEOS.map(({ id, blurb }) => {
-        const entry = getBetaVideoById(id);
-        if (!entry) return null;
-        return (
-          <BetaVideoRow
-            key={id}
-            title={entry.title}
-            description={blurb}
-            onClick={() => handleSelectVideo(id)}
-          />
-        );
-      })}
-
-      <div className="space-y-3">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
-        {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelectVideo(id)}
-            />
-          );
-        })}
-      </div>
+      {/* Same "Explore guided breathing sessions" disclosure as the
+          pre-start screen, reusing the same guidedSessionsOpen state -
+          opening it before Begin and then starting the exercise never
+          silently closes it. Only rendered once the exercise is active;
+          the pre-start branch above already renders its own copy while
+          !hasBegun. Still reachable mid-exercise, preserving the
+          existing interrupt-to-watch affordance handleSelectVideo
+          already provides. */}
+      {hasBegun && !isRepeatGated && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setGuidedSessionsOpen((v) => !v)}
+            aria-expanded={guidedSessionsOpen}
+            aria-controls="breathe-guided-sessions-active"
+            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+              style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+              aria-hidden="true"
+            >
+              expand_more
+            </span>
+          </button>
+          {guidedSessionsOpen && (
+            <div id="breathe-guided-sessions-active" className="space-y-4">
+              <div className="space-y-3">
+                {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                  const entry = getBetaVideoById(id);
+                  if (!entry) return null;
+                  return (
+                    <BetaVideoRow
+                      key={id}
+                      title={entry.title}
+                      description={blurb}
+                      onClick={() => handleSelectVideo(id)}
+                    />
+                  );
+                })}
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                  const entry = getBetaVideoById(id);
+                  if (!entry) return null;
+                  return (
+                    <BetaVideoRow
+                      key={id}
+                      title={entry.title}
+                      description={blurb}
+                      onClick={() => handleSelectVideo(id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {hasBegun && !isRepeatGated && (
         <div className="space-y-3 w-full">

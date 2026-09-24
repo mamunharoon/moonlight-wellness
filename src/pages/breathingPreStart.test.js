@@ -242,9 +242,16 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
   // separate, pre-existing feature, completely independent of the
   // interactive pattern picker above) is untouched by adding the two new
   // interactive patterns. B02/B04 remain real, reachable guided videos.
-  it('the existing guided Box/Coherent breathing videos (B02/B04) remain in BREATHING_SESSION_VIDEOS, untouched by the new interactive patterns', () => {
-    expect(breatheSource).toMatch(/\{ id: 'B02', blurb: 'A guided video for box breathing\.' \}/);
-    expect(breatheSource).toMatch(/\{ id: 'B04', blurb: 'A guided video for coherent breathing\.' \}/);
+  it('the existing guided Box/Coherent breathing videos (B02/B04) remain in the shared BREATHING_SESSION_VIDEOS catalogue, untouched by the new interactive patterns', () => {
+    // Build 15 release-quality pass — BREATHE_VIDEOS/BREATHING_SESSION_VIDEOS
+    // moved out of Breathe.jsx's own source into a shared module
+    // (guidedBreathingVideos.js, also used by QuietBreathing.jsx's own
+    // standalone branch) - checked there now, not as a literal in
+    // Breathe.jsx.
+    const guidedBreathingSource = read('../lib/guidedBreathingVideos.js');
+    expect(guidedBreathingSource).toMatch(/\{ id: 'B02', blurb: 'A guided video for box breathing\.' \}/);
+    expect(guidedBreathingSource).toMatch(/\{ id: 'B04', blurb: 'A guided video for coherent breathing\.' \}/);
+    expect(breatheSource).toMatch(/import \{ BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT \} from '\.\.\/lib\/guidedBreathingVideos';/);
     expect(breatheSource).toMatch(/\{BREATHING_SESSION_VIDEOS\.map\(\(\{ id, blurb \}\) => \{/);
   });
 });
