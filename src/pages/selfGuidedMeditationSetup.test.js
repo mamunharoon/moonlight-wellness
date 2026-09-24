@@ -63,9 +63,56 @@ describe('SelfGuidedMeditation.jsx — five styles, three durations, correct def
     expect(source).toMatch(/DEFAULT_MEDITATION_STYLE_ID/);
     expect(source).toMatch(/DEFAULT_MEDITATION_DURATION_ID/);
   });
+});
 
-  it('background music defaults On for everyone, guest included - IM01 is server-allowlisted for guest access, so there is no guest-specific default any more', () => {
-    expect(source).toMatch(/useState\(\(\) => preset\?\.musicOn \?\? true\);/);
+describe('SelfGuidedMeditation.jsx — Choose your sound: three choices, style-aware default, no guest gating', () => {
+  it('imports the real MEDITATION_SOUNDS/getSuggestedSoundIdForStyle/toControllerSoundId - no second copy of the sound data', () => {
+    expect(source).toMatch(/from '\.\.\/lib\/meditationSounds';/);
+    expect(source).toMatch(/MEDITATION_SOUNDS/);
+    expect(source).toMatch(/getSuggestedSoundIdForStyle/);
+    expect(source).toMatch(/toControllerSoundId/);
+  });
+
+  it('never imports/renders the old boolean MusicPreferenceToggle any more - replaced by the three-way radiogroup', () => {
+    expect(source).not.toMatch(/MusicPreferenceToggle/);
+  });
+
+  it('renders the "Choose your sound" radiogroup on both setup and the active screen, mapping over MEDITATION_SOUNDS', () => {
+    const matches = source.match(/role="radiogroup" aria-label="Choose your sound"/g) ?? [];
+    expect(matches.length).toBe(2); // one on setup, one on the active screen - see the "active session" describe block below
+    expect(source).toMatch(/\{MEDITATION_SOUNDS\.map\(\(sound\) => \(/);
+  });
+
+  it('fresh setup (no preset) seeds soundId from the default style\'s suggested sound, not a hardcoded universal default', () => {
+    const body = source.match(/const \[soundId, setSoundIdState\] = useState\(\(\) =>[\s\S]*?\);/)?.[0] ?? '';
+    expect(body).toMatch(/isValidMeditationSoundId\(preset\?\.soundId\)/);
+    expect(body).toMatch(/getSuggestedSoundIdForStyle\(styleId\)/);
+  });
+
+  it('a valid restored preset\'s soundId counts as an explicit choice from the very first render', () => {
+    expect(source).toMatch(/const \[soundExplicit, setSoundExplicit\] = useState\(\(\) => isValidMeditationSoundId\(preset\?\.soundId\)\);/);
+  });
+
+  it('selecting a style only updates the suggested sound while no explicit choice has been made yet', () => {
+    const body = source.match(/const handleSelectStyle = \(newStyleId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(!soundExplicit\) \{/);
+    expect(body).toMatch(/getSuggestedSoundIdForStyle\(newStyleId\)/);
+  });
+
+  it('selecting any sound marks the choice explicit going forward', () => {
+    const body = source.match(/const handleSelectSound = \(newSoundId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setSoundExplicit\(true\);/);
+  });
+
+  it('the style radiogroup is wired to handleSelectStyle (not a bare setState) so the suggestion logic actually runs', () => {
+    expect(source).toMatch(/onSelect=\{\(\) => handleSelectStyle\(s\.id\)\}/);
+  });
+
+  it('no isGuest/onSignIn/auth redirect anywhere near sound selection - IM01 and IM02 are both server-allowlisted for guests', () => {
+    const soundSectionCode = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(soundSectionCode).not.toMatch(/isGuest/);
+    expect(soundSectionCode).not.toMatch(/onSignIn/);
+    expect(soundSectionCode).not.toMatch(/'\/auth'/);
   });
 });
 
@@ -159,6 +206,32 @@ describe('SelfGuidedMeditation.jsx — reduced motion', () => {
 
   it('passes reducedMotion through to the progress ring rather than animating unconditionally', () => {
     expect(source).toMatch(/reducedMotion=\{reducedMotion\}/);
+  });
+});
+
+describe('SelfGuidedMeditation.jsx — active session: sound can be seen and changed live', () => {
+  it('handleSelectSound drives the live controller\'s setSoundId only while active, converting the UI sentinel first', () => {
+    const body = source.match(/const handleSelectSound = \(newSoundId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(phase === 'active'\) \{/);
+    expect(body).toMatch(/controllerRef\.current\?\.setSoundId\(toControllerSoundId\(newSoundId\)\);/);
+  });
+
+  it('a genuine playback failure reverts both the real controller and the displayed selection to No Music, and flags the unavailable message', () => {
+    const beginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(beginBody).toMatch(/if \(latestSnapshot\.audioError\) \{/);
+    expect(beginBody).toMatch(/current\.setSoundId\(null\);/);
+    expect(beginBody).toMatch(/setSoundIdState\('none'\);/);
+    expect(beginBody).toMatch(/setSoundUnavailable\(true\);/);
+  });
+
+  it('the unavailable message container reserves its height unconditionally, so switching tracks never shifts the layout', () => {
+    const activeScreenBlock = source.slice(source.indexOf("if (phase === 'active'"), source.indexOf('\n  return (\n'));
+    expect(activeScreenBlock).toMatch(/min-h-\[1\.5em\]/);
+  });
+
+  it('completion reads the sound actually active at that moment from the live snapshot, never a stale value captured at Begin', () => {
+    const beginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(beginBody).toMatch(/soundId: latestSnapshot\.soundId \|\| 'none'/);
   });
 });
 

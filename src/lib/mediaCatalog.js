@@ -242,10 +242,10 @@ const MEDITATION_METADATA = {
 // same structural reason: they must stay reachable via getBetaVideoById()
 // from Introduction.jsx alone, and must never surface as a general
 // Library/catalog-browsable row.
-// IM01 (Self-Guided Meditation's shared background track) joins the same
-// exclusion for the same reason as IB01/IS01 above - see its own entry in
-// betaVideoManifest.js.
-const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'I01', 'I02']);
+// IM01/IM02 (Self-Guided Meditation's two selectable sound tracks) join the
+// same exclusion for the same reason as IB01/IS01 above - see their own
+// entries in betaVideoManifest.js.
+const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02']);
 
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id)).map((entry) => ({
   ...entry,

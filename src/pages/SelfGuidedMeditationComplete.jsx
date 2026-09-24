@@ -33,18 +33,24 @@ export const SelfGuidedMeditationComplete = () => {
 
   const handleDone = () => navigate(context.fallback);
 
-  // Both restore the exact same style/duration/music choices and land back
+  // Both restore the exact same style/duration/sound choices and land back
   // on setup - only the label differs. Neither auto-starts: Begin Meditation
-  // still requires its own fresh, deliberate tap either way.
+  // still requires its own fresh, deliberate tap either way. `soundId` here
+  // is whatever was actually active at completion (SelfGuidedMeditation.jsx
+  // reads it from the live snapshot, never a stale value) - the setup
+  // screen's own `isValidMeditationSoundId` check falls back to the
+  // selected style's suggested default if it's ever missing/invalid, and
+  // treats a valid restored value as an explicit choice (never overridden
+  // by a later style change).
   const handleMeditateAgain = () => {
     navigate(`/self-guided-meditation${session?.from ? `?from=${session.from}` : ''}`, {
-      state: { styleId: style.id, durationId: duration.id, musicOn: session?.musicOn }
+      state: { styleId: style.id, durationId: duration.id, soundId: session?.soundId }
     });
   };
 
   const handleChooseAnotherMeditation = () => {
     navigate(`/self-guided-meditation${session?.from ? `?from=${session.from}` : ''}`, {
-      state: { styleId: style.id, durationId: duration.id, musicOn: session?.musicOn }
+      state: { styleId: style.id, durationId: duration.id, soundId: session?.soundId }
     });
   };
 

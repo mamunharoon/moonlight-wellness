@@ -122,6 +122,9 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   // same role as IB01 above. See src/lib/betaVideoManifest.js's matching
   // entry.
   ['IM01', 'faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a'],
+  // Second Self-Guided Meditation sound choice ("Soft Piano") - same role
+  // as IM01 above. See src/lib/betaVideoManifest.js's matching entry.
+  ['IM02', 'faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a'],
   ['F01', 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4'],
   ['F02', 'faststart-v1/WW_F02_Study.mp4_faststart.mp4'],
   ['F03', 'faststart-v1/WW_F03_Concentration_v1.mp4_faststart.mp4'],

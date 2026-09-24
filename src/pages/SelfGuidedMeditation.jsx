@@ -4,16 +4,17 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { MeditationProgressRing } from '../components/MeditationProgressRing';
 import { MEDITATION_STYLES, DEFAULT_MEDITATION_STYLE_ID, getMeditationStyleById } from '../lib/meditationStyles';
 import { MEDITATION_DURATIONS, DEFAULT_MEDITATION_DURATION_ID, getMeditationDurationById } from '../lib/meditationDurations';
+import {
+  MEDITATION_SOUNDS,
+  isValidMeditationSoundId,
+  getSuggestedSoundIdForStyle,
+  toControllerSoundId
+} from '../lib/meditationSounds';
 import { createMeditationSessionController } from '../lib/meditationSessionController';
 import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationNav';
-
-// Approved media (see docs handoff): a single neutral instrumental
-// background track shared by all five styles - never a per-style asset.
-const MEDITATION_MUSIC_ID = 'IM01';
 
 // Compact accessible radio row for the 5 meditation styles - same native
 // <input type="radio"> + <label> construction BreathingPatternRow.jsx
@@ -62,7 +63,7 @@ const MeditationDurationChip = ({ groupName, label, sublabel, selected, onSelect
 );
 
 /*
- * WakeWise — Self-Guided Meditation (IM01)
+ * WakeWise — Self-Guided Meditation (IM01/IM02 Sound Choices)
  *
  * Shared setup + active-session experience, reached from Home's "Meditate"
  * quick-action tile (?from=home) and Library's "Self-Guided Meditation"
@@ -86,6 +87,23 @@ const MeditationDurationChip = ({ groupName, label, sublabel, selected, onSelect
  * by beganRef) and torn down on pause is NOT interval-clearing (interval
  * keeps running so paused ticks are simply no-ops in the pure engine) -
  * only unmount/route-change/End Session/completion ever clears it.
+ *
+ * Sound Choices (IM01 Gentle Ambient / IM02 Soft Piano / No Music): one
+ * shared radiogroup ("Choose your sound") renders on both the setup and
+ * active screens, wired to the same `soundId` state and the same
+ * `handleSelectSound` handler - selecting a sound during setup only ever
+ * updates local state (no playback until Begin); selecting one during an
+ * active session additionally drives the live controller's own
+ * setSoundId(), which is the one place that knows how to cleanly stop the
+ * previous track and start/resume the new one without touching the timer.
+ *
+ * Style-aware suggested sound: each meditation style has a suggested sound
+ * (meditationSounds.js's SUGGESTED_SOUND_ID_BY_STYLE_ID). Selecting a style
+ * applies its suggestion ONLY while the user has not yet made an explicit
+ * sound choice this visit (`soundExplicit`, below) - a restored Meditate
+ * Again/Choose Another Meditation preset counts as explicit too, so neither
+ * a later style change nor a fresh style pick ever silently overrides a
+ * choice the user (or a preserved prior session) actually made.
  */
 export const SelfGuidedMeditation = () => {
   const navigate = useNavigate();
@@ -99,16 +117,27 @@ export const SelfGuidedMeditation = () => {
   // fresh, deliberate tap (no auto-start from this preset).
   const preset = location.state || null;
 
-  const [styleId, setStyleId] = useState(() => (getMeditationStyleById(preset?.styleId) ? preset.styleId : DEFAULT_MEDITATION_STYLE_ID));
+  const [styleId, setStyleIdState] = useState(() => (getMeditationStyleById(preset?.styleId) ? preset.styleId : DEFAULT_MEDITATION_STYLE_ID));
   const [durationId, setDurationId] = useState(() => (getMeditationDurationById(preset?.durationId) ? preset.durationId : DEFAULT_MEDITATION_DURATION_ID));
-  // IM01 is one of the narrow, explicitly server-allowlisted interactive
-  // ambient beds (see GUEST_ALLOWED_IDS in get-beta-video-url/index.ts) -
-  // a guest genuinely gets a signed URL for it, same as a signed-in user,
-  // so there is no guest-specific default here any more. Meditate Again's
-  // preset carries over exactly as it does for style/duration - in-memory
-  // router state for this one bounce, never written to localStorage/an
-  // account, so this is not "persisting a guest preference."
-  const [musicOn, setMusicOn] = useState(() => preset?.musicOn ?? true);
+  // IM01/IM02 are both narrow, explicitly server-allowlisted interactive
+  // ambient beds (see GUEST_ALLOWED_IDS in
+  // supabase/functions/_shared/betaVideoUrlAccess.ts) - a guest genuinely
+  // gets a signed URL for either, same as a signed-in user, so there is no
+  // guest-specific default or gating here. `soundId` is the UI-level
+  // selection ('IM01' | 'IM02' | 'none'); toControllerSoundId() translates
+  // it for the session controller. `soundExplicit` tracks whether the
+  // CURRENT `soundId` came from a deliberate choice (a manual selection, or
+  // a restored Meditate Again/Choose Another Meditation preset) rather than
+  // the style's own suggested default - only while false does picking a
+  // different style also update the suggested sound (see
+  // handleSelectStyle). Both are plain in-memory state either way, never
+  // written to localStorage/an account - not "persisting a preference" for
+  // guest or signed-in user.
+  const [soundExplicit, setSoundExplicit] = useState(() => isValidMeditationSoundId(preset?.soundId));
+  const [soundId, setSoundIdState] = useState(() =>
+    isValidMeditationSoundId(preset?.soundId) ? preset.soundId : getSuggestedSoundIdForStyle(styleId)
+  );
+  const [soundUnavailable, setSoundUnavailable] = useState(false);
   const [phase, setPhase] = useState('setup');
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [snapshot, setSnapshot] = useState(null);
@@ -154,10 +183,9 @@ export const SelfGuidedMeditation = () => {
     beganRef.current = true;
 
     const controller = createMeditationSessionController({
-      mediaId: MEDITATION_MUSIC_ID,
       styleId: style.id,
       durationSeconds: duration.seconds,
-      musicEnabled: musicOn
+      initialSoundId: toControllerSoundId(soundId)
     });
     controllerRef.current = controller;
     controller.begin();
@@ -168,23 +196,34 @@ export const SelfGuidedMeditation = () => {
       const current = controllerRef.current;
       if (!current) return;
       const { completed } = current.tick();
-      const latestSnapshot = current.getSnapshot();
-      setSnapshot(latestSnapshot);
+      let latestSnapshot = current.getSnapshot();
       // Truthful-state guarantee: if the most recent start()/resume()
       // attempt genuinely failed (a real network/playback error - equally
       // possible for a guest or a signed-in user now that both take the
-      // same signed-URL path), the switch must never keep showing "On" as
-      // if audio were actually playing. Reconciled here, at the same
-      // per-second heartbeat that already reconciles every other piece of
-      // session state, rather than a separate reactive effect - the
-      // failure is only known asynchronously (after setMusicEnabled's
-      // fire-and-forget start() rejects), so it can never be caught
-      // synchronously inside handleToggleMusic itself. Only ever turns
-      // musicOn OFF; never turns it on by itself.
-      if (latestSnapshot.audioError) setMusicOn(false);
+      // same signed-URL path), the UI must never keep showing a track
+      // selected as if it were actually playing. Reconciled here, at the
+      // same per-second heartbeat that already reconciles every other
+      // piece of session state, rather than a separate reactive effect -
+      // the failure is only known asynchronously, so it can never be
+      // caught synchronously inside handleSelectSound itself. Drives the
+      // REAL controller back to No Music too (not just the displayed
+      // selection), so a later Pause/Resume can never silently retry and
+      // start the failed track behind a UI that still shows No Music.
+      if (latestSnapshot.audioError) {
+        current.setSoundId(null);
+        setSoundIdState('none');
+        setSoundUnavailable(true);
+        latestSnapshot = current.getSnapshot();
+      }
+      setSnapshot(latestSnapshot);
       if (completed) {
         stopInterval();
-        const finished = { styleId: style.id, durationId: duration.id, musicOn, from: searchParams.get('from') || null };
+        // Reads the sound actually active at completion from the snapshot
+        // (never the `soundId` closure captured when Begin was pressed,
+        // which would go stale the moment the user switches sounds
+        // mid-session - see handleSelectSound) - 'none' is the UI sentinel
+        // for the controller's `null`.
+        const finished = { styleId: style.id, durationId: duration.id, soundId: latestSnapshot.soundId || 'none', from: searchParams.get('from') || null };
         cleanupSession();
         navigate('/self-guided-meditation-complete', { state: finished });
       }
@@ -201,21 +240,37 @@ export const SelfGuidedMeditation = () => {
     setSnapshot(controllerRef.current?.getSnapshot());
   };
 
-  // Music On/Off is a session-level control: flipping it must never
-  // navigate away (that would silently abandon the running timer via this
+  // Selecting a style applies its suggested sound, but ONLY while the
+  // current sound is still the (possibly earlier) suggestion rather than a
+  // deliberate choice - see this file's own top-of-file doc comment.
+  const handleSelectStyle = (newStyleId) => {
+    setStyleIdState(newStyleId);
+    if (!soundExplicit) {
+      setSoundIdState(getSuggestedSoundIdForStyle(newStyleId));
+    }
+  };
+
+  // Sound selection is a session-level control: choosing one must never
+  // navigate away (that would silently abandon a running timer via this
   // file's own unmount cleanup effect) for anyone, guest or signed-in -
-  // IM01 is one of the narrow, explicitly server-allowlisted interactive
-  // ambient beds (GUEST_ALLOWED_IDS in get-beta-video-url/index.ts), so a
-  // guest's request genuinely succeeds the same way a signed-in user's
-  // does. `musicOn` here is plain component state either way - never
-  // persisted, gone the moment this screen unmounts.
-  const handleToggleMusic = () => {
-    setMusicOn((prev) => {
-      const next = !prev;
-      controllerRef.current?.setMusicEnabled(next);
+  // IM01/IM02 are both narrow, explicitly server-allowlisted interactive
+  // ambient beds (GUEST_ALLOWED_IDS in
+  // supabase/functions/_shared/betaVideoUrlAccess.ts), so a guest's request
+  // genuinely succeeds the same way a signed-in user's does. During setup
+  // this only updates local state (no playback until Begin); during an
+  // active session it also drives the live controller directly, which
+  // cleanly stops whichever track was previous and starts/resumes the new
+  // one without touching the timer or prompts. `soundId` is plain
+  // component state either way - never persisted, gone the moment this
+  // screen unmounts.
+  const handleSelectSound = (newSoundId) => {
+    setSoundIdState(newSoundId);
+    setSoundExplicit(true);
+    setSoundUnavailable(false);
+    if (phase === 'active') {
+      controllerRef.current?.setSoundId(toControllerSoundId(newSoundId));
       setSnapshot(controllerRef.current?.getSnapshot());
-      return next;
-    });
+    }
   };
 
   // Deliberate exit - the big "End Session" button IS the confirmation
@@ -243,8 +298,6 @@ export const SelfGuidedMeditation = () => {
     navigate('/library?category=meditation&from=meditation-setup');
   };
 
-  const musicDescription = 'Play gentle background music during your session.';
-
   if (phase === 'active' && snapshot) {
     return (
       <div
@@ -268,9 +321,12 @@ export const SelfGuidedMeditation = () => {
 
           <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed min-h-[2.5rem]">{snapshot.promptText}</p>
 
-          {snapshot.audioError && musicOn && (
-            <p className="text-[10px] text-on-surface-variant/60 text-center">Music unavailable right now — continuing without it.</p>
-          )}
+          {/* Reserved-height container regardless of content, so reverting
+              to No Music after a failure never shifts the layout around
+              it - "no layout shift when changing tracks." */}
+          <p className="text-[10px] text-on-surface-variant/60 text-center min-h-[1.5em]">
+            {soundUnavailable ? "That sound wasn't available right now — switched to No Music." : ''}
+          </p>
         </div>
 
         <div className="space-y-3 w-full">
@@ -294,16 +350,25 @@ export const SelfGuidedMeditation = () => {
             </button>
           )}
 
-          {/* No isGuest/onSignIn here, same as the setup screen's own
-              toggle - this one must never route a tap to sign-in (see
-              handleToggleMusic's own doc comment). Omitting isGuest lets it
-              default to MusicPreferenceToggle's own `false`, so the switch's
-              onClick always resolves to onToggle, for every user. */}
-          <MusicPreferenceToggle
-            isOn={musicOn}
-            onToggle={handleToggleMusic}
-            description={musicDescription}
-          />
+          {/* Same shared "Choose your sound" radiogroup as setup - see this
+              file's own top-of-file doc comment. Selecting a row here also
+              drives the live controller directly (handleSelectSound),
+              never a sign-in redirect for anyone, guest or signed-in. */}
+          <div className="space-y-2">
+            <h2 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Choose your sound</h2>
+            <div className="space-y-2" role="radiogroup" aria-label="Choose your sound">
+              {MEDITATION_SOUNDS.map((sound) => (
+                <MeditationOptionRow
+                  key={sound.id}
+                  groupName="meditation-sound-active"
+                  label={sound.label}
+                  description={sound.description}
+                  selected={soundId === sound.id}
+                  onSelect={() => handleSelectSound(sound.id)}
+                />
+              ))}
+            </div>
+          </div>
 
           <button
             type="button"
@@ -356,7 +421,7 @@ export const SelfGuidedMeditation = () => {
               label={s.label}
               description={s.description}
               selected={styleId === s.id}
-              onSelect={() => setStyleId(s.id)}
+              onSelect={() => handleSelectStyle(s.id)}
             />
           ))}
         </div>
@@ -378,15 +443,26 @@ export const SelfGuidedMeditation = () => {
         </div>
       </div>
 
-      {/* IM01 is server-allowlisted for guests (GUEST_ALLOWED_IDS in
-          get-beta-video-url/index.ts) - no isGuest/onSignIn here, same as
-          the active screen's own toggle below. A guest can choose Music On
-          before Begin exactly like a signed-in user. */}
-      <MusicPreferenceToggle
-        isOn={musicOn}
-        onToggle={() => setMusicOn((prev) => !prev)}
-        description={musicDescription}
-      />
+      {/* IM01/IM02 are both server-allowlisted for guests (GUEST_ALLOWED_IDS
+          in supabase/functions/_shared/betaVideoUrlAccess.ts) - a guest can
+          choose any of the three rows before Begin exactly like a
+          signed-in user; selecting one never starts playback or navigates
+          to sign-in (see handleSelectSound's own doc comment). */}
+      <div className="space-y-2">
+        <h2 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Choose your sound</h2>
+        <div className="space-y-2" role="radiogroup" aria-label="Choose your sound">
+          {MEDITATION_SOUNDS.map((sound) => (
+            <MeditationOptionRow
+              key={sound.id}
+              groupName="meditation-sound"
+              label={sound.label}
+              description={sound.description}
+              selected={soundId === sound.id}
+              onSelect={() => handleSelectSound(sound.id)}
+            />
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-3">
         <button

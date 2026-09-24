@@ -1,8 +1,10 @@
 // Real-execution tests for the composed session controller - the heart of
-// Self-Guided Meditation's testable behaviour. No jsdom/Audio global exists
-// in this repo's Vitest (environment: 'node', see vite.config.js), so a
-// plain fake object stands in for HTMLAudioElement via the controller's own
-// injectable `createAudioElement`/`resolveUrl` seams - the same real
+// Self-Guided Meditation's testable behaviour, including the tri-state
+// Sound Choices model (IM01 Gentle Ambient / IM02 Soft Piano / No Music).
+// No jsdom/Audio global exists in this repo's Vitest (environment: 'node',
+// see vite.config.js), so a plain fake object stands in for
+// HTMLAudioElement via the controller's own injectable
+// `createAudioElement`/`resolveUrl` seams - the same real
 // createMeditationSessionController/createMeditationAudioController/
 // createMeditationSession modules run underneath, unmocked.
 import { describe, it, expect, vi } from 'vitest';
@@ -39,23 +41,24 @@ const createFakeAudioElement = () => ({
   load() {}
 });
 
-const setup = ({ styleId = 'quiet', durationSeconds = 120, musicEnabled = true, resolveImpl } = {}) => {
-  const elements = [];
-  const createAudioElement = vi.fn(() => {
-    const el = createFakeAudioElement();
-    elements.push(el);
-    return el;
-  });
-  const resolveUrl = vi.fn(resolveImpl || (async () => ({ url: 'https://signed.example/im01', expiresAt: Date.now() + 300_000 })));
+// Individual created elements/resolveUrl calls are inspected directly via
+// each mock's own `.mock.results`/`.mock.calls` in the tests below - no
+// separate bucketing needed since resolveUrl's own argument already
+// identifies which track a given call/element belongs to.
+const setup = ({ styleId = 'quiet', durationSeconds = 120, initialSoundId = 'IM01', resolveImpl } = {}) => {
+  const createAudioElement = vi.fn(() => createFakeAudioElement());
+  const resolveUrl = vi.fn(
+    resolveImpl ||
+      (async (mediaId) => ({ url: `https://signed.example/${mediaId}`, expiresAt: Date.now() + 300_000 }))
+  );
   const controller = createMeditationSessionController({
-    mediaId: 'IM01',
     styleId,
     durationSeconds,
-    musicEnabled,
+    initialSoundId,
     createAudioElement,
     resolveUrl
   });
-  return { controller, createAudioElement, resolveUrl, elements };
+  return { controller, createAudioElement, resolveUrl };
 };
 
 describe('createMeditationSessionController — no autoplay before Begin', () => {
@@ -66,42 +69,65 @@ describe('createMeditationSessionController — no autoplay before Begin', () =>
   });
 });
 
-describe('createMeditationSessionController — Begin starts exactly one timer-tick source and one audio instance', () => {
-  it('begin() is idempotent: calling it repeatedly (a double/duplicate Begin tap) creates at most one audio element and one resolveUrl request', async () => {
-    const { controller, createAudioElement, resolveUrl } = setup();
-    controller.begin();
-    controller.begin();
+describe('createMeditationSessionController — Begin with a track starts exactly one instance', () => {
+  it('Begin with IM01 selected starts exactly one IM01 request/element', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(resolveUrl).toHaveBeenCalledWith('IM01');
     expect(createAudioElement).toHaveBeenCalledTimes(1);
-    expect(resolveUrl).toHaveBeenCalledTimes(1);
   });
 
-  it('sets native loop=true on the audio element, so a 10-minute session repeats IM01 without any JS-level restart', async () => {
-    const { controller, elements } = setup({ durationSeconds: 600 });
-    controller.begin();
-    await flushAsync();
-    expect(elements[0].loop).toBe(true);
-  });
-});
-
-describe('createMeditationSessionController — music On vs Off at Begin', () => {
-  it('music On: audio starts (resolveUrl called) once begin() runs', async () => {
-    const { controller, resolveUrl } = setup({ musicEnabled: true });
+  it('Begin with IM02 selected starts exactly one IM02 request/element', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM02' });
     controller.begin();
     await flushAsync();
     expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(resolveUrl).toHaveBeenCalledWith('IM02');
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
   });
 
-  it('music Off: begin() never starts audio, but the timer still runs and can complete normally (silent session, timer never blocked)', async () => {
-    const { controller, resolveUrl } = setup({ musicEnabled: false, durationSeconds: 3 });
+  it('Begin with No Music (null) starts no audio at all, but the timer runs', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: null, durationSeconds: 3 });
     controller.begin();
     await flushAsync();
     expect(resolveUrl).not.toHaveBeenCalled();
+    expect(createAudioElement).not.toHaveBeenCalled();
     expect(controller.tick()).toEqual({ completed: false });
     expect(controller.tick()).toEqual({ completed: false });
     expect(controller.tick()).toEqual({ completed: true });
     expect(controller.getSnapshot().status).toBe('completed');
+  });
+
+  it('begin() is idempotent: repeated calls never create a second request/element', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.begin();
+    controller.begin();
+    controller.begin();
+    await flushAsync();
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets native loop=true, so a 10-minute session repeats either track without any JS-level restart', async () => {
+    const created = [];
+    const createAudioElement = vi.fn(() => {
+      const el = createFakeAudioElement();
+      created.push(el);
+      return el;
+    });
+    const resolveUrl = vi.fn(async (id) => ({ url: `https://signed.example/${id}` }));
+    const controller = createMeditationSessionController({
+      styleId: 'quiet',
+      durationSeconds: 600,
+      initialSoundId: 'IM02',
+      createAudioElement,
+      resolveUrl
+    });
+    controller.begin();
+    await flushAsync();
+    expect(created[0].loop).toBe(true);
   });
 });
 
@@ -116,8 +142,8 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     expect(results[119]).toEqual({ completed: true });
   });
 
-  it('5-minute (300s) session completes at exactly the 300th tick', async () => {
-    const { controller } = setup({ durationSeconds: 300 });
+  it('5-minute (300s) session completes at exactly the 300th tick, even though IM02 is ~300.37s (slightly longer)', async () => {
+    const { controller } = setup({ durationSeconds: 300, initialSoundId: 'IM02' });
     controller.begin();
     await flushAsync();
     const results = [];
@@ -126,8 +152,8 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     expect(results[299]).toEqual({ completed: true });
   });
 
-  it('10-minute (600s) session completes at exactly the 600th tick, with audio started only once across the whole session (no duplicate audio, no timer restart on loop)', async () => {
-    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 600 });
+  it('10-minute (600s) session completes at exactly the 600th tick, with the track started only once across the whole session', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 600, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
     const results = [];
@@ -138,132 +164,258 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     expect(resolveUrl).toHaveBeenCalledTimes(1);
   });
 
-  it('natural completion stops the audio element', async () => {
-    const { controller, elements } = setup({ durationSeconds: 2 });
+  it('natural completion stops the current track', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 2, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
+    const el = createAudioElement.mock.results[0].value;
     controller.tick();
     controller.tick();
-    expect(elements[0].paused).toBe(true);
+    expect(el.paused).toBe(true);
   });
 });
 
-describe('createMeditationSessionController — Pause/Resume affect both timer and music', () => {
-  it('pause() freezes elapsed progress and pauses the audio element', async () => {
-    const { controller, elements } = setup({ durationSeconds: 120 });
+describe('createMeditationSessionController — Pause/Resume affect both timer and the selected track', () => {
+  it('pause() freezes elapsed progress and pauses the current track', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
+    const el = createAudioElement.mock.results[0].value;
     controller.tick();
     controller.tick();
     controller.pause();
-    expect(elements[0].paused).toBe(true);
+    expect(el.paused).toBe(true);
     expect(controller.getSnapshot().status).toBe('paused');
     controller.tick();
     controller.tick();
     expect(controller.getSnapshot().elapsedSeconds).toBe(2);
   });
 
-  it('resume() continues the timer from where it paused and resumes the same audio element - no re-fetch, no restart', async () => {
-    const { controller, elements, resolveUrl } = setup({ durationSeconds: 120 });
+  it('resume() continues the timer from where it paused and resumes the same element - no re-fetch, no restart', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
+    const el = createAudioElement.mock.results[0].value;
     controller.tick();
     controller.pause();
-    expect(elements[0].paused).toBe(true);
+    expect(el.paused).toBe(true);
     controller.resume();
-    expect(elements[0].paused).toBe(false);
-    expect(resolveUrl).toHaveBeenCalledTimes(1); // still just the original start() call
+    expect(el.paused).toBe(false);
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
     controller.tick();
     expect(controller.getSnapshot().elapsedSeconds).toBe(2);
+  });
+
+  it('Pause/Resume with No Music selected never touches any audio', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 60, initialSoundId: null });
+    controller.begin();
+    await flushAsync();
+    controller.pause();
+    controller.resume();
+    expect(createAudioElement).not.toHaveBeenCalled();
+    expect(resolveUrl).not.toHaveBeenCalled();
   });
 });
 
-describe('createMeditationSessionController — toggling music mid-session', () => {
-  it('turning music Off mid-session pauses the track cleanly without affecting the timer', async () => {
-    const { controller, elements } = setup({ durationSeconds: 120, musicEnabled: true });
+describe('createMeditationSessionController — switching sounds mid-session', () => {
+  it('IM01 -> IM02: stops IM01 cleanly and starts exactly one IM02 instance, preserving elapsed progress', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
+    const im01El = createAudioElement.mock.results[0].value;
     controller.tick();
-    controller.setMusicEnabled(false);
-    expect(elements[0].paused).toBe(true);
     controller.tick();
-    expect(controller.getSnapshot().elapsedSeconds).toBe(2);
+
+    controller.setSoundId('IM02');
+    await flushAsync();
+
+    expect(im01El.paused).toBe(true); // stopped cleanly
+    expect(resolveUrl).toHaveBeenCalledTimes(2);
+    expect(resolveUrl).toHaveBeenNthCalledWith(2, 'IM02');
+    expect(createAudioElement).toHaveBeenCalledTimes(2); // exactly one new instance for IM02
+    const im02El = createAudioElement.mock.results[1].value;
+    expect(im02El.paused).toBe(false);
+    expect(controller.getSnapshot().soundId).toBe('IM02');
+    expect(controller.getSnapshot().elapsedSeconds).toBe(2); // untouched by the switch
+
+    controller.tick();
+    expect(controller.getSnapshot().elapsedSeconds).toBe(3);
   });
 
-  it('turning music back On resumes the existing element rather than starting a new one', async () => {
-    const { controller, elements, resolveUrl, createAudioElement } = setup({ durationSeconds: 120, musicEnabled: true });
+  it('IM02 -> IM01: stops IM02 cleanly and starts exactly one IM01 instance, preserving elapsed progress', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 120, initialSoundId: 'IM02' });
     controller.begin();
     await flushAsync();
-    controller.setMusicEnabled(false);
-    expect(elements[0].paused).toBe(true);
-    controller.setMusicEnabled(true);
-    expect(elements[0].paused).toBe(false);
+    const im02El = createAudioElement.mock.results[0].value;
+    controller.tick();
+
+    controller.setSoundId('IM01');
+    await flushAsync();
+
+    expect(im02El.paused).toBe(true);
+    expect(resolveUrl).toHaveBeenNthCalledWith(2, 'IM01');
+    expect(createAudioElement).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot().soundId).toBe('IM01');
+    expect(controller.getSnapshot().elapsedSeconds).toBe(1);
+  });
+
+  it('switching IM01 -> IM01 (no-op, same id) never re-fetches or re-creates anything', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    controller.setSoundId('IM01');
     expect(resolveUrl).toHaveBeenCalledTimes(1);
     expect(createAudioElement).toHaveBeenCalledTimes(1);
   });
 
-  it('starting a session with music Off, then turning it On mid-session, starts audio for the first time at that point', async () => {
-    const { controller, resolveUrl } = setup({ durationSeconds: 120, musicEnabled: false });
+  it('track -> No Music: stops and releases the active audio while the timer keeps running', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 60, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
-    expect(resolveUrl).not.toHaveBeenCalled();
-    controller.setMusicEnabled(true);
-    await flushAsync();
-    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    const el = createAudioElement.mock.results[0].value;
+    controller.tick();
+
+    controller.setSoundId(null);
+
+    expect(el.paused).toBe(true);
+    expect(el.src).toBe(''); // released (removeAttribute), not merely paused
+    expect(controller.getSnapshot().soundId).toBeNull();
+    controller.tick();
+    expect(controller.getSnapshot().elapsedSeconds).toBe(2); // timer unaffected
   });
 
-  it('music toggled Off while paused, then session resumed with music back On: audio resumes, timer continues, no restart', async () => {
-    const { controller, elements, resolveUrl } = setup({ durationSeconds: 120, musicEnabled: true });
+  it('No Music -> track: starts the selected track fresh without resetting the timer', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 60, initialSoundId: null });
     controller.begin();
     await flushAsync();
     controller.tick();
-    controller.pause();
-    controller.setMusicEnabled(false);
-    expect(elements[0].paused).toBe(true);
-    controller.setMusicEnabled(true);
-    controller.resume();
-    expect(controller.getSnapshot().status).toBe('running');
-    expect(elements[0].paused).toBe(false);
-    expect(resolveUrl).toHaveBeenCalledTimes(1);
     controller.tick();
     expect(controller.getSnapshot().elapsedSeconds).toBe(2);
+
+    controller.setSoundId('IM02');
+    await flushAsync();
+
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(resolveUrl).toHaveBeenCalledWith('IM02');
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot().elapsedSeconds).toBe(2); // never reset
+    expect(controller.getSnapshot().soundId).toBe('IM02');
+  });
+
+  it('never plays both tracks simultaneously: at any point at most one element is unpaused', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    controller.setSoundId('IM02');
+    await flushAsync();
+    controller.setSoundId('IM01'); // switch back - IM01 element already exists (paused, warm)
+    const unpaused = createAudioElement.mock.results.filter((r) => r.value.paused === false);
+    expect(unpaused.length).toBeLessThanOrEqual(1);
+  });
+
+  it('switching back to a previously-used track resumes the same element rather than re-fetching', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    const im01El = createAudioElement.mock.results[0].value;
+    controller.setSoundId('IM02');
+    await flushAsync();
+    controller.setSoundId('IM01');
+    expect(resolveUrl).toHaveBeenCalledTimes(2); // one for IM01, one for IM02 - never a third for the IM01 return
+    expect(createAudioElement).toHaveBeenCalledTimes(2);
+    expect(im01El.paused).toBe(false); // resumed, not re-created
   });
 });
 
-describe('createMeditationSessionController — prompts (Body Awareness / Loving-Kindness real behaviour)', () => {
-  it('Body Awareness snapshot shows its own prompts at the right elapsed sections of a 10-minute session', () => {
-    const { controller } = setup({ styleId: 'body-awareness', durationSeconds: 600, musicEnabled: false });
-    controller.begin();
-    expect(controller.getSnapshot().promptText).toBe('Notice where your body meets the surface beneath you.');
-    for (let i = 0; i < 400; i += 1) controller.tick();
-    expect(controller.getSnapshot().promptText).toBe('Notice sensations without needing to change them.');
-  });
+describe('createMeditationSessionController — rapid/repeated switching creates no overlap or duplicates', () => {
+  it('rapid IM01 -> IM02 -> IM01 -> IM02 taps before the first fetch resolves never start a stale, no-longer-selected track', async () => {
+    const pendingResolvers = [];
+    const resolveUrl = vi.fn(
+      (mediaId) =>
+        new Promise((resolve) => {
+          pendingResolvers.push({ mediaId, resolve });
+        })
+    );
+    const created = [];
+    const createAudioElement = vi.fn(() => {
+      const el = createFakeAudioElement();
+      created.push(el);
+      return el;
+    });
+    const controller = createMeditationSessionController({
+      styleId: 'quiet',
+      durationSeconds: 120,
+      initialSoundId: 'IM01',
+      createAudioElement,
+      resolveUrl
+    });
 
-  it('Loving-Kindness snapshot shows its own prompts, distinct from Body Awareness at the same elapsed time', () => {
-    const { controller } = setup({ styleId: 'loving-kindness', durationSeconds: 600, musicEnabled: false });
-    controller.begin();
-    for (let i = 0; i < 400; i += 1) controller.tick();
-    expect(controller.getSnapshot().promptText).toBe('Bring someone you care about gently to mind.');
-  });
+    controller.begin(); // starts IM01's fetch (pending)
+    controller.setSoundId('IM02'); // now current; IM01's fetch still pending
+    controller.setSoundId('IM01'); // back to IM01 again before either fetch resolved
 
-  it('prompt scheduling is deterministic - replaying the same number of ticks always yields the same prompt', () => {
-    const first = setup({ styleId: 'mindful-pause', durationSeconds: 300, musicEnabled: false });
-    const second = setup({ styleId: 'mindful-pause', durationSeconds: 300, musicEnabled: false });
-    first.controller.begin();
-    second.controller.begin();
-    for (let i = 0; i < 210; i += 1) {
-      first.controller.tick();
-      second.controller.tick();
+    // Resolve every pending fetch now, in the order they were requested.
+    for (const { mediaId, resolve } of pendingResolvers) {
+      resolve({ url: `https://signed.example/${mediaId}` });
     }
-    expect(first.controller.getSnapshot().promptText).toBe(second.controller.getSnapshot().promptText);
+    await flushAsync();
+    await flushAsync();
+
+    // At most one element ends up genuinely audible.
+    const unpaused = created.filter((el) => el.paused === false);
+    expect(unpaused.length).toBeLessThanOrEqual(1);
+    expect(controller.getSnapshot().soundId).toBe('IM01');
+  });
+
+  it('several rapid setSoundId calls to the same target are deduped (2nd/3rd are no-ops) and IM01\'s late-resolving fetch aborts cleanly rather than creating a stale element', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.begin(); // fires IM01's fetch
+    controller.setSoundId('IM02'); // switches away before IM01's fetch resolves; fires IM02's fetch
+    controller.setSoundId('IM02'); // same id as current - a no-op, no second IM02 fetch
+    controller.setSoundId('IM02'); // still a no-op
+    await flushAsync();
+
+    expect(resolveUrl).toHaveBeenCalledTimes(2); // exactly IM01 once (begin) + IM02 once (the first real switch)
+    // IM01's fetch resolves after the switch away, so it correctly aborts
+    // before ever touching an element (see meditationAudioController.js's
+    // own isCurrent guard) - only IM02 ends up with a real element.
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot().soundId).toBe('IM02');
+    expect(controller.getSnapshot().audioStarted).toBe(true);
+  });
+
+  it('rapid switching never creates more than one timer tick source - tick() remains a plain, single, idempotent counter', async () => {
+    const { controller } = setup({ durationSeconds: 5, initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    controller.setSoundId('IM02');
+    controller.setSoundId(null);
+    controller.setSoundId('IM01');
+    controller.tick();
+    controller.tick();
+    expect(controller.getSnapshot().elapsedSeconds).toBe(2); // exactly one tick per call, never doubled
   });
 });
 
-describe('createMeditationSessionController — signed-URL/playback failure falls back to silent meditation', () => {
-  it('a rejected resolveUrl leaves the session fully functional: timer still ticks and completes, snapshot flags the audio error', async () => {
+describe('createMeditationSessionController — prompts (unaffected by sound switching)', () => {
+  it('prompt scheduling is deterministic and independent of which sound is selected', () => {
+    const withSound = setup({ styleId: 'mindful-pause', durationSeconds: 300, initialSoundId: 'IM01' });
+    const withoutSound = setup({ styleId: 'mindful-pause', durationSeconds: 300, initialSoundId: null });
+    withSound.controller.begin();
+    withoutSound.controller.begin();
+    for (let i = 0; i < 210; i += 1) {
+      withSound.controller.tick();
+      withoutSound.controller.tick();
+    }
+    expect(withSound.controller.getSnapshot().promptText).toBe(withoutSound.controller.getSnapshot().promptText);
+  });
+});
+
+describe('createMeditationSessionController — track-resolution/playback failure falls back truthfully', () => {
+  it('a rejected resolveUrl leaves the session fully functional and reports audioError on the current (failed) track', async () => {
     const { controller } = setup({
       durationSeconds: 3,
-      musicEnabled: true,
+      initialSoundId: 'IM01',
       resolveImpl: async () => {
         throw new Error('network down');
       }
@@ -271,22 +423,39 @@ describe('createMeditationSessionController — signed-URL/playback failure fall
     controller.begin();
     await flushAsync();
     expect(controller.getSnapshot().audioError).toBe(true);
+    expect(controller.getSnapshot().soundId).toBe('IM01'); // controller doesn't self-revert - the page does (see SelfGuidedMeditation.jsx)
     expect(controller.tick()).toEqual({ completed: false });
     expect(controller.tick()).toEqual({ completed: false });
     expect(controller.tick()).toEqual({ completed: true });
   });
 
-  it('a play() rejection (e.g. a guest/anonymous session) is caught the same way - never throws out of begin()', async () => {
+  it('the page-level fallback (setSoundId(null) after an observed audioError) truthfully reports No Music with no error', async () => {
+    const { controller } = setup({
+      durationSeconds: 60,
+      initialSoundId: 'IM02',
+      resolveImpl: async () => {
+        throw new Error('network down');
+      }
+    });
+    controller.begin();
+    await flushAsync();
+    expect(controller.getSnapshot().audioError).toBe(true);
+    controller.setSoundId(null); // what SelfGuidedMeditation.jsx's own heartbeat does on audioError
+    const snapshot = controller.getSnapshot();
+    expect(snapshot.soundId).toBeNull();
+    expect(snapshot.audioError).toBe(false); // no "current" track left to report an error for
+  });
+
+  it('a play() rejection is caught the same way - never throws out of begin()', async () => {
     const createAudioElement = () => ({
       ...createFakeAudioElement(),
       play: () => Promise.reject(new Error('NotAllowedError'))
     });
-    const resolveUrl = async () => ({ url: 'https://signed.example/im01', expiresAt: Date.now() + 1000 });
+    const resolveUrl = async (id) => ({ url: `https://signed.example/${id}` });
     const controller = createMeditationSessionController({
-      mediaId: 'IM01',
       styleId: 'quiet',
       durationSeconds: 2,
-      musicEnabled: true,
+      initialSoundId: 'IM01',
       createAudioElement,
       resolveUrl
     });
@@ -298,16 +467,41 @@ describe('createMeditationSessionController — signed-URL/playback failure fall
   });
 });
 
-describe('createMeditationSessionController — destroy()', () => {
-  it('destroy() releases the audio element (pause + removeAttribute + load), matching the established IB01/IS01 cleanup shape', async () => {
-    const { controller, elements } = setup({ durationSeconds: 120 });
+describe('createMeditationSessionController — End Session and destroy()', () => {
+  it('end() stops the current track and marks the session completed', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
-    const el = elements[0];
-    const loadSpy = vi.spyOn(el, 'load');
-    controller.destroy();
+    const el = createAudioElement.mock.results[0].value;
+    controller.end();
     expect(el.paused).toBe(true);
-    expect(el.src).toBe('');
-    expect(loadSpy).toHaveBeenCalled();
+    expect(controller.getSnapshot().status).toBe('completed');
+  });
+
+  it('destroy() (unmount/route-change) releases every track ever created this session, including one paused-but-warm from an earlier switch', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    controller.setSoundId('IM02'); // IM01 now paused-but-warm, not destroyed
+    await flushAsync();
+    const im01El = createAudioElement.mock.results[0].value;
+    const im02El = createAudioElement.mock.results[1].value;
+    const im01Load = vi.spyOn(im01El, 'load');
+    const im02Load = vi.spyOn(im02El, 'load');
+
+    controller.destroy();
+
+    expect(im01El.paused).toBe(true);
+    expect(im01El.src).toBe('');
+    expect(im01Load).toHaveBeenCalled();
+    expect(im02El.paused).toBe(true);
+    expect(im02El.src).toBe('');
+    expect(im02Load).toHaveBeenCalled();
+  });
+
+  it('destroy() with No Music selected (nothing ever played) never throws', () => {
+    const { controller } = setup({ initialSoundId: null });
+    controller.begin();
+    expect(() => controller.destroy()).not.toThrow();
   });
 });

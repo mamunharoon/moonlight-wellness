@@ -31,8 +31,8 @@ describe('betaVideoManifest.js — IM01 is registered exactly once, with the ver
 describe('mediaCatalog.js — IM01 is excluded from the browsable Library catalogue, same as IB01/IS01', () => {
   const mediaCatalogSource = read('./mediaCatalog.js');
 
-  it('INTERACTIVE_ONLY_IDS includes IM01 alongside IB01/IS01', () => {
-    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'I01', 'I02'\]\);/);
+  it('INTERACTIVE_ONLY_IDS includes IM01 alongside IB01/IS01/IM02', () => {
+    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02'\]\);/);
   });
 });
 

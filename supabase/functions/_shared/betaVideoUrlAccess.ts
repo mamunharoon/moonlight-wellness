@@ -15,20 +15,19 @@
 // product decision (not a default posture). Every id here is a short
 // (~5 minute), non-narrated, non-personalized instrumental loop with no
 // protected/paid content behind it - IB01/IS01 (breathing/stretching
-// ambient beds) and IM01 (Self-Guided Meditation's shared music bed).
-// This does NOT relax anything else: every guided/narrated video, every
-// Sleep Soundscape, every affirmation track still requires the full
-// sign-in + non-anonymous check exactly as before. The bucket stays
-// private and the id still resolves through the caller's own fixed
-// id→path map either way, signed with the service role either way; the
-// ONLY thing this set changes is whether a caller must present a real
-// user JWT first. IM02 is deliberately NOT included yet - it has not
-// been registered in EXERCISE_PATHS/betaVideoManifest.js at all (separate
-// integration phase). Adding an id here - especially anything narrated,
+// ambient beds) and IM01/IM02 (Self-Guided Meditation's two selectable
+// sound choices, "Gentle Ambient" and "Soft Piano" - see
+// src/lib/meditationSounds.js). This does NOT relax anything else: every
+// guided/narrated video, every Sleep Soundscape, every affirmation track
+// still requires the full sign-in + non-anonymous check exactly as before.
+// The bucket stays private and the id still resolves through the caller's
+// own fixed id→path map either way, signed with the service role either
+// way; the ONLY thing this set changes is whether a caller must present a
+// real user JWT first. Adding an id here - especially anything narrated,
 // personalized, or otherwise not a shared ambient loop - is a deliberate
 // security/product decision requiring the same explicit approval this set
 // itself required, never a default extension by analogy.
-export const GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set(['IB01', 'IS01', 'IM01']);
+export const GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set(['IB01', 'IS01', 'IM01', 'IM02']);
 
 export const isGuestAllowedId = (exerciseId: unknown): boolean =>
   typeof exerciseId === 'string' && GUEST_ALLOWED_IDS.has(exerciseId);

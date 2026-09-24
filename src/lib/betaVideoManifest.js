@@ -353,6 +353,22 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'Neutral instrumental background music for self-guided meditation.'
   },
   {
+    // Second Self-Guided Meditation sound choice ("Soft Piano" - see
+    // meditationSounds.js). Same role/mechanism as IM01 immediately above:
+    // audio-only (.m4a, no video track), guest-allowlisted (see
+    // GUEST_ALLOWED_IDS in supabase/functions/_shared/betaVideoUrlAccess.ts),
+    // never a per-style-exclusive asset - any of the five meditation styles
+    // may select either track or silence. Uploaded and verified directly
+    // against storage.objects (name, mimetype audio/mp4, size ~7.43MB,
+    // ~300.37s duration) before this entry was added. Deliberately excluded
+    // from MEDIA_CATALOG/Library's browsable "Watch" list - see
+    // mediaCatalog.js's own INTERACTIVE_ONLY_IDS.
+    id: 'IM02',
+    title: 'Interactive Meditation Soft Piano',
+    storagePath: 'faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a',
+    description: 'Slow, spacious solo piano for self-guided meditation.'
+  },
+  {
     id: 'F01',
     title: 'Deep Work',
     storagePath: 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4',

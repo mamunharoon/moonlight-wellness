@@ -30,12 +30,12 @@ describe('SelfGuidedMeditationComplete.jsx — Done routes via the allowlisted c
 });
 
 describe('SelfGuidedMeditationComplete.jsx — Meditate Again / Choose Another Meditation preserve style+duration and require a new Begin', () => {
-  it('both navigate back to setup with the finished session\'s styleId/durationId/musicOn in router state', () => {
+  it('both navigate back to setup with the finished session\'s styleId/durationId/soundId in router state', () => {
     const meditateAgainBody = source.match(/const handleMeditateAgain = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     const chooseAnotherBody = source.match(/const handleChooseAnotherMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     for (const body of [meditateAgainBody, chooseAnotherBody]) {
       expect(body).toMatch(/navigate\(`\/self-guided-meditation/);
-      expect(body).toMatch(/styleId: style\.id, durationId: duration\.id, musicOn: session\?\.musicOn/);
+      expect(body).toMatch(/styleId: style\.id, durationId: duration\.id, soundId: session\?\.soundId/);
     }
   });
 

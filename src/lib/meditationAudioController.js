@@ -18,6 +18,19 @@
 // (see vite.config.js), so there is no real Audio/DOM available in tests.
 // Production callers omit both and get the real `new Audio()` +
 // requestBetaVideoUrl.
+//
+// `isCurrent` (Self-Guided Meditation Sound Choices - multi-track support):
+// meditationSessionController.js now keeps one of these controllers per
+// track id (IM01/IM02) alive at once, so a track the user has since
+// switched away from can still have a `start()` in flight when the switch
+// happens. Re-checked immediately after each `await` inside start() - if
+// the caller reports this is no longer the selected track, the resolved
+// signed URL is never applied to an audible, unpaused element: this is
+// exactly the `suspendedRef`-after-async-gap pattern
+// InteractiveAmbientMusic.jsx already established, applied here at the
+// controller level instead of a component ref. Defaults to "always
+// current" so a caller that only ever manages one track (or a test that
+// doesn't care) is unaffected.
 import { requestBetaVideoUrl } from './betaVideoAccess';
 
 const DEFAULT_VOLUME = 0.35;
@@ -25,7 +38,8 @@ const DEFAULT_VOLUME = 0.35;
 export const createMeditationAudioController = ({
   mediaId,
   createAudioElement = () => new Audio(),
-  resolveUrl = requestBetaVideoUrl
+  resolveUrl = requestBetaVideoUrl,
+  isCurrent = () => true
 } = {}) => {
   let audio = null;
   let isBusy = false;
@@ -43,17 +57,26 @@ export const createMeditationAudioController = ({
     lastError = null;
     try {
       const { url } = await resolveUrl(mediaId);
+      // Re-check after the async gap - see this function's own isCurrent
+      // doc comment above. Bail before ever touching the element so a
+      // stale switch can never make a no-longer-selected track audible.
+      if (!isCurrent()) return;
       if (!audio) audio = createAudioElement();
       audio.src = url;
       // Native loop, exactly like IB01/IS01 (InteractiveAmbientMusic.jsx) -
-      // this is how the 10-minute session safely repeats IM01 without any
-      // JS-level 'ended' listener, manual restart, or a second element:
+      // this is how the 10-minute session safely repeats IM01/IM02 without
+      // any JS-level 'ended' listener, manual restart, or a second element:
       // the browser itself re-starts playback at the loop boundary, and
       // the timer (meditationSession.js) never observes or reacts to it.
       audio.loop = true;
       audio.volume = DEFAULT_VOLUME;
       await audio.play();
+      // The element genuinely loaded and started - mark it so a later
+      // switch back to this track can resume() (no re-fetch) rather than
+      // start() again. Still immediately paused below if the user has
+      // since switched to a different track during this same play() call.
       started = true;
+      if (!isCurrent()) audio.pause();
     } catch (error) {
       // Signed-URL failure, network failure, or a play() rejection
       // (e.g. an anonymous/guest session - the Edge Function requires a

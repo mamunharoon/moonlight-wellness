@@ -18,6 +18,7 @@ const REAL_PATHS = {
   IB01: 'faststart-v1/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart.m4a',
   IS01: 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a',
   IM01: 'faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a',
+  IM02: 'faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a',
   E02: 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4'
 };
 
@@ -37,9 +38,15 @@ const baseArgs = (overrides = {}) => ({
 });
 
 describe('GUEST_ALLOWED_IDS — the fixed, explicit set', () => {
-  it('contains exactly IB01, IS01, IM01 - IM02 deliberately excluded', () => {
-    expect([...GUEST_ALLOWED_IDS].sort()).toEqual(['IB01', 'IM01', 'IS01']);
-    expect(isGuestAllowedId('IM02')).toBe(false);
+  it('contains exactly IB01, IS01, IM01, IM02 - both Self-Guided Meditation sound choices, no others', () => {
+    expect([...GUEST_ALLOWED_IDS].sort()).toEqual(['IB01', 'IM01', 'IM02', 'IS01']);
+    expect(isGuestAllowedId('IM01')).toBe(true);
+    expect(isGuestAllowedId('IM02')).toBe(true);
+  });
+
+  it('a genuinely unregistered/non-allowlisted id still remains rejected (never an accidental blanket allow)', () => {
+    expect(isGuestAllowedId('IM99')).toBe(false);
+    expect(isGuestAllowedId('E02')).toBe(false);
   });
 
   it('never matches a non-string or nullish value', () => {
@@ -72,6 +79,14 @@ describe('resolveBetaVideoUrlRequest — guest (no Authorization header) request
     const result = await resolveBetaVideoUrlRequest(baseArgs({ body: { exerciseId: 'IM01' }, verifyUser }));
     expect(result.status).toBe(200);
     expect(result.body.url).toContain(encodeURIComponent(REAL_PATHS.IM01));
+    expect(verifyUser).not.toHaveBeenCalled();
+  });
+
+  it('IM02 succeeds without ever calling verifyUser', async () => {
+    const verifyUser = vi.fn();
+    const result = await resolveBetaVideoUrlRequest(baseArgs({ body: { exerciseId: 'IM02' }, verifyUser }));
+    expect(result.status).toBe(200);
+    expect(result.body.url).toContain(encodeURIComponent(REAL_PATHS.IM02));
     expect(verifyUser).not.toHaveBeenCalled();
   });
 });
