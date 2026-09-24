@@ -64,8 +64,8 @@ describe('SelfGuidedMeditation.jsx — five styles, three durations, correct def
     expect(source).toMatch(/DEFAULT_MEDITATION_DURATION_ID/);
   });
 
-  it('background music defaults On for a signed-in user, and Off for a guest (who cannot use it)', () => {
-    expect(source).toMatch(/useState\(\(\) => \(isGuest \? false : \(preset\?\.musicOn \?\? true\)\)\);/);
+  it('background music defaults On for everyone, guest included - IM01 is server-allowlisted for guest access, so there is no guest-specific default any more', () => {
+    expect(source).toMatch(/useState\(\(\) => preset\?\.musicOn \?\? true\);/);
   });
 });
 

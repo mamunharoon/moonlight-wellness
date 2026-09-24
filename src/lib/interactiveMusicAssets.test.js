@@ -11,6 +11,7 @@ import { MEDIA_CATALOG, getCatalogEntryById } from './mediaCatalog';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const edgeFunctionSource = read('../../supabase/functions/get-beta-video-url/index.ts');
+const guestAccessSource = read('../../supabase/functions/_shared/betaVideoUrlAccess.ts');
 
 describe('S01-MUSIC is fully removed, S01 itself is untouched', () => {
   it('getBetaVideoById("S01-MUSIC") no longer resolves to anything', () => {
@@ -63,8 +64,13 @@ describe('IB01 / IS01 are registered end-to-end for the two real approved v2 ass
     expect(getBetaVideoById('IS01').storagePath).not.toMatch(/_v1\.m4a/);
   });
 
-  it('verify_jwt enforcement (JWT check before any Storage access) is still present in the Edge Function source', () => {
-    expect(edgeFunctionSource).toMatch(/if \(!jwt\) \{\s*\n\s*return json\(\{ error: 'Sign in required' \}, 401\);/);
+  it('verify_jwt enforcement (JWT check before any Storage access) is still present for every non-allowlisted id, in the shared decision module the Edge Function actually calls', () => {
+    expect(guestAccessSource).toMatch(/if \(!jwt\) \{\s*\n\s*return \{ status: 401, body: \{ error: 'Sign in required' \} \};/);
+  });
+
+  it('IB01 and IS01 are explicitly, deliberately exempted from that requirement (guest-allowlisted), never by accident', () => {
+    expect(guestAccessSource).toMatch(/GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set\(\['IB01', 'IS01', 'IM01'\]\);/);
+    expect(edgeFunctionSource).toMatch(/import \{ resolveBetaVideoUrlRequest \} from '\.\.\/_shared\/betaVideoUrlAccess\.ts';/);
   });
 });
 

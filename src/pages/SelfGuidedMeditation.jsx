@@ -1,8 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { setPendingContent } from '../lib/pendingContent';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -93,7 +91,6 @@ export const SelfGuidedMeditation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { isGuest } = useAuth();
 
   const [context] = useState(() => resolveSelfGuidedMeditationContext(searchParams.get('from')));
 
@@ -104,12 +101,14 @@ export const SelfGuidedMeditation = () => {
 
   const [styleId, setStyleId] = useState(() => (getMeditationStyleById(preset?.styleId) ? preset.styleId : DEFAULT_MEDITATION_STYLE_ID));
   const [durationId, setDurationId] = useState(() => (getMeditationDurationById(preset?.durationId) ? preset.durationId : DEFAULT_MEDITATION_DURATION_ID));
-  // Guests can't use background music (the signed-URL Edge Function
-  // requires a signed-in, non-anonymous user) - same convention
-  // QuietBreathing.jsx/MusicPreferenceToggle already establish elsewhere:
-  // the switch defaults Off and prompts sign-in rather than silently
-  // failing later.
-  const [musicOn, setMusicOn] = useState(() => (isGuest ? false : (preset?.musicOn ?? true)));
+  // IM01 is one of the narrow, explicitly server-allowlisted interactive
+  // ambient beds (see GUEST_ALLOWED_IDS in get-beta-video-url/index.ts) -
+  // a guest genuinely gets a signed URL for it, same as a signed-in user,
+  // so there is no guest-specific default here any more. Meditate Again's
+  // preset carries over exactly as it does for style/duration - in-memory
+  // router state for this one bounce, never written to localStorage/an
+  // account, so this is not "persisting a guest preference."
+  const [musicOn, setMusicOn] = useState(() => preset?.musicOn ?? true);
   const [phase, setPhase] = useState('setup');
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [snapshot, setSnapshot] = useState(null);
@@ -150,11 +149,6 @@ export const SelfGuidedMeditation = () => {
   // behind a screen the user is no longer on.
   useEffect(() => () => cleanupSession(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const confirmSignInForMusic = () => {
-    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
-    navigate('/auth');
-  };
-
   const handleBegin = () => {
     if (beganRef.current) return;
     beganRef.current = true;
@@ -163,7 +157,7 @@ export const SelfGuidedMeditation = () => {
       mediaId: MEDITATION_MUSIC_ID,
       styleId: style.id,
       durationSeconds: duration.seconds,
-      musicEnabled: musicOn && !isGuest
+      musicEnabled: musicOn
     });
     controllerRef.current = controller;
     controller.begin();
@@ -174,7 +168,20 @@ export const SelfGuidedMeditation = () => {
       const current = controllerRef.current;
       if (!current) return;
       const { completed } = current.tick();
-      setSnapshot(current.getSnapshot());
+      const latestSnapshot = current.getSnapshot();
+      setSnapshot(latestSnapshot);
+      // Truthful-state guarantee: if the most recent start()/resume()
+      // attempt genuinely failed (a real network/playback error - equally
+      // possible for a guest or a signed-in user now that both take the
+      // same signed-URL path), the switch must never keep showing "On" as
+      // if audio were actually playing. Reconciled here, at the same
+      // per-second heartbeat that already reconciles every other piece of
+      // session state, rather than a separate reactive effect - the
+      // failure is only known asynchronously (after setMusicEnabled's
+      // fire-and-forget start() rejects), so it can never be caught
+      // synchronously inside handleToggleMusic itself. Only ever turns
+      // musicOn OFF; never turns it on by itself.
+      if (latestSnapshot.audioError) setMusicOn(false);
       if (completed) {
         stopInterval();
         const finished = { styleId: style.id, durationId: duration.id, musicOn, from: searchParams.get('from') || null };
@@ -194,16 +201,14 @@ export const SelfGuidedMeditation = () => {
     setSnapshot(controllerRef.current?.getSnapshot());
   };
 
-  // Music On/Off is a session-level control, not a sign-in gate: once a
-  // meditation is active, flipping it must never navigate away (that would
-  // silently abandon the running timer via this file's own unmount cleanup
-  // effect). Unlike the setup screen's toggle, this one always drives the
-  // real controller directly for every user, guest included - the audio
-  // layer (meditationAudioController.js) already resolves a guest's
-  // blocked signed-URL request into a graceful, silent no-op (audioError),
-  // exactly like any other fetch/playback failure. Guests never get a
-  // persisted preference from this - `musicOn` here is plain component
-  // state, gone the moment this screen unmounts.
+  // Music On/Off is a session-level control: flipping it must never
+  // navigate away (that would silently abandon the running timer via this
+  // file's own unmount cleanup effect) for anyone, guest or signed-in -
+  // IM01 is one of the narrow, explicitly server-allowlisted interactive
+  // ambient beds (GUEST_ALLOWED_IDS in get-beta-video-url/index.ts), so a
+  // guest's request genuinely succeeds the same way a signed-in user's
+  // does. `musicOn` here is plain component state either way - never
+  // persisted, gone the moment this screen unmounts.
   const handleToggleMusic = () => {
     setMusicOn((prev) => {
       const next = !prev;
@@ -289,8 +294,8 @@ export const SelfGuidedMeditation = () => {
             </button>
           )}
 
-          {/* No isGuest/onSignIn here on purpose - unlike the setup screen's
-              toggle below, this one must never route a tap to sign-in (see
+          {/* No isGuest/onSignIn here, same as the setup screen's own
+              toggle - this one must never route a tap to sign-in (see
               handleToggleMusic's own doc comment). Omitting isGuest lets it
               default to MusicPreferenceToggle's own `false`, so the switch's
               onClick always resolves to onToggle, for every user. */}
@@ -373,17 +378,13 @@ export const SelfGuidedMeditation = () => {
         </div>
       </div>
 
+      {/* IM01 is server-allowlisted for guests (GUEST_ALLOWED_IDS in
+          get-beta-video-url/index.ts) - no isGuest/onSignIn here, same as
+          the active screen's own toggle below. A guest can choose Music On
+          before Begin exactly like a signed-in user. */}
       <MusicPreferenceToggle
-        isOn={musicOn && !isGuest}
-        onToggle={() => {
-          if (isGuest) {
-            confirmSignInForMusic();
-            return;
-          }
-          setMusicOn((prev) => !prev);
-        }}
-        isGuest={isGuest}
-        onSignIn={confirmSignInForMusic}
+        isOn={musicOn}
+        onToggle={() => setMusicOn((prev) => !prev)}
         description={musicDescription}
       />
 

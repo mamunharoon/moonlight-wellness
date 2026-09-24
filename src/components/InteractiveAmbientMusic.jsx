@@ -1,14 +1,10 @@
-/* eslint-disable no-unused-vars */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { requestBetaVideoUrl } from '../lib/betaVideoAccess';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { setMusicPreference } from '../lib/musicPreference';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
-import { setPendingContent } from '../lib/pendingContent';
-import { SignInPromptDialog } from './SignInPromptDialog';
 
 // Background Music — every interactive timed screen (EveningBreathing.jsx,
 // QuietBreathing.jsx, Breathe.jsx, MorningFlow.jsx). Renamed from
@@ -63,8 +59,6 @@ const DEFAULT_VOLUME = 0.35;
 // element-management logic in two page files. EveningBreathing.jsx/
 // QuietBreathing.jsx (no ref passed) are completely unaffected.
 export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false, hideToggle = false }, ref) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { isGuest } = useAuth();
   const audioRef = useRef(null);
   // Duplicate-playback guard: ignored while a play()/pause() cycle
@@ -92,7 +86,6 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // `false` on mount rather than seeded from getMusicPreference().
   const [musicEnabled, setMusicEnabledState] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   // Stop and fully release the element on unmount — covers every exit
   // path this screen has (Skip, Continue, Back, a route change to the
@@ -113,18 +106,12 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     };
   }, []);
 
-  // Sign-out defensive guard: if this component somehow stayed mounted
-  // through an auth-state transition to guest (e.g. a session expiring
-  // while this screen is open), stop immediately rather than let a guest
-  // continue hearing audio they were never allowed to start. Only ever
-  // calls the native .pause() DOM method here (an effect's proper job,
-  // per react-hooks/set-state-in-effect) — musicEnabled itself is kept in
-  // sync by the <audio> element's own onPause handler below, a real
-  // event-handler callback, never a setState call from inside an effect.
-  useEffect(() => {
-    if (!isGuest) return;
-    audioRef.current?.pause();
-  }, [isGuest]);
+  // No sign-out defensive guard here (removed): a guest is now genuinely
+  // allowed to hear this ambient loop (see GUEST_ALLOWED_IDS in
+  // get-beta-video-url/index.ts and handleToggle below), so an
+  // authenticated user's session ending mid-playback no longer needs to
+  // force-stop anything - the same audio the user was already allowed to
+  // hear as a guest is still allowed to keep playing.
 
   // Stop-before-guided-video: see the `suspended` doc comment above. Same
   // pattern as the guest guard - only ever calls .pause() here; the
@@ -181,16 +168,18 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
 
   const handleToggle = () => {
     if (suspended) return; // a guided video is open on this same page - see the doc comment above
-    if (isGuest) {
-      setShowSignInPrompt(true);
-      return;
-    }
     if (isBusyRef.current) return;
+    // musicPreference.js is a single, device-scoped localStorage key with
+    // no per-account namespace - writing it from a guest tap would leak
+    // into (or get overwritten by) whoever else signs in on this device.
+    // A guest's choice here is therefore local to this mount only (plain
+    // musicEnabled/audio-element state), never persisted; an authenticated
+    // user's choice still persists exactly as before.
     if (musicEnabled) {
-      setMusicPreference(false);
+      if (!isGuest) setMusicPreference(false);
       stop();
     } else {
-      setMusicPreference(true);
+      if (!isGuest) setMusicPreference(true);
       start();
     }
   };
@@ -206,24 +195,14 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
 
   if (!eligible) return null;
 
-  const confirmSignIn = () => {
-    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
-    setShowSignInPrompt(false);
-    navigate('/auth');
-  };
-  const confirmCreateAccount = () => {
-    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
-    setShowSignInPrompt(false);
-    navigate('/auth?tab=signup');
-  };
-
-  // A guest can never genuinely have music playing (see the sign-out/
-  // guest defensive effect above), and neither can a suspended screen
-  // (see the suspend effect above) - computed directly in render as a
-  // second, immediate guard on top of that effect, so the toggle can
-  // never visually show "on" even for one stale render before the
-  // effect runs.
-  const isChecked = musicEnabled && !isGuest && !suspended;
+  // A suspended screen (a guided video open on the same page) can never
+  // show "on" - computed directly in render as a second, immediate guard
+  // on top of the suspend effect above, so the toggle can never visually
+  // show "on" even for one stale render before that effect runs. A guest
+  // is no longer excluded here: IB01/IS01 are both server-approved for
+  // guest playback (GUEST_ALLOWED_IDS in get-beta-video-url/index.ts), so
+  // isChecked reflects the same real musicEnabled state for every user.
+  const isChecked = musicEnabled && !suspended;
 
   return (
     <div className="space-y-1.5">
@@ -282,13 +261,6 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
           Music unavailable right now — continuing without it.
         </p>
       )}
-
-      <SignInPromptDialog
-        open={showSignInPrompt}
-        onSignIn={confirmSignIn}
-        onCreateAccount={confirmCreateAccount}
-        onDismiss={() => setShowSignInPrompt(false)}
-      />
     </div>
   );
 });

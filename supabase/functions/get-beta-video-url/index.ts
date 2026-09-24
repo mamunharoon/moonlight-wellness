@@ -11,6 +11,20 @@
 // bucket with no anon/authenticated read policy — and stays that way;
 // this function is the only path to a usable URL.
 //
+// One narrow, explicit exception to "verify the caller's JWT": IB01/IS01/
+// IM01 (see GUEST_ALLOWED_IDS in ../_shared/betaVideoUrlAccess.ts) may be
+// requested with no JWT at all — an approved product decision to let
+// guests genuinely hear the three interactive ambient-music beds, never
+// anything narrated or protected. The bucket privacy posture, the fixed
+// id→path Map, and the service-role signing step are all unchanged; only
+// the auth requirement for that one small set is relaxed. The actual
+// decision logic (this file's own thin Deno.serve handler just supplies
+// real implementations to it) lives in resolveBetaVideoUrlRequest, a
+// pure, dependency-injected function extracted specifically so it can be
+// genuinely executed by this repo's Vitest suite - see that module's own
+// header comment, and GUEST_ALLOWED_IDS's own comment before adding
+// anything else to it.
+//
 // E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05 and
 // SL01-SL08 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
@@ -47,6 +61,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { resolveBetaVideoUrlRequest } from '../_shared/betaVideoUrlAccess.ts';
 
 // A Map, not a plain object literal - EXERCISE_PATHS.get('__proto__') /
 // .get('constructor') / .get('toString') simply return undefined, where
@@ -162,47 +177,44 @@ Deno.serve(async (req) => {
     return json({ error: 'Method not allowed' }, 405);
   }
 
-  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  if (!jwt) {
-    return json({ error: 'Sign in required' }, 401);
-  }
-
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
-  const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
-  if (userError || !userData?.user) {
-    return json({ error: 'Sign in required' }, 401);
-  }
-  const user = userData.user;
-
-  if (user.is_anonymous) {
-    return json({ error: 'Please sign in to watch this preview.' }, 403);
-  }
-
-  let body: { exerciseId?: string } = {};
+  let body: unknown = {};
   try {
     body = await req.json();
   } catch {
     // no body / invalid JSON -> falls through to the validation below
   }
 
-  const path = typeof body?.exerciseId === 'string' ? EXERCISE_PATHS.get(body.exerciseId) : undefined;
-  if (!path) {
-    return json({ error: 'Unknown video' }, 404);
-  }
+  // All of the auth/allowlist/path-resolution decision-making lives in
+  // resolveBetaVideoUrlRequest (../_shared/betaVideoUrlAccess.ts) - a
+  // pure, dependency-injected function so it can be genuinely exercised
+  // by this repo's Vitest suite, not just source-text matched. This
+  // Deno.serve handler is a thin adapter: it supplies the two real,
+  // privileged implementations (Supabase Auth's getUser, and the
+  // service-role signed-URL call) and the real EXERCISE_PATHS lookup,
+  // then translates the returned `{ status, body }` into a Response.
+  const result = await resolveBetaVideoUrlRequest({
+    authorizationHeader: req.headers.get('Authorization'),
+    body,
+    resolvePath: (id) => EXERCISE_PATHS.get(id),
+    verifyUser: async (jwt) => {
+      const authClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      );
+      const { data, error } = await authClient.auth.getUser(jwt);
+      return { user: data?.user ?? null, error };
+    },
+    signUrl: async (path) => {
+      const supabaseAdmin = createSupabaseAdminClient();
+      const { data, error } = await supabaseAdmin.storage
+        .from('wellness-videos')
+        .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+      if (error) {
+        console.error('get-beta-video-url: failed to sign URL', error.message);
+      }
+      return { signedUrl: data?.signedUrl, error };
+    }
+  });
 
-  const supabaseAdmin = createSupabaseAdminClient();
-
-  const { data: signed, error: signError } = await supabaseAdmin.storage
-    .from('wellness-videos')
-    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-
-  if (signError || !signed?.signedUrl) {
-    console.error('get-beta-video-url: failed to sign URL', signError?.message);
-    return json({ error: "This video isn't available right now." }, 404);
-  }
-
-  return json({ url: signed.signedUrl });
+  return json(result.body, result.status);
 });

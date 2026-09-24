@@ -10,8 +10,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
+// Strips /* ... */ and // ... comments - some of this file's own doc
+// comments legitimately describe react-router navigate() conceptually
+// (e.g. the unmount-cleanup rationale), which must not itself trip a
+// check for actual navigate(/SignInPromptDialog usage in real code.
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const playerSource = read('./InteractiveAmbientMusic.jsx');
+const playerCodeOnly = stripComments(playerSource);
 const eveningBreathingSource = read('../pages/EveningBreathing.jsx');
 const quietBreathingSource = read('../pages/QuietBreathing.jsx');
 const breatheSource = read('../pages/Breathe.jsx');
@@ -120,12 +126,13 @@ describe('Stop and release the element on every exit path', () => {
     expect(playerSource).toMatch(/audio\.pause\(\);\s*\n\s*audio\.removeAttribute\('src'\);\s*\n\s*audio\.load\(\);/);
   });
 
-  it('a guest transition (defensive sign-out guard) only ever calls the native .pause() DOM method inside its effect - never setState in an effect', () => {
-    expect(playerSource).toMatch(/useEffect\(\(\) => \{\s*\n\s*if \(!isGuest\) return;\s*\n\s*audioRef\.current\?\.pause\(\);\s*\n\s*\}, \[isGuest\]\);/);
+  it('has no guest defensive sign-out guard any more - a guest is genuinely allowed to keep this playing (IB01/IS01 are server-allowlisted in GUEST_ALLOWED_IDS)', () => {
+    expect(playerSource).not.toMatch(/if \(!isGuest\) return;/);
+    expect(playerSource).not.toMatch(/\[isGuest\]/);
   });
 
-  it('the visible toggle state can never show "on" for a guest or a suspended screen, even for one stale render', () => {
-    expect(playerSource).toMatch(/const isChecked = musicEnabled && !isGuest && !suspended;/);
+  it('the visible toggle state can never show "on" for a suspended screen, even for one stale render - guest is no longer part of this guard', () => {
+    expect(playerSource).toMatch(/const isChecked = musicEnabled && !suspended;/);
   });
 });
 
@@ -154,13 +161,40 @@ describe('`suspended` prop - stop before an optional guided video opens (Breathe
   });
 });
 
-describe('Guest restrictions match the agreed onboarding policy - intercept at the point of use, never silently allow', () => {
-  it('a guest tap opens the same shared SignInPromptDialog used everywhere else, instead of starting playback', () => {
-    expect(playerSource).toMatch(/const handleToggle = \(\) => \{[\s\S]*?if \(isGuest\) \{\s*\n\s*setShowSignInPrompt\(true\);\s*\n\s*return;\s*\n\s*\}/);
+describe('Guests genuinely control playback - no authentication UI intercepts this toggle', () => {
+  // IB01/IS01 (the only two ids this component is ever given - see the
+  // "Shared by every structurally-similar interactive timed screen"
+  // describe block below) are both explicitly server-allowlisted for
+  // guest access (GUEST_ALLOWED_IDS in
+  // supabase/functions/_shared/betaVideoUrlAccess.ts, proven to genuinely
+  // succeed for a guest by src/lib/betaVideoUrlGuestAccess.test.js) -
+  // this component must never intercept a guest's tap with a sign-in
+  // prompt of any kind.
+  it('handleToggle has no sign-in-interception branch - it never shows a prompt instead of reaching stop()/start()', () => {
+    const body = playerSource.match(/const handleToggle = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).not.toMatch(/if \(isGuest\)/);
+    expect(body).not.toMatch(/SignInPrompt/);
+    expect(body).toMatch(/start\(\);/);
+    expect(body).toMatch(/stop\(\);/);
   });
 
-  it('stashes a same-page pending redirect before navigating to /auth, consistent with every other restricted action', () => {
-    expect(playerSource).toMatch(/setPendingContent\(\{ returnPath: `\$\{location\.pathname\}\$\{location\.search\}` \}\);/);
+  it('no SignInPromptDialog, no pending-content stash, no /auth navigation exists in this file\'s real code any more (only removal-rationale comments may mention navigate() conceptually)', () => {
+    expect(playerCodeOnly).not.toMatch(/SignInPromptDialog/);
+    expect(playerCodeOnly).not.toMatch(/setPendingContent/);
+    expect(playerCodeOnly).not.toMatch(/navigate\(/);
+    expect(playerCodeOnly).not.toMatch(/\/auth/);
+  });
+
+  it('a guest\'s choice is never persisted to the shared, device-scoped musicPreference.js key (would leak into/be overwritten by whoever else signs in on this device) - only a signed-in user\'s choice is', () => {
+    const body = playerSource.match(/const handleToggle = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(!isGuest\) setMusicPreference\(false\);/);
+    expect(body).toMatch(/if \(!isGuest\) setMusicPreference\(true\);/);
+  });
+
+  it('isGuest is still read from useAuth (needed for the persistence guard above), but useNavigate/useLocation are gone - nothing in this file navigates any more', () => {
+    expect(playerSource).toMatch(/const \{ isGuest \} = useAuth\(\);/);
+    expect(playerSource).not.toMatch(/useNavigate|useLocation/);
   });
 });
 
