@@ -1,5 +1,11 @@
 import { getSessionById } from '../session/sessionRegistry';
 import { getStepLabel } from '../lib/stepLabels';
+import {
+  MORNING_DISPLAY_STEP_NUMBERS,
+  MORNING_DISPLAY_STEP_COUNT,
+  EVENING_DISPLAY_STEP_NUMBERS,
+  EVENING_DISPLAY_STEP_COUNT
+} from '../session/sessionConstants';
 
 /*
  * Stage 3C — ProgressIndicator, Session Registry migration (Ticket Group 3B1)
@@ -177,6 +183,24 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
   const isEvening = sessionId === EVENING_SESSION_ID;
   const isMorning = sessionId === MORNING_SESSION_ID;
 
+  // Compact "Step X of Y" fix (found in live DEV deployed verification) —
+  // must read Morning/Evening's own DISPLAY_STEP_NUMBERS/DISPLAY_STEP_COUNT
+  // (sessionConstants.js), never derive the count from `steps.length`
+  // (the raw visible-dot array). The two disagree for Morning specifically:
+  // Morning's dot array includes the terminal 'complete' step (6 entries)
+  // but MORNING_DISPLAY_STEP_COUNT deliberately excludes it (5, matching
+  // every other Morning "Step X of Y" surface) — using steps.length there
+  // produced a live "Step 5 of 6" for Affirmation instead of the required
+  // "Step 5 of 5". Evening's dot array happens to equal
+  // EVENING_DISPLAY_STEP_COUNT already (both count the terminal step), so
+  // this was never visibly wrong there, but reads from the same shared
+  // source now for the same reason instead of by coincidence. Falls back to
+  // the old activeIndex/steps.length math only for an activeStep with no
+  // entry in the map (today, only the terminal step itself - no caller
+  // passes it here) so this can never crash or blank the label.
+  const displayStepNumbers = isEvening ? EVENING_DISPLAY_STEP_NUMBERS : MORNING_DISPLAY_STEP_NUMBERS;
+  const displayStepCount = isEvening ? EVENING_DISPLAY_STEP_COUNT : MORNING_DISPLAY_STEP_COUNT;
+
   // Build 15 Phase A — restyle only: base label bumped 10px→11px and the
   // active-step emphasis strengthened (scale-105→scale-110) per the
   // approved "stronger typography hierarchy" direction. The evening
@@ -248,7 +272,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
         </span>
         <span aria-hidden="true" className="text-on-surface-variant/40">·</span>
         <span className="text-on-surface-variant/70 normal-case tracking-normal font-medium">
-          Step {activeIndex + 1} of {steps.length}
+          Step {displayStepNumbers[activeStep] ?? activeIndex + 1} of {displayStepCount ?? steps.length}
         </span>
         <span className="sr-only">
           {steps.map((step, idx) => `${step.label}${idx < activeIndex ? ' (completed)' : idx === activeIndex ? ' (current)' : ''}`).join(', ')}
