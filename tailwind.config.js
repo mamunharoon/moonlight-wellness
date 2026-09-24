@@ -21,6 +21,15 @@ export default {
         "tertiary-container": "var(--color-tertiary-container)",
         "on-tertiary-container": "var(--color-on-tertiary-container)",
 
+        // Anytime Reset Visual Uplift — the RGB-triplet form of
+        // --color-tertiary (see src/index.css's matching comment), needed
+        // wherever an opacity-modified mint utility (bg-tertiary-tint/20,
+        // etc.) is actually required. Narrowly additive: --color-primary
+        // itself and every existing `tertiary`/`tertiary-container` usage
+        // above are completely untouched by this addition - this is a
+        // second, new Tailwind key, never a redefinition.
+        "tertiary-tint": "rgb(var(--color-tertiary-tint) / <alpha-value>)",
+
         // Phase 3 UX correction — Gratitude's selected-answer accent
         // (see src/index.css's matching comment). Reflection reuses the
         // existing primary/on-primary pair above, so no new token is
@@ -144,6 +153,11 @@ export default {
         // Applied only to Evening's own card shells/icon rings/CTAs
         // approved in the Phase 2 brief — never a default/ambient shadow.
         "evening-glow": "0 0 40px -8px rgba(159, 180, 240, 0.35)",
+        // Anytime Reset Visual Uplift — same restrained, low-opacity shape
+        // as morning-glow/evening-glow above, built from the existing
+        // tertiary mint (#7fe4d0) rather than a new colour. Applied only
+        // to Anytime's own card shells/CTAs approved in the Phase 2 brief.
+        "mint-glow": "0 0 40px -8px rgba(127, 228, 208, 0.35)",
       }
     },
   },

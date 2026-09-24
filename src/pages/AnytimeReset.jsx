@@ -260,8 +260,8 @@ export const AnytimeReset = () => {
       {step === 'need' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">bolt</span>
-            <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take an Anytime Reset</h1>
+            <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt</span>
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">Take an Anytime Reset</h1>
             <p className="text-sm text-on-surface-variant">Choose what you need and how much time you have.</p>
           </div>
           <div className="space-y-1">
@@ -275,6 +275,7 @@ export const AnytimeReset = () => {
                 icon={NEED_ICONS[need.id]}
                 selected={needId === need.id}
                 onClick={() => handleSelectNeed(need.id)}
+                accent="anytime"
               />
             ))}
           </div>
@@ -284,7 +285,7 @@ export const AnytimeReset = () => {
       {step === 'duration' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">How much time do you have?</h1>
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">How much time do you have?</h1>
             <p className="text-sm text-on-surface-variant">{ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label}</p>
           </div>
           <div className="space-y-3" role="group" aria-label="How much time do you have?">
@@ -294,6 +295,7 @@ export const AnytimeReset = () => {
                 label={duration.label}
                 selected={durationId === duration.id}
                 onClick={() => handleSelectDuration(duration.id)}
+                accent="anytime"
               />
             ))}
           </div>
@@ -303,7 +305,7 @@ export const AnytimeReset = () => {
       {step === 'recommend' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Recommended for you</h1>
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">Recommended for you</h1>
             <p className="text-sm text-on-surface-variant">
               {ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label} · {ANYTIME_RESET_DURATIONS.find((d) => d.id === durationId)?.label}
             </p>
@@ -323,6 +325,7 @@ export const AnytimeReset = () => {
               onChooseAnother={handleChooseAnother}
               showChooseAnother={items.length > 1}
               chooseAnotherLabel="Choose another"
+              accent="anytime"
             />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">

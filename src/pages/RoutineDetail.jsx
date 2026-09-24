@@ -119,8 +119,13 @@ export const RoutineDetail = () => {
   // section is Evening. routine.accentColor for 'wind-down' already
   // resolves to var(--color-evening-accent), so reusing the exact same
   // style prop naturally recolours the category label periwinkle - no
-  // new colour, no change to Gentle Reset's (Anytime) own untouched peach.
+  // new colour (Gentle Reset later gains its own isAnytime branch below,
+  // Phase 2).
   const isEvening = routine?.section === 'Evening';
+  // Anytime Reset Visual Uplift (Phase 2, approved) — same additive,
+  // optional-chained mechanism as isMorning/isEvening above, scoped to
+  // Gentle Reset (the one 'Daytime'-section routine) only.
+  const isAnytime = routine?.section === 'Daytime';
 
   if (!routine || !detail) {
     return (
@@ -188,7 +193,7 @@ export const RoutineDetail = () => {
         <div className="min-w-0">
           <span
             className="text-[10px] text-primary uppercase font-bold tracking-wider"
-            style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
+            style={(isMorning || isEvening || isAnytime) ? { color: routine.accentColor } : undefined}
           >
             {routine.category}
           </span>
@@ -215,6 +220,8 @@ export const RoutineDetail = () => {
                     ? 'bg-morning-accent/10 border border-morning-accent/25 text-morning-accent'
                     : isEvening
                     ? 'bg-evening-accent/10 border border-evening-accent/25 text-evening-accent'
+                    : isAnytime
+                    ? 'bg-tertiary-tint/15 border border-tertiary-tint/30 text-tertiary'
                     : 'bg-primary/10 border border-primary/20 text-primary'
                 }`}
               >
@@ -232,7 +239,7 @@ export const RoutineDetail = () => {
       <Link
         to={detail.requiresAuth ? '#' : detail.startRoute}
         onClick={handleStart}
-        className={`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg ${isMorning ? 'shadow-morning-glow' : isEvening ? 'shadow-evening-glow' : ''}`}
+        className={`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg ${isMorning ? 'shadow-morning-glow' : isEvening ? 'shadow-evening-glow' : isAnytime ? 'shadow-mint-glow' : ''}`}
       >
         <span>{detail.startLabel}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>

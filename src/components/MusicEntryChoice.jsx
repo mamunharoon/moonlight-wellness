@@ -33,9 +33,35 @@
  * either way; this choice is never persisted to musicPreference.js for
  * any user, guest or authenticated - it only ever sets this screen's own
  * local musicChoiceMade state (see QuietBreathing.jsx's own handlers).
+ *
+ * Anytime Reset Visual Uplift (Phase 2 follow-up) — `accent` (additive,
+ * default 'primary': every existing caller - Breathe.jsx, MorningFlow.jsx,
+ * EveningBreathing.jsx, and QuietBreathing.jsx's own standalone branch -
+ * omits it and keeps the exact original peach "Start with Music" button
+ * and plain border, byte-for-byte unchanged). 'anytime' is only ever
+ * passed by QuietBreathing.jsx's own non-standalone branch (the real
+ * shared Gentle Reset/Support "calming breath" experience): the card
+ * border and the affirmative "Start with Music" button become mint,
+ * mirroring MusicPreferenceToggle's own convention of only recolouring
+ * the ON/affirmative state - "Continue Without Music" (the neutral
+ * choice) is intentionally left exactly as it always renders, for every
+ * accent, matching that same OFF-track-stays-neutral precedent. The card
+ * border uses an inline style, not a Tailwind border-* class: .glass-
+ * panel's own border shorthand is defined after Tailwind's utilities in
+ * the compiled stylesheet, so a same-specificity utility class silently
+ * loses to it (see RecommendationCard.jsx's own identical fix/comment).
  */
-export const MusicEntryChoice = ({ onStartWithMusic, onContinueWithoutMusic }) => (
-  <div className="glass-panel rounded-2xl p-4 text-center space-y-2 border border-white/10">
+const CARD_ACCENT_STYLE = {
+  primary: undefined,
+  anytime: { borderColor: 'rgba(127, 228, 208, 0.35)' }
+};
+const START_BUTTON_CLASS = {
+  primary: 'flex-1 bg-primary text-on-primary py-3 rounded-full font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-lg',
+  anytime: 'flex-1 bg-tertiary text-on-tertiary py-3 rounded-full font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-lg'
+};
+
+export const MusicEntryChoice = ({ onStartWithMusic, onContinueWithoutMusic, accent = 'primary' }) => (
+  <div className="glass-panel rounded-2xl p-4 text-center space-y-2 border border-white/10" style={CARD_ACCENT_STYLE[accent]}>
     <p className="text-sm font-bold text-on-surface">Add calming background music?</p>
     <p className="text-[11px] text-on-surface-variant">
       You can switch it off at any time.
@@ -51,7 +77,7 @@ export const MusicEntryChoice = ({ onStartWithMusic, onContinueWithoutMusic }) =
       <button
         type="button"
         onClick={onStartWithMusic}
-        className="flex-1 bg-primary text-on-primary py-3 rounded-full font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        className={START_BUTTON_CLASS[accent] ?? START_BUTTON_CLASS.primary}
       >
         Start with Music
       </button>

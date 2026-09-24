@@ -397,10 +397,17 @@ export const QuietBreathing = ({ standalone = false }) => {
         <MusicEntryChoice
           onStartWithMusic={handleStartWithMusic}
           onContinueWithoutMusic={handleContinueWithoutMusic}
+          accent="anytime"
         />
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+        {/* Anytime Reset Visual Uplift (Phase 2 follow-up) — a small,
+            decorative mint accent for this shared Gentle Reset/Support
+            experience (approved: Support's identical "calming breath"
+            entry may share this presentation). No new copy - BreathingRing
+            below stays completely untouched/peach, per the approved brief. */}
+        <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">air</span>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           Just breathe. There is nowhere else to be.
         </p>

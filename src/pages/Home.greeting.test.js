@@ -86,9 +86,9 @@ describe('Home.jsx Morning/Anytime/Evening selector styling (Build 15 "Today\'s 
     expect(homeSource).not.toMatch(/aria-pressed=\{/);
   });
 
-  it('gives the active card a solid, bordered accent fill - each of the three keeping its own distinct, approved colour identity (Morning sunrise gold, Anytime WakeWise peach, Evening soft blue)', () => {
+  it('gives the active card a solid, bordered accent fill - each of the three keeping its own distinct, approved colour identity (Morning sunrise gold, Anytime mint, Evening soft blue - Anytime Reset Visual Uplift Phase 2, decision A)', () => {
     expect(homeSource).toMatch(/'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'/);
-    expect(homeSource).toMatch(/'bg-primary text-on-primary border-primary shadow-sm'/);
+    expect(homeSource).toMatch(/'bg-tertiary text-on-tertiary border-tertiary shadow-sm'/);
     expect(homeSource).toMatch(/'bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm'/);
   });
 

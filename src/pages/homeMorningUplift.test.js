@@ -43,11 +43,15 @@ describe('Home.jsx — Evening\'s three nextStepCardBody call sites never pass i
 });
 
 describe('Home.jsx — Anytime\'s card never picked up Morning gold/Playfair either', () => {
-  it('the Anytime block (a single, always-peach "available anytime" card, no start/pause/complete state) is untouched', () => {
+  it('the Anytime block (a single "available anytime" card, no start/pause/complete state) never picks up Morning\'s own gold/Playfair/glow treatment - it now carries its own mint identity instead (Anytime Reset Visual Uplift, Phase 2, decision B)', () => {
     const anytimeBlock = source.match(/\{activePeriod === 'anytime' && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
     expect(anytimeBlock.length).toBeGreaterThan(0);
-    expect(anytimeBlock).toMatch(/border-primary\/20 shadow-sm/);
-    expect(anytimeBlock).not.toMatch(/morning-accent|morning-display|shadow-morning-glow/);
+    expect(anytimeBlock).toMatch(/border-tertiary-tint\/40 shadow-mint-glow/);
+    // Comments (which legitimately name morning-accent/morning-tint in
+    // prose explaining what this card no longer reuses) are stripped
+    // first - only the real applied classNames/styles are checked.
+    const codeOnly = anytimeBlock.replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/morning-accent|morning-display|shadow-morning-glow|--color-morning-tint/);
   });
 });
 

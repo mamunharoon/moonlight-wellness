@@ -192,8 +192,8 @@ describe('9. Guided catalogue media remains fully protected - this correction to
     expect(codeOnly).not.toMatch(/confirmSignInForMusic/);
   });
 
-  it('QuietBreathing.jsx non-standalone (Support): MusicEntryChoice is now fixed too (Build 18 part 2) - see musicEntryChoice.test.js for full dedicated coverage', () => {
+  it('QuietBreathing.jsx non-standalone (Support/Gentle Reset): MusicEntryChoice is now fixed too (Build 18 part 2) - see musicEntryChoice.test.js for full dedicated coverage, including its Anytime Reset Visual Uplift accent="anytime" prop added in Phase 2', () => {
     const nonStandaloneReturn = quietBreathingSource.slice(quietBreathingSource.lastIndexOf('return (\n    <EveningSceneShell'));
-    expect(nonStandaloneReturn).toMatch(/<MusicEntryChoice\s*\n\s*onStartWithMusic=\{handleStartWithMusic\}\s*\n\s*onContinueWithoutMusic=\{handleContinueWithoutMusic\}\s*\n\s*\/>/);
+    expect(nonStandaloneReturn).toMatch(/<MusicEntryChoice\s*\n\s*onStartWithMusic=\{handleStartWithMusic\}\s*\n\s*onContinueWithoutMusic=\{handleContinueWithoutMusic\}\s*\n\s*accent="anytime"\s*\n\s*\/>/);
   });
 });

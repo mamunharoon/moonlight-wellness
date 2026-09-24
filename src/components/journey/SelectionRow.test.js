@@ -30,7 +30,19 @@ describe('SelectionRow.jsx — selected state through shape as well as colour', 
     expect(source).toMatch(/\{selected \? 'check_circle' : 'chevron_right'\}/);
   });
 
-  it('selected border/background also changes', () => {
-    expect(source).toMatch(/selected \? 'border-primary bg-primary-container\/20' : 'border-white\/10 hover:bg-white\/5'/);
+  it('selected border/background also changes (default primary accent)', () => {
+    expect(source).toMatch(/primary: \{ selected: 'border-primary bg-primary-container\/20', text: 'text-primary' \}/);
+    expect(source).toMatch(/selected \? tokens\.selected : 'border-white\/10 hover:bg-white\/5'/);
+  });
+});
+
+describe('SelectionRow.jsx — Anytime Reset Visual Uplift: accent is additive, default keeps Meditate.jsx byte-for-byte unchanged', () => {
+  it('accent defaults to primary - Meditate.jsx (never passes accent) resolves the exact original peach tokens', () => {
+    expect(source).toMatch(/accent = 'primary'/);
+    expect(source).toMatch(/const tokens = ROW_ACCENT\[accent\] \?\? ROW_ACCENT\.primary;/);
+  });
+
+  it('the anytime accent swaps selected border/background/text to real mint tokens, only reached when a caller explicitly passes accent="anytime"', () => {
+    expect(source).toMatch(/anytime: \{ selected: 'border-tertiary bg-tertiary-tint\/20', text: 'text-tertiary' \}/);
   });
 });

@@ -722,14 +722,19 @@ export const Home = () => {
               {isMorningDone ? '✓ Morning' : 'Morning'}
             </span>
           </button>
+          {/* Anytime Reset Visual Uplift (Phase 2, approved decision A) —
+              completes the three-part Today's Rhythm identity: Morning
+              gold, Anytime mint (tertiary/on-tertiary), Evening
+              periwinkle. Morning's and Evening's own tabs above/below are
+              completely untouched by this change. */}
           <button
             type="button"
             role="tab"
             onClick={() => setSelectedPeriod('anytime')}
             aria-selected={activePeriod === 'anytime'}
-            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary ${
               activePeriod === 'anytime'
-                ? 'bg-primary text-on-primary border-primary shadow-sm'
+                ? 'bg-tertiary text-on-tertiary border-tertiary shadow-sm'
                 : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
             }`}
           >
@@ -1141,12 +1146,24 @@ export const Home = () => {
           flow the quick-action tile always has. No streak, duration, or
           completion-count copy is invented for it. */}
       {activePeriod === 'anytime' && (
+        // Anytime Reset Visual Uplift (Phase 2, approved decision B) —
+        // restrained mint border + shadow-mint-glow, mint informational
+        // badge, and its own tertiary-tint background (replacing a
+        // pre-existing oddity where this card reused Morning's own
+        // morning-tint token) - the peach "Start Anytime Reset" CTA below
+        // is completely unchanged. Morning's/Evening's own detail cards
+        // above/below are untouched. Uses tertiary-tint (the alpha-safe
+        // RGB-triplet token, see index.css/tailwind.config.js) rather than
+        // an opacity-modified `tertiary/NN` class - `tertiary` is a plain
+        // hex string like `primary`/`morning-accent`/`evening-accent` and
+        // cannot support a /<n> modifier (the same class of defect this
+        // phase's AnytimeResetProgress.jsx fix addresses).
         <div
-          className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
-          style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.05)' }}
+          className="glass-panel p-6 rounded-3xl text-center space-y-6 border-tertiary-tint/40 shadow-mint-glow"
+          style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
         >
           <div className="space-y-2">
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-tint/15 border border-tertiary-tint/30 text-tertiary text-[10px] font-bold uppercase tracking-wider">
               Available anytime
             </span>
             <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">

@@ -50,3 +50,28 @@ describe('RecommendationCard.jsx — Start button: page owns label, busy and dis
     expect(source).toMatch(/onClick=\{onChooseAnother\}/);
   });
 });
+
+describe('RecommendationCard.jsx — Anytime Reset Visual Uplift: accent is additive, default keeps Meditate byte-for-byte unchanged', () => {
+  it('accent defaults to primary, whose style is undefined - Meditate.jsx (which never passes accent) gets no inline style at all, exactly as before this phase', () => {
+    expect(source).toMatch(/accent = 'primary'/);
+    expect(source).toMatch(/primary: undefined,/);
+  });
+
+  it('the base className (glass-panel rounded-3xl p-5 space-y-3 border-white/10) is unconditional, not accent-gated', () => {
+    expect(source).toMatch(/className=\{`glass-panel rounded-3xl p-5 space-y-3 border-white\/10 \$\{CARD_ACCENT_CLASS\[accent\] \?\? ''\}`\}/);
+  });
+
+  it('the anytime accent supplies a real mint borderColor via inline style (glass-panel\'s own border shorthand would otherwise silently override a Tailwind border-* class)', () => {
+    expect(source).toMatch(/anytime: \{ borderColor: 'rgba\(127, 228, 208, 0\.35\)' \}/);
+  });
+
+  it('the anytime accent adds shadow-mint-glow, primary adds no extra class', () => {
+    expect(source).toMatch(/primary: '',\s*\n\s*anytime: 'shadow-mint-glow'/);
+  });
+
+  it('the Start button className has no accent branching at all - it is always bg-primary, regardless of the card accent', () => {
+    const buttonBlock = source.match(/onClick=\{onStart\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(buttonBlock).toMatch(/bg-primary text-on-primary/);
+    expect(buttonBlock).not.toMatch(/accent/);
+  });
+});

@@ -69,8 +69,17 @@ export const Routines = () => {
                 // var(--color-evening-accent) (routinesCatalog.js), so
                 // reusing the exact same style prop naturally recolours
                 // the category label/link periwinkle - no new colour, no
-                // change to Morning's or Anytime's own untouched peach.
+                // change to Morning's own untouched gold (Anytime later
+                // gains its own isAnytime branch below, Phase 2).
                 const isEvening = routine.section === 'Evening';
+                // Anytime Reset Visual Uplift (Phase 2, approved) — Gentle
+                // Reset is the one 'Daytime'-section routine; scoped the
+                // exact same additive way isMorning/isEvening already are.
+                // Its title keeps the plain established sans-serif (no
+                // font branch needed here - the fallback '' already
+                // applies), so only the category label/link colour join
+                // the existing isMorning||isEvening condition below.
+                const isAnytime = routine.section === 'Daytime';
                 return (
                   <Link
                     key={routine.id}
@@ -86,7 +95,7 @@ export const Routines = () => {
                       <div className="min-w-0">
                         <span
                           className="text-[10px] text-primary uppercase font-bold tracking-wider"
-                          style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
+                          style={(isMorning || isEvening || isAnytime) ? { color: routine.accentColor } : undefined}
                         >
                           {routine.category}
                         </span>
@@ -110,7 +119,7 @@ export const Routines = () => {
                       </span>
                       <span
                         className="inline-flex items-center gap-1 text-xs font-bold text-primary"
-                        style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
+                        style={(isMorning || isEvening || isAnytime) ? { color: routine.accentColor } : undefined}
                       >
                         View routine
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>

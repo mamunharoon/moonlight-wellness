@@ -22,7 +22,35 @@
  * each page's own copy for that ("No reset matches…" vs "No session
  * matches…") stays owned by that page, rendered instead of this
  * component entirely.
+ *
+ * Anytime Reset Visual Uplift (Phase 2, approved decision E) — `accent`
+ * (additive, default 'primary': the existing Meditate.jsx caller omits it
+ * and keeps the exact original glass-panel border, byte-for-byte
+ * unchanged - see the borderColor style below for why). 'anytime' is only
+ * ever passed by AnytimeReset.jsx's own Step 3 recommendation card,
+ * adding a restrained mint border/glow. The Start button stays
+ * unconditionally peach (bg-primary) regardless of accent, per the
+ * approved brief ("peach Start CTA") - it is never part of the accent map
+ * below.
+ *
+ * The mint border is applied via inline style, not a Tailwind border-*
+ * class: .glass-panel's own `border: 1px solid rgba(255,255,255,0.12)`
+ * shorthand is defined after Tailwind's utilities in the compiled
+ * stylesheet, so a same-specificity utility class silently loses to it
+ * (the exact same reason Routines.jsx's own left-border accent already
+ * uses an inline style - see that file's doc comment). An inline style
+ * always wins regardless of stylesheet order, so this is the only
+ * mechanism that actually renders a visible colour change here.
  */
+const CARD_ACCENT_STYLE = {
+  primary: undefined,
+  anytime: { borderColor: 'rgba(127, 228, 208, 0.35)' }
+};
+const CARD_ACCENT_CLASS = {
+  primary: '',
+  anytime: 'shadow-mint-glow'
+};
+
 export const RecommendationCard = ({
   title,
   durationLabel,
@@ -35,9 +63,13 @@ export const RecommendationCard = ({
   startBusy = false,
   onChooseAnother,
   showChooseAnother,
-  chooseAnotherLabel
+  chooseAnotherLabel,
+  accent = 'primary'
 }) => (
-  <div className="glass-panel rounded-3xl p-5 space-y-3 border-white/10">
+  <div
+    className={`glass-panel rounded-3xl p-5 space-y-3 border-white/10 ${CARD_ACCENT_CLASS[accent] ?? ''}`}
+    style={CARD_ACCENT_STYLE[accent]}
+  >
     <div className="flex items-start justify-between gap-3">
       <h2 className="text-base font-bold text-on-surface">{title}</h2>
       <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0 bg-white/5 px-2 py-1 rounded-full">

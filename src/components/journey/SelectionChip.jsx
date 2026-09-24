@@ -26,39 +26,68 @@
  *     bigger-type card with no icon column, for a screen (intention
  *     presets) that has no icon per choice and wants a bigger tap
  *     target than the 4-icon grids' own compact tiles.
+ *
+ * Anytime Reset Visual Uplift (Phase 2) — `accent` (additive, default
+ * 'primary': every existing caller - Meditate.jsx, ChangeIntention.jsx -
+ * omits it and keeps the exact original peach selected state, byte-for-
+ * byte unchanged). 'anytime' is a new value, only ever passed by
+ * AnytimeReset.jsx's own need-selection chips: it swaps the selected
+ * fill/border/check/icon/label colours to the same mint tokens
+ * (tertiary/tertiary-tint) the rest of this phase's uplift uses, never a
+ * new colour. The unselected state and every non-colour channel (border
+ * shape, check_circle glyph, font-weight) are unaffected by accent.
  */
-export const SelectionChip = ({ label, icon, selected, onClick, roleLabel, large = false }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={selected}
-    className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] ${
-      large ? 'p-5 min-h-[72px]' : 'p-4 min-h-[44px]'
-    } ${
-      selected
-        ? 'bg-primary-container/25 border-primary shadow-md shadow-primary/10'
-        : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
-    }`}
-  >
-    {roleLabel && (
-      <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-primary text-on-primary text-[9px] font-bold uppercase tracking-wider shadow-sm">
-        {roleLabel}
-      </span>
-    )}
-    {selected && (
-      <span
-        className="absolute top-1.5 right-1.5 material-symbols-outlined text-primary text-[16px]"
-        aria-hidden="true"
-        style={{ fontVariationSettings: "'FILL' 1" }}
-      >
-        check_circle
-      </span>
-    )}
-    {icon && (
-      <span className={`material-symbols-outlined text-xl ${selected ? 'text-primary' : 'text-on-surface-variant'}`} aria-hidden="true">
-        {icon}
-      </span>
-    )}
-    <span className={`${large ? 'text-sm' : 'text-xs'} ${selected ? 'text-primary font-bold' : 'text-on-surface font-semibold'}`}>{label}</span>
-  </button>
-);
+const CHIP_ACCENT = {
+  primary: {
+    selected: 'bg-primary-container/25 border-primary shadow-md shadow-primary/10',
+    badge: 'bg-primary text-on-primary',
+    check: 'text-primary',
+    icon: 'text-primary',
+    label: 'text-primary font-bold'
+  },
+  anytime: {
+    selected: 'bg-tertiary-tint/20 border-tertiary shadow-md shadow-tertiary-tint/20',
+    badge: 'bg-tertiary text-on-tertiary',
+    check: 'text-tertiary',
+    icon: 'text-tertiary',
+    label: 'text-tertiary font-bold'
+  }
+};
+
+export const SelectionChip = ({ label, icon, selected, onClick, roleLabel, large = false, accent = 'primary' }) => {
+  const tokens = CHIP_ACCENT[accent] ?? CHIP_ACCENT.primary;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] ${
+        large ? 'p-5 min-h-[72px]' : 'p-4 min-h-[44px]'
+      } ${
+        selected ? tokens.selected : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
+      }`}
+    >
+      {roleLabel && (
+        <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full ${tokens.badge} text-[9px] font-bold uppercase tracking-wider shadow-sm`}>
+          {roleLabel}
+        </span>
+      )}
+      {selected && (
+        <span
+          className={`absolute top-1.5 right-1.5 material-symbols-outlined ${tokens.check} text-[16px]`}
+          aria-hidden="true"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          check_circle
+        </span>
+      )}
+      {icon && (
+        <span className={`material-symbols-outlined text-xl ${selected ? tokens.icon : 'text-on-surface-variant'}`} aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <span className={`${large ? 'text-sm' : 'text-xs'} ${selected ? tokens.label : 'text-on-surface font-semibold'}`}>{label}</span>
+    </button>
+  );
+};

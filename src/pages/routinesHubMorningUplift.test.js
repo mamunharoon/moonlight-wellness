@@ -39,9 +39,13 @@ describe('Routines.jsx — Morning card gold is scoped by isMorning, never a sha
     expect(routinesSource).toMatch(/const isMorning = routine\.section === 'Morning';/);
   });
 
-  it('the category label and "View routine" link both apply routine.accentColor via inline style ONLY when isMorning or isEvening - the shared text-primary className stays present and unconditional (the actual colour override is what is scoped, not the base class)', () => {
-    const scopedStyleCount = routinesSource.match(/style=\{\(isMorning \|\| isEvening\) \? \{ color: routine\.accentColor \} : undefined\}/g) ?? [];
+  it('the category label and "View routine" link both apply routine.accentColor via inline style when isMorning, isEvening, or (Anytime Reset Visual Uplift, Phase 2) isAnytime - the shared text-primary className stays present and unconditional (the actual colour override is what is scoped, not the base class)', () => {
+    const scopedStyleCount = routinesSource.match(/style=\{\(isMorning \|\| isEvening \|\| isAnytime\) \? \{ color: routine\.accentColor \} : undefined\}/g) ?? [];
     expect(scopedStyleCount.length).toBe(2); // category label + "View routine" link
+  });
+
+  it('isAnytime is derived per-card from the real routine.section (Daytime), never a hardcoded id check', () => {
+    expect(routinesSource).toMatch(/const isAnytime = routine\.section === 'Daytime';/);
   });
 
   it('the card title gains Playfair Display when isMorning, Newsreader italic when isEvening, and plain otherwise - a genuine three-way conditional, not an unconditional addition', () => {
@@ -59,20 +63,24 @@ describe('RoutineDetail.jsx — same scoped-by-isMorning pattern, same real acce
     expect(routineDetailSource).toMatch(/const isMorning = routine\?\.section === 'Morning';/);
   });
 
-  it('the category label applies routine.accentColor via inline style only when isMorning or isEvening', () => {
-    expect(routineDetailSource).toMatch(/style=\{\(isMorning \|\| isEvening\) \? \{ color: routine\.accentColor \} : undefined\}/);
+  it('the category label applies routine.accentColor via inline style when isMorning, isEvening, or (Phase 2) isAnytime', () => {
+    expect(routineDetailSource).toMatch(/style=\{\(isMorning \|\| isEvening \|\| isAnytime\) \? \{ color: routine\.accentColor \} : undefined\}/);
   });
 
-  it('the title gains Playfair Display when isMorning, Newsreader italic when isEvening, plain otherwise', () => {
+  it('isAnytime is derived from the real routine.section (Daytime), optional-chained since routine can be null', () => {
+    expect(routineDetailSource).toMatch(/const isAnytime = routine\?\.section === 'Daytime';/);
+  });
+
+  it('the title gains Playfair Display when isMorning, Newsreader italic when isEvening, plain otherwise (isAnytime intentionally keeps the plain sans-serif fallback - no font branch was added for it)', () => {
     expect(routineDetailSource).toMatch(/\$\{isMorning \? 'font-morning-display italic' : isEvening \? 'font-serif italic' : ''\}/);
   });
 
-  it('step-number badges branch three ways: morning-accent gold, evening-accent periwinkle, or the original bg-primary/10 treatment - never unconditionally accented', () => {
-    expect(routineDetailSource).toMatch(/isMorning\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent\/25 text-morning-accent'\s*\n\s*: isEvening\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent\/25 text-evening-accent'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
+  it('step-number badges branch four ways: morning-accent gold, evening-accent periwinkle, (Phase 2) tertiary-tint mint, or the original bg-primary/10 treatment - never unconditionally accented', () => {
+    expect(routineDetailSource).toMatch(/isMorning\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent\/25 text-morning-accent'\s*\n\s*: isEvening\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent\/25 text-evening-accent'\s*\n\s*: isAnytime\s*\n\s*\? 'bg-tertiary-tint\/15 border border-tertiary-tint\/30 text-tertiary'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
   });
 
-  it('the Start Routine button stays the real peach primary CTA (bg-primary/text-on-primary) for every routine - the approved canonical tokens keep primary action buttons peach app-wide; only the sparing glow is Morning/Evening-scoped', () => {
-    expect(routineDetailSource).toMatch(/className=\{`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg \$\{isMorning \? 'shadow-morning-glow' : isEvening \? 'shadow-evening-glow' : ''\}`\}/);
+  it('the Start Routine button stays the real peach primary CTA (bg-primary/text-on-primary) for every routine - the approved canonical tokens keep primary action buttons peach app-wide; only the sparing glow is Morning/Evening/Anytime-scoped', () => {
+    expect(routineDetailSource).toMatch(/className=\{`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg \$\{isMorning \? 'shadow-morning-glow' : isEvening \? 'shadow-evening-glow' : isAnytime \? 'shadow-mint-glow' : ''\}`\}/);
   });
 
   it('every real routine\'s own steps/purpose/startRoute/requiresAuth data (ROUTINE_DETAILS) is completely untouched', () => {

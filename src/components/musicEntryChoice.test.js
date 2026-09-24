@@ -41,8 +41,8 @@ describe('MusicEntryChoice.jsx - the shared entry-choice card itself', () => {
   // start() genuinely succeeds for a guest - gating this button was
   // gating a guest out of audio they were always permitted to hear.
   describe('guest pre-start-music correction (Build 18)', () => {
-    it('has no isGuest/onSignIn prop at all - the component signature is exactly ({ onStartWithMusic, onContinueWithoutMusic })', () => {
-      expect(choiceSource).toMatch(/export const MusicEntryChoice = \(\{ onStartWithMusic, onContinueWithoutMusic \}\) => \(/);
+    it('has no isGuest/onSignIn prop at all - the component signature is exactly ({ onStartWithMusic, onContinueWithoutMusic, accent = \'primary\' })', () => {
+      expect(choiceSource).toMatch(/export const MusicEntryChoice = \(\{ onStartWithMusic, onContinueWithoutMusic, accent = 'primary' \}\) => \(/);
     });
 
     it('shows the same subtitle for every user - no guest-specific "Sign in" copy remains', () => {
@@ -132,6 +132,48 @@ describe.each([
     const block = source.match(/<MusicEntryChoice[\s\S]*?\/>/)?.[0] ?? '';
     expect(block).not.toMatch(/isGuest=/);
     expect(block).not.toMatch(/onSignIn=/);
+  });
+});
+
+describe('MusicEntryChoice.jsx - Anytime Reset Visual Uplift follow-up: accent is additive, default keeps every other caller byte-for-byte unchanged', () => {
+  it('accent defaults to primary, whose style is undefined - Breathe.jsx/MorningFlow.jsx/EveningBreathing.jsx (none pass accent) get no inline style at all', () => {
+    expect(choiceSource).toMatch(/accent = 'primary'/);
+    expect(choiceSource).toMatch(/primary: undefined,/);
+  });
+
+  it('the anytime accent supplies a real mint borderColor via inline style (glass-panel\'s own border shorthand would otherwise silently override a Tailwind border-* class)', () => {
+    expect(choiceSource).toMatch(/anytime: \{ borderColor: 'rgba\(127, 228, 208, 0\.35\)' \}/);
+  });
+
+  it('the anytime accent swaps "Start with Music" to real mint tokens (bg-tertiary/text-on-tertiary), never touching "Continue Without Music" - only the affirmative choice changes, matching MusicPreferenceToggle\'s own ON-track-only convention', () => {
+    expect(choiceSource).toMatch(/anytime: 'flex-1 bg-tertiary text-on-tertiary py-3 rounded-full font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-lg'/);
+    const continueButtonBlock = choiceSource.match(/onClick=\{onContinueWithoutMusic\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(continueButtonBlock).not.toMatch(/accent|tertiary/);
+  });
+
+  it('Breathe.jsx/MorningFlow.jsx/EveningBreathing.jsx no longer render MusicEntryChoice at all (Build 15 - each has its own pre-start screen instead), so none of them can pass accent either', () => {
+    for (const source of [breatheSource, morningFlowSource, eveningBreathingSource]) {
+      expect(source).not.toMatch(/<MusicEntryChoice/);
+    }
+  });
+
+  it('QuietBreathing.jsx\'s own non-standalone usage (the real shared Gentle Reset/Support experience) passes accent="anytime"', () => {
+    const block = quietBreathingSource.match(/<MusicEntryChoice[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/accent="anytime"/);
+  });
+
+  it('QuietBreathing.jsx never renders MusicEntryChoice in its standalone branch at all (standalone uses MusicPreferenceToggle instead) - the mint accent cannot leak into /breathe-standalone through this component', () => {
+    const standaloneStart = quietBreathingSource.indexOf('if (standalone) {');
+    const standaloneEnd = quietBreathingSource.indexOf('\n  return (\n    <EveningSceneShell', standaloneStart);
+    const standaloneBlock = standaloneStart > -1 && standaloneEnd > -1 ? quietBreathingSource.slice(standaloneStart, standaloneEnd) : '';
+    expect(standaloneBlock.length).toBeGreaterThan(0);
+    expect(standaloneBlock).not.toMatch(/<MusicEntryChoice/);
+  });
+
+  it('QuietBreathing.jsx\'s non-standalone intro carries a small decorative mint icon (aria-hidden, no new copy) - BreathingRing immediately below stays unaccented', () => {
+    const nonStandaloneBlock = quietBreathingSource.slice(quietBreathingSource.indexOf('\n  return (\n    <EveningSceneShell'));
+    expect(nonStandaloneBlock).toMatch(/<span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">air<\/span>/);
+    expect(nonStandaloneBlock).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} \/>/);
   });
 });
 

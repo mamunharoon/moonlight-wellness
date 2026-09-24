@@ -27,6 +27,20 @@
     --color-tertiary-container: #62c8b5;
     --color-on-tertiary-container: #005247;
 
+    /* Anytime Reset Visual Uplift — RGB channel triplet of the same
+       --color-tertiary hex above (#7fe4d0 -> 127 228 208), stored
+       separately (not a redefinition) because this phase is the first to
+       consume mint with a Tailwind opacity modifier (bg-tertiary-tint/20,
+       etc. - see tailwind.config.js's matching mapping). --color-tertiary
+       itself is a plain hex string like every other token above and
+       cannot support a /<n> opacity variant - the exact defect discovered
+       auditing AnytimeResetProgress.jsx's completed-segment bug (its
+       peach counterpart, --color-primary, has the identical unconverted
+       gap; out of this phase's scope to fix app-wide, see that
+       component's own doc comment). Same conversion pattern already
+       established for morning-tint/evening-tint above. */
+    --color-tertiary-tint: 127 228 208;
+
     /* Phase 3 UX correction — Reflection/Gratitude selected-answer
        buttons. Reflection reuses the existing --color-primary/
        --color-on-primary pair above (already this app's own WakeWise

@@ -255,3 +255,32 @@ describe('AnytimeReset.jsx — actual duration always shown, closest-match alway
     expect(source).toMatch(/matchReason=\{current\.matchReason\}/);
   });
 });
+
+describe('AnytimeReset.jsx — Visual Uplift Phase 2: mint identity, approved decisions A/D/E + typography', () => {
+  it('the step-1 header icon is mint (text-tertiary), not the generic peach primary token', () => {
+    expect(source).toMatch(/<span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt<\/span>/);
+  });
+
+  it('every step heading is bumped to text-3xl (approved typography decision), never left at text-2xl', () => {
+    const headings = [...source.matchAll(/<h1 className="font-headline-lg (text-\dxl) text-on-surface font-bold tracking-tight[^"]*">/g)].map((m) => m[1]);
+    expect(headings.length).toBeGreaterThanOrEqual(3);
+    for (const size of headings) {
+      expect(size).toBe('text-3xl');
+    }
+  });
+
+  it('need chips receive accent="anytime" - the shared SelectionChip renders its mint selected state here, never the default peach', () => {
+    const block = source.match(/\{ANYTIME_RESET_NEEDS\.map\(\(need\) => \(\s*\n\s*<SelectionChip[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/accent="anytime"/);
+  });
+
+  it('duration rows receive accent="anytime"', () => {
+    const block = source.match(/\{ANYTIME_RESET_DURATIONS\.map\(\(duration\) => \(\s*\n\s*<SelectionRow[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/accent="anytime"/);
+  });
+
+  it('the recommendation card receives accent="anytime" - its Start button stays peach regardless (RecommendationCard.jsx\'s own test proves the button ignores accent)', () => {
+    const block = source.match(/<RecommendationCard[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/accent="anytime"/);
+  });
+});

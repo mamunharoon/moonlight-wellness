@@ -32,7 +32,10 @@ describe('Home.jsx — Build 15 "Today\'s Rhythm" cards meet the 44px minimum, s
     const anytimeTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}[\s\S]{0,500}/)?.[0] ?? '';
     const eveningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}[\s\S]{0,500}/)?.[0] ?? '';
     expect(morningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-morning-accent/);
-    expect(anytimeTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/);
+    // Anytime Reset Visual Uplift (Phase 2, approved decision A) - the
+    // Anytime tab's focus ring is now mint (tertiary), matching its own
+    // selected-state colour, exactly like Morning/Evening's own rings.
+    expect(anytimeTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary/);
     expect(eveningTab).toMatch(/focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent/);
   });
 
@@ -41,7 +44,8 @@ describe('Home.jsx — Build 15 "Today\'s Rhythm" cards meet the 44px minimum, s
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'anytime'\}/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'evening'\}/);
     expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm/);
-    expect(homeSource).toMatch(/bg-primary text-on-primary border-primary shadow-sm/);
+    // Anytime Reset Visual Uplift (Phase 2) - mint now, not the generic peach.
+    expect(homeSource).toMatch(/bg-tertiary text-on-tertiary border-tertiary shadow-sm/);
     expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm/);
   });
 
