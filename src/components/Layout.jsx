@@ -17,9 +17,22 @@ export const Layout = () => {
   // boundary (only breathe/morning-flow, of the nine Morning/Evening step
   // routes, are actually nested under <Layout> in App.jsx's route tree).
 
+  // Routines removed from the visible nav (WakeWise DEV — Remove Routines
+  // from the Visible User Flow): the Routines Hub duplicated Home's own
+  // clearer Morning/Anytime/Evening model. Home is now the single place
+  // for choosing the daily rhythm - see App.jsx's own /routines and
+  // /routines/:routineId redirects, and Introduction.jsx's Welcome cards,
+  // which now route directly to the same canonical entry points Home
+  // itself uses rather than through the (now unrouted) Routines Hub.
+  // Routines.jsx/RoutineDetail.jsx/routinesCatalog.js are all still
+  // present and unmodified, just no longer wired into the route table -
+  // reusable later by restoring the entry below and the App.jsx routes.
+  // No fourth item replaces it yet, per the approved brief. Each
+  // remaining item is already `flex-1` (below), so removing one entry
+  // here is the ONLY change needed for the three survivors to share the
+  // bar's width evenly - no other layout math to touch.
   const navItems = [
     { label: 'Home', path: '/', icon: 'home_health' },
-    { label: 'Routines', path: '/routines', icon: 'schedule' },
     { label: 'Library', path: '/library', icon: 'video_library' },
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];

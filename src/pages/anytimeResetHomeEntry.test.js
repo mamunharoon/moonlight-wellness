@@ -32,21 +32,21 @@ describe('Home.jsx — Anytime Reset now lives in its own "Today\'s Rhythm" card
   });
 });
 
-describe('Home.jsx — quick-action row stays at exactly four tiles', () => {
-  const quickActionBlock = homeSource.match(/Or choose something quick[\s\S]*?grid grid-cols-4 gap-2\.5">([\s\S]*?)<\/div>\s*<\/div>/)?.[1] ?? '';
+describe('Home.jsx — quick-action row stays at exactly three tiles', () => {
+  const quickActionBlock = homeSource.match(/Or choose something quick[\s\S]*?grid grid-cols-3 gap-2\.5">([\s\S]*?)<\/div>\s*<\/div>/)?.[1] ?? '';
 
   it('the quick-action block was found and is non-empty', () => {
     expect(quickActionBlock.length).toBeGreaterThan(0);
   });
 
-  it('contains exactly four <Link> tiles', () => {
+  it('contains exactly three <Link> tiles (navigation simplification follow-up: the former fourth tile, Explore Library, is removed - Library stays permanently reachable via the bottom nav instead)', () => {
     const links = quickActionBlock.match(/<Link\s/g) ?? [];
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(3);
   });
 
-  it('the four tiles are exactly: Breathe, Meditate, Explore Library, Sleep & Unwind (in that order) - Anytime Reset moved to its own Today\'s Rhythm card, see the describe block above', () => {
+  it('the three tiles are exactly: Breathe, Meditate, Sleep & Unwind (in that order) - Anytime Reset moved to its own Today\'s Rhythm card, see the describe block above; Explore Library removed, no replacement tile added', () => {
     const labels = [...quickActionBlock.matchAll(/text-\[11px\] font-semibold text-on-surface leading-tight">([^<]+)</g)].map((m) => m[1]);
-    expect(labels).toEqual(['Breathe', 'Meditate', 'Explore Library', 'Sleep &amp; Unwind']);
+    expect(labels).toEqual(['Breathe', 'Meditate', 'Sleep &amp; Unwind']);
   });
 
   it('the Breathe tile routes to the standalone /breathe-standalone destination, not /support or the old /anytime-reset slot', () => {

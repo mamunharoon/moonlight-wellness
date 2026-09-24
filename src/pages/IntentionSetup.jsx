@@ -220,7 +220,7 @@ export const IntentionSetup = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/routines/rise-reset" />
+        <BackButton fallback="/" />
       </div>
 
       {isReviewMode && currentStep && (

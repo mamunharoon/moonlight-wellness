@@ -35,10 +35,17 @@ describe('2. Sleep & Unwind (Home quick action) uses the evening lavender token'
   });
 });
 
-describe('3. Meditate and Explore Library remain WakeWise peach', () => {
-  it('both still use text-primary, unchanged by the contract - not every icon needs a distinct colour', () => {
+describe('3. Meditate remains WakeWise peach', () => {
+  it('still uses text-primary, unchanged by the contract - not every icon needs a distinct colour', () => {
     expect(homeSource).toMatch(/text-primary text-2xl">spa</);
-    expect(homeSource).toMatch(/text-primary text-2xl">video_library</);
+  });
+
+  it('Explore Library (the former fourth quick-action tile) is gone entirely - navigation simplification follow-up, Library stays reachable via the permanent bottom-nav item instead, so there is no icon left for this contract to check', () => {
+    expect(homeSource).not.toMatch(/text-2xl">video_library</);
+    // Comments legitimately name "Explore Library" in prose explaining
+    // what was removed - only the real code matters here.
+    const codeOnly = homeSource.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(codeOnly).not.toMatch(/Explore Library/);
   });
 });
 
@@ -148,14 +155,14 @@ describe('9. Labels/icons remain accessible without colour alone', () => {
 });
 
 describe('10. Existing routing, order and touch targets remain unchanged', () => {
-  it('Home\'s four quick-action tiles keep their exact original order and destinations', () => {
+  it('Home\'s three remaining quick-action tiles keep their exact original order and destinations (navigation simplification follow-up: the former fourth tile, /library?from=home "Explore Library", is removed - Library stays permanently reachable via the bottom nav)', () => {
     const hrefs = [...homeSource.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
+    expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 
   it('every quick-action tile still carries its min-h-[44px] touch target', () => {
     const tileLinks = [...homeSource.matchAll(/<Link\s+to="[^"]+"\s*\n\s*aria-describedby="quick-action-tip-[^"]+"\s*\n\s*className="([^"]*)"/g)];
-    expect(tileLinks.length).toBe(4);
+    expect(tileLinks.length).toBe(3);
     for (const [, className] of tileLinks) {
       expect(className).toMatch(/min-h-\[44px\]/);
     }

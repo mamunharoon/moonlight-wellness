@@ -19,13 +19,10 @@ const homeSource = read('./Home.jsx');
 const eveningCompleteSource = read('./EveningComplete.jsx');
 const layoutSource = read('../components/Layout.jsx');
 
-describe('Home.jsx — Browse exercises/Sleep sounds tiles carry the Home-origin marker', () => {
-  it('Browse exercises links to /library?from=home', () => {
-    expect(homeSource).toMatch(/to="\/library\?from=home"/);
-  });
-
-  it('Sleep sounds links to /library?category=sleep-soundscapes&from=home, preserving its existing category filter', () => {
+describe('Home.jsx — Sleep sounds tile carries the Home-origin marker', () => {
+  it('Sleep sounds links to /library?category=sleep-soundscapes&from=home, preserving its existing category filter - this is now the ONLY Home tile carrying the from=home marker (navigation simplification follow-up: the former bare "Browse exercises" tile, /library?from=home, is removed - Library is already permanently reachable via the bottom nav, so FROM_CONTEXTS.home below is still genuinely used, just by one tile instead of two)', () => {
     expect(homeSource).toMatch(/to="\/library\?category=sleep-soundscapes&from=home"/);
+    expect(homeSource).not.toMatch(/to="\/library\?from=home"/);
   });
 });
 

@@ -60,6 +60,40 @@ describe('redirectAfterAuth — one-shot Introduction gate, never a persistent p
   });
 });
 
+describe('redirectAfterAuth — Morning/Evening authentication continuity (delivery follow-up)', () => {
+  it('checks the pending journey intent FIRST, before the existing media pendingContent branch, which is otherwise completely untouched', () => {
+    const body = redirectBody();
+    const journeyIndex = body.indexOf('const journeyTarget = resolveJourneyResumeTarget(consumePendingJourneyIntent());');
+    const pendingIndex = body.indexOf('const pending = consumePendingContent();');
+    expect(journeyIndex).toBeGreaterThanOrEqual(0);
+    expect(pendingIndex).toBeGreaterThan(journeyIndex);
+  });
+
+  it('imports resolveJourneyResumeTarget/consumePendingJourneyIntent from the dedicated, fixed-allowlist module - never reusing pendingContent.js for this', () => {
+    expect(authSource).toMatch(
+      /import \{ consumePendingJourneyIntent, resolveJourneyResumeTarget \} from '\.\.\/lib\/pendingJourneyIntent';/
+    );
+  });
+
+  it('navigates to the resolved target with replace:true when one exists, and returns immediately - never falls through to the media pendingContent or Introduction-version checks for this same redirect', () => {
+    const body = redirectBody();
+    expect(body).toMatch(
+      /if \(journeyTarget\) \{\s*\n\s*navigate\(journeyTarget, \{ replace: true \}\);\s*\n\s*return;\s*\n\s*\}/
+    );
+  });
+
+  it('never constructs the redirect target itself - the fixed route always comes from resolveJourneyResumeTarget, never a hand-built template string here', () => {
+    const body = redirectBody();
+    expect(body).not.toMatch(/`\/introduction\?auto=1&resume=/);
+  });
+
+  it('when no journey intent is pending (the overwhelmingly common case - an ordinary sign-in, or a locked-media sign-in), the existing pendingContent/Introduction-gate logic is reached exactly as before, unmodified', () => {
+    const body = redirectBody();
+    expect(body).toMatch(/const pending = consumePendingContent\(\);\s*\n\s*if \(pending\) \{/);
+    expect(body).toMatch(/if \(supabase && authUser && !authUser\.is_anonymous\) \{/);
+  });
+});
+
 describe('handleSignIn/handleSignUp — isSubmitting stays true through the redirect decision (no flash of a re-enabled Auth form or authenticated Home)', () => {
   it('handleSignIn does not reset isSubmitting on the success path - only inside the signInError branch', () => {
     const body = authSource.match(/const handleSignIn = async \(e\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';

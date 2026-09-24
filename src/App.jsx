@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
@@ -41,8 +41,14 @@ const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.P
 const PrivacyAndAccount = lazy(() => import('./pages/PrivacyAndAccount').then((m) => ({ default: m.PrivacyAndAccount })));
 const AccountManagement = lazy(() => import('./pages/AccountManagement').then((m) => ({ default: m.AccountManagement })));
 const DeleteAccount = lazy(() => import('./pages/DeleteAccount').then((m) => ({ default: m.DeleteAccount })));
-const Routines = lazy(() => import('./pages/Routines').then((m) => ({ default: m.Routines })));
-const RoutineDetail = lazy(() => import('./pages/RoutineDetail').then((m) => ({ default: m.RoutineDetail })));
+// Remove Routines from the Visible User Flow — Routines.jsx and
+// RoutineDetail.jsx are no longer routed (see the /routines and
+// /routines/:routineId redirects below), so they are no longer imported
+// here either. Both files, routinesCatalog.js, their tests and every
+// supporting component remain fully present and unmodified on disk -
+// dormant, not deleted. To re-enable: restore these two lazy imports and
+// swap the two redirect routes below back to `withFallback(<Routines />)`
+// / `withFallback(<RoutineDetail />)`.
 const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
 const Journey = lazy(() => import('./pages/Journey').then((m) => ({ default: m.Journey })));
 const SessionComplete = lazy(() => import('./pages/SessionComplete').then((m) => ({ default: m.SessionComplete })));
@@ -128,6 +134,31 @@ function NativeDeepLinkHandler() {
 function MorningReminderTapHandler() {
   useMorningReminderNotificationTap();
   return null;
+}
+
+// Remove Routines from the Visible User Flow — safe, deterministic
+// destinations for the three known historical Routine Detail URLs, plus
+// a Home fallback for anything else. Deliberately NOT a blind 1:1 redirect
+// to each routine's own step route: neither IntentionSetup.jsx nor
+// EveningWindDown.jsx has any guest-gating of its own (confirmed by
+// direct grep - both rely entirely on their caller, Home.jsx/
+// RoutineDetail.jsx, having already turned away a guest before ever
+// navigating there). A blind redirect straight to /intention-setup or
+// /evening-wind-down would let a guest bypass that gate entirely, so
+// 'rise-reset' and 'wind-down' redirect to Home instead - the one place
+// that still performs the real guest check before genuinely starting
+// either routine. 'gentle-reset' has no such gate to bypass
+// (requiresAuth: false, a plain stateless navigate), so it redirects
+// directly to its real equivalent, /quiet-breathing. Every target is a
+// fixed leaf path, never /routines or /routines/:routineId themselves,
+// so this can never loop.
+const HISTORICAL_ROUTINE_REDIRECTS = {
+  'gentle-reset': '/quiet-breathing'
+};
+
+function RoutineDetailRedirect() {
+  const { routineId } = useParams();
+  return <Navigate to={HISTORICAL_ROUTINE_REDIRECTS[routineId] ?? '/'} replace />;
 }
 
 function App() {
@@ -318,11 +349,12 @@ function App() {
                 <Route path="/" element={<Layout />}>
                   <Route index element={withFallback(<Home />)} />
                   <Route path="today" element={<Navigate to="/" replace />} />
-                  <Route path="routines" element={withFallback(<Routines />)} />
-                  {/* Mobile navigation repair, Phase 3: routine detail
-                      screen, reached by tapping a Routines Hub card
-                      (previously inert). */}
-                  <Route path="routines/:routineId" element={withFallback(<RoutineDetail />)} />
+                  {/* Remove Routines from the Visible User Flow — both
+                      routes now redirect instead of rendering the Hub/
+                      Detail screens (see RoutineDetailRedirect above and
+                      HISTORICAL_ROUTINE_REDIRECTS' own doc comment). */}
+                  <Route path="routines" element={<Navigate to="/" replace />} />
+                  <Route path="routines/:routineId" element={<RoutineDetailRedirect />} />
                   {/* Mobile navigation repair, Phase 3: the fourth bottom-nav
                       destination — every video/sleep-sound id already in
                       BETA_VIDEO_MANIFEST, browsable and filterable, no beta

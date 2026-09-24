@@ -1194,25 +1194,34 @@ export const Home = () => {
         />
       </div>
 
-      {/* 7-8. "Or choose something quick" + the four existing shortcut
-          cards - unchanged destinations/behaviour, only their position
-          (now after the recommended journey, never before it) and this
-          new label are new. */}
+      {/* 7-8. "Or choose something quick" + three shortcut cards -
+          unchanged destinations/behaviour for every survivor, only their
+          position (now after the recommended journey, never before it)
+          and this label are new.
+          Navigation simplification (Remove Routines from the Visible User
+          Flow, follow-up) — the former fourth tile, "Explore Library",
+          is removed: Library is already permanently available in the
+          bottom nav, so this tile was a second, redundant way to reach
+          the exact same destination Home's own nav bar already offers on
+          every screen. grid-cols-4 -> grid-cols-3 is the only layout
+          change needed for the three survivors to share the row's width
+          evenly (same mechanism as Layout.jsx's own nav bar - a plain
+          CSS grid, no other math to touch). No replacement tile added
+          merely to keep the count at four. */}
       <div className="space-y-3">
         <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 text-center">
           Or choose something quick
         </p>
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-3 gap-2.5">
           {/* Build 15 — Anytime Reset now has its own "Today's Rhythm"
               card above (see the activePeriod === 'anytime' block), so
               this first quick-action tile is freed up for a standalone
               Breathe entry point (-> /breathe-standalone, QuietBreathing
               with its own pattern picker/Begin gesture - see
-              standaloneBreathe.test.js), keeping the row at exactly four
-              choices per the approved design. /support itself is
-              untouched and still reachable (Library, Support.jsx's own
-              sub-flows, existing tests) - only this one Home tile's
-              destination changed.
+              standaloneBreathe.test.js). /support itself is untouched and
+              still reachable (Library, Support.jsx's own sub-flows,
+              existing tests) - only this one Home tile's destination
+              changed.
 
               Desktop/keyboard tooltip, added alongside this fix: each
               tile is a `group` with a `role="tooltip"` span, hidden by
@@ -1267,21 +1276,6 @@ export const Home = () => {
               className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
             >
               Meditate
-            </span>
-          </Link>
-          <Link
-            to="/library?from=home"
-            aria-describedby="quick-action-tip-browse-exercises"
-            className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span className="material-symbols-outlined text-primary text-2xl">video_library</span>
-            <span className="text-[11px] font-semibold text-on-surface leading-tight">Explore Library</span>
-            <span
-              id="quick-action-tip-browse-exercises"
-              role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-lg bg-surface-container-highest px-2.5 py-1.5 text-[10px] font-semibold text-on-surface opacity-0 shadow-lg border border-white/10 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 z-50"
-            >
-              Explore Library
             </span>
           </Link>
           <Link

@@ -60,22 +60,21 @@ describe('Home.jsx — in-progress routine cards show real step progress, not a 
 });
 
 describe('Home.jsx — quick-action tiles: icon bump only, everything else from the prior fix untouched (Phase B)', () => {
-  it('all four tile icons are bumped to text-2xl (Build 15 — first tile is now Breathe\'s "air" icon, replacing "bolt" now that Anytime Reset has its own Today\'s Rhythm card)', () => {
+  it('all three remaining tile icons are bumped to text-2xl (Build 15 — first tile is now Breathe\'s "air" icon, replacing "bolt" now that Anytime Reset has its own Today\'s Rhythm card; the former fourth tile, Explore Library, was later removed entirely - see Home.quickActionTiles.test.js)', () => {
     // Circadian Colors (Build 16) — Breathe/Sleep & Unwind carry their own
     // semantic accent (mint/lavender, matching the rest of the app's
-    // pause-breathing/Evening surfaces); Meditate/Explore Library stay
-    // WakeWise's neutral peach, since neither is time-of-day-specific -
-    // see routinesCatalog.js's own Circadian Colors comment for the same
-    // "reuse existing tokens, don't flood every screen" reasoning.
+    // pause-breathing/Evening surfaces); Meditate stays WakeWise's neutral
+    // peach, since it isn't time-of-day-specific - see routinesCatalog.js's
+    // own Circadian Colors comment for the same "reuse existing tokens,
+    // don't flood every screen" reasoning.
     expect(source).toMatch(/text-tertiary text-2xl">air</);
     expect(source).toMatch(/text-primary text-2xl">spa</);
-    expect(source).toMatch(/text-primary text-2xl">video_library</);
     expect(source).toMatch(/text-evening-accent text-2xl">bedtime</);
   });
 
-  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage), by Build 15\'s own Anytime Reset -> Breathe swap, and by Self-Guided Meditation repurposing the Meditate tile (see selfGuidedMeditationSetup.test.js) - the existing guided-video wizard at /meditate itself is untouched, just no longer this tile\'s target', () => {
+  it('the tooltip/aria-describedby wiring and exactly three tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Sleep sounds carries a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage), by Build 15\'s own Anytime Reset -> Breathe swap, by Self-Guided Meditation repurposing the Meditate tile (see selfGuidedMeditationSetup.test.js - the existing guided-video wizard at /meditate itself is untouched, just no longer this tile\'s target), and by the later removal of the fourth tile, Explore Library (navigation simplification follow-up - Library stays permanently reachable via the bottom nav instead)', () => {
     const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
+    expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 });
 

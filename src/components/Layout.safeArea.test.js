@@ -150,3 +150,43 @@ describe('Capacitor iOS content-inset regression guard', () => {
     expect(capacitorConfig.ios.contentInset).toBe('never');
   });
 });
+
+describe('Remove Routines from the Visible User Flow — bottom navigation', () => {
+  const navItemsBlock = layoutSource.match(/const navItems = \[[\s\S]*?\];/)?.[0] ?? '';
+
+  it('bottom navigation contains exactly Home, Library and Profile - no more, no less', () => {
+    const labels = [...navItemsBlock.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+    expect(labels).toEqual(['Home', 'Library', 'Profile']);
+  });
+
+  it('Routines is not rendered in bottom navigation - no entry, no path, no icon reference anywhere in navItems', () => {
+    expect(navItemsBlock).not.toMatch(/Routines/);
+    expect(navItemsBlock).not.toMatch(/\/routines/);
+  });
+
+  it('no fourth item replaces it - navItems has exactly 3 entries', () => {
+    const paths = [...navItemsBlock.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
+    expect(paths).toEqual(['/', '/library', '/profile']);
+  });
+
+  it('the three remaining items are evenly laid out - each is still flex-1 (removing Routines needed no other layout math), and each still carries the real 44px touch target', () => {
+    expect(layoutSource).toMatch(/flex-1 min-w-\[44px\] min-h-\[44px\]/);
+  });
+
+  it('active-state styling, icons and accessible names are unaffected - the same aria-current/icon/label wiring, unchanged, now just driven by a 3-item array', () => {
+    expect(layoutSource).toMatch(/aria-current=\{isActive \? 'page' : undefined\}/);
+    expect(layoutSource).toMatch(/\{item\.icon\}/);
+    expect(layoutSource).toMatch(/\{item\.label\}/);
+  });
+
+  it('Library and Profile keep their exact original path/icon - only Routines was removed, nothing else in the array changed', () => {
+    expect(navItemsBlock).toMatch(/\{ label: 'Home', path: '\/', icon: 'home_health' \}/);
+    expect(navItemsBlock).toMatch(/\{ label: 'Library', path: '\/library', icon: 'video_library' \}/);
+    expect(navItemsBlock).toMatch(/\{ label: 'Profile', path: '\/profile', icon: 'person' \}/);
+  });
+
+  it('keyboard/focus navigation is unaffected - each item is still a real, focusable <Link>, not a <div> or <span>', () => {
+    expect(layoutSource).toMatch(/navItems\.map\(\(item\) => \{/);
+    expect(layoutSource).toMatch(/<Link\s*\n\s*key=\{item\.path\}/);
+  });
+});

@@ -32,7 +32,7 @@ describe('Home.jsx — "Watch: How WakeWise works" Introduction replay control',
     const linkIndex = homeSource.indexOf('to="/introduction"');
     const nextStepIndex = homeSource.indexOf("activePeriod === 'morning' && (");
     const activeIntentionIndex = homeSource.indexOf('<ActiveIntentionCard');
-    const gridIndex = homeSource.indexOf('<div className="grid grid-cols-4 gap-2.5">');
+    const gridIndex = homeSource.indexOf('<div className="grid grid-cols-3 gap-2.5">');
     expect(greetingIndex).toBeGreaterThan(-1);
     expect(linkIndex).toBeGreaterThan(greetingIndex);
     expect(nextStepIndex).toBeGreaterThan(linkIndex);

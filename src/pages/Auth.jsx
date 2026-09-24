@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
+import { consumePendingJourneyIntent, resolveJourneyResumeTarget } from '../lib/pendingJourneyIntent';
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
 import { markGuestEntryChosen } from '../lib/guestEntry';
 import { shouldShowIntroduction } from '../lib/introductionVersion';
@@ -147,7 +148,23 @@ export const Auth = () => {
   // console.warn (no user-identifying detail: no email, no user id, just
   // the fact that the check failed) rather than surfaced to the user,
   // since Home remains a perfectly good landing either way.
+  // Morning/Evening authentication continuity — checked FIRST, before the
+  // existing media pendingContent branch below, which it leaves entirely
+  // untouched. resolveJourneyResumeTarget only ever returns a fixed,
+  // allowlisted /introduction?auto=1&resume=<action> path (or null) -
+  // never a caller-supplied URL. Introduction.jsx's own resume effect is
+  // what actually performs the Session Engine initialization and the
+  // introduction-version write (via the same completeIntroductionVersion
+  // persistAndContinue itself calls) - this redirect only ever decides
+  // WHERE to send the user, never what to do once they arrive, so there
+  // is exactly one place in the whole app that starts Morning/Evening.
   const redirectAfterAuth = async (authUser) => {
+    const journeyTarget = resolveJourneyResumeTarget(consumePendingJourneyIntent());
+    if (journeyTarget) {
+      navigate(journeyTarget, { replace: true });
+      return;
+    }
+
     const pending = consumePendingContent();
     if (pending) {
       if (!pending.id) {

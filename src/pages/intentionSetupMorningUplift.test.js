@@ -91,8 +91,8 @@ describe('IntentionSetup — real functional contract untouched by the restyle',
     expect(source).toMatch(/setJourneyStep\('stretch'\);\s*\n\s*navigate\('\/morning-flow'\);/);
   });
 
-  it('Review Mode banner/return-to-step, Exit routine, and BackButton wiring are all still present, unchanged', () => {
+  it('Review Mode banner/return-to-step and Exit routine are still present, unchanged; BackButton fallback now points at Home directly (Remove Routines from the Visible User Flow - /routines/rise-reset itself just redirects to Home anyway)', () => {
     expect(source).toMatch(/<ReviewModeBanner currentStepLabel=\{getStepLabel\(currentStep\.id\)\} onReturnToCurrentStep=\{\(\) => navigate\(routeForStep\(currentStep\.id\)\)\} \/>/);
-    expect(source).toMatch(/<BackButton fallback="\/routines\/rise-reset" \/>/);
+    expect(source).toMatch(/<BackButton fallback="\/" \/>/);
   });
 });

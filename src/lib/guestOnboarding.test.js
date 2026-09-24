@@ -79,11 +79,15 @@ describe('"Continue as Guest" persistence and returning-user behaviour', () => {
 });
 
 describe('Guests can still browse catalogue screens - no new per-route guard added', () => {
-  it('Home/Routines/Library/Profile routes are unchanged plain routes, not wrapped in any new guard component', () => {
+  it('Home/Library/Profile routes are unchanged plain routes, not wrapped in any new guard component', () => {
     expect(appSource).toMatch(/<Route index element=\{withFallback\(<Home \/>\)\} \/>/);
-    expect(appSource).toMatch(/<Route path="routines" element=\{withFallback\(<Routines \/>\)\} \/>/);
     expect(appSource).toMatch(/<Route path="library" element=\{withFallback\(<Library \/>\)\} \/>/);
     expect(appSource).toMatch(/<Route path="profile" element=\{withFallback\(<Profile \/>\)\} \/>/);
+  });
+
+  it('Remove Routines from the Visible User Flow: /routines and /routines/:routineId are plain redirects, not gated behind any new guard either', () => {
+    expect(appSource).toMatch(/<Route path="routines" element=\{<Navigate to="\/" replace \/>\} \/>/);
+    expect(appSource).toMatch(/<Route path="routines\/:routineId" element=\{<RoutineDetailRedirect \/>\} \/>/);
   });
 
   it('Profile.jsx already shows a distinct guest identity ("Guest Profile" / "Local Mode") rather than hiding the screen', () => {

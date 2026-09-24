@@ -1,16 +1,20 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { supabase } from '../lib/supabaseClient';
 import { BackButton } from '../components/BackButton';
 import { getFirstName } from '../lib/greeting';
 import { INTRODUCTION_MEDIA } from '../lib/introductionMedia';
-import { CURRENT_INTRODUCTION_VERSION } from '../lib/introductionVersion';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { getStepIndex } from '../session/sessionRegistry';
+import { MORNING_STEP_IDS } from '../session/sessionConstants';
+import { setPendingJourneyIntent, isAllowedJourneyAction } from '../lib/pendingJourneyIntent';
+import { completeIntroductionVersion } from '../lib/introductionCompletion';
 
 /*
  * First-use WakeWise welcome screen (Build 16 redesign).
@@ -43,21 +47,61 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
  * two-video guide list - each one is both an explanation AND the actual
  * destination, so a first-time visitor can go straight into whichever
  * part of WakeWise matches what they need right now, never forced to
- * finish reading or watch anything first. All three route to an
- * EXISTING Routines Hub entry (RoutineDetail.jsx via /routines/:id),
- * reusing that screen's own real guest-gating (Rise & Reset/Wind-Down
- * require sign-in to Start; Gentle Reset does not) rather than
- * duplicating any of that logic here:
- *   - "Start my morning"    -> /routines/rise-reset  (Morning journey)
- *   - "Take a calming pause" -> /routines/gentle-reset (a real one-step
- *     guided-breathing visualizer, no sign-in required - deliberately
- *     NOT "Instant Calm" (E03 in betaVideoManifest.js), which is a
- *     narrated exercise VIDEO, not a breathing practice; Gentle Reset is
- *     the actual guided-breathing quick-pause experience in this app)
- *   - "Wind down for sleep"  -> /routines/wind-down   (Evening journey)
- * Card copy states each destination's own real name and the Routines
- * catalogue's own already-established duration (routinesCatalog.js),
- * never an invented estimate.
+ * finish reading or watch anything first.
+ *
+ * Remove Routines from the Visible User Flow — these three cards used to
+ * route through the Routines Hub (RoutineDetail.jsx via /routines/:id),
+ * now hidden from the visible app. They route directly to the same real,
+ * canonical entry points Home.jsx's own Morning/Evening actions and
+ * Gentle Reset already use, traced from those exact handlers rather than
+ * guessed:
+ *   - "Start my morning" -> the same reset-before-start + startSession +
+ *     navigate('/intention-setup') sequence as Home.jsx's own
+ *     handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
+ *     (see beginRiseAndReset below, a direct copy of that exact shape).
+ *   - "Take a calming pause" -> navigate('/quiet-breathing') directly -
+ *     Gentle Reset's own real non-standalone route, requiresAuth: false
+ *     in routinesCatalog.js/RoutineDetail.jsx, so no sign-in gate here
+ *     either (deliberately NOT "Instant Calm", E03 in
+ *     betaVideoManifest.js, which is a narrated exercise VIDEO, not a
+ *     breathing practice - Gentle Reset is the actual guided-breathing
+ *     quick-pause experience in this app).
+ *   - "Wind down for sleep" -> navigate('/evening-wind-down') directly,
+ *     the same plain navigate Home.jsx's own handleBeginEveningWindDown
+ *     uses (EveningWindDown.jsx's own Begin button is what actually
+ *     starts the Session Engine - see that handler's own doc comment for
+ *     why no startSession call belongs here).
+ * Card copy still states each destination's own real name and the
+ * Routines catalogue's own already-established duration
+ * (routinesCatalog.js, still present and unmodified), never an invented
+ * estimate - only the ROUTING changed, not what each card promises.
+ *
+ * Morning/Evening authentication continuity (delivery follow-up) — a
+ * guest tapping either card must actually continue into that journey
+ * once signed in, not just land back on Home needing a second tap. The
+ * naive fix (reusing pendingContent.js's id-less shape, returnPath: '/')
+ * loses the selection entirely - the user re-arrives at Home and has to
+ * pick Morning/Evening again themselves. The real fix is
+ * pendingJourneyIntent.js: handleCardTap's guest branch stashes a FIXED,
+ * allowlisted action ('morning' | 'sleep', never a caller-supplied
+ * URL) via setPendingJourneyIntent before opening the sign-in prompt;
+ * confirmRoutineSignIn/confirmRoutineCreateAccount below persist that
+ * intent through the /auth round-trip exactly like pendingContent.js
+ * already does for media. Auth.jsx's redirectAfterAuth consumes it via
+ * resolveJourneyResumeTarget and sends the newly-authenticated user to
+ * /introduction?auto=1&resume=<action> - this exact component, which
+ * reads `resume` via a lazy initializer (captured once, before the strip
+ * effect below clears it from the URL) and, once isGuest has resolved to
+ * false, calls persistAndContinue(CARD_DESTINATIONS[resumeAction])
+ * itself: the SAME real function a genuine tap would call, so the
+ * introduction-version write, the Session Engine initialization
+ * (beginRiseAndReset), and the final navigation are all the one true
+ * code path, not a second, parallel implementation. hasResumedRef
+ * guards against firing twice (React 18 StrictMode's dev-only double-
+ * effect-invoke, or a later Back navigation into the same URL after the
+ * `resume` param has already been stripped) - matching the same
+ * double-tap-protection shape already used elsewhere in this app
+ * (Breathe.jsx's hasBegunOnceRef, QuietBreathing.jsx's own).
  *
  * The optional "Watch introduction" pill only renders when
  * introductionMedia.js's own `available` flag for I01 ("Why WakeWise")
@@ -137,6 +181,13 @@ const GUEST_ALLOWED_VIDEO_IDS = new Set(['I01']);
 //     Home.jsx's own Evening pill color, a soft lavender-blue.
 // WakeWise's own dark surface and peach `primary` (used by the intro-
 // video pill and every other primary action in this app) are unchanged.
+// `requiresAuth` (Remove Routines from the Visible User Flow) mirrors
+// each destination's own real gate exactly, per routinesCatalog.js/
+// RoutineDetail.jsx: Morning and Evening require sign-in, Gentle Reset
+// does not. `path` is gone - each card's real destination is no longer a
+// single navigate() target (Morning needs Session Engine
+// initialization first), so it is resolved by id in beginCardDestination
+// below instead.
 const WELCOME_CARDS = [
   {
     id: 'morning',
@@ -145,7 +196,7 @@ const WELCOME_CARDS = [
     subtitleClass: 'text-morning-accent',
     title: 'Start my morning',
     subtitle: 'Rise & Reset · 5 min',
-    path: '/routines/rise-reset'
+    requiresAuth: true
   },
   {
     id: 'calm',
@@ -154,7 +205,7 @@ const WELCOME_CARDS = [
     subtitleClass: 'text-tertiary',
     title: 'Take a calming pause',
     subtitle: 'Gentle Reset · 1 min guided breathing',
-    path: '/routines/gentle-reset'
+    requiresAuth: false
   },
   {
     id: 'sleep',
@@ -166,18 +217,42 @@ const WELCOME_CARDS = [
     subtitleClass: 'text-evening-accent',
     title: 'Wind down for sleep',
     subtitle: 'Begin Wind-Down · 10 min',
-    path: '/routines/wind-down'
+    requiresAuth: true
   }
 ];
 
 export const Introduction = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // See this file's own "Back control" doc comment above - the only
   // consumer of this flag is the Back-control render below.
   const isAutomaticFirstUse = searchParams.get('auto') === '1';
-  const { user, isGuest, profile, refreshProfile } = useAuth();
+  const { user, isGuest, profile, refreshProfile, loading: authLoading } = useAuth();
+  const { state, startSession, resetSession } = useSession();
   const [saving, setSaving] = useState(false);
+
+  // Morning/Evening authentication continuity — captured ONCE, at the
+  // first render, via a lazy initializer (same established shape as
+  // AnytimeReset.jsx's own openVideoId restore) so the value survives the
+  // strip effect below clearing it from the URL a moment later. Only a
+  // real allowlisted action is ever kept - anything else (missing,
+  // tampered, unrecognised) resolves to null and this screen behaves
+  // exactly as an ordinary Welcome visit.
+  const [resumeAction] = useState(() => {
+    const action = searchParams.get('resume');
+    return isAllowedJourneyAction(action) ? action : null;
+  });
+
+  // Strips the `resume` marker immediately so it can never re-trigger on
+  // a later re-render, browser Back/forward, or a reload - same
+  // established pattern as AnytimeReset.jsx's own restore-params effect.
+  useEffect(() => {
+    if (!searchParams.get('resume')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('resume');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Personalised opening copy - see this file's own doc comment above
   // for the full "?existing=1 vs profile.introduction_completed_version"
@@ -221,32 +296,97 @@ export const Introduction = () => {
   const introVideo = INTRODUCTION_MEDIA.find((guide) => guide.id === 'why-wakewise');
   const introVideoAvailable = Boolean(introVideo?.available);
 
-  const continueTo = (path) => navigate(path);
-
-  // Handle profile-row races safely: if the row is temporarily missing
-  // (e.g. a fresh sign-up racing AuthContext's own upsert-on-first-load),
-  // reuse that EXACT existing ensure-profile mechanism (refreshProfile,
-  // which selects, upserts only if missing - never overwriting an
-  // existing row's name/preferences - then re-selects) rather than
-  // inventing a second, separate profile-creation path here.
-  const readIntroductionVersion = async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('introduction_completed_version')
-      .eq('id', userId)
-      .maybeSingle();
-    return { data, error };
+  // Remove Routines from the Visible User Flow — the real "Start my
+  // morning" entry point, traced directly from Home.jsx's own
+  // handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
+  // (both already identical to each other): reset any other in-progress
+  // routine before starting fresh, initialize the Session Engine at Step
+  // 1 (Set Intention), then land on its real screen. Nothing here is
+  // invented - every call is the same real function those two existing
+  // handlers already use.
+  const beginRiseAndReset = () => {
+    if (state.status === 'playing' || state.status === 'interrupted') {
+      resetSession();
+    }
+    startSession('morning-routine', { startIndex: getStepIndex('morning-routine', MORNING_STEP_IDS.INTENTION) });
+    navigate('/intention-setup');
   };
 
-  // `path` is where this specific action should land once persistence
-  // (or the guest short-circuit) resolves - '/' for the Home fallback
-  // action, one of WELCOME_CARDS' own paths for a card tap.
-  const persistAndContinue = async (path = '/') => {
+  // Evening's own canonical entry needs no Session Engine call here at
+  // all - EveningWindDown.jsx's own Begin button is what actually starts
+  // the session (see Home.jsx's handleBeginEveningWindDown, which this
+  // matches exactly). Gentle Reset is simpler still: a plain, stateless
+  // navigate, matching RoutineDetail.jsx's own gentle-reset handling.
+  const CARD_DESTINATIONS = {
+    morning: beginRiseAndReset,
+    calm: () => navigate('/quiet-breathing'),
+    sleep: () => navigate('/evening-wind-down')
+  };
+
+  const continueTo = (destination) => {
+    if (typeof destination === 'function') {
+      destination();
+      return;
+    }
+    navigate(destination);
+  };
+
+  // Guest gate for Morning/Evening — reuses the exact same
+  // SignInPromptDialog + redirect-after-auth mechanism Home.jsx's own
+  // promptRoutineSignIn/confirmRoutineSignIn/confirmRoutineCreateAccount
+  // already use for the identical gesture ("sign in to launch a
+  // routine"), but stashes a real pendingJourneyIntent (see this file's
+  // own top doc comment) instead of pendingContent's returnPath: '/' -
+  // that is what lets the user continue straight into their selected
+  // journey once signed in, rather than landing back on Home needing a
+  // second tap. A second, independent SignInPromptDialog instance (the
+  // existing one above is scoped to the "Watch introduction" video only)
+  // - see this screen's own render below.
+  const [routineSignInPromptOpen, setRoutineSignInPromptOpen] = useState(false);
+  // Which card opened the prompt - the ONLY thing confirmRoutineSignIn/
+  // confirmRoutineCreateAccount need to know to stash the right fixed
+  // action. Never itself passed to navigate() or used as a URL.
+  const [pendingCardId, setPendingCardId] = useState(null);
+  const dismissRoutineSignInPrompt = () => setRoutineSignInPromptOpen(false);
+  const confirmRoutineSignIn = () => {
+    setPendingJourneyIntent(pendingCardId);
+    setRoutineSignInPromptOpen(false);
+    navigate('/auth');
+  };
+  const confirmRoutineCreateAccount = () => {
+    setPendingJourneyIntent(pendingCardId);
+    setRoutineSignInPromptOpen(false);
+    navigate('/auth?tab=signup');
+  };
+
+  const handleCardTap = (card) => {
+    if (card.requiresAuth && isGuest) {
+      setPendingCardId(card.id);
+      setRoutineSignInPromptOpen(true);
+      return;
+    }
+    persistAndContinue(CARD_DESTINATIONS[card.id]);
+  };
+
+  // `destination` is where this specific action should land once
+  // persistence (or the guest short-circuit) resolves - '/' for the Home
+  // fallback action, or one of CARD_DESTINATIONS' functions for a card
+  // tap (a plain path string for Gentle Reset's own destination function,
+  // or the real Session-Engine-initializing beginRiseAndReset for
+  // Morning - continueTo above handles either shape). Guest-gated cards
+  // (requiresAuth: true) never reach this function for a guest at all -
+  // handleCardTap intercepts them first (see above). The actual Supabase
+  // read/upsert-if-missing/conditional-update logic lives in
+  // introductionCompletion.js's completeIntroductionVersion, shared with
+  // Auth.jsx's own resume-continuation path (see this file's top doc
+  // comment) - this function owns only the UI-facing saving/error state
+  // and the final continueTo call.
+  const persistAndContinue = async (destination = '/') => {
     // Guest behaviour is explicit: no Supabase write is ever attempted
     // for a guest - viewing this screen is fine, persisting completion
     // to an account that doesn't exist is not.
     if (isGuest || !user || !supabase) {
-      continueTo(path);
+      continueTo(destination);
       return;
     }
     if (saving) return; // prevent repeated clicks while saving
@@ -254,52 +394,39 @@ export const Introduction = () => {
     setSaving(true);
     setSaveError('');
 
-    let { data: profileRow, error: readError } = await readIntroductionVersion(user.id);
-
-    if (readError) {
-      setSaving(false);
-      setSaveError("We couldn't save that. Please try again.");
-      return;
-    }
-
-    if (!profileRow) {
-      await refreshProfile();
-      ({ data: profileRow, error: readError } = await readIntroductionVersion(user.id));
-      if (readError || !profileRow) {
-        setSaving(false);
-        setSaveError("We couldn't save that. Please try again.");
-        return;
-      }
-    }
-
-    // Replay-safety: never write a value that could reset or lower an
-    // already-saved version - if this account is already at or above the
-    // current version, there is nothing to persist.
-    if ((profileRow.introduction_completed_version ?? 0) >= CURRENT_INTRODUCTION_VERSION) {
-      setSaving(false);
-      continueTo(path);
-      return;
-    }
-
-    const { data: updatedRows, error: updateError } = await supabase
-      .from('profiles')
-      .update({ introduction_completed_version: CURRENT_INTRODUCTION_VERSION })
-      .eq('id', user.id)
-      .select('id');
+    const result = await completeIntroductionVersion({ supabase, userId: user.id, refreshProfile });
 
     setSaving(false);
 
-    // A zero-row update (no error, but nothing matched) is never silently
-    // treated as success - something changed underneath us (e.g. the row
-    // vanished between the read and this write), so this is surfaced as
-    // a retryable failure exactly like a genuine error would be.
-    if (updateError || !updatedRows || updatedRows.length !== 1) {
+    if (!result.ok) {
       setSaveError("We couldn't save that. Please try again.");
       return;
     }
 
-    continueTo(path);
+    continueTo(destination);
   };
+
+  // Morning/Evening authentication continuity — the resume trigger
+  // itself. Fires at most once (hasResumedRef): as soon as a real,
+  // allowlisted resumeAction was captured AND AuthContext has finished
+  // loading AND the now-signed-in user is genuinely not a guest, this
+  // calls the EXACT same persistAndContinue a real tap on that card would
+  // - same version write, same CARD_DESTINATIONS lookup, same Session
+  // Engine initialization for Morning, same final navigate. Never fires
+  // for a guest (a resume param can only ever have been minted by
+  // Auth.jsx after a real, successful authentication - but this guard
+  // stays anyway as defense in depth, matching every other guest check in
+  // this app). authLoading in the dependency array is what lets this
+  // effect correctly re-evaluate once AuthContext's own initial session
+  // fetch resolves, rather than reading a stale isGuest===true at the
+  // very first render right after the /auth redirect.
+  const hasResumedRef = useRef(false);
+  useEffect(() => {
+    if (!resumeAction || authLoading || isGuest || hasResumedRef.current) return;
+    hasResumedRef.current = true;
+    persistAndContinue(CARD_DESTINATIONS[resumeAction]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeAction, authLoading, isGuest]);
 
   return (
     // Mobile scroll repair: Introduction is one of a handful of routes
@@ -389,7 +516,7 @@ export const Introduction = () => {
             <button
               key={card.id}
               type="button"
-              onClick={() => persistAndContinue(card.path)}
+              onClick={() => handleCardTap(card)}
               disabled={saving}
               className="w-full text-left glass-panel rounded-2xl p-4 flex items-center gap-3.5 hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             >
@@ -448,6 +575,17 @@ export const Introduction = () => {
         onSignIn={confirmSignIn}
         onCreateAccount={confirmCreateAccount}
         onDismiss={dismissPrompt}
+      />
+
+      {/* Remove Routines from the Visible User Flow — a second, independent
+          SignInPromptDialog for the Morning/Evening card guest gate (see
+          handleCardTap above). The one above is scoped entirely to the
+          "Watch introduction" video and is otherwise unrelated. */}
+      <SignInPromptDialog
+        open={routineSignInPromptOpen}
+        onSignIn={confirmRoutineSignIn}
+        onCreateAccount={confirmRoutineCreateAccount}
+        onDismiss={dismissRoutineSignInPrompt}
       />
     </div>
   );

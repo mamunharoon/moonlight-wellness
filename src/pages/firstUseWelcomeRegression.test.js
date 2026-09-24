@@ -20,6 +20,7 @@ import { CURRENT_INTRODUCTION_VERSION, shouldShowIntroduction } from '../lib/int
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const introductionSource = read('./Introduction.jsx');
 const onboardingGateSource = read('../components/OnboardingGate.jsx');
+const introductionCompletionSource = read('../lib/introductionCompletion.js');
 const authSource = read('./Auth.jsx');
 const authContextSource = read('../context/AuthContext.jsx');
 
@@ -60,18 +61,19 @@ describe('3 & 4. Every action (a card, or Go to Home) completes version 2 before
     expect(CURRENT_INTRODUCTION_VERSION).toBe(2);
   });
 
-  it('every card tap and Go to Home both call the one shared persistAndContinue function - never a bare navigate', () => {
-    const persistCalls = introductionSource.match(/onClick=\{\(\) => persistAndContinue\(/g) ?? [];
-    // WELCOME_CARDS.map's single template (rendered 3x at runtime) + Go to Home = 2 literal call sites in source.
-    expect(persistCalls.length).toBe(2);
+  it('Go to Home calls persistAndContinue directly; every card tap calls handleCardTap, which reaches persistAndContinue for every card except a guest-gated one still awaiting sign-in - never a bare navigate either way (Remove Routines from the Visible User Flow: Morning/Evening now need real Session Engine initialization, not a plain path, so cards route through one extra dispatcher rather than calling persistAndContinue inline)', () => {
+    expect(introductionSource).toMatch(/onClick=\{\(\) => persistAndContinue\('\/'\)\}/);
+    expect(introductionSource).toMatch(/onClick=\{\(\) => handleCardTap\(card\)\}/);
+    const handleCardTapBody = introductionSource.match(/const handleCardTap = \(card\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleCardTapBody).toMatch(/persistAndContinue\(CARD_DESTINATIONS\[card\.id\]\);/);
   });
 
-  it('persistAndContinue writes exactly CURRENT_INTRODUCTION_VERSION, and only navigates after that write is confirmed', () => {
-    const body = introductionSource.match(/const persistAndContinue = async \(path = '\/'\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/\.update\(\{ introduction_completed_version: CURRENT_INTRODUCTION_VERSION \}\)/);
-    const updateCallIndex = body.indexOf('.update({');
-    const finalContinueIndex = body.lastIndexOf('continueTo(path);');
-    expect(finalContinueIndex).toBeGreaterThan(updateCallIndex);
+  it('persistAndContinue writes exactly CURRENT_INTRODUCTION_VERSION (via the shared completeIntroductionVersion - see introductionCompletion.test.js for real-execution proof of the write itself), and only navigates after that write is confirmed', () => {
+    expect(introductionCompletionSource).toMatch(/\.update\(\{ introduction_completed_version: CURRENT_INTRODUCTION_VERSION \}\)/);
+    const body = introductionSource.match(/const persistAndContinue = async \(destination = '\/'\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const callIndex = body.indexOf('completeIntroductionVersion(');
+    const finalContinueIndex = body.lastIndexOf('continueTo(destination);');
+    expect(finalContinueIndex).toBeGreaterThan(callIndex);
   });
 });
 
@@ -93,7 +95,7 @@ describe('5 & 6. Version-gated visibility: below version 2 sees Welcome once, at
     // The write target and the comparison target are the exact same
     // constant - there is no second, driftable "has this been shown"
     // value anywhere in this flow.
-    expect(introductionSource).toMatch(/introduction_completed_version: CURRENT_INTRODUCTION_VERSION/);
+    expect(introductionCompletionSource).toMatch(/introduction_completed_version: CURRENT_INTRODUCTION_VERSION/);
     expect(shouldShowIntroduction(CURRENT_INTRODUCTION_VERSION)).toBe(false);
   });
 

@@ -16,6 +16,7 @@ import { getFirstName } from '../lib/greeting';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const introductionSource = read('./Introduction.jsx');
 const greetingSource = read('../lib/greeting.js');
+const introductionCompletionSource = read('../lib/introductionCompletion.js');
 
 describe('1. New guest sees "Welcome to WakeWise"', () => {
   it('the non-returning-user branch resolves to the exact required heading', () => {
@@ -108,14 +109,18 @@ describe('8. Both copy variants render the identical three cards and destination
 });
 
 describe('9. Both variants complete version 2 correctly when a card or Go to Home is selected', () => {
-  it('every card and Go to Home call the same persistAndContinue - never a copy-variant-specific persistence path', () => {
-    const persistCalls = introductionSource.match(/onClick=\{\(\) => persistAndContinue\(/g) ?? [];
-    expect(persistCalls.length).toBe(2); // the one mapped card template + Go to Home
+  it('every card (via handleCardTap) and Go to Home eventually call the same persistAndContinue - never a copy-variant-specific persistence path', () => {
+    expect(introductionSource).toMatch(/onClick=\{\(\) => persistAndContinue\('\/'\)\}/);
+    expect(introductionSource).toMatch(/onClick=\{\(\) => handleCardTap\(card\)\}/);
+    const handleCardTapBody = introductionSource.match(/const handleCardTap = \(card\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleCardTapBody).toMatch(/persistAndContinue\(CARD_DESTINATIONS\[card\.id\]\);/);
+    expect(handleCardTapBody).not.toMatch(/welcomeHeading|welcomeSubcopy|isReturningSignedInUser/);
   });
 
-  it('persistAndContinue itself has no reference to welcomeHeading/welcomeSubcopy/isReturningSignedInUser - the write path is fully independent of which copy was shown', () => {
-    const body = introductionSource.match(/const persistAndContinue = async \(path = '\/'\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+  it('persistAndContinue itself has no reference to welcomeHeading/welcomeSubcopy/isReturningSignedInUser - the write path (completeIntroductionVersion, a shared module with no knowledge of this component\'s own state) is fully independent of which copy was shown', () => {
+    const body = introductionSource.match(/const persistAndContinue = async \(destination = '\/'\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).not.toMatch(/welcomeHeading|welcomeSubcopy|isReturningSignedInUser/);
-    expect(body).toMatch(/introduction_completed_version: CURRENT_INTRODUCTION_VERSION/);
+    expect(introductionCompletionSource).not.toMatch(/welcomeHeading|welcomeSubcopy|isReturningSignedInUser/);
+    expect(introductionCompletionSource).toMatch(/introduction_completed_version: CURRENT_INTRODUCTION_VERSION/);
   });
 });

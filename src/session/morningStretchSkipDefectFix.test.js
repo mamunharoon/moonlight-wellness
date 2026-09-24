@@ -227,8 +227,8 @@ describe('13. Existing full Morning order tests remain passing', () => {
 });
 
 describe('Back behaviour is unaffected by this fix (no back/review-mode code touched)', () => {
-  it('IntentionSetup.jsx still uses BackButton with the exact same fallback, and review-mode wiring is untouched', () => {
-    expect(intentionSetupSource).toMatch(/<BackButton fallback="\/routines\/rise-reset" \/>/);
+  it('IntentionSetup.jsx still uses BackButton, and review-mode wiring is untouched (Remove Routines from the Visible User Flow: fallback now points at Home directly, since /routines/rise-reset itself just redirects to Home anyway)', () => {
+    expect(intentionSetupSource).toMatch(/<BackButton fallback="\/" \/>/);
     expect(intentionSetupSource).toMatch(/useStepReviewMode\('intention', 'morning-routine'\)/);
   });
 

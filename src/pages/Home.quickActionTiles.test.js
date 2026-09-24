@@ -1,8 +1,16 @@
 // Regression guard for the Home "Or choose something quick" row: exactly
-// four tiles, unchanged destinations, and the accessible hover/focus
+// three tiles, unchanged destinations, and the accessible hover/focus
 // tooltip added alongside the bottom-nav clearance fix. Source-level
 // checks - this repo's Vitest has no rendering engine (see
 // Layout.safeArea.test.js's own header comment for why).
+//
+// Navigation simplification (Remove Routines from the Visible User Flow,
+// follow-up) — the former fourth tile, "Explore Library"
+// (/library?from=home), is removed: Library is already permanently
+// available in the bottom nav (Layout.jsx), so this tile was a second,
+// redundant path to the exact same destination. The remaining three
+// tiles' own hrefs/labels/tooltips/touch-targets are completely
+// unaffected - only TILES below shrank from four entries to three.
 //
 // Build 15 Phase B remediation (Task 4) - the Browse exercises/Sleep
 // sounds hrefs each gained a trailing `&from=home`/`?from=home` marker,
@@ -30,18 +38,39 @@ const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)
 const TILES = [
   { href: '/breathe-standalone', label: 'Breathe', tipId: 'quick-action-tip-breathe' },
   { href: '/self-guided-meditation?from=home', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
-  { href: '/library?from=home', label: 'Explore Library', tipId: 'quick-action-tip-browse-exercises' },
   { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep &amp; Unwind', tipId: 'quick-action-tip-sleep-sounds' }
 ];
 
-describe('Home — quick-action row stays exactly four tiles, unchanged destinations', () => {
-  it('exactly four Link tiles route to the four approved destinations, in order', () => {
+describe('Home — quick-action row stays exactly three tiles, unchanged destinations', () => {
+  it('exactly three Link tiles route to the three approved destinations, in order', () => {
     const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
     expect(hrefs).toEqual(TILES.map((t) => t.href));
   });
 
   it('the section heading "Or choose something quick" is unchanged', () => {
     expect(source).toMatch(/Or choose something quick/);
+  });
+
+  it('the row is a 3-column grid, evenly sharing the available width - not a leftover 4-column grid with an empty cell', () => {
+    expect(source).toMatch(/<div className="grid grid-cols-3 gap-2\.5">/);
+    // Comments legitimately name "grid-cols-4" in prose explaining the
+    // change (grid-cols-4 -> grid-cols-3) - only the real code matters.
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(codeOnly).not.toMatch(/grid-cols-4/);
+  });
+
+  it('no replacement tile was added merely to keep the row at four - Explore Library is gone and nothing new stands in its place', () => {
+    // Comments legitimately name "Explore Library" in prose explaining
+    // what was removed - only the real code matters here.
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(codeOnly).not.toMatch(/Explore Library/);
+    expect(source).not.toMatch(/quick-action-tip-browse-exercises/);
+    expect(source).not.toMatch(/to="\/library\?from=home"/);
+  });
+
+  it('Library remains fully reachable from Home - not via this row any more, but permanently via the bottom nav (Layout.jsx), unaffected by this change', () => {
+    const layoutSource = readFileSync(fileURLToPath(new URL('../components/Layout.jsx', import.meta.url)), 'utf-8');
+    expect(layoutSource).toMatch(/\{ label: 'Library', path: '\/library', icon: 'video_library' \}/);
   });
 });
 
