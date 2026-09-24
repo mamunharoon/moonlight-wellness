@@ -35,7 +35,7 @@ describe('ConfirmDialog.jsx - two centrally defined destructive severities', () 
     expect(confirmDialogSource).toMatch(/mildDestructive\s*\n\s*\? 'bg-\[#b3555f\] text-white/);
   });
 
-  it('strong destructive renders solid red-600 (not the old red-500\/90), also solid for deterministic contrast', () => {
+  it('strong destructive renders solid red-600 (not the old red-500/90), also solid for deterministic contrast', () => {
     expect(confirmDialogSource).toMatch(/: destructive\s*\n\s*\? 'bg-red-600 text-white/);
     expect(confirmDialogSource).not.toMatch(/bg-red-500\/90/);
   });

@@ -59,7 +59,7 @@ describe('AnytimeResetProgress - segment states, exactly stepCount segments, no 
     expect(source).toMatch(/Array\.from\(\{ length: stepCount \}\)/);
   });
 
-  it('current segment uses primary (peach), completed uses primary\/50, upcoming uses outline - three distinct states', () => {
+  it('current segment uses primary (peach), completed uses primary/50, upcoming uses outline - three distinct states', () => {
     expect(source).toMatch(/i === stepIndex \? 'bg-primary' : i < stepIndex \? 'bg-primary\/50' : 'bg-outline'/);
   });
 
