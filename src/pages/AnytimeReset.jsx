@@ -9,6 +9,7 @@ import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
+import { AnytimeResetProgress } from '../components/journey/AnytimeResetProgress';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { RecommendationCard } from '../components/journey/RecommendationCard';
@@ -247,9 +248,14 @@ export const AnytimeReset = () => {
         backFallback="/"
         onStepBack={handleStepBack}
         onClose={handleClose}
-        stepIndex={stepIndex}
-        stepCount={3}
       />
+      {/* Build 15 release-quality pass — dedicated, more visible progress
+          indicator, replacing JourneyHeader's own small dots (never
+          passed stepIndex/stepCount above any more, so its dot block
+          never renders). See AnytimeResetProgress.jsx's own doc comment;
+          JourneyHeader itself and Meditate.jsx's own identical dots are
+          completely unmodified. */}
+      <AnytimeResetProgress stepIndex={stepIndex} stepCount={3} />
 
       {step === 'need' && (
         <div className="space-y-6">
