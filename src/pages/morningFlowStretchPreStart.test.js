@@ -60,7 +60,10 @@ describe('Item 1/2 - real movements only, exact approved wording, nothing fabric
 
   it('never fabricates per-movement durations - every displayed movement duration comes from the one real getStepDuration() value, not a hand-typed number', () => {
     expect(source).not.toMatch(/0:20<\/span>.*0:30|0:30.*0:30.*0:40/s);
-    const durationDisplays = source.match(/0:\{getStepDuration\(\)\.toString\(\)\.padStart\(2, '0'\)\}/g) ?? [];
+    // Build 15 Stretch pre-start restructure — the duration label now
+    // passes through MovementCheckboxRow's own `durationLabel` prop as a
+    // template literal, rather than inline JSX text.
+    const durationDisplays = source.match(/durationLabel=\{`0:\$\{getStepDuration\(\)\.toString\(\)\.padStart\(2, '0'\)\}`\}/g) ?? [];
     expect(durationDisplays.length).toBeGreaterThan(0);
   });
 
@@ -74,10 +77,163 @@ describe('Item 1/2 - real movements only, exact approved wording, nothing fabric
     expect(source).not.toMatch(/Customise Moves/i);
   });
 
-  it('uses the approved eyebrow/heading/support copy', () => {
+  it('uses the approved eyebrow/heading/support copy - the static fallback survives for the active/repeat-gated states, dynamic copy takes over pre-start', () => {
     expect(source).toMatch(/Morning Movement/);
     expect(source).toMatch(/Gentle Morning Stretch/);
     expect(source).toMatch(/Ease into the day with a few gentle movements\./);
+  });
+});
+
+// Release-quality Morning Stretch (Build 15) — dynamic explanatory copy
+// and Begin label, exact approved wording for every reachable selected
+// count (1-4). getPreStartCopy/beginLabel are plain functions/values
+// derived from selectedCount, so real execution is possible here without
+// any DOM rendering.
+describe('Dynamic pre-start copy and Begin label - real execution', () => {
+  // A faithful, minimal re-implementation matching MorningFlow.jsx's own
+  // getPreStartCopy/beginLabel exactly - verified against the real source
+  // text below so a future edit to either one is caught either way.
+  const getPreStartCopy = (selectedCount) => {
+    if (selectedCount === 4) return 'All four movements are selected. Begin now, or choose the movements that feel right today.';
+    if (selectedCount === 1) return 'One movement is selected. Begin now, or choose a different movement below.';
+    return `${selectedCount} movements are selected. Begin now, or choose different movements below.`;
+  };
+  const beginLabel = (selectedCount) => `Begin with ${selectedCount} movement${selectedCount === 1 ? '' : 's'}`;
+
+  it('4 selected: "All four movements are selected..." / "Begin with 4 movements"', () => {
+    expect(getPreStartCopy(4)).toBe('All four movements are selected. Begin now, or choose the movements that feel right today.');
+    expect(beginLabel(4)).toBe('Begin with 4 movements');
+  });
+
+  it('2 or 3 selected (plural, not "all four"): "{count} movements are selected..." / "Begin with {count} movements"', () => {
+    expect(getPreStartCopy(3)).toBe('3 movements are selected. Begin now, or choose different movements below.');
+    expect(getPreStartCopy(2)).toBe('2 movements are selected. Begin now, or choose different movements below.');
+    expect(beginLabel(3)).toBe('Begin with 3 movements');
+    expect(beginLabel(2)).toBe('Begin with 2 movements');
+  });
+
+  it('1 selected (singular "One movement"): "One movement is selected..." / "Begin with 1 movement" - never "1-Movement Stretch"', () => {
+    expect(getPreStartCopy(1)).toBe('One movement is selected. Begin now, or choose a different movement below.');
+    expect(beginLabel(1)).toBe('Begin with 1 movement');
+    expect(beginLabel(1)).not.toMatch(/1-Movement Stretch/i);
+  });
+
+  it('the real source defines getPreStartCopy/beginLabel with this exact wording, driven by selectedCount - not a hand-typed duplicate elsewhere', () => {
+    expect(source).toMatch(/if \(selectedCount === 4\) return 'All four movements are selected\. Begin now, or choose the movements that feel right today\.';/);
+    expect(source).toMatch(/if \(selectedCount === 1\) return 'One movement is selected\. Begin now, or choose a different movement below\.';/);
+    expect(source).toMatch(/return `\$\{selectedCount\} movements are selected\. Begin now, or choose different movements below\.`;/);
+    expect(source).toMatch(/const beginLabel = `Begin with \$\{selectedCount\} movement\$\{selectedCount === 1 \? '' : 's'\}`;/);
+  });
+
+  it('the heading paragraph renders getPreStartCopy() only pre-start (!isRepeatGated && !hasBegun), the static fallback otherwise', () => {
+    expect(source).toMatch(/\{!isRepeatGated && !hasBegun \? getPreStartCopy\(\) : 'Ease into the day with a few gentle movements\.'\}/);
+  });
+
+  it('the Begin button renders the dynamic beginLabel, never the old static "Begin Stretching"', () => {
+    expect(source).toMatch(/<span>\{beginLabel\}<\/span>/);
+    expect(source).not.toMatch(/<span>Begin Stretching<\/span>/);
+  });
+});
+
+// Release-quality Morning Stretch (Build 15) — compact pre-start order:
+// Back/Progress -> heading -> summary -> music -> Begin -> Choose
+// movements disclosure -> Explore guided stretching sessions disclosure
+// -> Skip -> Exit routine. Verified by comparing each landmark's own
+// index() in the pre-start branch's source text, in the approved order.
+describe('Compact Stretch pre-start order', () => {
+  const preStartBranch = source.slice(source.indexOf(': !hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+
+  it('landmarks appear in the exact approved order: summary -> music -> Begin -> Choose movements -> guided sessions -> Skip -> Exit', () => {
+    const iSummary = preStartBranch.indexOf('total');
+    const iMusic = preStartBranch.indexOf('<MusicPreferenceToggle');
+    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
+    const iChooseMovements = preStartBranch.indexOf('Choose movements —');
+    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iSkip = preStartBranch.indexOf('Skip this step');
+    const iExit = preStartBranch.indexOf('Exit routine');
+
+    for (const idx of [iSummary, iMusic, iBegin, iChooseMovements, iGuidedSessions, iSkip, iExit]) {
+      expect(idx).toBeGreaterThanOrEqual(0);
+    }
+    expect(iSummary).toBeLessThan(iMusic);
+    expect(iMusic).toBeLessThan(iBegin);
+    expect(iBegin).toBeLessThan(iChooseMovements);
+    expect(iChooseMovements).toBeLessThan(iGuidedSessions);
+    expect(iGuidedSessions).toBeLessThan(iSkip);
+    expect(iSkip).toBeLessThan(iExit);
+  });
+
+  it('Begin appears before both disclosures, and both disclosures appear before Skip/Exit', () => {
+    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
+    const iChooseMovements = preStartBranch.indexOf('Choose movements —');
+    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iSkip = preStartBranch.indexOf('Skip this step');
+    expect(iBegin).toBeLessThan(iChooseMovements);
+    expect(iBegin).toBeLessThan(iGuidedSessions);
+    expect(iChooseMovements).toBeLessThan(iSkip);
+    expect(iGuidedSessions).toBeLessThan(iSkip);
+  });
+});
+
+// Release-quality Morning Stretch (Build 15) — "Choose movements" and
+// "Explore guided stretching sessions" disclosures: collapsed by
+// default, real conditional rendering (never merely visually hidden),
+// never forced open by Begin, correct aria-expanded/aria-controls,
+// never navigate.
+describe('Stretch pre-start disclosures - collapse/expand behaviour', () => {
+  it('both disclosures default to collapsed (useState(false))', () => {
+    expect(source).toMatch(/const \[movementsOpen, setMovementsOpen\] = useState\(false\);/);
+    expect(source).toMatch(/const \[guidedSessionsOpen, setGuidedSessionsOpen\] = useState\(false\);/);
+  });
+
+  it('movement rows and the guided-session rows are genuinely conditionally rendered (unmounted when collapsed), never just visually hidden', () => {
+    expect(source).toMatch(/\{movementsOpen && \(\s*\n\s*<div id="stretch-choose-movements"/);
+    expect(source).toMatch(/\{guidedSessionsOpen && \(\s*\n\s*<div id="stretch-guided-sessions"/);
+    expect(source).toMatch(/\{guidedSessionsOpen && \(\s*\n\s*<div id="stretch-guided-sessions-active"/);
+  });
+
+  it('handleBeginStretching never touches movementsOpen/guidedSessionsOpen - Begin never forces a disclosure open (or closed)', () => {
+    const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/setMovementsOpen|setGuidedSessionsOpen/);
+  });
+
+  it('both disclosure triggers are real toggle buttons with correct aria-expanded/aria-controls, never a link/navigation', () => {
+    expect(source).toMatch(/onClick=\{\(\) => setMovementsOpen\(\(v\) => !v\)\}\s*\n\s*aria-expanded=\{movementsOpen\}\s*\n\s*aria-controls="stretch-choose-movements"/);
+    expect(source).toMatch(/onClick=\{\(\) => setGuidedSessionsOpen\(\(v\) => !v\)\}\s*\n\s*aria-expanded=\{guidedSessionsOpen\}\s*\n\s*aria-controls="stretch-guided-sessions"/);
+    expect(source).not.toMatch(/onClick=\{\(\) => setMovementsOpen[\s\S]{0,80}navigate\(/);
+  });
+
+  it('the guided-sessions disclosure header count comes from STRETCHING_SESSION_VIDEOS.length, never a hand-typed "5"', () => {
+    const matches = source.match(/Explore guided stretching sessions — \{STRETCHING_SESSION_VIDEOS\.length\} available/g) ?? [];
+    // Appears twice: once in the pre-start branch, once in the active-state block.
+    expect(matches.length).toBe(2);
+  });
+
+  it('the Choose-movements disclosure header count comes from the live selectedCount, never a hand-typed number', () => {
+    expect(source).toMatch(/Choose movements — \{selectedCount\} selected/);
+  });
+
+  it('the guided-sessions disclosure remains reachable both pre-start and once hasBegun is true, sharing one state variable (opening it pre-start survives tapping Begin)', () => {
+    const guidedSessionsOpenUsages = source.match(/guidedSessionsOpen/g) ?? [];
+    // setGuidedSessionsOpen(false) init + pre-start button/panel + active button/panel references.
+    expect(guidedSessionsOpenUsages.length).toBeGreaterThanOrEqual(6);
+    expect(source).toMatch(/\{hasBegun && !isRepeatGated && \(\s*\n\s*<div className="space-y-2">\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => setGuidedSessionsOpen/);
+  });
+});
+
+// Release-quality Morning Stretch (Build 15) — opening/closing media from
+// inside the guided-sessions disclosure must never advance or complete
+// the timed routine, and must never itself navigate away from Stretch.
+describe('Guided-session media never advances or completes the timed routine', () => {
+  it('handleSelectVideo only marks videoOpenedDuringExercise and opens the protected-video flow - it never calls advanceStep/navigate/setJourneyStep', () => {
+    const body = source.match(/const handleSelectVideo = \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setVideoOpenedDuringExercise\(true\);/);
+    expect(body).toMatch(/handleSelect\(id\);/);
+    expect(body).not.toMatch(/advanceStep|navigate\(|setJourneyStep/);
+  });
+
+  it('closing the video (BetaVideoModal onClose) is the existing closeVideo handler - it returns to this same Stretch screen, no route change', () => {
+    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>/);
   });
 });
 
@@ -167,10 +323,24 @@ describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music togethe
 // Multi-select semantics (switches, not radios), default-all-selected,
 // last-movement protection, canonical order.
 describe('Movement multi-selection semantics', () => {
-  it('each movement row uses role="switch"/aria-checked, never role="radio" or a native radio input - multiple movements may be selected', () => {
+  // Build 15 Stretch pre-start restructure — movement rows moved from an
+  // inline role="switch" button to the new, dedicated MovementCheckboxRow
+  // component (real checkbox semantics), since multi-select inclusion
+  // reads as ambiguous under switch framing. See movementCheckboxRow.test.js
+  // for MovementCheckboxRow.jsx's own full behavioural coverage.
+  it('movement rows render via MovementCheckboxRow, never role="switch"/role="radio"/a native radio input, in the whole file', () => {
     const preStartBranch = source.slice(source.indexOf('role="group" aria-label="Choose your movements"'), source.indexOf('{lastMovementNotice'));
-    expect(preStartBranch).toMatch(/role="switch"/);
-    expect(preStartBranch).not.toMatch(/role="radio"|type="radio"/);
+    expect(preStartBranch).toMatch(/<MovementCheckboxRow/);
+    expect(source).not.toMatch(/role="switch"/);
+    expect(source).not.toMatch(/role="radio"|type="radio"/);
+    expect(source).toMatch(/import \{ MovementCheckboxRow \} from '\.\.\/components\/MovementCheckboxRow';/);
+  });
+
+  it('each row is wired with isSelected/onToggle from the same Set-based selection state, canonical steps order preserved (never re-sorted by selection)', () => {
+    const rowBlock = source.match(/\{steps\.map\(\(step, idx\) => \(\s*\n\s*<MovementCheckboxRow[\s\S]*?\/>\s*\n\s*\)\)\}/)?.[0] ?? '';
+    expect(rowBlock).toMatch(/isSelected=\{selectedMovements\.has\(idx\)\}/);
+    expect(rowBlock).toMatch(/onToggle=\{\(\) => handleToggleMovement\(idx\)\}/);
+    expect(rowBlock).toMatch(/title=\{step\.title\}/);
   });
 
   it('all 4 movements are selected by default', () => {
@@ -261,8 +431,20 @@ describe('Item 14 - standard vs extended duration remains correct for both the s
 // reviewMode.test.js's own updated MorningFlow.jsx coverage; not
 // duplicated here.
 describe('Regression - Stretching Sessions videos remain separate from the timed movement selector', () => {
-  it('STRETCHING_SESSION_VIDEOS (S01-S05) is a distinct array, rendered outside both the pre-start and active branches, never merged into steps/orderedActiveSteps', () => {
+  it('STRETCHING_SESSION_VIDEOS (S01-S05) is a distinct, exactly-5-entry array, never merged into steps/orderedActiveSteps', () => {
     expect(source).toMatch(/const STRETCHING_SESSION_VIDEOS = \[/);
-    expect(source).toMatch(/\{STRETCHING_SESSION_VIDEOS\.map\(\(\{ id, blurb \}\) => \{/);
+    const block = source.match(/const STRETCHING_SESSION_VIDEOS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    const idMatches = [...block.matchAll(/id: '(S0\d)'/g)].map((m) => m[1]);
+    expect(idMatches).toEqual(['S01', 'S02', 'S03', 'S04', 'S05']);
+  });
+
+  // Build 15 Stretch pre-start restructure — now rendered from inside the
+  // "Explore guided stretching sessions" disclosure in BOTH the pre-start
+  // branch and the active-state block (two separate .map() call sites,
+  // one per branch), sharing one `guidedSessionsOpen` state - never
+  // rendered unconditionally any more.
+  it('is rendered exactly twice (pre-start disclosure + active-state disclosure), both gated behind guidedSessionsOpen, never unconditionally', () => {
+    const mapCalls = source.match(/\{STRETCHING_SESSION_VIDEOS\.map\(\(\{ id, blurb \}\) => \{/g) ?? [];
+    expect(mapCalls.length).toBe(2);
   });
 });

@@ -268,10 +268,18 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(pauseButtonIndex).toBeGreaterThan(musicIndex);
     });
 
-    it(`${name}: the panel sits immediately after InteractiveAmbientMusic (the one, stable, never-remounted instance) and strictly before every optional-video row - visible without scrolling past the video catalogue`, () => {
+    it(`${name}: the panel sits immediately after InteractiveAmbientMusic (the one, stable, never-remounted instance) and strictly before the ACTIVE-state guided-video row - visible without scrolling past the video catalogue`, () => {
+      // Build 15 release-quality pass — both screens now also render an
+      // earlier, pre-start copy of their guided-video rows (behind a
+      // collapsed-by-default disclosure), so a plain indexOf would find
+      // that earlier, pre-Begin occurrence instead of the active-state
+      // one this check is actually about. lastIndexOf targets the
+      // active-state occurrence specifically, which always comes after
+      // ExercisePausedPanel in the source regardless of how many earlier
+      // pre-start copies exist.
       const musicIndex = source.indexOf('<InteractiveAmbientMusic');
       const panelIndex = source.indexOf('<ExercisePausedPanel');
-      const videoRowIndex = source.indexOf('<BetaVideoRow');
+      const videoRowIndex = source.lastIndexOf('<BetaVideoRow');
       expect(musicIndex).toBeGreaterThan(-1);
       expect(panelIndex).toBeGreaterThan(musicIndex);
       expect(videoRowIndex).toBeGreaterThan(panelIndex);

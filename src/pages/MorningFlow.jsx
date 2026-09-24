@@ -18,6 +18,7 @@ import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseSt
 import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { MovementCheckboxRow } from '../components/MovementCheckboxRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 import { isFeatureEnabled } from '../lib/featureFlags';
@@ -47,13 +48,11 @@ const STRETCHING_SESSION_VIDEOS = [
 // Build 15 — Morning Stretch pre-start screen. The 4 real movements
 // (unchanged wording/icons) are now shown and multi-selectable BEFORE
 // anything starts, rather than always auto-running as a fixed sequence
-// the instant the music-choice prompt resolved. Selection uses a real
-// switch (role="switch"/aria-checked) per movement, never radio
-// semantics, since more than one movement may be included — the same
-// accessible multi-select pattern already proven in
-// PrepareToggleRow.jsx (Evening), just with Morning's own existing
-// `primary` accent (not evening-accent) since this screen already uses
-// `primary` throughout for its own identity.
+// the instant the music-choice prompt resolved. Selection uses real
+// checkbox semantics (MovementCheckboxRow) per movement, never a switch
+// or radio, since more than one movement may be included and a switch's
+// on/off framing reads as ambiguous for a genuine multi-select — see
+// MovementCheckboxRow.jsx's own doc comment for the full rationale.
 //
 // Morning-flow redesign — interactive timer vs. optional guided video:
 // this screen's own movement countdown has no narration or audio of its
@@ -113,6 +112,15 @@ export const MorningFlow = () => {
     return new Set(steps.map((_, i) => i));
   });
   const [lastMovementNotice, setLastMovementNotice] = useState(false);
+  // Build 15 Stretch pre-start restructure — two independent, collapsed-
+  // by-default disclosures (mirrors PrepareForRest.jsx's own "Choose a
+  // bedtime video or sleep sound" precedent: aria-expanded/aria-controls,
+  // never navigates). Neither is forced open once hasBegun flips true -
+  // both keep whatever open/collapsed state the user already left them
+  // in, satisfying "remain collapsed before and during the timed
+  // exercise unless the user deliberately opens it."
+  const [movementsOpen, setMovementsOpen] = useState(false);
+  const [guidedSessionsOpen, setGuidedSessionsOpen] = useState(false);
   const handleToggleMovement = (idx) => {
     setSelectedMovements((prev) => {
       if (prev.has(idx) && prev.size === 1) {
@@ -340,6 +348,17 @@ export const MorningFlow = () => {
   const selectedCount = selectedMovements.size;
   const totalSeconds = selectedCount * getStepDuration();
 
+  // Build 15 Stretch pre-start restructure — dynamic explanatory copy and
+  // Begin label, exact approved wording for counts 1-4. Natural grammar
+  // for Begin ("Begin with 2 movements"), never a fabricated compound
+  // like "1-Movement Stretch."
+  const getPreStartCopy = () => {
+    if (selectedCount === 4) return 'All four movements are selected. Begin now, or choose the movements that feel right today.';
+    if (selectedCount === 1) return 'One movement is selected. Begin now, or choose a different movement below.';
+    return `${selectedCount} movements are selected. Begin now, or choose different movements below.`;
+  };
+  const beginLabel = `Begin with ${selectedCount} movement${selectedCount === 1 ? '' : 's'}`;
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
@@ -355,7 +374,7 @@ export const MorningFlow = () => {
         <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Movement</span>
         <h2 className="text-2xl font-bold text-on-surface">Gentle Morning Stretch</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-          Ease into the day with a few gentle movements.
+          {!isRepeatGated && !hasBegun ? getPreStartCopy() : 'Ease into the day with a few gentle movements.'}
         </p>
       </div>
 
@@ -386,47 +405,6 @@ export const MorningFlow = () => {
             </span>
           </div>
 
-          <div className="space-y-3" role="group" aria-label="Choose your movements">
-            {steps.map((step, idx) => {
-              const isSelected = selectedMovements.has(idx);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  role="switch"
-                  aria-checked={isSelected}
-                  onClick={() => handleToggleMovement(idx)}
-                  className={`w-full min-h-[56px] px-5 py-4 rounded-2xl border text-left flex items-center gap-4 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] ${
-                    isSelected ? 'bg-primary/10 border-primary' : 'bg-surface-container border-primary/50 hover:bg-white/10'
-                  }`}
-                >
-                  <span className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'}`}>
-                    <span className="material-symbols-outlined text-2xl">{step.icon}</span>
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className={`block text-sm leading-snug ${isSelected ? 'text-primary font-bold' : 'text-on-surface font-medium'}`}>{step.title}</span>
-                    <span className="block text-xs text-on-surface-variant mt-1">{step.desc}</span>
-                    <span className="block text-[10px] text-on-surface-variant/70 mt-1 uppercase font-semibold tracking-wide">0:{getStepDuration().toString().padStart(2, '0')}</span>
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-150 ${isSelected ? 'bg-primary' : 'bg-evening-track-off'}`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-container-lowest border border-primary transition-transform duration-150 ${
-                        isSelected ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {lastMovementNotice && (
-            <p className="text-xs text-on-surface-variant text-center px-4">Keep at least one movement selected to begin.</p>
-          )}
-
           {musicEligible && (
             <MusicPreferenceToggle
               isOn={musicPreferenceOn}
@@ -444,9 +422,94 @@ export const MorningFlow = () => {
               disabled={selectedMovements.size === 0}
               className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50"
             >
-              <span>Begin Stretching</span>
+              <span>{beginLabel}</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
+          </div>
+
+          {/* Build 15 Stretch pre-start restructure — "Choose movements"
+              disclosure, collapsed by default. The movement rows and the
+              last-movement notice move inside unchanged in every other
+              respect (same Set-based selection, same canonical order,
+              same last-remaining-movement guard). */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setMovementsOpen((v) => !v)}
+              aria-expanded={movementsOpen}
+              aria-controls="stretch-choose-movements"
+              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className="text-sm font-semibold text-on-surface text-left">Choose movements — {selectedCount} selected</span>
+              <span
+                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                style={{ transform: movementsOpen ? 'rotate(180deg)' : 'none' }}
+                aria-hidden="true"
+              >
+                expand_more
+              </span>
+            </button>
+            {movementsOpen && (
+              <div id="stretch-choose-movements" className="space-y-3" role="group" aria-label="Choose your movements">
+                {steps.map((step, idx) => (
+                  <MovementCheckboxRow
+                    key={idx}
+                    title={step.title}
+                    description={step.desc}
+                    durationLabel={`0:${getStepDuration().toString().padStart(2, '0')}`}
+                    icon={step.icon}
+                    isSelected={selectedMovements.has(idx)}
+                    onToggle={() => handleToggleMovement(idx)}
+                  />
+                ))}
+                {lastMovementNotice && (
+                  <p className="text-xs text-on-surface-variant text-center px-4">Keep at least one movement selected to begin.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Build 15 Stretch pre-start restructure — "Explore guided
+              stretching sessions" disclosure, collapsed by default. Same
+              shared open/collapsed state also renders the S01-S05 rows
+              once the exercise has begun (see below), so opening it here
+              and then tapping Begin never silently closes it again. */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setGuidedSessionsOpen((v) => !v)}
+              aria-expanded={guidedSessionsOpen}
+              aria-controls="stretch-guided-sessions"
+              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching sessions — {STRETCHING_SESSION_VIDEOS.length} available</span>
+              <span
+                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+                aria-hidden="true"
+              >
+                expand_more
+              </span>
+            </button>
+            {guidedSessionsOpen && (
+              <div id="stretch-guided-sessions" className="space-y-3">
+                {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                  const entry = getBetaVideoById(id);
+                  if (!entry) return null;
+                  return (
+                    <BetaVideoRow
+                      key={id}
+                      title={entry.title}
+                      description={blurb}
+                      onClick={() => handleSelectVideo(id)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 w-full">
             <button
               onClick={handleSkip}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
@@ -577,21 +640,51 @@ export const MorningFlow = () => {
         </button>
       )}
 
-      <div className="space-y-3">
-        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Stretching Sessions</h3>
-        {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelectVideo(id)}
-            />
-          );
-        })}
-      </div>
+      {/* Build 15 — same "Explore guided stretching sessions" disclosure
+          as the pre-start screen, reusing the same guidedSessionsOpen
+          state (so opening it before Begin and then starting the
+          exercise never silently closes it - "do not force it open
+          after Begin" means never force it EITHER way). Only rendered
+          once the exercise is active - the pre-start branch above
+          already renders its own copy while !hasBegun. Still reachable
+          mid-exercise, preserving the existing interrupt-to-watch
+          affordance handleSelectVideo already provides. */}
+      {hasBegun && !isRepeatGated && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setGuidedSessionsOpen((v) => !v)}
+            aria-expanded={guidedSessionsOpen}
+            aria-controls="stretch-guided-sessions-active"
+            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching sessions — {STRETCHING_SESSION_VIDEOS.length} available</span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+              style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+              aria-hidden="true"
+            >
+              expand_more
+            </span>
+          </button>
+          {guidedSessionsOpen && (
+            <div id="stretch-guided-sessions-active" className="space-y-3">
+              {STRETCHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                const entry = getBetaVideoById(id);
+                if (!entry) return null;
+                return (
+                  <BetaVideoRow
+                    key={id}
+                    title={entry.title}
+                    description={blurb}
+                    onClick={() => handleSelectVideo(id)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {hasBegun && !isRepeatGated && (
         <div className="space-y-3 w-full">
