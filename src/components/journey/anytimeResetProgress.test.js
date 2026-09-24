@@ -92,8 +92,9 @@ describe('AnytimeResetProgress - getSegmentClassName: real computed classes, not
     expect(getSegmentClassName(2, 0)).toMatch(/\bh-2\b/);
   });
 
-  it('completed segments carry a visible border the upcoming segments do not - a second, non-colour distinguishing channel', () => {
-    expect(getSegmentClassName(0, 1)).toMatch(/border-tertiary\/40/);
+  it('completed segments carry a visible border the upcoming segments do not - a second, non-colour distinguishing channel, using the alpha-safe tertiary-tint token (not bare tertiary, which cannot support an opacity modifier)', () => {
+    expect(getSegmentClassName(0, 1)).toMatch(/border-tertiary-tint\/70/);
+    expect(getSegmentClassName(0, 1)).not.toMatch(/border-tertiary\/\d/);
     expect(getSegmentClassName(1, 0)).toMatch(/border-transparent/);
   });
 

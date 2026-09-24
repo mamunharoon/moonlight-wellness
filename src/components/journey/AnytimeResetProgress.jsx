@@ -43,8 +43,19 @@
  * label above, which already names the current step in words.
  *
  *   - upcoming (i > stepIndex):  h-2, bg-outline, no border
- *   - completed (i < stepIndex): h-2, bg-tertiary-tint/55, border-tertiary/40
+ *   - completed (i < stepIndex): h-2, bg-tertiary-tint/55, border-tertiary-tint/70
  *   - active (i === stepIndex):  h-2.5, bg-tertiary, no border
+ *
+ * Delivery-verification fix — the completed segment's border was
+ * originally `border-tertiary/40`. `tertiary` (like `primary`) is a plain
+ * hex string with no Tailwind opacity-modifier support, so that class
+ * silently generated no rule at all and the border fell back to
+ * Tailwind's default gray - live-caught via getComputedStyle() against
+ * the deployed DEV site during this delivery's own verification pass (the
+ * fill itself, bg-tertiary-tint/55, was never affected - only the border).
+ * Corrected to border-tertiary-tint/70, the same alpha-safe token the
+ * fill already uses, at a higher opacity so the border reads as a
+ * distinct ring against the 55%-opacity fill rather than blending into it.
  */
 const SEGMENT_BASE = 'flex-1 rounded-full transition-all duration-200 border';
 
@@ -53,7 +64,7 @@ export const getSegmentClassName = (index, stepIndex) => {
     return `${SEGMENT_BASE} h-2.5 bg-tertiary border-transparent`;
   }
   if (index < stepIndex) {
-    return `${SEGMENT_BASE} h-2 bg-tertiary-tint/55 border-tertiary/40`;
+    return `${SEGMENT_BASE} h-2 bg-tertiary-tint/55 border-tertiary-tint/70`;
   }
   return `${SEGMENT_BASE} h-2 bg-outline border-transparent`;
 };
