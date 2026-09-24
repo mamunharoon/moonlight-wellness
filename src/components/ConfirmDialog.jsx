@@ -27,6 +27,17 @@ export const ConfirmDialog = ({
   onConfirm,
   onDismiss,
   destructive = false,
+  // Build 15 muted-destructive addition — a second, lighter severity for
+  // actions that discard resumable progress but delete nothing saved
+  // (Morning Start Over, discard-stale). Centrally defined here, never
+  // duplicated as a raw colour on any page. Solid (not translucent)
+  // colours are used for both severities so their real computed contrast
+  // against white text is deterministic regardless of backdrop:
+  //   - mildDestructive: #b3555f solid - ~4.80:1 against white.
+  //   - destructive (strong): red-600 solid (#dc2626) - ~4.83:1 against
+  //     white, replacing the old red-500/90 (~4.46:1, below AA).
+  // mildDestructive takes precedence when both are somehow set.
+  mildDestructive = false,
   // Sign-out hardening: an in-flight async confirm action (e.g. awaiting
   // Supabase signOut()) disables BOTH buttons so a second tap can never
   // fire a duplicate request and Cancel can't dismiss mid-request -
@@ -96,9 +107,11 @@ export const ConfirmDialog = ({
               onClick={onConfirm}
               disabled={confirmPending}
               className={`flex-1 py-3.5 rounded-full font-bold active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 ${
-                destructive
-                  ? 'bg-red-500/90 text-white hover:opacity-90 focus-visible:ring-red-400'
-                  : 'bg-primary text-on-primary hover:opacity-90 focus-visible:ring-primary'
+                mildDestructive
+                  ? 'bg-[#b3555f] text-white hover:opacity-90 focus-visible:ring-[#b3555f]'
+                  : destructive
+                    ? 'bg-red-600 text-white hover:opacity-90 focus-visible:ring-red-400'
+                    : 'bg-primary text-on-primary hover:opacity-90 focus-visible:ring-primary'
               }`}
             >
               {confirmLabel}

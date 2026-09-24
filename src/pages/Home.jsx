@@ -225,7 +225,13 @@ export const Home = () => {
         title: `Start ${label} Routine Over?`,
         message: `Your current ${label} step progress will be reset. Saved history and journal entries will not be deleted.`,
         confirmLabel: 'Start Over',
-        destructive: true
+        // Build 15 muted-destructive addition — Morning's own Start Over
+        // only resets resumable step progress, never saved history, so it
+        // gets the lighter severity. Evening's own Start Over (identical
+        // wording, different period) keeps the strong treatment: scoped
+        // explicitly by period, never both muted together.
+        destructive: true,
+        mildDestructive: activeDialog.period === 'morning'
       };
     }
     if (activeDialog.kind === 'repeat') {
@@ -249,11 +255,15 @@ export const Home = () => {
         destructive: false
       };
     }
+    // 'discard-stale' — discards only a resumable, unfinished snapshot
+    // (never saved history/reflections), so it gets the muted severity
+    // for both Morning and Evening alike.
     return {
       title: "Start today's routine?",
       message: 'Your unfinished previous routine progress will be cleared.',
       confirmLabel: "Start Today's Routine",
-      destructive: true
+      destructive: true,
+      mildDestructive: true
     };
   })();
 
@@ -1255,6 +1265,7 @@ export const Home = () => {
         confirmLabel={dialogCopy?.confirmLabel ?? 'Confirm'}
         cancelLabel={dialogCopy?.cancelLabel ?? 'Cancel'}
         destructive={dialogCopy?.destructive ?? false}
+        mildDestructive={dialogCopy?.mildDestructive ?? false}
         onConfirm={handleConfirmDialog}
         onDismiss={() => setActiveDialog(null)}
       />
