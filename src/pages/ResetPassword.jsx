@@ -123,7 +123,11 @@ export const ResetPassword = () => {
     >
       <div className="text-center space-y-2">
         <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>lock_reset</span>
-        <h2 className="text-2xl font-bold text-on-surface">Reset your password</h2>
+        {/* Authentication polish (Build 16) — same heading-scale/Playfair
+            Display treatment as Auth.jsx's own heading (see that file's
+            own doc comment for the full rationale); every other element
+            on this screen stays untouched, plain sans. */}
+        <h2 className="text-3xl font-morning-display italic font-semibold text-on-surface">Reset your password</h2>
       </div>
 
       {status === 'checking' && (
@@ -137,7 +141,7 @@ export const ResetPassword = () => {
           </div>
           <Link
             to="/auth"
-            className="block w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            className="block w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow"
           >
             Back to Sign In
           </Link>
@@ -168,7 +172,7 @@ export const ResetPassword = () => {
                 }}
                 aria-invalid={Boolean(passwordError)}
                 aria-describedby={passwordError ? 'newPasswordHint newPasswordError' : 'newPasswordHint'}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
@@ -199,7 +203,7 @@ export const ResetPassword = () => {
               }}
               aria-invalid={Boolean(confirmPasswordError)}
               aria-describedby={confirmPasswordError ? 'confirmNewPasswordError' : undefined}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
             {confirmPasswordError && (
               <p id="confirmNewPasswordError" role="alert" className="text-[10px] text-red-400 font-medium">{confirmPasswordError}</p>
@@ -209,7 +213,7 @@ export const ResetPassword = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow disabled:opacity-40"
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}
           </button>
@@ -224,7 +228,7 @@ export const ResetPassword = () => {
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow"
           >
             Continue
           </button>

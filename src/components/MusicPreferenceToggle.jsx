@@ -27,8 +27,30 @@
  * visible "On"/"Off" text label sits beside the switch for a second,
  * non-colour-dependent cue - aria-hidden since the switch's own
  * aria-checked already announces the accessible state.
+ *
+ * Morning Visual Uplift (Build 16) — `accent` (additive, default
+ * 'primary' - every existing caller omits it and keeps its exact
+ * original WakeWise-peach ON state, byte-for-byte unchanged): 'morning'
+ * swaps the ON track/knob-border/focus-ring to the same already-
+ * contrast-verified morning-accent gold BreathingPatternRow's own
+ * 'morning' accent uses, never a new colour. Only MorningFlow.jsx and
+ * Breathe.jsx pass `accent="morning"`; EveningBreathing.jsx and
+ * QuietBreathing.jsx (Anytime) both still omit the prop and keep
+ * rendering peach - see musicPreferenceToggleSharedConsumers.test.js.
+ * The On/Off text label and aria-checked keep reflecting the same real
+ * `isOn` boolean regardless of accent - this toggle never rendered a
+ * visual state that disagreed with its own label to begin with, so
+ * there was nothing to correct, only to keep true while adding gold.
  */
-export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignIn, label = 'Background music', description }) => (
+const ACCENT_TOKENS = {
+  primary: { track: 'bg-primary', knobBorder: 'border-primary', focusRing: 'focus-visible:ring-primary' },
+  morning: { track: 'bg-morning-accent', knobBorder: 'border-morning-accent', focusRing: 'focus-visible:ring-morning-accent' }
+};
+
+export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignIn, label = 'Background music', description, accent = 'primary' }) => {
+  const tokens = ACCENT_TOKENS[accent];
+
+  return (
   <div className="glass-panel rounded-2xl p-4 border-white/10">
     <div className="flex items-center justify-between gap-3">
       <span>
@@ -47,12 +69,12 @@ export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignI
           aria-checked={isOn}
           aria-label={label}
           onClick={isGuest ? onSignIn : onToggle}
-          className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-            isOn ? 'bg-primary' : 'bg-outline'
+          className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 ${tokens.focusRing} focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+            isOn ? tokens.track : 'bg-outline'
           }`}
         >
           <span
-            className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border border-primary shadow transition-transform ${
+            className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border ${tokens.knobBorder} shadow transition-transform ${
               isOn ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
@@ -60,4 +82,5 @@ export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignI
       </span>
     </div>
   </div>
-);
+  );
+};

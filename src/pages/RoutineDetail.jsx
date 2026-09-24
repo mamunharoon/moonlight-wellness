@@ -108,6 +108,12 @@ export const RoutineDetail = () => {
 
   const routine = ROUTINES.find((r) => r.id === routineId);
   const detail = ROUTINE_DETAILS[routineId];
+  // Morning Visual Uplift (Build 16) — this detail screen is shared by
+  // all three routines, exactly like Routines.jsx's own card renderer
+  // (see that file's own doc comment for the full reasoning) - scoped to
+  // Morning only, via inline style, so Gentle Reset's and Wind-Down's own
+  // rendering stays byte-for-byte the original peach, untouched.
+  const isMorning = routine?.section === 'Morning';
 
   if (!routine || !detail) {
     return (
@@ -173,8 +179,13 @@ export const RoutineDetail = () => {
       <div className="flex items-center gap-3">
         <BackButton fallback="/routines" />
         <div className="min-w-0">
-          <span className="text-[10px] text-primary uppercase font-bold tracking-wider">{routine.category}</span>
-          <h2 className="font-headline-lg text-xl text-on-surface font-bold tracking-tight truncate">{routine.title}</h2>
+          <span
+            className="text-[10px] text-primary uppercase font-bold tracking-wider"
+            style={isMorning ? { color: routine.accentColor } : undefined}
+          >
+            {routine.category}
+          </span>
+          <h2 className={`font-headline-lg text-xl text-on-surface font-bold tracking-tight truncate ${isMorning ? 'font-morning-display italic' : ''}`}>{routine.title}</h2>
         </div>
       </div>
 
@@ -191,7 +202,11 @@ export const RoutineDetail = () => {
         <div className="glass-panel rounded-3xl overflow-hidden divide-y divide-white/5">
           {detail.steps.map((step, index) => (
             <div key={step.title} className="flex items-start gap-4 p-4">
-              <span className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+              <span
+                className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${
+                  isMorning ? 'bg-morning-accent/10 border border-morning-accent/25 text-morning-accent' : 'bg-primary/10 border border-primary/20 text-primary'
+                }`}
+              >
                 {index + 1}
               </span>
               <div className="min-w-0">
@@ -206,7 +221,7 @@ export const RoutineDetail = () => {
       <Link
         to={detail.requiresAuth ? '#' : detail.startRoute}
         onClick={handleStart}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        className={`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg ${isMorning ? 'shadow-morning-glow' : ''}`}
       >
         <span>{detail.startLabel}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>

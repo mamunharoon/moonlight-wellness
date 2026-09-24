@@ -43,13 +43,17 @@ describe('Home.jsx — card padding consistency (Phase B)', () => {
 
 describe('Home.jsx — in-progress routine cards show real step progress, not a new invented value (Phase B)', () => {
   it('the in-progress card body call passes resolveStepLabel(...) - the exact same function/data already used by the stale-choice card and cross-routine banner above it', () => {
-    expect(source).toMatch(/nextStepCardBody\(morningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.morning, morningResolvedStepIndex\)\)/);
+    // Morning Visual Uplift (Build 16): Morning's three call sites gained
+    // a third `isMorning` argument (see nextStepCardBody's own doc
+    // comment) - Evening's own three call sites are still exactly the
+    // original 1-2 argument calls, completely unaffected.
+    expect(source).toMatch(/nextStepCardBody\(morningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.morning, morningResolvedStepIndex\), true\)/);
     expect(source).toMatch(/nextStepCardBody\(eveningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.evening, eveningResolvedStepIndex\)\)/);
   });
 
-  it('the not-started and completed card calls are unchanged (single-argument) - the step-progress badge is additive, only for in-progress', () => {
-    expect(source).toMatch(/nextStepCardBody\(morningNotStartedCard\)/);
-    expect(source).toMatch(/nextStepCardBody\(morningCompletedCard\)/);
+  it('the not-started and completed card calls are unchanged for Evening (single-argument) - the step-progress badge is additive, only for in-progress; Morning\'s equivalents now also pass `true` for the new isMorning styling flag', () => {
+    expect(source).toMatch(/nextStepCardBody\(morningNotStartedCard, undefined, true\)/);
+    expect(source).toMatch(/nextStepCardBody\(morningCompletedCard, undefined, true\)/);
     expect(source).toMatch(/nextStepCardBody\(eveningNotStartedCard\)/);
     expect(source).toMatch(/nextStepCardBody\(eveningCompletedCard\)/);
   });

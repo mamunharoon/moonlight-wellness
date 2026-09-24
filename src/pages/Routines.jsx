@@ -45,6 +45,23 @@ export const Routines = () => {
             <div className="space-y-6">
               {sectionRoutines.map((routine) => {
                 const status = statusFor(routine);
+                // Morning Visual Uplift (Build 16) — scoped to the Morning
+                // section ONLY. This card renderer is shared by all three
+                // routines (Rise & Reset/Morning, Gentle Reset/Anytime,
+                // Begin Wind-Down/Evening); extending routine.accentColor
+                // (already real, already per-routine since Build 16) to
+                // the category label and "View routine" link too would
+                // have been the more "consistent" choice, but doing so
+                // would visibly recolour Evening's/Anytime's own cards -
+                // exactly the kind of unrequested shared-card change the
+                // approved brief says to leave alone. An inline style
+                // (wins over the shared className below regardless of
+                // stylesheet order, the same established technique the
+                // left border already uses) applies gold ONLY when this
+                // card's own section is Morning; every other section's
+                // category label/link stays the exact original text-primary
+                // peach, completely untouched.
+                const isMorning = routine.section === 'Morning';
                 return (
                   <Link
                     key={routine.id}
@@ -58,8 +75,13 @@ export const Routines = () => {
                   >
                     <div className="flex justify-between items-start gap-3">
                       <div className="min-w-0">
-                        <span className="text-[10px] text-primary uppercase font-bold tracking-wider">{routine.category}</span>
-                        <h3 className="text-lg font-bold text-on-surface mt-0.5">{routine.title}</h3>
+                        <span
+                          className="text-[10px] text-primary uppercase font-bold tracking-wider"
+                          style={isMorning ? { color: routine.accentColor } : undefined}
+                        >
+                          {routine.category}
+                        </span>
+                        <h3 className={`text-lg font-bold text-on-surface mt-0.5 ${isMorning ? 'font-morning-display italic' : ''}`}>{routine.title}</h3>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">{routine.duration}</span>
@@ -77,7 +99,10 @@ export const Routines = () => {
                       <span className="text-[10px] text-on-surface-variant/60 uppercase tracking-wider font-semibold">
                         {routine.stepCount} {routine.stepCount === 1 ? 'step' : 'steps'}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-bold text-primary"
+                        style={isMorning ? { color: routine.accentColor } : undefined}
+                      >
                         View routine
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </span>

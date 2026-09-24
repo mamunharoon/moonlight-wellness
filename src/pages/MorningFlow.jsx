@@ -371,8 +371,8 @@ export const MorningFlow = () => {
       )}
 
       <div className="text-center space-y-2">
-        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Morning Movement</span>
-        <h2 className="text-2xl font-bold text-on-surface">Gentle Morning Stretch</h2>
+        <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Movement</span>
+        <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Gentle Morning Stretch</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
           {!isRepeatGated && !hasBegun ? getPreStartCopy() : 'Ease into the day with a few gentle movements.'}
         </p>
@@ -412,6 +412,7 @@ export const MorningFlow = () => {
               isGuest={isGuest}
               onSignIn={confirmSignIn}
               description="Play gentle music during your stretch."
+              accent="morning"
             />
           )}
 
@@ -534,7 +535,7 @@ export const MorningFlow = () => {
             </div>
             <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
+                className="h-full bg-gradient-to-r from-morning-accent to-primary rounded-full transition-all duration-1000"
                 style={{ width: `${((activeStep + 1) / orderedActiveSteps.length) * 100}%` }}
               ></div>
             </div>
@@ -560,12 +561,12 @@ export const MorningFlow = () => {
                 <div
                   key={idx}
                   className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
-                    isActive ? 'border-primary/30 opacity-100 shadow-md shadow-primary/5 bg-primary/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
+                    isActive ? 'border-morning-accent/30 opacity-100 shadow-md shadow-morning-accent/10 bg-morning-accent/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
                   }`}
                 >
                   <div className="flex gap-4 items-center">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      isActive ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'
+                      isActive ? 'bg-morning-accent/25 text-morning-accent' : 'bg-white/5 text-on-surface-variant'
                     }`}>
                       <span className="material-symbols-outlined text-2xl">{step.icon}</span>
                     </div>
@@ -578,10 +579,21 @@ export const MorningFlow = () => {
                     </div>
                   </div>
 
-                  {isActive && (
+                  {isActive ? (
                     <div className="text-right shrink-0">
-                      <p className="text-xl font-bold text-primary">0:{timeLeft.toString().padStart(2, '0')}</p>
+                      <p className="text-xl font-bold text-morning-accent">0:{timeLeft.toString().padStart(2, '0')}</p>
                       <p className="text-[10px] text-on-surface-variant uppercase font-semibold">Remaining</p>
+                    </div>
+                  ) : (
+                    /* Morning Visual Uplift (Build 16) — each upcoming/
+                       completed movement now also shows its own real
+                       duration (the exact same getStepDuration() the
+                       active timer itself counts down from - every
+                       movement shares one uniform duration derived from
+                       the real routineDuration setting, never a
+                       fabricated flat "30s" placeholder). */
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-semibold text-on-surface-variant/70">{getStepDuration()}s</p>
                     </div>
                   )}
                 </div>

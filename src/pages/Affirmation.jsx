@@ -99,21 +99,21 @@ export const Affirmation = () => {
         Begin with a supportive thought to shape how you meet the day.
       </p>
 
-      <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-[#fffdfa] via-[#fff5f2] to-[#ffebd2] border border-primary/10 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
+      <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <span className="material-symbols-outlined text-9xl">wb_sunny</span>
         </div>
 
         <div className="space-y-6 relative z-10">
-          <span className="material-symbols-outlined text-primary text-4xl animate-pulse">auto_awesome</span>
-          <h2 className="text-3xl font-extrabold text-[#954835] leading-tight tracking-tight px-2">
+          <span className="material-symbols-outlined text-morning-accent text-4xl animate-pulse">auto_awesome</span>
+          <h2 className="text-3xl font-morning-display italic font-semibold text-on-morning-affirmation leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
           <div className="space-y-4">
             {affirmations.map(({ intention, affirmation }, idx) => (
               <div key={intention.toLowerCase()} className="space-y-1">
                 {affirmations.length > 1 && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-primary/70">{roleForIndex(idx)}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
                 )}
                 <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed font-medium">
                   "{affirmation}"

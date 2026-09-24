@@ -270,8 +270,8 @@ export const Breathe = () => {
               handleBeginBreathing above for the one gesture that starts
               all three together. */}
           <div className="text-center space-y-2">
-            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Mindful Breathing</span>
-            <h2 className="text-2xl font-bold text-on-surface">Choose Your Breathing Practice</h2>
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing</span>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breathing Practice</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
               Choose a breathing rhythm, then begin when you&rsquo;re ready.
             </p>
@@ -285,6 +285,7 @@ export const Breathe = () => {
                 selected={selectedPatternId === pattern.id}
                 onSelect={setSelectedPatternId}
                 groupName="breathing-pattern"
+                accent="morning"
               />
             ))}
           </div>
@@ -296,6 +297,7 @@ export const Breathe = () => {
               isGuest={isGuest}
               onSignIn={confirmSignIn}
               description="Play gentle music during your breathing practice."
+              accent="morning"
             />
           )}
 
@@ -381,8 +383,8 @@ export const Breathe = () => {
       ) : (
         <>
           <div className="text-center space-y-2">
-            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise</span>
-            <h2 className="text-2xl font-bold text-on-surface">Center Yourself</h2>
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Grounding Exercise</span>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Center Yourself</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
               Bring your attention to the present before the day becomes busy.
             </p>

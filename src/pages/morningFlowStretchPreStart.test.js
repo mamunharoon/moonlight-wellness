@@ -9,7 +9,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { formatTotalDuration } from '../lib/formatDuration';
 
-const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
+// Morning Visual Uplift (Build 16) — normalises CRLF to LF right after
+// reading. MorningFlow.jsx has a pre-existing, repo-wide mixed-line-
+// ending situation (git diff --check already flags it, along with
+// several other files, as wanting CRLF on the next checkout) - this
+// file's own literal multi-line search strings below are written with
+// plain \n and would otherwise silently stop matching (indexOf returning
+// -1) purely depending on which line-ending a given checkout/stash
+// round-trip happens to leave a boundary in, with no relation to the
+// actual code changing. Normalising here makes every assertion below
+// depend only on real content, never on incidental line-ending noise.
+const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8').replace(/\r\n/g, '\n');
 const source = read('./MorningFlow.jsx');
 
 const REAL_MOVEMENTS = [

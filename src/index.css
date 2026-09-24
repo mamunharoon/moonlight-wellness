@@ -108,6 +108,28 @@
     --color-on-morning-tint: #5a3820;
     --color-evening-tint: 18 27 46;
     --color-on-evening-tint: #dae2fd;
+
+    /* Morning Visual Uplift (Build 16) — formalises Affirmation.jsx's own
+       existing inline gradient (`bg-gradient-to-tr from-[#fffdfa]
+       via-[#fff5f2] to-[#ffebd2]`) into three named tokens - same three
+       real hex values already live on that screen today, not new colours,
+       just given real names so they stop being a copy-pastable arbitrary-
+       value string. Morning-only; Evening/Anytime never reference these. */
+    --color-morning-affirmation-from: #fffdfa;
+    --color-morning-affirmation-via: #fff5f2;
+    --color-morning-affirmation-to: #ffebd2;
+    /* Same real #954835 already in use for this card's own heading -
+       formalised as a token, not a new colour. Real, computed contrast
+       against the gradient's via-stop (#fff5f2, the most demanding of
+       the three stops since it's the lightest apart from the from-stop):
+       ~6.02:1, comfortably clearing the 4.5:1 AA normal-text floor. Also
+       used to fix a real pre-existing defect found while formalising
+       this token: the PRIMARY/SUPPORTING role label previously rendered
+       at text-primary/70 (peach at 70% opacity over near-white cream) -
+       computed at ~1.3:1, badly failing AA. Reusing this same
+       already-verified brown at full opacity for that label fixes it by
+       construction, not by tuning an opacity value further. */
+    --color-on-morning-affirmation: #954835;
   }
 
   body {

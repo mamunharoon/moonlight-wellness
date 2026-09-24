@@ -23,6 +23,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <!-- Stage 3 "felt" typography voice (design proposal §11) — additive -->
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+    <!-- Morning Visual Uplift — Playfair Display, deliberately Morning's own
+         display serif, distinct from Newsreader (which stays Evening's/the
+         app's general-purpose serif, completely unchanged). Loaded via this
+         same established <link> pattern, never a runtime/CDN <script>
+         request - see tailwind.config.js's `font-morning-display` comment
+         for the fallback stack and full rationale. SIL Open Font License,
+         same license family already relied on for Newsreader/Plus Jakarta
+         Sans - free for this app's commercial use. -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
   </head>
   <!-- Nested-scroll-container repair: `overflow-x-hidden` alone (no
        overflow-y) used to leave body's used overflow-y as `visible`,

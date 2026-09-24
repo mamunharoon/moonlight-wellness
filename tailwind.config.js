@@ -70,6 +70,14 @@ export default {
         "evening-tint": "rgb(var(--color-evening-tint) / <alpha-value>)",
         "on-evening-tint": "var(--color-on-evening-tint)",
 
+        // Morning Visual Uplift (Build 16) — the three real Affirmation.jsx
+        // gradient stops, named (see src/index.css's matching comment).
+        // Morning-only.
+        "morning-affirmation-from": "var(--color-morning-affirmation-from)",
+        "morning-affirmation-via": "var(--color-morning-affirmation-via)",
+        "morning-affirmation-to": "var(--color-morning-affirmation-to)",
+        "on-morning-affirmation": "var(--color-on-morning-affirmation)",
+
         // Stage 3 tokens — additive only, namespaced, never consumed by
         // any existing Stage 2 file. See src/styles/stage3-tokens.css.
         "stage3-ink": "var(--stage3-ink)",
@@ -85,14 +93,51 @@ export default {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-        // Stage 3's "felt" voice (design proposal §11) — additive; no
-        // existing file uses the default font-serif utility today.
+        // Stage 3's "felt" voice (design proposal §11) — additive; used
+        // by Evening's question headings and elsewhere app-wide.
+        // Deliberately UNCHANGED by the Morning Visual Uplift below -
+        // Evening keeps this exact font, this exact Tailwind key.
         serif: ['"Newsreader"', 'Georgia', 'serif'],
+        // Morning Visual Uplift (Build 16) — a second, deliberately
+        // DISTINCT display serif reserved for Morning's own display
+        // headings/affirmation text/prominent moments only (approved:
+        // "I want Morning to feel visually distinct from Evening").
+        // `font-serif` above (Newsreader) is not touched or reused here -
+        // this is a genuinely separate Tailwind key, never a redefinition
+        // of the same one, so no existing `font-serif` caller anywhere in
+        // the app (Evening included) is affected by this addition.
+        // Loaded via index.html's own established Google Fonts <link>
+        // pattern (the same mechanism Newsreader/Plus Jakarta Sans already
+        // use) - never a runtime/CDN <script> request. Georgia/serif
+        // fallback keeps Morning fully readable if the network request for
+        // the real font ever fails. SIL Open Font License (OFL) - free for
+        // this app's commercial use, same license family already relied
+        // on for Newsreader and Plus Jakarta Sans.
+        "morning-display": ['"Playfair Display"', 'Georgia', 'serif'],
       },
       borderRadius: {
         'xl': '12px',
         '2xl': '24px',
         '3xl': '32px',
+      },
+      boxShadow: {
+        // Morning Visual Uplift (Build 16) — one sparing, named glow
+        // token, reusing the already-contrast-verified morning-accent
+        // gold (see the gratitude-accent comment above) at a deliberately
+        // low, non-competing opacity. "Sparing" per the approved brief:
+        // applied to at most a handful of specific moments (the Morning
+        // intro icon, primary CTA buttons, the completion ring) - never a
+        // default/ambient shadow on ordinary cards or rows.
+        "morning-glow": "0 0 40px -8px rgba(244, 197, 106, 0.35)",
+        // Authentication polish (Build 16) — deliberately a SEPARATE,
+        // peach-based glow (the existing primary token, #ffc5b7 at low
+        // opacity - never a new colour), not a reuse of morning-glow's
+        // gold. Auth.jsx/ResetPassword.jsx are reached from many entry
+        // points, not only the Morning journey, so they get their own
+        // "first-use/Welcome" identity, visually connected to
+        // Introduction.jsx's own peach language without implying these
+        // are Morning-specific screens.
+        "welcome-glow": "0 10px 25px -6px rgba(255, 197, 183, 0.35)",
       }
     },
   },

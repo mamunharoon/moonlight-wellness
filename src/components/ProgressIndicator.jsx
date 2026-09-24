@@ -27,6 +27,17 @@ import { getStepLabel } from '../lib/stepLabels';
  *               EVENING_SESSION_ID ('evening-wind-down'), used by
  *               Reflection.jsx and Gratitude.jsx.
  *
+ * Morning Visual Uplift (Build 16) — the ACTIVE step's colour now reads
+ * `isMorning` the same way the existing `isEvening` branch already reads
+ * its own session, and recolours ONLY the active step from the generic
+ * `text-primary` peach to the same already-contrast-verified
+ * morning-accent gold Home's Today's Rhythm Morning tab and
+ * BreathingPatternRow's 'morning' accent both already use - a restrained,
+ * additive change (completed/upcoming-step colours, the separator dots,
+ * and Evening's entire isEvening branch are all untouched). Evening
+ * (isEvening true) is unaffected: isMorning is false whenever isEvening
+ * is true, so the two branches can never both apply.
+ *
  * PER-SESSION VISIBLE-STEP FILTERS
  *   VISIBLE_STEP_IDS_BY_SESSION is a filter/allowlist per session, not an
  *   order (order always comes from the registry's own step array, read
@@ -134,6 +145,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
   // deliberately left byte-for-byte unchanged, since it never had this
   // problem (its background is always the app's plain dark surface).
   const isEvening = sessionId === EVENING_SESSION_ID;
+  const isMorning = sessionId === MORNING_SESSION_ID;
 
   // Build 15 Phase A — restyle only: base label bumped 10px→11px and the
   // active-step emphasis strengthened (scale-105→scale-110) per the
@@ -154,7 +166,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
 
         const labelClassName = `transition-all duration-300 ${
           isActive
-            ? 'text-primary font-bold scale-110'
+            ? (isMorning ? 'text-morning-accent font-bold scale-110' : 'text-primary font-bold scale-110')
             : isCompleted
             ? (isEvening ? 'text-on-surface' : 'text-secondary')
             : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')

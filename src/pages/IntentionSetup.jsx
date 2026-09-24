@@ -230,9 +230,16 @@ export const IntentionSetup = () => {
       {showIntro ? (
         <>
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-            <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">wb_sunny</span>
-            <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 4</span>
-            <h1 className="font-serif italic text-3xl text-on-surface">Start Your Day with Intention</h1>
+            {/* Morning Visual Uplift (Build 16) — a restrained glow circle
+                behind the sun icon, one of the few "prominent moments" the
+                approved sunrise glow token is meant for (see
+                tailwind.config.js's own morning-glow comment: sparing,
+                never an ambient/default shadow). */}
+            <span className="w-16 h-16 rounded-full bg-morning-accent/10 border border-morning-accent/25 shadow-morning-glow flex items-center justify-center">
+              <span className="material-symbols-outlined text-morning-accent text-3xl">wb_sunny</span>
+            </span>
+            <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 4</span>
+            <h1 className="font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention</h1>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
               We'll begin by setting an intention for today, then move gently through stretching, grounding, and a closing affirmation to carry with you.
             </p>
@@ -243,7 +250,7 @@ export const IntentionSetup = () => {
           <div className="space-y-3 w-full">
             <button
               onClick={dismissIntro}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow"
             >
               <span>Begin My Morning</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -259,8 +266,8 @@ export const IntentionSetup = () => {
       ) : (
         <>
       <div className="text-center space-y-2">
-        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Your Intentions</span>
-        <h2 className="text-2xl font-bold text-on-surface">Set your intention</h2>
+        <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Your Intentions</span>
+        <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Set your intention</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
           Choose one or two qualities you want to carry into today.
         </p>
@@ -282,12 +289,12 @@ export const IntentionSetup = () => {
               aria-pressed={isSelected}
               className={`relative p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
                 isSelected
-                  ? 'bg-primary-container/20 border-primary text-primary font-bold shadow-md shadow-primary/5'
+                  ? 'bg-morning-accent/15 border-morning-accent text-morning-accent font-bold shadow-md shadow-morning-accent/10'
                   : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
               }`}
             >
               {role && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-primary text-on-primary text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-morning-accent text-on-morning-accent text-[9px] font-bold uppercase tracking-wider shadow-sm">
                   {role}
                 </span>
               )}
@@ -306,7 +313,7 @@ export const IntentionSetup = () => {
             <button
               key={item.toLowerCase()}
               onClick={() => applySelection(item)}
-              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-primary-container/20 border border-primary text-primary text-xs font-semibold"
+              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-morning-accent/15 border border-morning-accent text-morning-accent text-xs font-semibold"
             >
               <span className="text-[9px] font-bold uppercase tracking-wider">{roleForIndex(idx)}</span>
               <span>{item}</span>

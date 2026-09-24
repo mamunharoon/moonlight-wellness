@@ -607,7 +607,17 @@ export const Home = () => {
   // stale-choice card and cross-routine banner) - never a new value, just
   // a second place the same real data is shown, so a paused routine's
   // card states its progress as plainly as its title already does.
-  const nextStepCardBody = (card, stepProgressLabel) => (
+  //
+  // Morning Visual Uplift (Build 16) — `isMorning` is a fourth, additive,
+  // default-false param. Every one of the three real Evening call sites
+  // below omits it, so their eyebrow chip/heading render exactly the same
+  // peach/sans classes they always have - byte-for-byte unaffected. Only
+  // the three real Morning call sites pass `true`, swapping the eyebrow
+  // chip to the already-verified morning-accent gold and the heading to
+  // Morning's own Playfair Display serif (Georgia/serif fallback if the
+  // font request ever fails) - never touching Evening's shared branch of
+  // this same function.
+  const nextStepCardBody = (card, stepProgressLabel, isMorning = false) => (
     <>
       {/* inline-flex (not flex/block) deliberately - Morning's cards are
           text-center, Evening's are not, and an inline-level box is what
@@ -617,7 +627,11 @@ export const Home = () => {
           and silently re-centering Evening's otherwise left-aligned
           cards. */}
       <div className="inline-flex items-center gap-2 flex-wrap">
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+        <span
+          className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+            isMorning ? 'bg-morning-accent/10 border border-morning-accent/30 text-morning-accent' : 'bg-primary/10 border border-primary/20 text-primary'
+          }`}
+        >
           {card.eyebrow}
         </span>
         {stepProgressLabel && (
@@ -627,7 +641,11 @@ export const Home = () => {
         )}
       </div>
       <div className="space-y-2">
-        <h3 className="text-2xl font-bold leading-tight text-on-surface">{card.title}</h3>
+        <h3
+          className={`text-2xl font-bold leading-tight text-on-surface ${isMorning ? 'font-morning-display italic' : ''}`}
+        >
+          {card.title}
+        </h3>
         {card.supportingText && (
           <p className="text-sm text-on-surface-variant font-medium">{card.supportingText}</p>
         )}
@@ -843,7 +861,7 @@ export const Home = () => {
               both explicit choices are always shown side by side. */}
           {morningCardState === 'not-started' && morningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-primary/30 shadow-sm"
+              className="glass-panel p-6 rounded-3xl space-y-5 border-morning-accent/30 shadow-morning-glow"
               // Build 15 Phase B fix: an inline style, not the
               // bg-morning-tint/10 utility class - .glass-panel's own
               // plain-CSS `background` shorthand sits later in the
@@ -859,10 +877,10 @@ export const Home = () => {
               aria-label="Unfinished previous Rise & Reset routine"
             >
               <div className="space-y-1">
-                <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent/30 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
                   Rise &amp; Reset
                 </span>
-                <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
+                <h3 className="text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic">
                   {formatStaleRoutineDate(morningStaleSnapshot?.dateKey, today)}'s Morning routine is unfinished.
                 </h3>
                 <p className="text-sm text-on-surface-variant font-medium">
@@ -893,10 +911,10 @@ export const Home = () => {
               (morning/afternoon/evening-night) per nextStepCard.js. */}
           {morningCardState === 'not-started' && !morningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningNotStartedCard)}
+              {nextStepCardBody(morningNotStartedCard, undefined, true)}
               <button
                 type="button"
                 onClick={handleMorningAction}
@@ -910,10 +928,10 @@ export const Home = () => {
           {/* MORNING — paused today. */}
           {morningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex))}
+              {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), true)}
               <button
                 type="button"
                 onClick={handleMorningAction}
@@ -934,10 +952,10 @@ export const Home = () => {
           {/* MORNING — completed today. */}
           {morningCardState === 'completed' && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-primary/20 shadow-sm"
+              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningCompletedCard)}
+              {nextStepCardBody(morningCompletedCard, undefined, true)}
               <button
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}

@@ -35,8 +35,12 @@ describe('MusicPreferenceToggle - OFF-track contrast fix, real computed WCAG mat
     expect(source).not.toMatch(/isOn \? 'bg-primary' : 'bg-white\/10'/);
   });
 
-  it('the OFF track now uses the existing bg-outline utility, not a hand-typed hex', () => {
-    expect(source).toMatch(/isOn \? 'bg-primary' : 'bg-outline'/);
+  it('the OFF track now uses the existing bg-outline utility, not a hand-typed hex - Morning Visual Uplift (Build 16) routed the ON track through an accent-token lookup, but OFF is still the plain bg-outline literal regardless of accent', () => {
+    expect(source).toMatch(/isOn \? tokens\.track : 'bg-outline'/);
+  });
+
+  it('the default accent (\'primary\') resolves its ON track to the exact original bg-primary - every pre-existing caller (which omits `accent`) is provably unaffected by the Build 16 accent-token refactor', () => {
+    expect(source).toMatch(/primary: \{ track: 'bg-primary', knobBorder: 'border-primary', focusRing: 'focus-visible:ring-primary' \}/);
   });
 
   it('the old OFF track (knob vs. composited bg-white/10 track) genuinely failed the WCAG AA 3:1 non-text minimum', () => {

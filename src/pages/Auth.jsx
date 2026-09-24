@@ -404,7 +404,17 @@ export const Auth = () => {
 
       <div className="text-center space-y-2">
         <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
-        <h2 className="text-2xl font-bold text-on-surface">
+        {/* Authentication polish (Build 16) — heading scale now matches
+            Introduction.jsx's own (text-3xl, a heavier weight than the
+            text-2xl/font-bold this used before), and uses Playfair
+            Display (font-morning-display) the one place this screen
+            connects to the Welcome experience, per the approved brief:
+            "use Playfair only where it creates a natural connection with
+            the Welcome experience... keep fields, tabs, labels,
+            validation and buttons in the existing sans-serif" - every
+            other element on this screen (below) deliberately stays
+            untouched, plain sans. */}
+        <h2 className="text-3xl font-morning-display italic font-semibold text-on-surface">
           {mode === 'signUp' ? 'Create your account' : mode === 'forgotPassword' ? 'Reset your password' : 'Welcome back'}
         </h2>
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
@@ -462,7 +472,7 @@ export const Auth = () => {
           <button
             type="button"
             onClick={goToSignInAfterSignup}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow"
           >
             Go to Sign In
           </button>
@@ -492,7 +502,7 @@ export const Auth = () => {
                 autoComplete="given-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div className="space-y-1.5">
@@ -503,7 +513,7 @@ export const Auth = () => {
                 autoComplete="family-name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>
@@ -522,7 +532,7 @@ export const Auth = () => {
               }}
               aria-invalid={Boolean(emailError)}
               aria-describedby={emailError ? 'signUpEmailError' : undefined}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
             {emailError && (
               <p id="signUpEmailError" role="alert" className="text-[10px] text-red-400 font-medium">{emailError}</p>
@@ -545,7 +555,7 @@ export const Auth = () => {
                 }}
                 aria-invalid={Boolean(passwordError)}
                 aria-describedby={passwordError ? 'signUpPasswordHint signUpPasswordError' : 'signUpPasswordHint'}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
@@ -577,7 +587,7 @@ export const Auth = () => {
                 }}
                 aria-invalid={Boolean(confirmPasswordError)}
                 aria-describedby={confirmPasswordError ? 'confirmPasswordError' : undefined}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
@@ -603,7 +613,7 @@ export const Auth = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow disabled:opacity-40"
           >
             {isSubmitting ? 'Creating account...' : 'Create Account'}
           </button>
@@ -626,7 +636,7 @@ export const Auth = () => {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -639,7 +649,7 @@ export const Auth = () => {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+                className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 pr-12 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
@@ -665,7 +675,7 @@ export const Auth = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow disabled:opacity-40"
           >
             {isSubmitting ? 'Signing in...' : 'Sign In'}
           </button>
@@ -682,14 +692,14 @@ export const Auth = () => {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
+              className="w-full glass-panel border border-white/10 rounded-2xl px-3 py-2.5 text-base text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+            className="w-full bg-primary text-on-primary py-3.5 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-welcome-glow disabled:opacity-40"
           >
             {isSubmitting ? 'Sending link...' : 'Send Reset Link'}
           </button>

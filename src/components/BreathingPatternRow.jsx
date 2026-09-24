@@ -23,6 +23,17 @@ import { formatCadence } from '../lib/breathingPatterns';
  * evening-accent periwinkle tokens already used throughout the rest of
  * the Evening journey (AnswerOptionButton's own unselected rows,
  * PrepareToggleRow's switches) - never a third, new colour.
+ *
+ * Morning Visual Uplift (Build 16) — 'morning' is a NEW accent value,
+ * additive exactly like 'evening' above: it reuses the already-contrast-
+ * verified morning-accent/on-morning-accent gold pair (the same tokens
+ * Home's Today's Rhythm Morning tab already uses), never a new colour.
+ * Only Breathe.jsx (Morning's real mindful-breathing screen) passes
+ * `accent="morning"`; EveningBreathing.jsx, QuietBreathing.jsx (Anytime),
+ * and SelfGuidedMeditation.jsx all still omit the prop entirely and keep
+ * rendering the exact 'primary' peach tokens they always have - see
+ * breathingPatternRowSharedConsumers.test.js for the regression proof
+ * that this stays true.
  */
 const ACCENT_TOKENS = {
   primary: {
@@ -42,6 +53,15 @@ const ACCENT_TOKENS = {
     unselectedRing: 'border-evening-accent bg-surface-container-lowest',
     dot: 'bg-on-evening-accent',
     focusRing: 'has-[:focus-visible]:ring-evening-accent'
+  },
+  morning: {
+    selectedRow: 'bg-morning-accent/10 border-morning-accent',
+    unselectedRow: 'bg-surface-container border-morning-accent/55 hover:bg-white/10',
+    selectedLabel: 'text-morning-accent font-bold',
+    selectedRing: 'border-morning-accent bg-morning-accent',
+    unselectedRing: 'border-morning-accent bg-surface-container-lowest',
+    dot: 'bg-on-morning-accent',
+    focusRing: 'has-[:focus-visible]:ring-morning-accent'
   }
 };
 
