@@ -123,7 +123,12 @@ describe('Every audio/video entry point invokes the same authentication gate (us
   ];
 
   it('useProtectedVideo only intercepts the guest path - an authenticated tap still opens the player exactly as before', () => {
-    expect(useProtectedVideoSource).toMatch(/if \(isGuest\) \{\s*\n\s*setPromptId\(id\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*setOpenVideoId\(id\);/);
+    // Build 16: the guard now also allows a narrow, caller-supplied
+    // guestAllowedIds exception (see useProtectedVideo.test.js's own
+    // dedicated coverage) - every page in VIDEO_GATED_PAGES below still
+    // omits that parameter entirely, so this exact "always prompt" guard
+    // is completely unaffected for all of them.
+    expect(useProtectedVideoSource).toMatch(/if \(isGuest && !guestAllowedIds\.has\(id\)\) \{\s*\n\s*setPromptId\(id\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*setOpenVideoId\(id\);/);
   });
 
   it('every known video/sleep-sound page imports useProtectedVideo - no page was left ungated', () => {

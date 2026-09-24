@@ -79,6 +79,27 @@ const CATEGORY_ICONS = {
 
 export const getCategoryIcon = (category) => CATEGORY_ICONS[category] || 'category';
 
+// Circadian Colors (Build 16) — a semantic accent for the three
+// time-of-day-specific categories only, each reusing an existing design
+// token already established elsewhere in the app (Home.jsx's Morning/
+// Evening pills, Introduction.jsx's welcome cards, the Routines Hub's
+// accent borders): Morning -> dawn gold, Breathing -> sage/mint,
+// Evening Wind-Down/Sleep Soundscapes -> twilight lavender (sleep is the
+// same evening/night family as Evening Wind-Down). Every other category
+// (Positive Energy & Confidence, Calm & Support, Gratitude & Reflection,
+// Stretching) stays WakeWise's neutral peach - deliberately not "every
+// category gets its own colour," just the ones with a real time-of-day
+// identity, per the approved "accent where it helps recognise the
+// experience, don't flood every screen" direction.
+const CATEGORY_ACCENT_CLASSES = {
+  Morning: 'text-morning-accent',
+  Breathing: 'text-tertiary',
+  'Evening Wind-Down': 'text-evening-accent',
+  'Sleep Soundscapes': 'text-evening-accent'
+};
+
+export const getCategoryAccentClass = (category) => CATEGORY_ACCENT_CLASSES[category] || 'text-primary';
+
 // id -> { category, timeOfDay, page, feelings? }
 const METADATA = {
   // Morning

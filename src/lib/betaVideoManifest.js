@@ -605,7 +605,11 @@ export const BETA_VIDEO_MANIFEST = [
     id: 'I01',
     title: 'Why WakeWise',
     storagePath: 'faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4',
-    description: 'A brief introduction to the purpose of WakeWise and how it can support your daily wellbeing.'
+    description: 'A brief introduction to the purpose of WakeWise and how it can support your daily wellbeing.',
+    // Real, ffprobe-measured duration (~57.4s) against the live DEV
+    // object, verified for the Build 16 welcome-screen redesign's "Watch
+    // introduction (1 min)" pill - never an estimate.
+    durationLabel: '1 min'
   },
   {
     id: 'I02',

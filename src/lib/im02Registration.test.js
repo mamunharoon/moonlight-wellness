@@ -67,6 +67,6 @@ describe('get-beta-video-url/index.ts — IM02 maps to the same verified Storage
 describe('betaVideoUrlAccess.ts — IM02 is guest-allowlisted alongside IM01/IB01/IS01', () => {
   it('GUEST_ALLOWED_IDS includes IM02', () => {
     const guestAccessSource = read('../../supabase/functions/_shared/betaVideoUrlAccess.ts');
-    expect(guestAccessSource).toMatch(/GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set\(\['IB01', 'IS01', 'IM01', 'IM02'\]\);/);
+    expect(guestAccessSource).toMatch(/GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01'\]\);/);
   });
 });

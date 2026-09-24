@@ -59,11 +59,12 @@ describe('Introduction.jsx — iPhone safe-area clearance, both edges', () => {
 
 describe('Introduction.jsx — no content or font-size changes, only the layout/scroll structure', () => {
   it('every existing piece of copy is still present, byte for byte', () => {
-    expect(source).toMatch(/Welcome to WakeWise/);
-    expect(source).toMatch(/What you can do/);
-    expect(source).toMatch(/Introduction guides/);
-    expect(source).toMatch(/Start with WakeWise/);
-    expect(source).toMatch(/Skip for now/);
+    // Build 16 (Personalised Welcome copy): the heading/subcopy are now
+    // two variant strings rather than one fixed pair - see
+    // Introduction.test.js's own dedicated copy coverage. This check
+    // confirms the always-present structural copy only.
+    expect(source).toMatch(/Choose what would help you most/);
+    expect(source).toMatch(/Go to Home/);
   });
 
   it('does not introduce any text-size utility class anywhere in the file (no font-size reduction as a fix)', () => {
@@ -75,13 +76,13 @@ describe('Introduction.jsx — no content or font-size changes, only the layout/
   });
 });
 
-describe('Introduction.jsx — both guide cards and Start/Skip remain reachable inside the one scroll container', () => {
-  it('the guides section and the Start/Skip button block are both inside the new scroll wrapper, not siblings outside it', () => {
+describe('Introduction.jsx — both the welcome cards and Go to Home remain reachable inside the one scroll container', () => {
+  it('the welcome-cards section and the Go to Home button block are both inside the new scroll wrapper, not siblings outside it', () => {
     const scrollOpen = source.indexOf('overflow-y-auto overflow-x-hidden scroll-hide');
-    const guidesIndex = source.indexOf('Introduction guides');
-    const skipIndex = source.indexOf('Skip for now');
-    expect(guidesIndex).toBeGreaterThan(scrollOpen);
-    expect(skipIndex).toBeGreaterThan(scrollOpen);
+    const cardsIndex = source.indexOf('Choose what would help you most');
+    const homeIndex = source.indexOf('Go to Home');
+    expect(cardsIndex).toBeGreaterThan(scrollOpen);
+    expect(homeIndex).toBeGreaterThan(scrollOpen);
   });
 
   it('the modal and sign-in dialog remain outside the scroll container (they are fixed-position overlays, not scrollable content)', () => {

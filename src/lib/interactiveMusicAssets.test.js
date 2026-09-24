@@ -69,7 +69,7 @@ describe('IB01 / IS01 are registered end-to-end for the two real approved v2 ass
   });
 
   it('IB01 and IS01 are explicitly, deliberately exempted from that requirement (guest-allowlisted), never by accident', () => {
-    expect(guestAccessSource).toMatch(/GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set\(\['IB01', 'IS01', 'IM01', 'IM02'\]\);/);
+    expect(guestAccessSource).toMatch(/GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01'\]\);/);
     expect(edgeFunctionSource).toMatch(/import \{ resolveBetaVideoUrlRequest \} from '\.\.\/_shared\/betaVideoUrlAccess\.ts';/);
   });
 });

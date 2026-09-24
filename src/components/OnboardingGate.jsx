@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { hasChosenGuestEntry, markGuestEntryChosen } from '../lib/guestEntry';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
@@ -39,6 +39,20 @@ const ALLOWED_PRE_ENTRY_PATHS = new Set([
 export const OnboardingGate = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  // First-use welcome screen (Build 16) — a brand-new guest (never chosen
+  // guest entry on this device before) is sent straight to /introduction
+  // (rewritten for this purpose, see its own doc comment) the moment
+  // "Continue as Guest" is tapped below, mirroring how a brand-new
+  // registered user already sees it once via Auth.jsx's own
+  // redirectAfterAuth. A plain imperative navigate() call inside that
+  // same click handler - not a ref/state flag consumed on a later render
+  // (React's react-hooks/refs rule forbids reading/writing a ref during
+  // render, and a state flag would need its own reset-after-use effect
+  // with real ordering risk) - so there is nothing to persist, expire, or
+  // accidentally re-trigger on a later render; the location itself is
+  // simply already correct by the time `children` (the real <Routes>
+  // tree) renders on the very next render this same click causes.
+  const navigate = useNavigate();
   const [guestEntryChosen, setGuestEntryChosen] = useState(hasChosenGuestEntry);
 
   // Logout / cross-user client-state audit — root cause of "sign out
@@ -77,6 +91,10 @@ export const OnboardingGate = ({ children }) => {
         onContinueAsGuest={() => {
           markGuestEntryChosen();
           setGuestEntryChosen(true);
+          // `?auto=1` marks this as an automatic first-use visit, same
+          // marker/rationale as Auth.jsx's own redirectAfterAuth - see
+          // Introduction.jsx's own doc comment.
+          navigate('/introduction?auto=1', { replace: true });
         }}
       />
     );

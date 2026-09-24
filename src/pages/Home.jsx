@@ -1190,7 +1190,8 @@ export const Home = () => {
             aria-describedby="quick-action-tip-breathe"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-2xl">air</span>
+            {/* Circadian Colors — sage/mint pause/breathing accent. */}
+            <span className="material-symbols-outlined text-tertiary text-2xl">air</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Breathe</span>
             <span
               id="quick-action-tip-breathe"
@@ -1244,7 +1245,11 @@ export const Home = () => {
             aria-describedby="quick-action-tip-sleep-sounds"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-2xl">bedtime</span>
+            {/* Circadian Colors — twilight lavender, matching every other
+                Evening/sleep surface in the app (Home.jsx's own Evening
+                pill, Introduction.jsx's welcome card, the Routines Hub's
+                Wind-Down card). */}
+            <span className="material-symbols-outlined text-evening-accent text-2xl">bedtime</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Sleep &amp; Unwind</span>
             <span
               id="quick-action-tip-sleep-sounds"

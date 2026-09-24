@@ -14,6 +14,18 @@
 // same "Step X of N" the routine's own step pages already show), kept
 // here so the Routines Hub card can display step count without
 // duplicating RoutineDetail's step list.
+//
+// `accentColor` (Circadian Colors, Build 16) — a raw CSS custom-property
+// reference, not a Tailwind `border-l-*` class: Routines.jsx's card is a
+// `.glass-panel` element, and .glass-panel's own plain-CSS `border`
+// shorthand (index.css) sits later in the compiled stylesheet than any
+// Tailwind utility (it isn't inside @layer utilities) - the exact same
+// "silently wins over a same-specificity class every time" gotcha
+// Home.jsx's own Today's Rhythm cards already worked around with an
+// inline style, found live here too (a `border-l-4 ${accent}` class was
+// being completely overridden, both its width AND its color, back down
+// to .glass-panel's own 1px neutral border). Routines.jsx applies this
+// via an inline style for exactly the same reason.
 export const ROUTINES = [
   {
     id: 'rise-reset',
@@ -24,7 +36,9 @@ export const ROUTINES = [
     duration: '5 min',
     stepCount: 5,
     description: 'Curated sequence featuring a gentle morning affirmation, light muscle stretching, and grounding breath.',
-    accent: 'border-l-primary'
+    // Circadian Colors — dawn gold, matching every other Morning surface
+    // (Home.jsx's own Morning pill, Introduction.jsx's welcome card).
+    accentColor: 'var(--color-gratitude-accent)'
   },
   {
     id: 'gentle-reset',
@@ -35,7 +49,9 @@ export const ROUTINES = [
     duration: '1 min',
     stepCount: 1,
     description: 'Quick, on-the-spot breathing visualizer to lower heart rate and restore mental clarity during active work.',
-    accent: 'border-l-secondary'
+    // Circadian Colors — sage/mint, matching every other pause/breathing
+    // surface (Introduction.jsx's own welcome card for this exact routine).
+    accentColor: 'var(--color-tertiary)'
   },
   {
     id: 'wind-down',
@@ -46,7 +62,10 @@ export const ROUTINES = [
     duration: '10 min',
     stepCount: 5,
     description: 'Wind down with brief, personal gratitude journal logging, calming breathing loops, and sleep soundscapes.',
-    accent: 'border-l-tertiary'
+    // Circadian Colors — twilight lavender, matching every other
+    // Evening/sleep surface (Home.jsx's own Evening pill,
+    // Introduction.jsx's welcome card).
+    accentColor: 'var(--color-evening-accent)'
   }
 ];
 

@@ -127,14 +127,13 @@ describe('Onboarding.jsx — state, progress, and completion logic are completel
   });
 });
 
-describe('Introduction.jsx — already compliant, confirmed unmodified by this pass', () => {
+describe('Introduction.jsx — already compliant (Build 16 redesign superseded "Skip for now"/"Start with WakeWise" with "Go to Home" + three destination cards, same safe-exit guarantee)', () => {
   it('already has a real shared BackButton with a safe Home fallback', () => {
     expect(introductionSource).toMatch(/<BackButton fallback="\/" \/>/);
   });
 
-  it('already offers a non-competing secondary "Skip for now" alongside the one primary action', () => {
-    expect(introductionSource).toMatch(/Skip for now/);
-    expect(introductionSource).toMatch(/Start with WakeWise/);
+  it('offers a non-competing secondary "Go to Home" action alongside the three primary destination cards', () => {
+    expect(introductionSource).toMatch(/Go to Home/);
   });
 });
 

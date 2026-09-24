@@ -49,7 +49,12 @@ export const Routines = () => {
                   <Link
                     key={routine.id}
                     to={`/routines/${routine.id}`}
-                    className={`block glass-panel p-6 rounded-3xl space-y-4 border-l-4 ${routine.accent} shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary`}
+                    className="block glass-panel p-6 rounded-3xl space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+                    // Circadian Colors — inline style, not a border-l-4
+                    // Tailwind class: see routinesCatalog.js's own
+                    // accentColor doc comment for why (.glass-panel's own
+                    // border shorthand otherwise silently overrides it).
+                    style={{ borderLeft: `4px solid ${routine.accentColor}` }}
                   >
                     <div className="flex justify-between items-start gap-3">
                       <div className="min-w-0">

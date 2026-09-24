@@ -9,25 +9,34 @@
 // shape - genuine behavioural coverage of the actual auth/allowlist
 // branching, not a source-text regex guess at it.
 
-// Guest-accessible interactive ambient-music beds — a narrow, explicit,
-// server-side exception to the sign-in/non-anonymous requirement every
-// other id in EXERCISE_PATHS still enforces, approved as a deliberate
-// product decision (not a default posture). Every id here is a short
-// (~5 minute), non-narrated, non-personalized instrumental loop with no
-// protected/paid content behind it - IB01/IS01 (breathing/stretching
-// ambient beds) and IM01/IM02 (Self-Guided Meditation's two selectable
-// sound choices, "Gentle Ambient" and "Soft Piano" - see
-// src/lib/meditationSounds.js). This does NOT relax anything else: every
-// guided/narrated video, every Sleep Soundscape, every affirmation track
-// still requires the full sign-in + non-anonymous check exactly as before.
-// The bucket stays private and the id still resolves through the caller's
-// own fixed id→path map either way, signed with the service role either
-// way; the ONLY thing this set changes is whether a caller must present a
-// real user JWT first. Adding an id here - especially anything narrated,
-// personalized, or otherwise not a shared ambient loop - is a deliberate
-// security/product decision requiring the same explicit approval this set
-// itself required, never a default extension by analogy.
-export const GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set(['IB01', 'IS01', 'IM01', 'IM02']);
+// Guest-accessible media — a narrow, explicit, server-side exception to
+// the sign-in/non-anonymous requirement every other id in EXERCISE_PATHS
+// still enforces, approved as a deliberate product decision (not a
+// default posture) for each id individually, never by analogy. This does
+// NOT relax anything else: every other guided/narrated video, every
+// Sleep Soundscape, every affirmation track still requires the full
+// sign-in + non-anonymous check exactly as before. The bucket stays
+// private and the id still resolves through the caller's own fixed
+// id→path map either way, signed with the service role either way; the
+// ONLY thing this set changes is whether a caller must present a real
+// user JWT first.
+//
+// IB01/IS01 (breathing/stretching ambient beds) and IM01/IM02
+// (Self-Guided Meditation's two selectable sound choices, "Gentle
+// Ambient" and "Soft Piano" - see src/lib/meditationSounds.js): short
+// (~5 minute), non-narrated, non-personalized instrumental loops with no
+// protected/paid content behind them.
+//
+// I01 ("Why WakeWise", Build 16) - a genuine exception to "never
+// narrated": this is the app's own first-use welcome video, ~57s,
+// verified real duration (see betaVideoManifest.js), explicitly approved
+// for guest access because its entire product purpose - helping someone
+// who hasn't signed up yet decide whether to - is defeated if watching it
+// requires the exact commitment it exists to help with. Still not
+// personalized, still not protected/paid content. I02 ("How to Use
+// WakeWise") is deliberately NOT included here - it has no first-use
+// welcome-screen role and stays behind the normal sign-in requirement.
+export const GUEST_ALLOWED_IDS: ReadonlySet<string> = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01']);
 
 export const isGuestAllowedId = (exerciseId: unknown): boolean =>
   typeof exerciseId === 'string' && GUEST_ALLOWED_IDS.has(exerciseId);

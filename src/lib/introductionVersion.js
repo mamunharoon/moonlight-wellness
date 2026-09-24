@@ -6,13 +6,15 @@
 // again — that alone is the entire mechanism, no second migration or
 // column needed (see the accompanying migration's own doc comment).
 //
-// Not yet wired to any live redirect or persistence call — the server
-// column this compares against (profiles.introduction_completed_version)
-// does not exist until the accompanying migration is reviewed and
-// applied. This module is the safe, pure, already-testable piece; see the
-// implementation report for the exact (not-yet-connected) call sites this
-// plugs into once that migration lands.
-export const CURRENT_INTRODUCTION_VERSION = 1;
+// Wired to a live redirect (Auth.jsx's redirectAfterAuth) and persistence
+// call (Introduction.jsx's own persistAndContinue) against the real
+// server column profiles.introduction_completed_version.
+//
+// Bumped 1 -> 2 for the Build 16 welcome-screen redesign (new heading/
+// copy, three destination cards, single optional video pill) - content
+// changed enough that a user who already completed version 1 should see
+// the new screen once more.
+export const CURRENT_INTRODUCTION_VERSION = 2;
 
 /**
  * Whether the Introduction should be shown automatically for a user whose

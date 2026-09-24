@@ -85,6 +85,6 @@ describe('Guest authentication gating is identical for both variants (entirely u
   });
 
   it('useProtectedVideo\'s guest check happens on selection (handleSelect), before BetaVideoModal is ever rendered - so which variant would have been requested is irrelevant to whether a guest can open it at all', () => {
-    expect(useProtectedVideoSource).toMatch(/const handleSelect = \(id\) => \{\s*\n\s*if \(isGuest\) \{/);
+    expect(useProtectedVideoSource).toMatch(/const handleSelect = \(id\) => \{\s*\n\s*if \(isGuest && !guestAllowedIds\.has\(id\)\) \{/);
   });
 });

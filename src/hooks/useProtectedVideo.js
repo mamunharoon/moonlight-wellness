@@ -34,8 +34,27 @@ import { setPendingContent } from '../lib/pendingContent';
  * I02 are deliberately excluded from MEDIA_CATALOG (mediaCatalog.js's
  * INTERACTIVE_ONLY_IDS, same reasoning as IB01/IS01) and would otherwise
  * never resolve here at all.
+ *
+ * `guestAllowedIds` (Build 16, optional, defaults to an empty Set - every
+ * existing caller omits it and keeps its exact original "always prompt a
+ * guest" behaviour, byte-for-byte unchanged): a narrow, caller-supplied
+ * exception list mirroring the exact same fixed-ID pattern the server
+ * already uses (GUEST_ALLOWED_IDS in
+ * supabase/functions/_shared/betaVideoUrlAccess.ts) - Introduction.jsx
+ * passes a Set containing only 'I01', so a guest can watch the "Why
+ * WakeWise" welcome video without signing in first, matching the
+ * server's own allowance for that exact id. This is a CLIENT-SIDE
+ * convenience only (skips the sign-in prompt so the tap actually opens
+ * the player) - the real gate is still, and must always stay, the
+ * server's own GUEST_ALLOWED_IDS check; adding an id here without also
+ * adding it there would only produce a broken "modal opens then errors"
+ * experience, never a security hole (a guest tapping any id NOT in the
+ * server's own list still gets rejected server-side regardless of what
+ * this hook does).
  */
-export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogEntryById) => {
+const EMPTY_GUEST_ALLOWED_IDS = new Set();
+
+export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogEntryById, guestAllowedIds = EMPTY_GUEST_ALLOWED_IDS) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,7 +69,7 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
   // settled to false, so there's no race with auth still resolving.
   const [openVideoId, setOpenVideoId] = useState(() => {
     const openId = searchParams.get('openId');
-    return openId && !isGuest && resolveEntry(openId) ? openId : null;
+    return openId && (!isGuest || guestAllowedIds.has(openId)) && resolveEntry(openId) ? openId : null;
   });
 
   // Strips the now-consumed openId param so it can't re-trigger on a
@@ -65,7 +84,7 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
   }, []);
 
   const handleSelect = (id) => {
-    if (isGuest) {
+    if (isGuest && !guestAllowedIds.has(id)) {
       setPromptId(id);
       return;
     }

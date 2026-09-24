@@ -170,8 +170,25 @@ export const Auth = () => {
         console.warn('redirectAfterAuth: introduction-version check failed, defaulting to Home', profileError.message);
       } else if (shouldShowIntroduction(profileRow?.introduction_completed_version)) {
         // replace: true - Back from Introduction must not return to the
-        // Auth form (already submitted, nothing to resubmit).
-        navigate('/introduction', { replace: true });
+        // Auth form (already submitted, nothing to resubmit). `?auto=1`
+        // marks this as an automatic first-use visit (new sign-up, or an
+        // existing account below CURRENT_INTRODUCTION_VERSION) so
+        // Introduction.jsx itself can hide its Back control - there is
+        // nothing in-app to go back TO on this exact visit. See
+        // Introduction.jsx's own doc comment for the full rationale.
+        //
+        // `&existing=1` (Personalised Welcome copy) is set only when this
+        // account already had a real, previously-completed version
+        // (truthy introduction_completed_version) - distinguishing "brand
+        // new account, never completed any version" from "existing
+        // account, refreshed screen below the current version" right at
+        // the one place that already has this exact data in scope,
+        // rather than relying on AuthContext's own separately-timed
+        // profile fetch (which could still be loading at this exact
+        // moment for a just-created account) for a decision this
+        // synchronous redirect needs immediately.
+        const existingParam = profileRow?.introduction_completed_version ? '&existing=1' : '';
+        navigate(`/introduction?auto=1${existingParam}`, { replace: true });
         return;
       }
     }

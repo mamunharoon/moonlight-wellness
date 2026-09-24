@@ -19,6 +19,7 @@ const REAL_PATHS = {
   IS01: 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a',
   IM01: 'faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a',
   IM02: 'faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a',
+  I01: 'faststart-v1/WW_I01_WelcomeToWakeWise_v1_faststart.mp4',
   E02: 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4'
 };
 
@@ -38,10 +39,15 @@ const baseArgs = (overrides = {}) => ({
 });
 
 describe('GUEST_ALLOWED_IDS — the fixed, explicit set', () => {
-  it('contains exactly IB01, IS01, IM01, IM02 - both Self-Guided Meditation sound choices, no others', () => {
-    expect([...GUEST_ALLOWED_IDS].sort()).toEqual(['IB01', 'IM01', 'IM02', 'IS01']);
+  it('contains exactly IB01, IS01, IM01, IM02, I01 - the two ambient loops, both Self-Guided Meditation sound choices, and the Build 16 welcome video - no others', () => {
+    expect([...GUEST_ALLOWED_IDS].sort()).toEqual(['I01', 'IB01', 'IM01', 'IM02', 'IS01']);
     expect(isGuestAllowedId('IM01')).toBe(true);
     expect(isGuestAllowedId('IM02')).toBe(true);
+    expect(isGuestAllowedId('I01')).toBe(true);
+  });
+
+  it('I02 ("How to Use WakeWise") is deliberately NOT guest-allowed - only I01 has a welcome-screen role', () => {
+    expect(isGuestAllowedId('I02')).toBe(false);
   });
 
   it('a genuinely unregistered/non-allowlisted id still remains rejected (never an accidental blanket allow)', () => {
@@ -87,6 +93,25 @@ describe('resolveBetaVideoUrlRequest — guest (no Authorization header) request
     const result = await resolveBetaVideoUrlRequest(baseArgs({ body: { exerciseId: 'IM02' }, verifyUser }));
     expect(result.status).toBe(200);
     expect(result.body.url).toContain(encodeURIComponent(REAL_PATHS.IM02));
+    expect(verifyUser).not.toHaveBeenCalled();
+  });
+
+  it('I01 (Build 16 welcome video) succeeds without ever calling verifyUser', async () => {
+    const verifyUser = vi.fn();
+    const result = await resolveBetaVideoUrlRequest(baseArgs({ body: { exerciseId: 'I01' }, verifyUser }));
+    expect(result.status).toBe(200);
+    expect(result.body.url).toContain(encodeURIComponent(REAL_PATHS.I01));
+    expect(verifyUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveBetaVideoUrlRequest — I02 keeps the full sign-in requirement, unlike I01', () => {
+  it('I02 with no Authorization header is rejected 401, same as any other non-allowlisted id', async () => {
+    const verifyUser = vi.fn();
+    const result = await resolveBetaVideoUrlRequest(
+      baseArgs({ body: { exerciseId: 'I02' }, resolvePath: () => 'faststart-v1/WW_I02_HowToUseWakeWise_v1_faststart.mp4', verifyUser })
+    );
+    expect(result).toEqual({ status: 401, body: { error: 'Sign in required' } });
     expect(verifyUser).not.toHaveBeenCalled();
   });
 });

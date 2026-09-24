@@ -36,10 +36,20 @@ describe('redirectAfterAuth — one-shot Introduction gate, never a persistent p
     expect(body).toMatch(/if \(supabase && authUser && !authUser\.is_anonymous\) \{/);
   });
 
-  it('navigates to /introduction WITH replace:true when shouldShowIntroduction is true, otherwise falls through to Home', () => {
+  it('navigates to /introduction?auto=1 WITH replace:true when shouldShowIntroduction is true, otherwise falls through to Home', () => {
     const body = redirectBody();
-    expect(body).toMatch(/else if \(shouldShowIntroduction\(profileRow\?\.introduction_completed_version\)\) \{\s*\n[\s\S]*?navigate\('\/introduction', \{ replace: true \}\);\s*\n\s*return;\s*\n\s*\}/);
+    expect(body).toMatch(/else if \(shouldShowIntroduction\(profileRow\?\.introduction_completed_version\)\) \{\s*\n[\s\S]*?navigate\(`\/introduction\?auto=1\$\{existingParam\}`, \{ replace: true \}\);\s*\n\s*return;\s*\n\s*\}/);
     expect(body.trim().endsWith("navigate('/');\n  };") || body.includes("navigate('/');")).toBe(true);
+  });
+
+  it('the ?auto=1 marker covers both a brand-new sign-up and an existing account still below CURRENT_INTRODUCTION_VERSION - shouldShowIntroduction makes no distinction between the two, and neither does this redirect', () => {
+    const body = redirectBody();
+    expect(body).toMatch(/navigate\(`\/introduction\?auto=1\$\{existingParam\}`/);
+  });
+
+  it('&existing=1 (Personalised Welcome copy) is appended only when this account already had a real, previously-completed version - never for a genuinely brand-new profile', () => {
+    const body = redirectBody();
+    expect(body).toMatch(/const existingParam = profileRow\?\.introduction_completed_version \? '&existing=1' : '';/);
   });
 
   it('a profile query error fails open to Home and is logged without any user-identifying detail (no email, no user id)', () => {

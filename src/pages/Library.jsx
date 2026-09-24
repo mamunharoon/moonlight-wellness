@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getMeditationCatalog } from '../lib/mediaCatalog';
+import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
@@ -234,7 +234,12 @@ export const Library = () => {
             return (
               <div key={category} className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
-                  <span className="material-symbols-outlined text-primary text-lg">
+                  {/* Circadian Colors — Morning/Breathing/Evening Wind-Down/
+                      Sleep Soundscapes each carry their own semantic accent
+                      (see getCategoryAccentClass's own doc comment); every
+                      other category, including the Meditation filter,
+                      stays WakeWise's neutral peach. */}
+                  <span className={`material-symbols-outlined text-lg ${category === MEDITATION_FILTER ? 'text-primary' : getCategoryAccentClass(category)}`}>
                     {category === MEDITATION_FILTER ? 'spa' : getCategoryIcon(category)}
                   </span>
                   <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">{category}</h3>
