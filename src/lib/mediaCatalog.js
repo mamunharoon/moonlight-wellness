@@ -7,7 +7,7 @@
 // byte-for-byte in supabase/functions/get-beta-video-url/index.ts's own
 // EXERCISE_PATHS map, so that file stays untouched (zero risk to the
 // signed-URL mechanism) — this file only adds the metadata Library.jsx,
-// Support.jsx, and the routine pages need to organise that same 65-id
+// Support.jsx, and the routine pages need to organise that same 67-id
 // set into one coherent journey, replacing the previous split between
 // betaVideoManifest.js (id/title/storagePath) and the now-deleted
 // libraryCatalog.js (category only) — one file, one lookup, no
@@ -160,13 +160,15 @@ const METADATA = {
   SL05: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
   SL06: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
   SL07: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
-  SL08: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' }
+  SL08: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
+  SL09: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
+  SL10: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' }
 };
 
 const DEFAULT_METADATA = { category: 'Calm & Support', timeOfDay: 'any', page: null };
 
 // ============================================================================
-// Meditation experience — additive metadata, reusing the exact same 65-id
+// Meditation experience — additive metadata, reusing the exact same 67-id
 // catalogue and Storage objects above. No new manifest, no new media, no
 // change to any existing category/page/feelings field for these ids — an
 // item keeps every placement it already has (e.g. M01 stays on /reflection

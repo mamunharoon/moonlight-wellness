@@ -100,11 +100,11 @@ export const Beta = () => {
 
       {/* Beta Video Preview: this is the admin/QA catalogue for every beta
           exercise video plus the Sleep Sounds library (E02-E30, A01-A06,
-          B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08), gated
+          B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL10), gated
           the same way as the rest of this page (profiles.beta_access)
           since this catalogue itself is beta-tester/QA content, not
           Plus-subscriber content — a different entitlement than
-          AudioDetails.jsx's Plus gate. SL01-SL08 are the one exception
+          AudioDetails.jsx's Plus gate. SL01-SL10 are the one exception
           to "beta-tester content": they're a real, non-beta WakeWise
           feature (see PrepareForRest.jsx) that simply also appears here
           for central QA, the same way every other id in this manifest

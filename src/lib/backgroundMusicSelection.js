@@ -18,7 +18,7 @@
 // bare BETA_VIDEO_MANIFEST entry directly (no `category` field at all —
 // see betaVideoManifest.js's own typedef), so relying on `category`
 // alone would silently treat an undefined category as "eligible" for
-// that one caller. The SL01-SL08 id prefix is stable and namespace-
+// that one caller. The SL id prefix is stable and namespace-
 // exclusive regardless of which entry shape is passed in, so it's
 // checked directly as the authoritative, caller-independent guard.
 const SLEEP_SOUNDSCAPE_ID_PREFIX = 'SL';

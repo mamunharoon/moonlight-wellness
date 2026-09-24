@@ -3,18 +3,18 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because sixty-five narrated exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08) are live in Storage
+// because sixty-seven narrated exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL10) are live in Storage
 // today and need a minimal, typed, isolated place to map an id -> title ->
-// object path, plus two audio-only interactive-ambient-music loops
-// (IB01, IS01 - see their own entries below) that share this exact same
-// id/storagePath/signed-URL mechanism but are never narrated exercises
-// and are deliberately excluded from Library (mediaCatalog.js's
+// object path, plus four audio-only interactive-ambient-music loops
+// (IB01, IS01, IM01, IM02 - see their own entries below) that share this
+// exact same id/storagePath/signed-URL mechanism but are never narrated
+// exercises and are deliberately excluded from Library (mediaCatalog.js's
 // INTERACTIVE_ONLY_IDS). When a real "exercises" table exists, replace this file with a
 // query and delete it — nothing outside src/lib/betaVideo*.js and
 // BetaVideoModal.jsx should ever import it directly.
 //
-// SL01-SL08 (Sleep Sounds) are the one series here that was never "beta"
+// SL01-SL10 (Sleep Sounds) are the one series here that was never "beta"
 // content at all - they ship straight into the real Prepare for Rest
 // step of the evening-wind-down journey, presented as an ordinary
 // WakeWise feature (no "Watch:"-adjacent beta framing beyond the row
@@ -43,7 +43,7 @@
 // Every original `exercises/` object remains in Storage for rollback.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL08)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL10)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -51,7 +51,7 @@
 // @property {string} storagePath   - object path within the private `wellness-videos` bucket
 // @property {string} description   - short, non-clinical one-liner for the beta card
 // @property {string} [durationLabel] - optional short duration badge (e.g. "5 min"), shown by
-//                                       BetaVideoRow only when provided; only SL01-SL08 set this
+//                                       BetaVideoRow only when provided; only SL01-SL10 set this
 // @property {string} [musicVariantId] - id of this entry's own pre-mixed "-MUSIC" sibling
 //                                        entry (see docs/background-music-specification.md),
 //                                        only when one has actually been produced and
@@ -499,62 +499,101 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'Ambient background loop for the interactive stretching timer.'
   },
   {
+    // Build 15 — SL01-SL10 true-fast-start migration. The original
+    // faststart-v1/*_v1_faststart.mp4 objects (uploaded well before this
+    // batch) were genuinely fast-start and are LEFT IN STORAGE UNTOUCHED
+    // for rollback - only this file's own pointer moves. The replacement
+    // objects below live in faststart-v2/ (this catalogue's existing
+    // "second remux batch" prefix - see E04/E05/E06/E11/E13 elsewhere in
+    // this file) because a newly-uploaded v2 source batch for SL01-SL08,
+    // and brand-new SL09/SL10 uploads, were both found by a live Storage
+    // audit to have `moov` at ~99% of the file despite carrying a
+    // `_faststart` filename marker - stream-copy remuxed
+    // (`-map 0 -c copy -movflags +faststart`, no re-encode - verified via
+    // matching per-stream SHA256 hashes before/after) and re-verified with
+    // real moov-before-mdat box inspection, not just the filename, via
+    // scripts/verify-faststart.mjs (see fastStartMapping.test.js's own
+    // "filename suffix alone never proves fast-start" test for why that
+    // distinction matters). Real measured durations (verified with
+    // ffprobe against the corrected objects, not assumed to be ~5min):
+    // SL01 110.958333s, SL02 170.016848s, SL03/SL04 198.345011s, SL05
+    // 120.209932s, SL06 180.625000s, SL07/SL08 180.083333s, SL09
+    // 180.375000s, SL10 180.210000s - durationLabel below is the rounded
+    // whole-minute UI label, never "5 min" for any of these ten.
     id: 'SL01',
     title: 'Rain',
-    storagePath: 'faststart-v1/WW_SL01_Rain_v1_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL01_Rain_v2_faststart.mp4',
     description: 'Settle into the steady rhythm of gentle rain.',
-    durationLabel: '5 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL02',
     title: 'Ocean Waves',
-    storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v1_faststart.mp4',
+    // "Preview" is part of the approved, existing object-naming
+    // convention for this id - not a signal this is an incomplete/trailer
+    // clip (see the SL01-SL10 Storage audit's own finding on this).
+    // User-facing title stays "Ocean Waves" regardless.
+    storagePath: 'faststart-v2/WW_SL02_OceanWaves_Preview_v2_faststart.mp4',
     description: 'Rest with slow waves meeting a quiet shore.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
   },
   {
     id: 'SL03',
     title: 'Forest Ambience',
-    storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v1_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL03_ForestAmbience_v2_faststart.mp4',
     description: 'Unwind among soft woodland sounds.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
   },
   {
     id: 'SL04',
     title: 'Fireplace',
-    storagePath: 'faststart-v1/WW_SL04_Fireplace_v1_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4',
     description: 'Relax beside the warmth of a gently crackling fire.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
   },
   {
     id: 'SL05',
     title: 'Gentle Wind',
-    // Storage object name has a doubled extension (".mp4.mp4", as
-    // uploaded) - preserved exactly.
-    storagePath: 'faststart-v1/WW_SL05_Wind_v1.mp4_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4',
     description: 'Drift off with a soft breeze across an open meadow.',
-    durationLabel: '5 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL06',
     title: 'White Noise',
-    storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v1.mp4_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4',
     description: 'A steady sound to soften surrounding distractions.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
   },
   {
     id: 'SL07',
     title: 'Pink Noise',
-    storagePath: 'faststart-v1/WW_SL07_PinkNoise_v1.mp4_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4',
     description: 'A balanced, gentle sound for restful sleep.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
   },
   {
     id: 'SL08',
     title: 'Brown Noise',
-    storagePath: 'faststart-v1/WW_SL08_BrownNoise_v1.mp4_faststart.mp4',
+    storagePath: 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4',
     description: 'A deeper, softer sound for calm and focus.',
-    durationLabel: '5 min'
+    durationLabel: '3 min'
+  },
+  {
+    // Genuinely new catalogue items (not a replacement) - same
+    // true-fast-start migration and verification as SL01-SL08 above.
+    id: 'SL09',
+    title: 'Soothing Birds',
+    storagePath: 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4',
+    description: 'Settle with gentle birdsong in a peaceful natural setting.',
+    durationLabel: '3 min'
+  },
+  {
+    id: 'SL10',
+    title: 'Rustling Leaves',
+    storagePath: 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4',
+    description: 'Unwind with soft rustling leaves and gentle piano.',
+    durationLabel: '3 min'
   },
   // Introduction guide videos - see mediaCatalog.js's INTERACTIVE_ONLY_IDS
   // (I01/I02 are added there too): never a Library-browsable "Watch" row,

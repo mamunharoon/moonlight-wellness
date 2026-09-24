@@ -240,8 +240,8 @@ describe('Exactly one featured guided video and one featured sleep sound, real c
     expect(block).not.toMatch(/id: 'E05'/);
   });
 
-  it('every id referenced anywhere on this page (E05, E20, E27, E30, SL01-SL08) is a real entry in the manifest', () => {
-    for (const id of ['E05', 'E20', 'E27', 'E30', 'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08']) {
+  it('every id referenced anywhere on this page (E05, E20, E27, E30, SL01-SL10) is a real entry in the manifest', () => {
+    for (const id of ['E05', 'E20', 'E27', 'E30', 'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10']) {
       expect(source).toMatch(new RegExp(`id: '${id}'`));
       expect(manifestSource).toMatch(new RegExp(`id: '${id}',`));
     }

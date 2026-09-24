@@ -1,8 +1,8 @@
 // WakeWise — Library, Phase 3: real-duration cache
 //
 // The Library needs to show a "Duration" for every item, but the app has
-// no verified runtime for the ~57 guided-video ids (only SL01-SL08 have
-// an explicit, spec-provided "5 min" durationLabel — see
+// no verified runtime for the ~57 guided-video ids (only SL01-SL10 have
+// an explicit, verified-duration durationLabel — see
 // betaVideoManifest.js). Probing every item's actual video duration up
 // front would mean fetching a signed URL for each one on page load,
 // which directly violates "request the signed URL only after the

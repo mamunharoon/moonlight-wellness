@@ -88,7 +88,9 @@ const MORE_SLEEP_SOUNDS = [
   { id: 'SL05', blurb: 'Drift off with a soft breeze across an open meadow.' },
   { id: 'SL06', blurb: 'A steady sound to soften surrounding distractions.' },
   { id: 'SL07', blurb: 'A balanced, gentle sound for restful sleep.' },
-  { id: 'SL08', blurb: 'A deeper, softer sound for calm and focus.' }
+  { id: 'SL08', blurb: 'A deeper, softer sound for calm and focus.' },
+  { id: 'SL09', blurb: 'Settle with gentle birdsong in a peaceful natural setting.' },
+  { id: 'SL10', blurb: 'Unwind with soft rustling leaves and gentle piano.' }
 ];
 
 // Safe, non-medical wording only - no nervous-system/melatonin/health

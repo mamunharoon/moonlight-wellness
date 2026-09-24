@@ -4,11 +4,20 @@
 // can't be imported here - read as source text and parsed, same
 // convention as interactiveMusicAssets.test.js's edgeFunctionSource.
 //
-// This file is deliberately data-driven from a fixed list of the five
-// IDs whose source object was replaced after the first catalogue-wide
-// remux pass (and therefore needed a second remux into faststart-v2/)
-// rather than importing anything from the one-off scratch scripts used
-// to produce the conversion - those never shipped in the repo.
+// This file is deliberately data-driven from a fixed list of the IDs
+// whose source object was replaced after the first catalogue-wide remux
+// pass (and therefore needed a second remux into faststart-v2/) rather
+// than importing anything from the one-off scratch scripts used to
+// produce the conversion - those never shipped in the repo.
+//
+// SL01-SL10 joined this list in Build 15: a live Storage audit found
+// their moov box was actually at ~99% of the file despite every one of
+// them already carrying the "_faststart" filename marker from an earlier
+// (non-genuine) remux pass - see betaVideoManifest.js's own header
+// comment on this series, and this file's own "filename suffix alone
+// never proves fast-start" test below, for why a passing test here can
+// never substitute for scripts/verify-faststart.mjs's real, live
+// box-order check against Storage.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +26,10 @@ import { BETA_VIDEO_MANIFEST } from './betaVideoManifest';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts');
 
-const FASTSTART_V2_IDS = ['E04', 'E05', 'E06', 'E11', 'E13'];
+const FASTSTART_V2_IDS = [
+  'E04', 'E05', 'E06', 'E11', 'E13',
+  'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10'
+];
 
 const edgeFnPaths = Object.fromEntries(
   [...edgeFnSource.matchAll(/\['([A-Z0-9]+)',\s*'([^']+)'\]/g)].map((m) => [m[1], m[2]])
@@ -84,7 +96,7 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
 });
 
 describe('Fast Start conversion — v1/v2 split matches which IDs had their source replaced', () => {
-  it('the five IDs whose source object was replaced after the first remux pass use faststart-v2/', () => {
+  it('IDs whose source object was replaced after the first remux pass use faststart-v2/', () => {
     for (const id of FASTSTART_V2_IDS) {
       expect(edgeFnPaths[id], `${id} should be faststart-v2/`).toMatch(/^faststart-v2\//);
     }
@@ -99,6 +111,23 @@ describe('Fast Start conversion — v1/v2 split matches which IDs had their sour
 
   it('E09 (the previously mismapped/dangling ID) resolves under faststart-v1/, built from its corrected canonical source', () => {
     expect(edgeFnPaths.E09).toBe('faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4');
+  });
+
+  // SL01-SL10's original faststart-v1/ objects already carried the exact
+  // same "_faststart" marker checked by the test above ("every remuxed
+  // path carries the _faststart marker") and STILL had moov at ~99% of
+  // the file - a live Storage audit is what actually caught it, not any
+  // offline test. This suite can only ever prove the manifest and edge
+  // function point at the same, correctly-named faststart-v2/ paths; it
+  // has no way to inspect real MP4 box order (no network access, no
+  // ffprobe here) and must never be read as proving these files are
+  // genuinely fast-start. That real proof is scripts/verify-faststart.mjs,
+  // run by hand against live Storage - see its own header comment.
+  it('filename suffix alone never proves fast-start - real verification is scripts/verify-faststart.mjs, not this suite', () => {
+    for (const id of FASTSTART_V2_IDS) {
+      expect(edgeFnPaths[id]).toMatch(/_faststart\.(mp4|m4a)$/);
+    }
+    expect(read('../../scripts/verify-faststart.mjs')).toMatch(/moov-before-mdat/);
   });
 });
 

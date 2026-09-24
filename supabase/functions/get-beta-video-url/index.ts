@@ -26,12 +26,12 @@
 // anything else to it.
 //
 // E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05 and
-// SL01-SL08 no longer require profiles.beta_access: any authenticated,
+// SL01-SL10 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
 // still exist and still gate the /beta QA catalogue client-side — this
 // function simply no longer checks it, now that these videos are
-// approved for general availability in this environment. SL01-SL08
+// approved for general availability in this environment. SL01-SL10
 // (Sleep Sounds) were never beta content to begin with - they ship
 // straight into the real Prepare for Rest step - and are mapped here
 // purely to reuse this same JWT-verification + signing logic rather
@@ -147,14 +147,23 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['S04', 'faststart-v1/WW_S04_MorningFlow_v1.mp4_faststart.mp4'],
   ['S05', 'faststart-v1/WW_S05_EveningFlow_v1.mp4_faststart.mp4'],
   ['IS01', 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a'],
-  ['SL01', 'faststart-v1/WW_SL01_Rain_v1_faststart.mp4'],
-  ['SL02', 'faststart-v1/WW_SL02_OceanWaves_Preview_v1_faststart.mp4'],
-  ['SL03', 'faststart-v1/WW_SL03_ForestAmbience_v1_faststart.mp4'],
-  ['SL04', 'faststart-v1/WW_SL04_Fireplace_v1_faststart.mp4'],
-  ['SL05', 'faststart-v1/WW_SL05_Wind_v1.mp4_faststart.mp4'],
-  ['SL06', 'faststart-v1/WW_SL06_WhiteNoise_v1.mp4_faststart.mp4'],
-  ['SL07', 'faststart-v1/WW_SL07_PinkNoise_v1.mp4_faststart.mp4'],
-  ['SL08', 'faststart-v1/WW_SL08_BrownNoise_v1.mp4_faststart.mp4'],
+  // Build 15 — SL01-SL10 true-fast-start migration. The original
+  // faststart-v1 objects below were replaced: a live Storage audit found
+  // both the original SL01-SL08 batch and this newer SL01-SL10 v2 batch's
+  // moov box was actually at ~99% of the file despite the "_faststart"
+  // filename marker - see betaVideoManifest.js's own header comment on
+  // this same series for the full explanation and verified durations.
+  // Paths below are mirrored byte-for-byte from betaVideoManifest.js.
+  ['SL01', 'faststart-v2/WW_SL01_Rain_v2_faststart.mp4'],
+  ['SL02', 'faststart-v2/WW_SL02_OceanWaves_Preview_v2_faststart.mp4'],
+  ['SL03', 'faststart-v2/WW_SL03_ForestAmbience_v2_faststart.mp4'],
+  ['SL04', 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4'],
+  ['SL05', 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4'],
+  ['SL06', 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4'],
+  ['SL07', 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4'],
+  ['SL08', 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4'],
+  ['SL09', 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4'],
+  ['SL10', 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4'],
   // Introduction guide videos (Introduction.jsx) - verified against
   // storage.objects (name, mimetype video/mp4, size) before adding. Same
   // JWT-required/anonymous-rejected policy as every other id above -
