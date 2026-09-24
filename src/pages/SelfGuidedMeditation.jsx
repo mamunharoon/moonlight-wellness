@@ -194,11 +194,17 @@ export const SelfGuidedMeditation = () => {
     setSnapshot(controllerRef.current?.getSnapshot());
   };
 
+  // Music On/Off is a session-level control, not a sign-in gate: once a
+  // meditation is active, flipping it must never navigate away (that would
+  // silently abandon the running timer via this file's own unmount cleanup
+  // effect). Unlike the setup screen's toggle, this one always drives the
+  // real controller directly for every user, guest included - the audio
+  // layer (meditationAudioController.js) already resolves a guest's
+  // blocked signed-URL request into a graceful, silent no-op (audioError),
+  // exactly like any other fetch/playback failure. Guests never get a
+  // persisted preference from this - `musicOn` here is plain component
+  // state, gone the moment this screen unmounts.
   const handleToggleMusic = () => {
-    if (isGuest) {
-      confirmSignInForMusic();
-      return;
-    }
     setMusicOn((prev) => {
       const next = !prev;
       controllerRef.current?.setMusicEnabled(next);
@@ -257,7 +263,7 @@ export const SelfGuidedMeditation = () => {
 
           <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed min-h-[2.5rem]">{snapshot.promptText}</p>
 
-          {snapshot.audioError && musicOn && !isGuest && (
+          {snapshot.audioError && musicOn && (
             <p className="text-[10px] text-on-surface-variant/60 text-center">Music unavailable right now — continuing without it.</p>
           )}
         </div>
@@ -283,11 +289,14 @@ export const SelfGuidedMeditation = () => {
             </button>
           )}
 
+          {/* No isGuest/onSignIn here on purpose - unlike the setup screen's
+              toggle below, this one must never route a tap to sign-in (see
+              handleToggleMusic's own doc comment). Omitting isGuest lets it
+              default to MusicPreferenceToggle's own `false`, so the switch's
+              onClick always resolves to onToggle, for every user. */}
           <MusicPreferenceToggle
-            isOn={musicOn && !isGuest}
+            isOn={musicOn}
             onToggle={handleToggleMusic}
-            isGuest={isGuest}
-            onSignIn={confirmSignInForMusic}
             description={musicDescription}
           />
 
