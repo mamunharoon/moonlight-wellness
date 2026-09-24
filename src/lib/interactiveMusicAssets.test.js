@@ -56,8 +56,9 @@ describe('IB01 / IS01 are registered end-to-end for the two real approved v2 ass
     expect(edgeFunctionSource).toMatch(/\['IS01', 'faststart-v1\/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart\.m4a'\],/);
   });
 
-  it('the obsolete v1 object paths are no longer registered anywhere', () => {
-    expect(edgeFunctionSource).not.toMatch(/MusicBed_v1\.m4a/);
+  it('the obsolete IB01/IS01 v1 object paths specifically are no longer registered anywhere (scoped to those two ids\' own old filenames - IM01\'s own, unrelated "_v1.m4a" first-version asset, registered separately below, is not an obsolete predecessor of anything and must not trip this check)', () => {
+    expect(edgeFunctionSource).not.toMatch(/WW_IB01_InteractiveBreathingLoop_MusicBed_v1\.m4a/);
+    expect(edgeFunctionSource).not.toMatch(/WW_IS01_InteractiveStretchingLoop_MusicBed_v1\.m4a/);
     expect(getBetaVideoById('IB01').storagePath).not.toMatch(/_v1\.m4a/);
     expect(getBetaVideoById('IS01').storagePath).not.toMatch(/_v1\.m4a/);
   });

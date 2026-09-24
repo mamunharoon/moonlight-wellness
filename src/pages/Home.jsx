@@ -1200,11 +1200,17 @@ export const Home = () => {
               Breathe
             </span>
           </Link>
-          {/* Meditation experience: quick action, not a fifth bottom-nav
-              tab. Routes to /meditate — see Meditate.jsx's own doc
-              comment for the full journey it owns from here. */}
+          {/* Self-Guided Meditation: quick action, not a fifth bottom-nav
+              tab. Routes to the new self-guided setup screen (see
+              SelfGuidedMeditation.jsx's own doc comment) - repurposed from
+              the previous guided-video wizard (Meditate.jsx), which stays
+              fully intact and is now reached via that setup screen's own
+              "Explore Guided Meditations" action into Library's real
+              Meditation category, or by direct URL - never deleted, never
+              altered. `from=home` is this feature's own allowlisted entry
+              context (selfGuidedMeditationNav.js). */}
           <Link
-            to="/meditate"
+            to="/self-guided-meditation?from=home"
             aria-describedby="quick-action-tip-meditate"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >

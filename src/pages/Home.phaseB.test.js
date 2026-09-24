@@ -63,9 +63,9 @@ describe('Home.jsx — quick-action tiles: icon bump only, everything else from 
     expect(source).toMatch(/text-primary text-2xl">bedtime</);
   });
 
-  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage), and again by Build 15\'s own Anytime Reset -> Breathe swap', () => {
+  it('the tooltip/aria-describedby wiring and exactly four tiles are still present - hrefs updated by the Phase B remediation pass\'s own Task 4 (Browse exercises/Sleep sounds now carry a `from=home` return-context marker; see Home.quickActionTiles.test.js/libraryHomeReturnContext.test.js for that coverage), by Build 15\'s own Anytime Reset -> Breathe swap, and by Self-Guided Meditation repurposing the Meditate tile (see selfGuidedMeditationSetup.test.js) - the existing guided-video wizard at /meditate itself is untouched, just no longer this tile\'s target', () => {
     const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
-    expect(hrefs).toEqual(['/breathe-standalone', '/meditate', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
+    expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 });
 

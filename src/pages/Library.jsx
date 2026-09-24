@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getMeditationCatalog } from '../lib/mediaCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
@@ -21,7 +21,8 @@ const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a
 // contextual Back renders, safely.
 const FROM_CONTEXTS = {
   home: { fallback: '/', label: 'Back to Home' },
-  'evening-summary': { fallback: '/evening-complete', label: 'Back to Evening Summary' }
+  'evening-summary': { fallback: '/evening-complete', label: 'Back to Evening Summary' },
+  'meditation-setup': { fallback: '/self-guided-meditation', label: 'Back to Meditation Setup' }
 };
 
 // Meditation experience: a UI-only pseudo-category, deliberately not part
@@ -239,6 +240,32 @@ export const Library = () => {
                   <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">{category}</h3>
                 </div>
                 <div className="space-y-3">
+                  {/* Self-Guided Meditation: a clear entry point into the
+                      new shared setup/timer experience (SelfGuidedMeditation.jsx),
+                      not a duplicate implementation - same visual treatment
+                      as the real guided items below it. `from=meditation-setup`
+                      is the one new hardcoded FROM_CONTEXTS key this feature
+                      adds, so a user who continues on to "Explore Guided
+                      Meditations" from setup sees a "Back to Meditation
+                      Setup" control here. Rendered only for the Meditation
+                      category/filter, never altering the real guided items
+                      that follow it. */}
+                  {category === MEDITATION_FILTER && (
+                    <Link
+                      to="/self-guided-meditation?from=library"
+                      className="w-full flex items-center gap-4 glass-panel rounded-2xl p-4 transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset min-h-[44px] hover:bg-white/5 active:scale-[0.99] border-primary/40"
+                    >
+                      <span className="w-11 h-11 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-primary text-xl">self_improvement</span>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-on-surface">Self-Guided Meditation</span>
+                        <span className="block text-xs text-on-surface-variant leading-relaxed">
+                          Sit quietly with gentle background music, on your own time.
+                        </span>
+                      </span>
+                    </Link>
+                  )}
                   {items.map((entry) => {
                     const cachedMinutes = getCachedDurationMinutes(entry.id);
                     const durationLabel = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');

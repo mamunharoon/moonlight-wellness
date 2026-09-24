@@ -14,6 +14,13 @@
 // own "Today's Rhythm" card (see Home.greeting.test.js's selector
 // coverage), freeing the first tile for a standalone Breathe entry point
 // (-> /breathe-standalone; see standaloneBreathe.test.js).
+//
+// Self-Guided Meditation: the Meditate tile now opens the new self-guided
+// setup screen (-> /self-guided-meditation?from=home) instead of the
+// previous guided-video wizard (/meditate) - see SelfGuidedMeditation.jsx's
+// own doc comment. /meditate itself is untouched and still fully reachable
+// via that setup screen's own "Explore Guided Meditations" action or by
+// direct URL - see selfGuidedMeditationSetup.test.js.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +29,7 @@ const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)
 
 const TILES = [
   { href: '/breathe-standalone', label: 'Breathe', tipId: 'quick-action-tip-breathe' },
-  { href: '/meditate', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
+  { href: '/self-guided-meditation?from=home', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
   { href: '/library?from=home', label: 'Explore Library', tipId: 'quick-action-tip-browse-exercises' },
   { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep &amp; Unwind', tipId: 'quick-action-tip-sleep-sounds' }
 ];

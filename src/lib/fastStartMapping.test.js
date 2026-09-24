@@ -57,10 +57,27 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     }
   });
 
-  it('every path carries the _faststart marker before its extension (the remux naming convention)', () => {
+  // IM01 is deliberately excluded: every other id here is a losslessly
+  // remuxed copy of a pre-existing `exercises/` original (hence the
+  // `_faststart` marker the remux pipeline appended - see this file's own
+  // header comment). IM01 is a brand-new, original audio asset uploaded
+  // directly into faststart-v1/ for the Self-Guided Meditation feature -
+  // it was never an `exercises/` object and was never remuxed, so it never
+  // carries that marker. Its exact object name is verified (uploaded,
+  // checked byte-for-byte) and must not be renamed - see
+  // im01Registration.test.js.
+  const REMUX_EXEMPT_IDS = ['IM01'];
+
+  it('every remuxed path carries the _faststart marker before its extension (the remux naming convention)', () => {
     for (const [id, path] of Object.entries(edgeFnPaths)) {
+      if (REMUX_EXEMPT_IDS.includes(id)) continue;
       expect(path, `${id} -> ${path} missing _faststart marker`).toMatch(/_faststart\.(mp4|m4a)$/);
     }
+  });
+
+  it('IM01 is the one explicit, deliberate exception, and only for the exact verified reason above', () => {
+    expect(REMUX_EXEMPT_IDS).toEqual(['IM01']);
+    expect(edgeFnPaths.IM01).toBe('faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a');
   });
 });
 

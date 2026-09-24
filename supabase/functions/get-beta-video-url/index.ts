@@ -103,6 +103,10 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   // validation on the key or path, so .m4a works identically to every
   // .mp4 entry here. See src/lib/betaVideoManifest.js's matching entries.
   ['IB01', 'faststart-v1/WW_IB01_InteractiveBreathingLoop_MusicBed_v2_faststart.m4a'],
+  // Interactive-ambient-music loop for the Self-Guided Meditation feature -
+  // same role as IB01 above. See src/lib/betaVideoManifest.js's matching
+  // entry.
+  ['IM01', 'faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a'],
   ['F01', 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4'],
   ['F02', 'faststart-v1/WW_F02_Study.mp4_faststart.mp4'],
   ['F03', 'faststart-v1/WW_F03_Concentration_v1.mp4_faststart.mp4'],

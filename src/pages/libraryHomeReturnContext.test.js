@@ -51,9 +51,9 @@ describe('Layout.jsx — the persistent bottom-nav Library tab is unchanged, nev
 });
 
 describe('Library.jsx — FROM_CONTEXTS is the one allowlist; the marker only ever SELECTS a pre-approved destination', () => {
-  it('defines exactly the two approved contexts, each a fixed, hardcoded {fallback, label} pair - never a value read from the URL itself', () => {
+  it('defines exactly the three approved contexts, each a fixed, hardcoded {fallback, label} pair - never a value read from the URL itself', () => {
     expect(librarySource).toMatch(
-      /const FROM_CONTEXTS = \{\s*\n\s*home: \{ fallback: '\/', label: 'Back to Home' \},\s*\n\s*'evening-summary': \{ fallback: '\/evening-complete', label: 'Back to Evening Summary' \}\s*\n\s*\};/
+      /const FROM_CONTEXTS = \{\s*\n\s*home: \{ fallback: '\/', label: 'Back to Home' \},\s*\n\s*'evening-summary': \{ fallback: '\/evening-complete', label: 'Back to Evening Summary' \},\s*\n\s*'meditation-setup': \{ fallback: '\/self-guided-meditation', label: 'Back to Meditation Setup' \}\s*\n\s*\};/
     );
   });
 

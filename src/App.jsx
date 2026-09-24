@@ -66,6 +66,8 @@ const EditEveningResponses = lazy(() => import('./pages/EditEveningResponses').t
 const Support = lazy(() => import('./pages/Support').then((m) => ({ default: m.Support })));
 const PanicMode = lazy(() => import('./pages/PanicMode').then((m) => ({ default: m.PanicMode })));
 const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m.Meditate })));
+const SelfGuidedMeditation = lazy(() => import('./pages/SelfGuidedMeditation').then((m) => ({ default: m.SelfGuidedMeditation })));
+const SelfGuidedMeditationComplete = lazy(() => import('./pages/SelfGuidedMeditationComplete').then((m) => ({ default: m.SelfGuidedMeditationComplete })));
 const AnytimeReset = lazy(() => import('./pages/AnytimeReset').then((m) => ({ default: m.AnytimeReset })));
 const MeditationComplete = lazy(() => import('./pages/MeditationComplete').then((m) => ({ default: m.MeditationComplete })));
 const Grounding = lazy(() => import('./pages/Grounding').then((m) => ({ default: m.Grounding })));
@@ -263,6 +265,15 @@ function App() {
                     comment. */}
                 <Route path="meditate" element={withFallback(<Meditate />)} />
                 <Route path="meditation-complete" element={withFallback(<MeditationComplete />)} />
+
+                {/* Self-Guided Meditation (IM01): Home's "Meditate" tile
+                    (repurposed - see Home.jsx's own doc comment) and
+                    Library's "Self-Guided Meditation" entry both route
+                    here. Non-narrated, timer-authoritative, optional - not
+                    a Morning/Evening journey step. Registered outside
+                    <Layout>, same placement as /meditate above. */}
+                <Route path="self-guided-meditation" element={withFallback(<SelfGuidedMeditation />)} />
+                <Route path="self-guided-meditation-complete" element={withFallback(<SelfGuidedMeditationComplete />)} />
 
                 {/* Build 15 UX remediation: Anytime Reset. Home's own
                     quick-action tile (formerly "Need a moment?") routes

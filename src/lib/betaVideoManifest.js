@@ -336,6 +336,23 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'Ambient background loop for interactive breathing/grounding timers.'
   },
   {
+    // Interactive-ambient-music loop for the Self-Guided Meditation
+    // feature (SelfGuidedMeditation.jsx) - same role/mechanism as IB01/
+    // IS01 above: audio-only (.m4a, no video track), shared by all five
+    // meditation styles (never a per-style asset), native <audio loop>
+    // handles the 10-minute session's repeat. Uploaded and verified
+    // directly against storage.objects (name, mimetype audio/mp4, size,
+    // eTag) before this entry was added - not assumed from a spec.
+    // Deliberately excluded from MEDIA_CATALOG/Library's browsable "Watch"
+    // list - see mediaCatalog.js's own INTERACTIVE_ONLY_IDS - this is
+    // never a user-selectable row, only an internal getBetaVideoById()
+    // lookup target for the meditation session controller.
+    id: 'IM01',
+    title: 'Interactive Meditation Music Bed',
+    storagePath: 'faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a',
+    description: 'Neutral instrumental background music for self-guided meditation.'
+  },
+  {
     id: 'F01',
     title: 'Deep Work',
     storagePath: 'faststart-v1/WW_F01_DeepWork_v1.mp4_faststart.mp4',
