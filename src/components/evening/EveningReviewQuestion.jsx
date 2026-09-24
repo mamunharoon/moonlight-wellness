@@ -36,7 +36,17 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
         <h2 className="font-serif italic text-2xl text-on-surface">{prompt.label}</h2>
       </div>
 
-      <div className="space-y-3" role="radiogroup" aria-label={prompt.label}>
+      {/* Compact two-column layout (Build 16): this read-only presentation
+          re-renders the exact same option list/structure the live
+          journey and Edit Mode both show (every option, not just the
+          saved one - see this file's own doc comment above), so the
+          same grid genuinely shortens Review too without changing what
+          it truthfully represents: still every option, still exactly
+          one (or zero) shown as selected/checked, still fully disabled.
+          See PromptStepper.jsx's own doc comment for the real measured
+          320px numbers this shares (no narrow-screen fallback needed -
+          genuine testing showed it stays readable at 320px). */}
+      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
         {prompt.options?.map((option) => (
           <AnswerOptionButton
             key={option}

@@ -264,16 +264,40 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
         <p className="text-xs text-on-surface-variant">Choose the option that feels closest, or add your own.</p>
       </div>
 
-      {/* Phase 3 UX correction, round 2: every question now renders as a
-          single column of full-width radio rows - the old 2-column grid
-          (a compact, centred, icon-topped tile) was designed around the
-          previous filled-chip style and has no room for a left-aligned
-          label plus a right-aligned radio glyph at a realistic 320px
-          column width. `activePrompt.layout` is no longer read here;
-          Reflection's own `went-well` question keeps its (now redundant,
-          harmless) `layout: 'rows'` field in its data rather than editing
-          data that already matches the new universal behaviour. */}
-      <div className="space-y-3" role="radiogroup" aria-label={activePrompt.label}>
+      {/* Compact two-column layout (Build 16): every question now renders
+          its options as a 2-column CSS grid rather than the Phase 3
+          round-2 single stacked column (that earlier full-width-row
+          design was itself a reaction to an even earlier, differently-
+          shaped 2-column tile - see AnswerOptionButton.jsx's own doc
+          comment for the full history). `gap-3` gives both the row and
+          column gap in one utility (12px at this app's default 4px
+          scale - the approved "approximately 10-12px gap"). Grid's own
+          default `align-items: stretch`/`justify-items: stretch` (never
+          overridden) is what makes both cards equal width and equal
+          height per row automatically - no explicit sizing needed here
+          beyond the column count itself. `activePrompt.layout` is still
+          not read here; Reflection's own `went-well` question keeps its
+          (redundant, harmless) `layout: 'rows'` field in its data rather
+          than editing data that already matches this universal grid.
+
+          Unconditional 2 columns, no narrow-screen fallback: real
+          rendered measurement (this app's own actual font/layout, the
+          real card width a genuine 224px-wide grid produces at exactly
+          320px - see this file's own Build 16 validation report for the
+          full numbers) showed every real Reflection/Gratitude option,
+          including the single longest ("Stayed calm in a difficult
+          moment", 34 characters), stays fully readable and unclipped
+          even at 320px - it wraps to 4 lines (one line more than the
+          "two/three-line" guideline anticipated for the worst case
+          alone; every other option on every question stays within 2-3
+          lines), and every card still measures 84px+ tall, comfortably
+          above the 64px floor. Since genuine testing did not demonstrate
+          the "unacceptable compression" the approved spec's fallback
+          clause was conditioned on, no narrow-screen single-column
+          carve-out was added - it would only have removed the
+          improvement for exactly the smallest real screens it matters
+          most on. */}
+      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={activePrompt.label}>
         {activePrompt.options?.map((option) => (
           <AnswerOptionButton
             key={option}

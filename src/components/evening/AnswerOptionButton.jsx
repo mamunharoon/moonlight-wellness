@@ -52,9 +52,27 @@
  * keys cycle selection within the group, Tab moves in/out as one stop)
  * never leaks across different questions.
  * The old `centered` prop (from the first Phase 3 correction) is gone -
- * PromptStepper no longer offers a 2-column grid at all, since a right-
- * aligned radio glyph plus a left-aligned label needs a full-width row to
- * stay readable; every question now renders one column of these rows.
+ * this component still makes no column-count decision of its own; that
+ * now lives in each caller's own options-container className (see
+ * PromptStepper.jsx/EveningEditQuestion.jsx/EveningReviewQuestion.jsx),
+ * not here.
+ *
+ * Compact two-column layout (Build 16): every caller's options container
+ * is now a 2-column CSS grid rather than a single stacked column, so this
+ * component itself became a GRID CARD rather than a full-width row -
+ * `min-h-[52px]`/`px-5 py-3`/`gap-3` (sized for a full-width row with room
+ * to spare) became `min-h-[64px]`/`px-3 py-3`/`gap-2` (the approved
+ * 64px-minimum touch height, and tighter horizontal padding/gap so real
+ * option text still has genuine room at a ~106-134px card width on a
+ * 320-375px screen, unconditionally, at every width - see
+ * PromptStepper.jsx's own doc comment for the real measured numbers and
+ * why no narrow-screen fallback was needed. `justify-between` still pins
+ * the label left and the radio
+ * glyph right within each card, so "radio must not overlap text" holds
+ * exactly as before; grid's own default `align-items: stretch` (never
+ * overridden here) is what makes two cards in the same row match height
+ * automatically when one label wraps to more lines than its neighbour -
+ * no explicit height/JS measurement needed for that.
  *
  * Evening selectable-control visual refinement (Build 15): the row's own
  * unselected border and the radio's own unselected ring both moved from a
@@ -107,7 +125,7 @@ export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflect
 
   return (
     <label
-      className={`flex items-center justify-between gap-3 w-full min-h-[52px] px-5 py-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+      className={`flex items-center justify-between gap-2 w-full min-h-[64px] px-3 py-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
         readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'
       } ${
         selected

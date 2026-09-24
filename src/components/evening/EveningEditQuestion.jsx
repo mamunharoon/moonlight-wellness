@@ -45,7 +45,16 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
         <h2 className="font-serif italic text-2xl text-on-surface">{prompt.label}</h2>
       </div>
 
-      <div className="space-y-3" role="radiogroup" aria-label={prompt.label}>
+      {/* Compact two-column layout (Build 16): identical grid treatment to
+          the live journey's own PromptStepper.jsx - this is the exact
+          same interactive short-option radiogroup (same options, same
+          AnswerOptionButton, same single-select semantics), just backed
+          by a local draft instead of an immediate write, so the same
+          layout stays clear here. See PromptStepper.jsx's own doc
+          comment for the real measured 320px numbers this shares (no
+          narrow-screen fallback needed - genuine testing showed it
+          stays readable at 320px). */}
+      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
         {prompt.options?.map((option) => (
           <AnswerOptionButton
             key={option}

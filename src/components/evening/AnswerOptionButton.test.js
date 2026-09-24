@@ -50,8 +50,14 @@ describe('AnswerOptionButton - semantic radio, not a styled button/switch', () =
 });
 
 describe('AnswerOptionButton - button interaction contract', () => {
-  it('meets the 52px minimum height and full width, comfortably exceeding the 44x44 minimum hit area', () => {
-    expect(source).toMatch(/min-h-\[52px\]/);
+  it('meets the approved 64px minimum grid-card touch height (Build 16 compact two-column layout - was 52px as a full-width row) and full width, comfortably exceeding the 44x44 minimum hit area', () => {
+    expect(source).toMatch(/min-h-\[64px\]/);
+    // Strip the file's own doc comments before asserting the old value is
+    // gone from the ACTUAL CODE - the Build 16 doc comment above
+    // legitimately still mentions "min-h-[52px]" in prose, explaining
+    // what the row-based sizing used to be before this phase.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/min-h-\[52px\]/);
     expect(source).toMatch(/w-full/);
   });
 

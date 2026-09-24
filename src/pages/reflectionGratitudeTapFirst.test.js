@@ -164,21 +164,20 @@ describe('Approved real guidance catalogue mapping - real ids only, capped at 2 
   });
 });
 
-// Phase 3 UX correction, round 2: physical-device feedback that a fully
-// filled coloured button read as too bright, and that the intended
-// pattern was a contrasting RADIO selector. Every question now renders
-// its options as a single column of full-width AnswerOptionButton radio
-// rows - the earlier 2-column grid (built for the previous compact chip
-// style) is gone entirely, since a right-aligned radio glyph plus a
-// left-aligned label needs the full row width to stay readable.
+// Build 16 (Compact Two-Column Layout): every question now renders its
+// options as a 2-column CSS grid of AnswerOptionButton radio cards -
+// replacing Phase 3 round-2's single stacked column, which was itself a
+// reaction to an even earlier, differently-shaped 2-column tile (see
+// AnswerOptionButton.jsx's own doc comment for the full history; this is
+// a genuinely NEW grid, not a revival of the old one - the old design
+// predates the right-aligned radio glyph this component now has).
 // SelectionChip/SelectionRow remain UNTOUCHED and still used exactly as
 // before by ChangeIntention.jsx/AnytimeReset.jsx/Meditate.jsx (see
 // AnswerOptionButton.test.js's own "does not touch" check).
-describe('Layout: every Reflection/Gratitude question renders as one column of full-width radio rows', () => {
-  it('PromptStepper renders exactly one options container per question - role="radiogroup", space-y-3, AnswerOptionButton rows - never a 2-column grid and never the old SelectionChip/SelectionRow', () => {
-    expect(promptStepperSource).toMatch(/<div className="space-y-3" role="radiogroup" aria-label=\{activePrompt\.label\}>/);
+describe('Layout: every Reflection/Gratitude question renders its predefined options as a 2-column grid', () => {
+  it('PromptStepper renders exactly one options container per question - role="radiogroup", a 2-column CSS grid of AnswerOptionButton cards - never the old SelectionChip/SelectionRow', () => {
+    expect(promptStepperSource).toMatch(/<div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label=\{activePrompt\.label\}>/);
     expect(promptStepperSource).toMatch(/<AnswerOptionButton/);
-    expect(promptStepperSource).not.toMatch(/grid grid-cols-2/);
     expect(promptStepperSource).not.toMatch(/role="group"/);
     expect(promptStepperSource).not.toMatch(/<SelectionRow/);
     expect(promptStepperSource).not.toMatch(/<SelectionChip/);
