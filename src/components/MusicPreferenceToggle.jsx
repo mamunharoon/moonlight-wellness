@@ -10,11 +10,6 @@
  * is what makes "music never starts on mount or on changing the switch"
  * true by construction, not by convention.
  *
- * Shows a truthful "Sign in to use background music." message and routes
- * the tap to sign-in instead of toggling, for a guest - matching the
- * same guest-lock convention InteractiveAmbientMusic's own toggle and
- * MusicEntryChoice already use elsewhere in this app.
- *
  * Release-quality contrast fix (Build 15): the OFF track used to be
  * `bg-white/10`, composited over this row's own glass-panel background
  * (~#232b3c) to roughly #262e3f - only ~1.36:1 against the knob
@@ -27,6 +22,21 @@
  * visible "On"/"Off" text label sits beside the switch for a second,
  * non-colour-dependent cue - aria-hidden since the switch's own
  * aria-checked already announces the accessible state.
+ *
+ * Guest pre-start-music correction (Build 18) — `isGuest`/`onSignIn`
+ * REMOVED. This switch never touches playback or the network itself; it
+ * only ever records intent for the calling page's own Begin handler (see
+ * this file's own top comment). Routing a guest's tap to sign-in was
+ * therefore never actually protecting anything - the real interactive
+ * ambient-music control this switch's own intent feeds into
+ * (InteractiveAmbientMusic.jsx) has had no guest gate at all since the
+ * earlier guest-interactive-audio correction (IB01/IS01/IM01/IM02 are all
+ * server-allowlisted for guests). This switch simply always calls
+ * `onToggle` now, for every user - the calling page decides what onToggle
+ * actually does with a guest's choice (see musicPreference.js's new
+ * setMusicPreferenceForUser: a guest's choice still genuinely drives
+ * playback this mount, it is just never written to the shared, device-
+ * scoped persisted-preference key).
  *
  * Morning Visual Uplift (Build 16) — `accent` (additive, default
  * 'primary' - every existing caller omits it and keeps its exact
@@ -41,13 +51,22 @@
  * `isOn` boolean regardless of accent - this toggle never rendered a
  * visual state that disagreed with its own label to begin with, so
  * there was nothing to correct, only to keep true while adding gold.
+ *
+ * Evening Visual Uplift (Build 17) — 'evening' is a third accent value,
+ * additive exactly like 'morning' above: it reuses the already-contrast-
+ * verified evening-accent periwinkle BreathingPatternRow's own 'evening'
+ * accent and PrepareToggleRow already use, never a new colour. Only
+ * EveningBreathing.jsx passes `accent="evening"`; QuietBreathing.jsx
+ * (Anytime) still omits the prop and keeps rendering peach - see
+ * musicPreferenceToggleSharedConsumers.test.js.
  */
 const ACCENT_TOKENS = {
   primary: { track: 'bg-primary', knobBorder: 'border-primary', focusRing: 'focus-visible:ring-primary' },
-  morning: { track: 'bg-morning-accent', knobBorder: 'border-morning-accent', focusRing: 'focus-visible:ring-morning-accent' }
+  morning: { track: 'bg-morning-accent', knobBorder: 'border-morning-accent', focusRing: 'focus-visible:ring-morning-accent' },
+  evening: { track: 'bg-evening-accent', knobBorder: 'border-evening-accent', focusRing: 'focus-visible:ring-evening-accent' }
 };
 
-export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignIn, label = 'Background music', description, accent = 'primary' }) => {
+export const MusicPreferenceToggle = ({ isOn, onToggle, label = 'Background music', description, accent = 'primary' }) => {
   const tokens = ACCENT_TOKENS[accent];
 
   return (
@@ -56,7 +75,7 @@ export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignI
       <span>
         <span className="block text-sm font-bold text-on-surface">{label}</span>
         <span className="block text-[11px] text-on-surface-variant">
-          {isGuest ? 'Sign in to use background music.' : description}
+          {description}
         </span>
       </span>
       <span className="flex items-center gap-2 shrink-0">
@@ -68,7 +87,7 @@ export const MusicPreferenceToggle = ({ isOn, onToggle, isGuest = false, onSignI
           role="switch"
           aria-checked={isOn}
           aria-label={label}
-          onClick={isGuest ? onSignIn : onToggle}
+          onClick={onToggle}
           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 ${tokens.focusRing} focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
             isOn ? tokens.track : 'bg-outline'
           }`}

@@ -35,8 +35,14 @@ describe('ProgressIndicator — Evening is provably unaffected by the new Mornin
     expect(source).not.toMatch(/isMorning = isEvening/);
   });
 
-  it('the new Morning branch only ever changes the ACTIVE step\'s colour - completed/unselected/separator colours, and Evening\'s entire branch, are untouched by it', () => {
-    expect(source).toMatch(/isActive\s*\n\s*\? \(isMorning \? 'text-morning-accent font-bold scale-110' : 'text-primary font-bold scale-110'\)/);
+  it('the new Morning branch only ever changes the ACTIVE step\'s colour - completed/unselected/separator colours, and Evening\'s own completed/unselected/separator branches, are untouched by it', () => {
+    // Evening Visual Uplift (Build 17) added a third arm to this same
+    // ternary (isEvening -> evening-accent periwinkle) - see
+    // ProgressIndicator.eveningActiveStep.test.js for that arm's own
+    // dedicated coverage. This assertion only re-confirms the Morning arm
+    // itself is still exactly the Build 16 value, unchanged by that
+    // addition.
+    expect(source).toMatch(/isMorning \? 'text-morning-accent font-bold scale-110' : isEvening \? 'text-evening-accent font-bold scale-110' : 'text-primary font-bold scale-110'/);
     // `isMorning` is read exactly once in the actual render logic (the
     // active-step ternary above) - proof this phase did not also
     // (accidentally or otherwise) gate any of the completed/unselected/

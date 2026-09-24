@@ -64,8 +64,14 @@ describe('MusicPreferenceToggle - preserved direction and ARIA, unchanged playba
     expect(source).toMatch(/aria-label=\{label\}/);
   });
 
-  it('onToggle/onSignIn wiring is unchanged - a guest tap still routes to sign-in instead of toggling', () => {
-    expect(source).toMatch(/onClick=\{isGuest \? onSignIn : onToggle\}/);
+  it('onToggle is unconditional (Build 18 guest pre-start-music correction) - every tap, guest or not, reaches onToggle directly, never a sign-in interception', () => {
+    expect(source).toMatch(/onClick=\{onToggle\}/);
+    // Scoped to the real component code, not this file's own doc comments
+    // (which legitimately discuss the removed isGuest/onSignIn props in
+    // prose - see the file's own Build 18 doc comment).
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(codeOnly).not.toMatch(/isGuest/);
+    expect(codeOnly).not.toMatch(/onSignIn/);
   });
 });
 

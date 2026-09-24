@@ -62,6 +62,15 @@ export const Routines = () => {
                 // category label/link stays the exact original text-primary
                 // peach, completely untouched.
                 const isMorning = routine.section === 'Morning';
+                // Evening Visual Uplift (Build 17) — same additive,
+                // inline-style-scoped mechanism as isMorning above,
+                // applied only when this card's own section is Evening.
+                // routine.accentColor for 'wind-down' already resolves to
+                // var(--color-evening-accent) (routinesCatalog.js), so
+                // reusing the exact same style prop naturally recolours
+                // the category label/link periwinkle - no new colour, no
+                // change to Morning's or Anytime's own untouched peach.
+                const isEvening = routine.section === 'Evening';
                 return (
                   <Link
                     key={routine.id}
@@ -77,11 +86,11 @@ export const Routines = () => {
                       <div className="min-w-0">
                         <span
                           className="text-[10px] text-primary uppercase font-bold tracking-wider"
-                          style={isMorning ? { color: routine.accentColor } : undefined}
+                          style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
                         >
                           {routine.category}
                         </span>
-                        <h3 className={`text-lg font-bold text-on-surface mt-0.5 ${isMorning ? 'font-morning-display italic' : ''}`}>{routine.title}</h3>
+                        <h3 className={`text-lg font-bold text-on-surface mt-0.5 ${isMorning ? 'font-morning-display italic' : isEvening ? 'font-serif italic' : ''}`}>{routine.title}</h3>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-xs text-on-surface-variant bg-white/5 border border-white/10 px-2 py-1 rounded">{routine.duration}</span>
@@ -101,7 +110,7 @@ export const Routines = () => {
                       </span>
                       <span
                         className="inline-flex items-center gap-1 text-xs font-bold text-primary"
-                        style={isMorning ? { color: routine.accentColor } : undefined}
+                        style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
                       >
                         View routine
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>

@@ -25,11 +25,19 @@
  * at 320px both remain fully visible with no truncation and can wrap to
  * their own lines without crowding - each carries an explicit
  * min-h-[44px] regardless of its compact text-xs label.
+ *
+ * Evening Visual Uplift (Build 17) — this banner is genuinely Evening-
+ * exclusive (no Morning/Anytime consumer exists), so per the approved
+ * Phase 2 clarification it gets a restrained periwinkle border/tint,
+ * distinct from the genuinely shared, deliberately-untouched
+ * ConfirmDialog/ReviewModeBanner. The "Evening Summary" primary action
+ * stays bg-primary peach, unchanged - only the banner's own border/tint/
+ * label colour move to evening-accent.
  */
 export const EveningReviewBanner = ({ onReturn, onEdit }) => (
-  <div className="glass-panel rounded-2xl px-4 py-3 space-y-3 border-primary/20 bg-primary/5">
+  <div className="glass-panel rounded-2xl px-4 py-3 space-y-3 border-evening-accent/20 bg-evening-accent/5">
     <p className="text-xs text-on-surface-variant">
-      <span className="font-bold text-primary">Reviewing</span> tonight's completed journey.
+      <span className="font-bold text-evening-accent">Reviewing</span> tonight's completed journey.
     </p>
     <div className="flex flex-wrap gap-2">
       <button

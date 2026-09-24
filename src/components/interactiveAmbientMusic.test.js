@@ -39,10 +39,10 @@ describe('Music defaults off, uses the same shared persisted preference', () => 
     expect(importLine).toMatch(/setMusicPreference/);
   });
 
-  it('writes go through the same shared musicPreference.js key used by BetaVideoModal.jsx', () => {
-    expect(playerSource).toMatch(/import \{ setMusicPreference \} from '\.\.\/lib\/musicPreference';/);
-    expect(playerSource).toMatch(/setMusicPreference\(false\);/);
-    expect(playerSource).toMatch(/setMusicPreference\(true\);/);
+  it('writes go through the same shared musicPreference.js key used by BetaVideoModal.jsx, via setMusicPreferenceForUser (Build 18)', () => {
+    expect(playerSource).toMatch(/import \{ setMusicPreferenceForUser \} from '\.\.\/lib\/musicPreference';/);
+    expect(playerSource).toMatch(/setMusicPreferenceForUser\(false, \{ isGuest \}\);/);
+    expect(playerSource).toMatch(/setMusicPreferenceForUser\(true, \{ isGuest \}\);/);
   });
 });
 
@@ -197,10 +197,11 @@ describe('Guests genuinely control playback - no authentication UI intercepts th
     expect(playerCodeOnly).not.toMatch(/\/auth/);
   });
 
-  it('a guest\'s choice is never persisted to the shared, device-scoped musicPreference.js key (would leak into/be overwritten by whoever else signs in on this device) - only a signed-in user\'s choice is', () => {
+  it('a guest\'s choice is never persisted to the shared, device-scoped musicPreference.js key (would leak into/be overwritten by whoever else signs in on this device) - only a signed-in user\'s choice is, via the shared setMusicPreferenceForUser API (Build 18)', () => {
     const body = playerSource.match(/const handleToggle = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!isGuest\) setMusicPreference\(false\);/);
-    expect(body).toMatch(/if \(!isGuest\) setMusicPreference\(true\);/);
+    expect(body).toMatch(/setMusicPreferenceForUser\(false, \{ isGuest \}\);/);
+    expect(body).toMatch(/setMusicPreferenceForUser\(true, \{ isGuest \}\);/);
+    expect(playerSource).toMatch(/import \{ setMusicPreferenceForUser \} from '\.\.\/lib\/musicPreference';/);
   });
 
   it('isGuest is still read from useAuth (needed for the persistence guard above), but useNavigate/useLocation are gone - nothing in this file navigates any more', () => {

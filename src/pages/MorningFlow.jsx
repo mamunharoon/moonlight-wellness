@@ -15,7 +15,7 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
-import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { MovementCheckboxRow } from '../components/MovementCheckboxRow';
@@ -64,6 +64,13 @@ const STRETCHING_SESSION_VIDEOS = [
 // directly), and (2) requires a deliberate "Resume Exercise" tap to
 // continue afterward — closing the video alone never restarts the timer
 // or the music, exactly as required. Same pattern as Breathe.jsx.
+//
+// Guest pre-start-music correction (Build 18) — same fix as Breathe.jsx's
+// identical block: the pre-start MusicPreferenceToggle no longer routes a
+// guest to sign-in; handleToggleMusicPreference persists through the
+// shared setMusicPreferenceForUser; the Begin handler's own
+// `&& !isGuest` guard is removed - IS01 is server-allowlisted for guests
+// exactly like IB01.
 export const MorningFlow = () => {
   const navigate = useNavigate();
   const { setJourneyStep, routineDuration } = useAlarm();
@@ -233,7 +240,7 @@ export const MorningFlow = () => {
   const handleToggleMusicPreference = () => {
     setMusicPreferenceOn((prev) => {
       const next = !prev;
-      setMusicPreference(next);
+      setMusicPreferenceForUser(next, { isGuest });
       return next;
     });
   };
@@ -316,7 +323,7 @@ export const MorningFlow = () => {
     // (see handleResumeWithMusic above). InteractiveAmbientMusic is
     // already mounted (hideToggle=true) before this tap, so its ref/
     // audio element already exist.
-    if (musicEligible && musicPreferenceOn && !isGuest) {
+    if (musicEligible && musicPreferenceOn) {
       musicPlayerRef.current?.start();
     }
   };
@@ -409,8 +416,6 @@ export const MorningFlow = () => {
             <MusicPreferenceToggle
               isOn={musicPreferenceOn}
               onToggle={handleToggleMusicPreference}
-              isGuest={isGuest}
-              onSignIn={confirmSignIn}
               description="Play gentle music during your stretch."
               accent="morning"
             />
@@ -634,8 +639,6 @@ export const MorningFlow = () => {
           onResumeExercise={handleResumeExercise}
           onResumeWithMusic={handleResumeWithMusic}
           showResumeWithMusic={musicEligible}
-          isGuest={isGuest}
-          onSignIn={confirmSignIn}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
@@ -10,8 +10,7 @@ import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { useAuth } from '../context/AuthContext';
-import { setPendingContent } from '../lib/pendingContent';
-import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
@@ -58,17 +57,21 @@ const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';
  * has this transition at all (hasBegun starts true and never changes),
  * so its own single, original mount position is already safe exactly as
  * it always was.
+ *
+ * Guest pre-start-music correction (Build 18, complete) — BOTH branches
+ * are now fixed. The standalone branch's MusicPreferenceToggle no longer
+ * routes a guest's tap to sign-in; handleToggleMusicPreference persists
+ * through the shared setMusicPreferenceForUser; the Begin handler's own
+ * `&& !isGuest` guard is removed. Non-standalone (Support's embedded
+ * usage)'s MusicEntryChoice is fixed the same way - see that component's
+ * own updated doc comment. The former confirmSignInForMusic handler (a
+ * local setPendingContent+navigate('/auth') pair, previously shared by
+ * both branches' now-removed gates) is removed entirely: nothing in this
+ * file navigates to sign-in for music any more, in either branch.
  */
 export const QuietBreathing = ({ standalone = false }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { isGuest } = useAuth();
-  // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
-  // doc comment and EveningBreathing.jsx's identical handler.
-  const confirmSignInForMusic = () => {
-    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
-    navigate('/auth');
-  };
 
   // Build 15 — standalone mode's own return targets. Support's existing
   // embedded usage keeps its exact original targets, unconditionally.
@@ -136,7 +139,7 @@ export const QuietBreathing = ({ standalone = false }) => {
   const handleToggleMusicPreference = () => {
     setMusicPreferenceOn((prev) => {
       const next = !prev;
-      setMusicPreference(next);
+      setMusicPreferenceForUser(next, { isGuest });
       return next;
     });
   };
@@ -148,7 +151,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     setSecondsLeft(activePattern.totalSeconds);
     setBreatheState('Inhale');
     setHasBegun(true);
-    if (musicEligible && musicPreferenceOn && !isGuest) {
+    if (musicEligible && musicPreferenceOn) {
       musicPlayerRef.current?.start();
     }
   };
@@ -212,8 +215,6 @@ export const QuietBreathing = ({ standalone = false }) => {
               <MusicPreferenceToggle
                 isOn={musicPreferenceOn}
                 onToggle={handleToggleMusicPreference}
-                isGuest={isGuest}
-                onSignIn={confirmSignInForMusic}
                 description="Play gentle music during your breathing practice."
               />
             )}
@@ -396,8 +397,6 @@ export const QuietBreathing = ({ standalone = false }) => {
         <MusicEntryChoice
           onStartWithMusic={handleStartWithMusic}
           onContinueWithoutMusic={handleContinueWithoutMusic}
-          isGuest={isGuest}
-          onSignIn={confirmSignInForMusic}
         />
       )}
 

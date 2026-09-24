@@ -114,6 +114,13 @@ export const RoutineDetail = () => {
   // Morning only, via inline style, so Gentle Reset's and Wind-Down's own
   // rendering stays byte-for-byte the original peach, untouched.
   const isMorning = routine?.section === 'Morning';
+  // Evening Visual Uplift (Build 17) — same additive, inline-style-scoped
+  // mechanism as isMorning above, applied only when this routine's own
+  // section is Evening. routine.accentColor for 'wind-down' already
+  // resolves to var(--color-evening-accent), so reusing the exact same
+  // style prop naturally recolours the category label periwinkle - no
+  // new colour, no change to Gentle Reset's (Anytime) own untouched peach.
+  const isEvening = routine?.section === 'Evening';
 
   if (!routine || !detail) {
     return (
@@ -181,11 +188,11 @@ export const RoutineDetail = () => {
         <div className="min-w-0">
           <span
             className="text-[10px] text-primary uppercase font-bold tracking-wider"
-            style={isMorning ? { color: routine.accentColor } : undefined}
+            style={(isMorning || isEvening) ? { color: routine.accentColor } : undefined}
           >
             {routine.category}
           </span>
-          <h2 className={`font-headline-lg text-xl text-on-surface font-bold tracking-tight truncate ${isMorning ? 'font-morning-display italic' : ''}`}>{routine.title}</h2>
+          <h2 className={`font-headline-lg text-xl text-on-surface font-bold tracking-tight truncate ${isMorning ? 'font-morning-display italic' : isEvening ? 'font-serif italic' : ''}`}>{routine.title}</h2>
         </div>
       </div>
 
@@ -204,7 +211,11 @@ export const RoutineDetail = () => {
             <div key={step.title} className="flex items-start gap-4 p-4">
               <span
                 className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${
-                  isMorning ? 'bg-morning-accent/10 border border-morning-accent/25 text-morning-accent' : 'bg-primary/10 border border-primary/20 text-primary'
+                  isMorning
+                    ? 'bg-morning-accent/10 border border-morning-accent/25 text-morning-accent'
+                    : isEvening
+                    ? 'bg-evening-accent/10 border border-evening-accent/25 text-evening-accent'
+                    : 'bg-primary/10 border border-primary/20 text-primary'
                 }`}
               >
                 {index + 1}
@@ -221,7 +232,7 @@ export const RoutineDetail = () => {
       <Link
         to={detail.requiresAuth ? '#' : detail.startRoute}
         onClick={handleStart}
-        className={`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg ${isMorning ? 'shadow-morning-glow' : ''}`}
+        className={`w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg ${isMorning ? 'shadow-morning-glow' : isEvening ? 'shadow-evening-glow' : ''}`}
       >
         <span>{detail.startLabel}</span>
         <span className="material-symbols-outlined text-sm">arrow_forward</span>

@@ -19,7 +19,7 @@ afterAll(() => {
   globalThis.localStorage = originalLocalStorage;
 });
 
-const { getMusicPreference, setMusicPreference } = await import('./musicPreference');
+const { getMusicPreference, setMusicPreference, setMusicPreferenceForUser } = await import('./musicPreference');
 
 describe('music preference (background-music framework scaffold)', () => {
   beforeEach(() => {
@@ -48,5 +48,35 @@ describe('music preference (background-music framework scaffold)', () => {
     } finally {
       globalThis.localStorage = localStorageMock;
     }
+  });
+});
+
+describe('setMusicPreferenceForUser — guest pre-start-music correction (Build 18)', () => {
+  beforeEach(() => {
+    store.clear();
+  });
+
+  it('a guest\'s choice never reaches the shared key, in either direction (On or Off)', () => {
+    setMusicPreferenceForUser(true, { isGuest: true });
+    expect(getMusicPreference()).toBe(false);
+    // Prove it genuinely never wrote - not "wrote false" - by pre-seeding
+    // true first, then confirming a guest Off-write doesn't touch it.
+    setMusicPreference(true);
+    setMusicPreferenceForUser(false, { isGuest: true });
+    expect(getMusicPreference()).toBe(true);
+  });
+
+  it('an authenticated (non-guest) choice persists exactly as the original setMusicPreference always did', () => {
+    setMusicPreferenceForUser(true, { isGuest: false });
+    expect(getMusicPreference()).toBe(true);
+    setMusicPreferenceForUser(false, { isGuest: false });
+    expect(getMusicPreference()).toBe(false);
+  });
+
+  it('a guest\'s choice does not leak into a later authenticated write on the same device - the two stay genuinely independent', () => {
+    setMusicPreferenceForUser(true, { isGuest: true }); // guest turns on, never persisted
+    expect(getMusicPreference()).toBe(false);
+    setMusicPreferenceForUser(true, { isGuest: false }); // a signed-in user turns on for real
+    expect(getMusicPreference()).toBe(true);
   });
 });

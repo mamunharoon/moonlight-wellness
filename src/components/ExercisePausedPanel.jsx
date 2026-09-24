@@ -22,15 +22,17 @@
  * now (feature flag off, or no manifest entry) — showing a button that
  * silently does nothing would be its own, different bug.
  *
- * Guest lock state (Build 11 RC fix): "Resume with Music" reaches the
- * exact same InteractiveAmbientMusic.start() as MusicEntryChoice's own
- * "Start with Music" (see that component's matching doc comment) - a
- * guest tapping it would hit the same generic "Music unavailable right
- * now" failure copy rather than a clear sign-in prompt. `isGuest`
- * replaces the button with "Sign In" instead; "Resume Exercise" (timer
- * only, no music) is unaffected either way.
+ * Guest pre-start-music correction, part 2 (Build 18) — `isGuest`/
+ * `onSignIn` REMOVED. "Resume with Music" reaches the exact same
+ * InteractiveAmbientMusic.start() as the pre-start Begin gesture and the
+ * active-view toggle - all three call the same real, guest-allowed
+ * control (IB01/IS01 are server-allowlisted for guests). The former
+ * "Sign In for Music" substitute button was gating a guest out of audio
+ * they were always genuinely permitted to hear, for no reason beyond
+ * this panel's own now-removed guard; "Resume Exercise" (timer only, no
+ * music) was, and remains, unaffected either way.
  */
-export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic, isGuest = false, onSignIn }) => (
+export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic }) => (
   <div className="glass-panel rounded-2xl p-5 text-center space-y-3 border border-white/10">
     <h3 className="text-sm font-bold text-on-surface">Exercise paused</h3>
     <p className="text-xs text-on-surface-variant leading-relaxed">
@@ -46,25 +48,14 @@ export const ExercisePausedPanel = ({ onResumeExercise, onResumeWithMusic, showR
         <span>Resume Exercise</span>
       </button>
       {showResumeWithMusic && (
-        isGuest ? (
-          <button
-            type="button"
-            onClick={onSignIn}
-            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
-          >
-            <span className="material-symbols-outlined text-sm">music_note</span>
-            <span>Sign In for Music</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onResumeWithMusic}
-            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
-          >
-            <span className="material-symbols-outlined text-sm">music_note</span>
-            <span>Resume with Music</span>
-          </button>
-        )
+        <button
+          type="button"
+          onClick={onResumeWithMusic}
+          className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        >
+          <span className="material-symbols-outlined text-sm">music_note</span>
+          <span>Resume with Music</span>
+        </button>
       )}
     </div>
   </div>

@@ -970,12 +970,21 @@ export const Home = () => {
 
       {activePeriod === 'evening' && (
         <>
+          {/* Evening Visual Uplift (Build 17) — all four Evening card
+              shells below (stale-choice, not-started, in-progress,
+              completed) gained `border-evening-accent/25 shadow-evening-
+              glow`, the same restrained boxShadow-token shape Build 16
+              already established for the Morning cards, just built from
+              evening-accent periwinkle instead - see tailwind.config.js's
+              own evening-glow comment. Card logic (which state renders,
+              completion/Resume/Redo behaviour, button labels/handlers)
+              is completely untouched - only the outer className/style. */}
           {/* EVENING — an unfinished routine from an earlier local day
               exists, and nothing recorded for TODAY yet. Mirrors the
               Morning stale-choice card exactly. */}
           {eveningCardState === 'not-started' && eveningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-white/5 shadow-sm"
+              className="glass-panel p-6 rounded-3xl space-y-5 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
               role="region"
               aria-label="Unfinished previous Evening Wind-Down routine"
@@ -1011,7 +1020,7 @@ export const Home = () => {
           {/* EVENING — not started, no stale choice. */}
           {eveningCardState === 'not-started' && !eveningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningNotStartedCard)}
@@ -1028,7 +1037,7 @@ export const Home = () => {
           {/* EVENING — paused today. */}
           {eveningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex))}
@@ -1067,7 +1076,7 @@ export const Home = () => {
               simply begin the routine again. */}
           {eveningCardState === 'completed' && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-white/5 shadow-sm"
+              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningCompletedCard)}

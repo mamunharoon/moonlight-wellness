@@ -18,7 +18,7 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
-import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
 import { BetaVideoModal } from '../components/BetaVideoModal';
@@ -57,6 +57,17 @@ const DEFAULT_PATTERN_ID = 'morning';
  * directly), and (2) requires a deliberate "Resume Exercise" tap to
  * continue afterward — closing the video alone never restarts the timer
  * or the music, exactly as required.
+ *
+ * Guest pre-start-music correction (Build 18) — the pre-start
+ * MusicPreferenceToggle below no longer routes a guest's tap to sign-in;
+ * `confirmSignIn` (from useProtectedVideo, shared with this screen's own
+ * guided-video sign-in prompts) is no longer passed to it at all.
+ * handleToggleMusicPreference now persists through the shared
+ * setMusicPreferenceForUser (musicPreference.js) so a guest's choice
+ * still drives real playback this mount without ever reaching the
+ * shared, device-scoped preference key. handleBeginBreathing's own
+ * `&& !isGuest` guard is removed too - IB01 is server-allowlisted for
+ * guests, same as every other interactive-breathing screen.
  */
 export const Breathe = () => {
   const navigate = useNavigate();
@@ -162,7 +173,7 @@ export const Breathe = () => {
   const handleToggleMusicPreference = () => {
     setMusicPreferenceOn((prev) => {
       const next = !prev;
-      setMusicPreference(next);
+      setMusicPreferenceForUser(next, { isGuest });
       return next;
     });
   };
@@ -217,7 +228,7 @@ export const Breathe = () => {
     setHasBegun(true);
     // Called synchronously within this real click handler - the same
     // proven, gesture-safe pattern "Resume with Music" already uses.
-    if (musicEligible && musicPreferenceOn && !isGuest) {
+    if (musicEligible && musicPreferenceOn) {
       musicPlayerRef.current?.start();
     }
   };
@@ -294,8 +305,6 @@ export const Breathe = () => {
             <MusicPreferenceToggle
               isOn={musicPreferenceOn}
               onToggle={handleToggleMusicPreference}
-              isGuest={isGuest}
-              onSignIn={confirmSignIn}
               description="Play gentle music during your breathing practice."
               accent="morning"
             />
@@ -420,8 +429,6 @@ export const Breathe = () => {
           onResumeExercise={handleResumeExercise}
           onResumeWithMusic={handleResumeWithMusic}
           showResumeWithMusic={musicEligible}
-          isGuest={isGuest}
-          onSignIn={confirmSignIn}
         />
       )}
 

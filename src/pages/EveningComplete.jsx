@@ -128,8 +128,16 @@ export const EveningComplete = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-        <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">bedtime</span>
-        <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 6 of 6</span>
+        {/* Evening Visual Uplift (Build 17) — periwinkle badge/icon ring,
+            the same restrained circular-icon shape SessionComplete.jsx's
+            own Morning-gold version already established (Build 16), just
+            evening-accent instead of morning-accent. Heading (already
+            Newsreader italic), body copy, and all four action buttons
+            below (order, labels, handlers) are completely untouched. */}
+        <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent/25 shadow-evening-glow flex items-center justify-center">
+          <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
+        </span>
+        <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 6 of 6</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Your Evening Wind-Down is complete</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           You've taken time to reflect, appreciate the day and prepare for rest.

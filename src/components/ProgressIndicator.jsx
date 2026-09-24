@@ -38,6 +38,17 @@ import { getStepLabel } from '../lib/stepLabels';
  * (isEvening true) is unaffected: isMorning is false whenever isEvening
  * is true, so the two branches can never both apply.
  *
+ * Evening Visual Uplift (Build 17) — the ACTIVE step now also branches on
+ * `isEvening`, recolouring ONLY the active step from `text-primary` peach
+ * to the same already-contrast-verified evening-accent periwinkle every
+ * other selected/unselected Evening control (AnswerOptionButton's
+ * unselected ring, BreathingPatternRow's 'evening' accent, PrepareToggleRow)
+ * already uses. Completed/upcoming-step colours and the separator dots
+ * (already isEvening-aware from the earlier contrast fix) are untouched -
+ * only this one ternary branch gains a third arm. isMorning and isEvening
+ * remain mutually exclusive by construction, so Morning's own gold branch
+ * above is provably unaffected.
+ *
  * PER-SESSION VISIBLE-STEP FILTERS
  *   VISIBLE_STEP_IDS_BY_SESSION is a filter/allowlist per session, not an
  *   order (order always comes from the registry's own step array, read
@@ -166,7 +177,7 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
 
         const labelClassName = `transition-all duration-300 ${
           isActive
-            ? (isMorning ? 'text-morning-accent font-bold scale-110' : 'text-primary font-bold scale-110')
+            ? (isMorning ? 'text-morning-accent font-bold scale-110' : isEvening ? 'text-evening-accent font-bold scale-110' : 'text-primary font-bold scale-110')
             : isCompleted
             ? (isEvening ? 'text-on-surface' : 'text-secondary')
             : (isEvening ? 'text-on-surface-variant' : 'text-on-surface-variant/30')

@@ -33,52 +33,44 @@ describe('MusicEntryChoice.jsx - the shared entry-choice card itself', () => {
     expect(choiceSource).toMatch(/<div className="flex gap-2[^"]*">/);
   });
 
-  // Build 11 RC fix: a guest tapping "Start with Music" used to reach
-  // InteractiveAmbientMusic's own start() - which cannot succeed for a
-  // guest - and land on its generic "Music unavailable right now"
-  // failure copy, indistinguishable from a real loading/network error.
-  // isGuest replaces the attempt with a direct, honest "Sign In" state
-  // instead. Guest authorization/media access itself is unchanged - a
-  // guest still cannot play the music - only what they're told changes.
-  describe('guest lock state (Build 11 RC fix)', () => {
-    it('defaults isGuest to false - every existing non-guest caller (none of which pass it) keeps today\'s exact behaviour', () => {
-      expect(choiceSource).toMatch(/isGuest = false/);
+  // Guest pre-start-music correction, part 2 (Build 18) — the former
+  // Build 11 RC "Sign In" substitute is removed. IB01 is server-
+  // allowlisted for guests (GUEST_ALLOWED_IDS in
+  // supabase/functions/_shared/betaVideoUrlAccess.ts, proven by
+  // betaVideoUrlGuestAccess.test.js), so InteractiveAmbientMusic's own
+  // start() genuinely succeeds for a guest - gating this button was
+  // gating a guest out of audio they were always permitted to hear.
+  describe('guest pre-start-music correction (Build 18)', () => {
+    it('has no isGuest/onSignIn prop at all - the component signature is exactly ({ onStartWithMusic, onContinueWithoutMusic })', () => {
+      expect(choiceSource).toMatch(/export const MusicEntryChoice = \(\{ onStartWithMusic, onContinueWithoutMusic \}\) => \(/);
     });
 
-    it('shows the exact required "Sign in to use background music." copy for a guest instead of the ordinary subtitle', () => {
-      expect(choiceSource).toMatch(/isGuest \? 'Sign in to use background music\.' : 'You can switch it off at any time\.'/);
+    it('shows the same subtitle for every user - no guest-specific "Sign in" copy remains', () => {
+      expect(choiceSource).toMatch(/You can switch it off at any time\./);
+      expect(choiceSource).not.toMatch(/Sign in to use background music/);
     });
 
-    it('replaces the "Start with Music" button with "Sign In" for a guest - never renders onStartWithMusic as reachable for one', () => {
-      const block = choiceSource.match(/\{isGuest \? \([\s\S]*?\) : \([\s\S]*?\)\}/)?.[0] ?? '';
-      expect(block).toMatch(/onClick=\{onSignIn\}[\s\S]*?Sign In/);
-      expect(block).toMatch(/onClick=\{onStartWithMusic\}[\s\S]*?Start with Music/);
+    it('"Start with Music" is an unconditional button wired directly to onStartWithMusic - never a Sign In substitute', () => {
+      expect(choiceSource).toMatch(/onClick=\{onStartWithMusic\}[\s\S]*?Start with Music/);
+      const codeOnly = choiceSource.replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(codeOnly).not.toMatch(/isGuest|onSignIn|Sign In/);
     });
 
-    it('"Continue Without Music" is unaffected either way - it sits outside the isGuest branch', () => {
+    it('"Continue Without Music" is unchanged - a plain button wired to onContinueWithoutMusic', () => {
       expect(choiceSource).toMatch(/onClick=\{onContinueWithoutMusic\}[\s\S]*?Continue Without Music/);
-      const beforeBranch = choiceSource.slice(0, choiceSource.indexOf('{isGuest ?'));
-      expect(beforeBranch).toMatch(/onContinueWithoutMusic/);
-    });
-
-    it('never calls onStartWithMusic when isGuest is true - the two are mutually exclusive branches, not a fallback', () => {
-      const guestBranch = choiceSource.match(/isGuest \? \(([\s\S]*?)\) : \(/)?.[1] ?? '';
-      expect(guestBranch).not.toMatch(/onStartWithMusic/);
     });
   });
 });
 
-describe('ExercisePausedPanel.jsx - "Resume with Music" has the same guest lock state (Build 11 RC fix)', () => {
-  it('defaults isGuest to false - every existing non-guest caller keeps today\'s exact behaviour', () => {
-    expect(pausedPanelSource).toMatch(/isGuest = false/);
+describe('ExercisePausedPanel.jsx - "Resume with Music" guest pre-start-music correction (Build 18)', () => {
+  it('has no isGuest/onSignIn prop at all - the component signature is exactly ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic })', () => {
+    expect(pausedPanelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResumeExercise, onResumeWithMusic, showResumeWithMusic \}\) => \(/);
   });
 
-  it('replaces "Resume with Music" with a Sign In action for a guest, only when the button would otherwise show at all', () => {
-    const block = pausedPanelSource.match(/\{showResumeWithMusic && \(\s*\n\s*isGuest \? \(([\s\S]*?)\) : \(([\s\S]*?)\)\s*\n\s*\)\}/);
-    expect(block).not.toBeNull();
-    expect(block[1]).toMatch(/onClick=\{onSignIn\}/);
-    expect(block[1]).not.toMatch(/onResumeWithMusic/);
-    expect(block[2]).toMatch(/onClick=\{onResumeWithMusic\}/);
+  it('"Resume with Music" is an unconditional button wired directly to onResumeWithMusic whenever showResumeWithMusic is true - never a Sign In substitute', () => {
+    expect(pausedPanelSource).toMatch(/\{showResumeWithMusic && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{onResumeWithMusic\}/);
+    const codeOnly = pausedPanelSource.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(codeOnly).not.toMatch(/isGuest|onSignIn|Sign In/);
   });
 
   it('"Resume Exercise" (timer only, no music) is unaffected either way - it sits outside the showResumeWithMusic block entirely', () => {
@@ -136,10 +128,10 @@ describe.each([
     expect(block).toMatch(/onContinueWithoutMusic=\{handleContinueWithoutMusic\}/);
   });
 
-  it('passes isGuest and a sign-in handler to MusicEntryChoice - a guest never reaches the entry-choice "Start with Music" attempt (Build 11 RC guest-music-wording fix)', () => {
+  it('passes neither isGuest nor onSignIn to MusicEntryChoice (Build 18 guest pre-start-music correction) - a guest reaches the real "Start with Music" attempt exactly like an authenticated user', () => {
     const block = source.match(/<MusicEntryChoice[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/isGuest=\{isGuest\}/);
-    expect(block).toMatch(/onSignIn=\{confirmSignIn(ForMusic)?\}/);
+    expect(block).not.toMatch(/isGuest=/);
+    expect(block).not.toMatch(/onSignIn=/);
   });
 });
 
@@ -167,14 +159,17 @@ describe.each([
   ['Breathe.jsx', breatheSource],
   ['MorningFlow.jsx', morningFlowSource],
   ['EveningBreathing.jsx', eveningBreathingSource]
-])('%s - passes isGuest and a sign-in handler to ExercisePausedPanel too (Build 11 RC guest-music-wording fix)', (name, source) => {
-  it('the ExercisePausedPanel usage is wired with isGuest and onSignIn', () => {
+])('%s - passes neither isGuest nor onSignIn to ExercisePausedPanel (Build 18 guest pre-start-music correction)', (name, source) => {
+  it('the ExercisePausedPanel usage carries only onResumeExercise/onResumeWithMusic/showResumeWithMusic - no isGuest, no onSignIn', () => {
     const block = source.match(/<ExercisePausedPanel[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/isGuest=\{isGuest\}/);
-    expect(block).toMatch(/onSignIn=\{confirmSignIn(ForMusic)?\}/);
+    expect(block).not.toBe('');
+    expect(block).not.toMatch(/isGuest=/);
+    expect(block).not.toMatch(/onSignIn=/);
+    expect(block).toMatch(/onResumeExercise=\{handleResumeExercise\}/);
+    expect(block).toMatch(/onResumeWithMusic=\{handleResumeWithMusic\}/);
   });
 
-  it('imports useAuth to source isGuest', () => {
+  it('still imports useAuth - isGuest remains needed elsewhere on this screen (the pre-start seed, and the shared setMusicPreferenceForUser call)', () => {
     expect(source).toMatch(/import \{ useAuth \} from '\.\.\/context\/AuthContext';/);
   });
 });

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useAuth } from '../context/AuthContext';
 import { requestBetaVideoUrl } from '../lib/betaVideoAccess';
 import { getBetaVideoById } from '../lib/mediaCatalog';
-import { setMusicPreference } from '../lib/musicPreference';
+import { setMusicPreferenceForUser } from '../lib/musicPreference';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 
@@ -169,17 +169,21 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   const handleToggle = () => {
     if (suspended) return; // a guided video is open on this same page - see the doc comment above
     if (isBusyRef.current) return;
-    // musicPreference.js is a single, device-scoped localStorage key with
-    // no per-account namespace - writing it from a guest tap would leak
-    // into (or get overwritten by) whoever else signs in on this device.
-    // A guest's choice here is therefore local to this mount only (plain
+    // Guest pre-start-music correction (Build 18) — this same guest-vs-
+    // authenticated split now lives in one shared place, musicPreference.js's
+    // setMusicPreferenceForUser, rather than being duplicated inline here
+    // (and, before Build 18, nowhere else at all): musicPreference.js is a
+    // single, device-scoped localStorage key with no per-account
+    // namespace - writing it from a guest tap would leak into (or get
+    // overwritten by) whoever else signs in on this device. A guest's
+    // choice here is therefore local to this mount only (plain
     // musicEnabled/audio-element state), never persisted; an authenticated
     // user's choice still persists exactly as before.
     if (musicEnabled) {
-      if (!isGuest) setMusicPreference(false);
+      setMusicPreferenceForUser(false, { isGuest });
       stop();
     } else {
-      if (!isGuest) setMusicPreference(true);
+      setMusicPreferenceForUser(true, { isGuest });
       start();
     }
   };

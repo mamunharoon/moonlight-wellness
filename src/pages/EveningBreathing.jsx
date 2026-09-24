@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
-import { setPendingContent } from '../lib/pendingContent';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
@@ -14,7 +13,7 @@ import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
-import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
+import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
@@ -46,21 +45,28 @@ const DEFAULT_PATTERN_ID = 'evening';
  * changes. Same mirrorBreathingExitRef one-shot-guard pattern as
  * Breathe.jsx, targeting the 'breathing' step and advanceStep()
  * (immediately adjacent to 'sleepPreparation').
+ *
+ * Guest pre-start-music correction (Build 18, complete) — neither the
+ * pre-start MusicPreferenceToggle nor the paused-state ExercisePausedPanel
+ * below route a guest's tap to sign-in any more (see each component's own
+ * updated doc comment). The former confirmSignInForMusic handler (a local
+ * setPendingContent+navigate('/auth') pair - this screen has no guided-
+ * video rows to borrow a confirmSignIn from) is removed entirely, now
+ * genuinely dead: nothing on this screen navigates to sign-in for music
+ * any more. handleToggleMusicPreference persists through the shared
+ * setMusicPreferenceForUser (musicPreference.js) instead of the raw
+ * setter, so a guest's choice still drives real playback this mount but
+ * is never written to the shared, device-scoped key.
+ * handleBeginBreathing's own `&& !isGuest` guard is removed too - a guest
+ * who left the switch On now genuinely gets InteractiveAmbientMusic's
+ * start() called on Begin, exactly like an authenticated user (IB01 is
+ * server-allowlisted for guests - see interactiveAmbientMusic.test.js).
  */
 export const EveningBreathing = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { effectiveTimezone, userId } = useAlarm();
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { isGuest } = useAuth();
-  // Guest lock state (Build 11 RC fix) - see MusicEntryChoice.jsx's own
-  // doc comment. This page has no guided-video rows (no useProtectedVideo
-  // instance to borrow a confirmSignIn from), so it stashes/navigates
-  // directly.
-  const confirmSignInForMusic = () => {
-    setPendingContent({ returnPath: `${location.pathname}${location.search}` });
-    navigate('/auth');
-  };
   const { state, currentStep, advanceStep } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('breathing', 'evening-wind-down');
   const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
@@ -122,7 +128,7 @@ export const EveningBreathing = () => {
   const handleToggleMusicPreference = () => {
     setMusicPreferenceOn((prev) => {
       const next = !prev;
-      setMusicPreference(next);
+      setMusicPreferenceForUser(next, { isGuest });
       return next;
     });
   };
@@ -174,7 +180,7 @@ export const EveningBreathing = () => {
     setSecondsLeft(activePattern.totalSeconds);
     setBreatheState('Inhale');
     setHasBegun(true);
-    if (musicEligible && musicPreferenceOn && !isGuest) {
+    if (musicEligible && musicPreferenceOn) {
       musicPlayerRef.current?.start();
     }
   };
@@ -248,9 +254,8 @@ export const EveningBreathing = () => {
               <MusicPreferenceToggle
                 isOn={musicPreferenceOn}
                 onToggle={handleToggleMusicPreference}
-                isGuest={isGuest}
-                onSignIn={confirmSignInForMusic}
                 description="Play gentle music during your breathing practice."
+                accent="evening"
               />
             )}
           </div>
@@ -306,8 +311,6 @@ export const EveningBreathing = () => {
           onResumeExercise={handleResumeExercise}
           onResumeWithMusic={handleResumeWithMusic}
           showResumeWithMusic={musicEligible}
-          isGuest={isGuest}
-          onSignIn={confirmSignInForMusic}
         />
       )}
 

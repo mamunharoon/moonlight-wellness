@@ -138,6 +138,12 @@ export default {
         // Introduction.jsx's own peach language without implying these
         // are Morning-specific screens.
         "welcome-glow": "0 10px 25px -6px rgba(255, 197, 183, 0.35)",
+        // Evening Visual Uplift (Build 17) — same restrained, low-opacity
+        // shape as morning-glow above, built from the existing
+        // evening-accent periwinkle (#9fb4f0) rather than a new colour.
+        // Applied only to Evening's own card shells/icon rings/CTAs
+        // approved in the Phase 2 brief — never a default/ambient shadow.
+        "evening-glow": "0 0 40px -8px rgba(159, 180, 240, 0.35)",
       }
     },
   },

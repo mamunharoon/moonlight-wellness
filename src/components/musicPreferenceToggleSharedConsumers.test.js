@@ -2,8 +2,14 @@
 // safety guard. This phase adds an additive `accent` prop (default
 // 'primary', byte-identical to before), consumed with `accent="morning"`
 // ONLY by Breathe.jsx and MorningFlow.jsx (the two real Morning pre-start
-// screens). This file proves Evening's and Anytime's own callers are
-// byte-for-byte unaffected.
+// screens). This file proves Anytime's own caller is byte-for-byte
+// unaffected.
+//
+// Evening Visual Uplift (Build 17) — EveningBreathing.jsx now legitimately
+// passes accent="evening" (see musicPreferenceToggleEveningAccent.test.js
+// for that arm's own dedicated coverage); the assertion below was updated
+// to match, since the old "no accent prop at all" expectation is no
+// longer this file's real behaviour.
 //
 // No DOM rendering is available in this repo's Vitest (environment:
 // 'node' - see vite.config.js) - source-level checks, matching every
@@ -66,10 +72,10 @@ describe('MusicPreferenceToggle — only Breathe.jsx and MorningFlow.jsx (Mornin
     expect(callSite).toMatch(/accent="morning"/);
   });
 
-  it('EveningBreathing.jsx never passes an accent prop to MusicPreferenceToggle - it keeps the default \'primary\' peach unchanged', () => {
+  it('EveningBreathing.jsx passes accent="evening" (Build 17), never "morning"', () => {
     const callSite = eveningBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
-    expect(callSite).not.toMatch(/accent=/);
+    expect(callSite).toMatch(/accent="evening"/);
   });
 
   it('QuietBreathing.jsx (Anytime) never passes an accent prop to MusicPreferenceToggle either', () => {

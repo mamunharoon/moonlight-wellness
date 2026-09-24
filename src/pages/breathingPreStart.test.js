@@ -274,14 +274,15 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(startCalls.length).toBe(2);
   });
 
-  it('handleBeginBreathing resets secondsLeft/breatheState, sets hasBegun, and starts music only if eligible+preferred+not-guest - all inside one handler, guarded against double taps', () => {
+  it('handleBeginBreathing resets secondsLeft/breatheState, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted) - all inside one handler, guarded against double taps', () => {
     const body = breatheSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
     expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(body).toMatch(/setBreatheState\('Inhale'\);/);
     expect(body).toMatch(/setHasBegun\(true\);/);
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn && !isGuest\) \{/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).not.toMatch(/!isGuest/);
   });
 
   it('the active countdown effect drives breatheState from the selected pattern via the shared resolveBreathPhase - never a second, hand-rolled modulo', () => {
@@ -359,12 +360,13 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(startCalls.length).toBe(2);
   });
 
-  it('Begin Breathing locks the selected pattern by resetting the countdown to its real total, sets hasBegun, guards against double taps, and starts music only if eligible+preferred+not-guest', () => {
+  it('Begin Breathing locks the selected pattern by resetting the countdown to its real total, sets hasBegun, guards against double taps, and starts music only if eligible+preferred (Build 18: guest no longer excluded)', () => {
     const body = eveningBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(body).toMatch(/setHasBegun\(true\);/);
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn && !isGuest\) \{/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).not.toMatch(/!isGuest/);
   });
 
   it('the picker UI only renders while !hasBegun - once Begin fires, selectedPatternId can never change again for the active run (structural lock, no separate "locked" flag needed)', () => {

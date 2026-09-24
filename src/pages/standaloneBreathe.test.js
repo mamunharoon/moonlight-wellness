@@ -122,13 +122,14 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => !standalone\);/);
   });
 
-  it('Begin Breathing resets the countdown, sets hasBegun, guards against double taps, and starts music only if eligible+preferred+not-guest', () => {
+  it('Begin Breathing resets the countdown, sets hasBegun, guards against double taps, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
     const body = source.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
     expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(body).toMatch(/setHasBegun\(true\);/);
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn && !isGuest\) \{/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).not.toMatch(/!isGuest/);
   });
 
   it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start via hideToggle, never suspended (no guided-video concept on this screen)', () => {

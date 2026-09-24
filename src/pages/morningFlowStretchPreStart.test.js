@@ -309,9 +309,10 @@ describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music togethe
     expect(body).toMatch(/setHasBegun\(true\);/);
   });
 
-  it('starts music only if eligible, preferred, and not a guest - disabled preference stays genuinely silent', () => {
+  it('starts music only if eligible and preferred (Build 18: guest no longer excluded - IS01 is server-allowlisted) - disabled preference stays genuinely silent', () => {
     const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn && !isGuest\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(body).not.toMatch(/!isGuest/);
   });
 
   it('double-tap protection uses a ref (not state) checked and set before anything else runs', () => {
@@ -408,8 +409,8 @@ describe('Selection persistence and isolation', () => {
     expect(body).toMatch(/if \(isGuest\) return false;/);
   });
 
-  it('imports getMusicPreference to genuinely honour a persisted preference now that a real Begin gesture exists (unlike InteractiveAmbientMusic\'s own always-off default)', () => {
-    expect(source).toMatch(/import \{ getMusicPreference, setMusicPreference \} from '\.\.\/lib\/musicPreference';/);
+  it('imports getMusicPreference to genuinely honour a persisted preference now that a real Begin gesture exists (unlike InteractiveAmbientMusic\'s own always-off default), and setMusicPreferenceForUser (Build 18) for the guest-safe write', () => {
+    expect(source).toMatch(/import \{ getMusicPreference, setMusicPreferenceForUser \} from '\.\.\/lib\/musicPreference';/);
     expect(source).toMatch(/return musicEligible && getMusicPreference\(\);/);
   });
 });
