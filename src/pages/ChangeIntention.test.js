@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./ChangeIntention.jsx', import.meta.url)), 'utf-8');
 
 describe('ChangeIntention.jsx — reuses existing business logic, never a parallel implementation', () => {
-  it('imports the exact same selection/persistence helpers IntentionSetup.jsx uses', () => {
-    expect(source).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
+  it('imports the exact same selection/persistence helpers IntentionSetup.jsx uses, plus the custom-intention defect fix\'s add-only helper and messages', () => {
+    expect(source).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
     expect(source).toMatch(/import \{ saveIntentionsToCloud \} from '\.\.\/lib\/intentionPersistence';/);
     expect(source).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
   });
@@ -93,15 +93,53 @@ describe('ChangeIntention.jsx — optional collapsed "Add your own"; typing is n
     expect(presetGridIndex).toBeLessThan(customToggleIndex);
   });
 
-  it('existing custom-intention validation is preserved - trims, rejects empty, reuses the shared toggle/limit path', () => {
+  // Custom-intention defect fix (found live: with two intentions already
+  // selected, "Add your own" silently cleared the typed text and showed
+  // no reliably-visible feedback; typing a value matching an existing
+  // selection silently deselected it instead of being rejected as a
+  // duplicate).
+  it('handleAddCustom uses addCustomIntention (ADD-only), never the chip-tap toggleIntention/applySelection path', () => {
     const body = source.match(/const handleAddCustom = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/const trimmed = customIntention\.trim\(\);/);
-    expect(body).toMatch(/if \(!trimmed\) return;/);
-    expect(body).toMatch(/applySelection\(trimmed\);/);
+    expect(body).toMatch(/const \{ intentions: next, status \} = addCustomIntention\(draftSelection, customIntention\);/);
+    expect(body).not.toMatch(/applySelection/);
   });
 
-  it('the limit message uses the exact shared LIMIT_MESSAGE constant and self-clears', () => {
-    expect(source).toMatch(/setLimitMessage\(LIMIT_MESSAGE\);\s*\n\s*setTimeout\(\(\) => setLimitMessage\(''\), 2500\);/);
+  it('blank is a silent no-op; duplicate and limit-reached each show their own message and are handled as distinct statuses', () => {
+    const body = source.match(/const handleAddCustom = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(status === 'blank'\) return;/);
+    expect(body).toMatch(/if \(status === 'duplicate'\) \{\s*\n\s*setLimitMessage\(DUPLICATE_INTENTION_MESSAGE\);/);
+    expect(body).toMatch(/if \(status === 'limit-reached'\) \{\s*\n\s*setLimitMessage\(CUSTOM_LIMIT_MESSAGE\);/);
+  });
+
+  it('customIntention (the typed text) is cleared ONLY on a genuine add - every rejection (duplicate/limit-reached) preserves it, since the user might want to edit or copy it rather than watch it vanish', () => {
+    const body = source.match(/const handleAddCustom = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    // setCustomIntention('') appears exactly once, in the final success
+    // branch (after both early-return rejection branches) - never inside
+    // the 'duplicate'/'limit-reached' blocks above it.
+    const clears = body.match(/setCustomIntention\(''\);/g) ?? [];
+    expect(clears.length).toBe(1);
+    const lastStatementIndex = body.lastIndexOf("setCustomIntention('');");
+    const duplicateBranchIndex = body.indexOf("status === 'duplicate'");
+    const limitBranchIndex = body.indexOf("status === 'limit-reached'");
+    expect(lastStatementIndex).toBeGreaterThan(duplicateBranchIndex);
+    expect(lastStatementIndex).toBeGreaterThan(limitBranchIndex);
+  });
+
+  it('the chip-tap path (applySelection, preset chips and the removable summary chips) is completely untouched - still the original toggle/LIMIT_MESSAGE behaviour', () => {
+    const body = source.match(/const applySelection = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(draftSelection, value\);/);
+    expect(body).toMatch(/setLimitMessage\(LIMIT_MESSAGE\);\s*\n\s*setTimeout\(\(\) => setLimitMessage\(''\), 2500\);/);
+  });
+
+  it('the limit/duplicate message is rendered a second time, directly beside the custom-input row - not only in the top-of-page banner, which can be scrolled out of view or hidden behind the on-screen keyboard once the input has focus (found live)', () => {
+    const customInputBlock = source.match(/\{showCustomInput \? \([\s\S]*?\) : \(/)?.[0] ?? '';
+    expect(customInputBlock.length).toBeGreaterThan(0);
+    expect(customInputBlock).toMatch(/\{limitMessage && \(\s*\n\s*<p className="text-xs text-secondary font-semibold px-1" role="status">\{limitMessage\}<\/p>\s*\n\s*\)\}/);
+  });
+
+  it('the original top-of-page banner is still present too (both copies share the same limitMessage state, so they always agree)', () => {
+    const matches = source.match(/\{limitMessage && \(/g) ?? [];
+    expect(matches.length).toBe(2);
   });
 });
 

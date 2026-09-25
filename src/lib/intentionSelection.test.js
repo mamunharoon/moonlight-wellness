@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { toggleIntention, sanitizeIntentions, roleForIndex, MAX_INTENTIONS, LIMIT_MESSAGE } from './intentionSelection';
+import {
+  toggleIntention,
+  addCustomIntention,
+  sanitizeIntentions,
+  roleForIndex,
+  MAX_INTENTIONS,
+  LIMIT_MESSAGE,
+  CUSTOM_LIMIT_MESSAGE,
+  DUPLICATE_INTENTION_MESSAGE
+} from './intentionSelection';
 
 describe('toggleIntention - selection limits, ordering, promotion, custom intention', () => {
   it('selecting from empty adds it as Primary (index 0)', () => {
@@ -100,6 +109,75 @@ describe('toggleIntention - selection limits, ordering, promotion, custom intent
     const { intentions } = toggleIntention(frozen, 'Be grateful');
     expect(intentions).not.toBe(frozen);
     expect(frozen).toEqual(['Stay calm']); // original untouched
+  });
+});
+
+describe('addCustomIntention - ADD-ONLY custom-intention defect fix (ChangeIntention.jsx "Add your own"), never a toggle', () => {
+  it('zero existing selections: a valid custom value is added as Primary', () => {
+    const { intentions, status } = addCustomIntention([], 'My own goal');
+    expect(status).toBe('added');
+    expect(intentions).toEqual(['My own goal']);
+  });
+
+  it('one existing selection: a valid, distinct custom value is added as Supporting', () => {
+    const { intentions, status } = addCustomIntention(['Stay calm'], 'My own goal');
+    expect(status).toBe('added');
+    expect(intentions).toEqual(['Stay calm', 'My own goal']);
+  });
+
+  it('two existing selections: a new, distinct custom value is rejected as limit-reached - the existing pair is never replaced or silently dropped', () => {
+    const current = ['Stay calm', 'Be grateful'];
+    const { intentions, status } = addCustomIntention(current, 'My own goal');
+    expect(status).toBe('limit-reached');
+    expect(intentions).toBe(current); // same reference - genuinely untouched
+  });
+
+  it('typing an already-selected value (exact case) is rejected as a duplicate - it does NOT toggle/deselect the existing entry, unlike toggleIntention', () => {
+    const current = ['Stay calm'];
+    const { intentions, status } = addCustomIntention(current, 'Stay calm');
+    expect(status).toBe('duplicate');
+    expect(intentions).toBe(current); // still there - never removed
+  });
+
+  it('duplicate rejection is case-insensitive, same as toggleIntention\'s own comparison rule', () => {
+    const current = ['Stay calm'];
+    const { intentions, status } = addCustomIntention(current, 'STAY CALM');
+    expect(status).toBe('duplicate');
+    expect(intentions).toBe(current);
+  });
+
+  it('a duplicate match against a CUSTOM (non-preset) existing value is also rejected, not just against presets', () => {
+    const current = ['My own goal'];
+    const { intentions, status } = addCustomIntention(current, '  my own goal  ');
+    expect(status).toBe('duplicate');
+    expect(intentions).toBe(current);
+  });
+
+  it('blank/whitespace-only input is a no-op status, never added and never mistaken for a duplicate or limit-reached', () => {
+    const current = ['Stay calm'];
+    expect(addCustomIntention(current, '').status).toBe('blank');
+    expect(addCustomIntention(current, '   ').status).toBe('blank');
+    expect(addCustomIntention(current, '').intentions).toBe(current);
+  });
+
+  it('a genuinely new value is stored trimmed, with interior casing/spacing preserved verbatim', () => {
+    const { intentions, status } = addCustomIntention([], '  My Own Wording  ');
+    expect(status).toBe('added');
+    expect(intentions).toEqual(['My Own Wording']);
+  });
+
+  it('never mutates the input array - always returns a new array on success, the same reference on any rejection', () => {
+    const current = Object.freeze(['Stay calm']);
+    expect(() => addCustomIntention(current, 'Be grateful')).not.toThrow();
+    const added = addCustomIntention(current, 'Be grateful');
+    expect(added.intentions).not.toBe(current);
+    expect(current).toEqual(['Stay calm']); // original untouched
+  });
+
+  it('CUSTOM_LIMIT_MESSAGE and DUPLICATE_INTENTION_MESSAGE are the exact required copy, distinct from the shared chip-tap LIMIT_MESSAGE', () => {
+    expect(CUSTOM_LIMIT_MESSAGE).toBe('You can choose up to two intentions. Remove one before adding your own.');
+    expect(DUPLICATE_INTENTION_MESSAGE).toBe('That intention is already selected.');
+    expect(CUSTOM_LIMIT_MESSAGE).not.toBe(LIMIT_MESSAGE);
   });
 });
 

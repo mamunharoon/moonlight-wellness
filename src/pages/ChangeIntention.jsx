@@ -5,7 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useAlarm } from '../context/AlarmContext';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
 import { saveIntentionsToCloud } from '../lib/intentionPersistence';
-import { toggleIntention, roleForIndex, LIMIT_MESSAGE } from '../lib/intentionSelection';
+import {
+  toggleIntention,
+  addCustomIntention,
+  roleForIndex,
+  LIMIT_MESSAGE,
+  CUSTOM_LIMIT_MESSAGE,
+  DUPLICATE_INTENTION_MESSAGE
+} from '../lib/intentionSelection';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionChip } from '../components/journey/SelectionChip';
 
@@ -88,10 +95,30 @@ export const ChangeIntention = () => {
     setManualDraft(next);
   };
 
+  // Custom-intention defect fix (found live: "Add your own" with two
+  // intentions already selected silently cleared the typed text and
+  // showed no reliably-visible feedback) — uses addCustomIntention
+  // (ADD-only) rather than the chip-tap toggleIntention/applySelection
+  // above: typing an already-selected value must be rejected as a
+  // duplicate, never toggle that selection off. The typed text is only
+  // ever cleared on a genuine 'added' outcome - every rejection preserves
+  // it so the user can edit/retry or copy it elsewhere rather than
+  // watching it vanish.
   const handleAddCustom = () => {
-    const trimmed = customIntention.trim();
-    if (!trimmed) return;
-    applySelection(trimmed);
+    const { intentions: next, status } = addCustomIntention(draftSelection, customIntention);
+    if (status === 'blank') return;
+    if (status === 'duplicate') {
+      setLimitMessage(DUPLICATE_INTENTION_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
+    if (status === 'limit-reached') {
+      setLimitMessage(CUSTOM_LIMIT_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
+    setLimitMessage('');
+    setManualDraft(next);
     setCustomIntention('');
   };
 
@@ -175,24 +202,34 @@ export const ChangeIntention = () => {
             complete this screen; the six preset cards above are always
             enough on their own. */}
         {showCustomInput ? (
-          <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
-            <input
-              type="text"
-              value={customIntention}
-              onChange={(e) => setCustomIntention(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1 min-w-0 min-h-[44px] bg-transparent border-none text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
-              placeholder="Write your own..."
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={handleAddCustom}
-              disabled={!customIntention.trim()}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Add
-            </button>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+              <input
+                type="text"
+                value={customIntention}
+                onChange={(e) => setCustomIntention(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 min-w-0 min-h-[44px] bg-transparent border-none text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+                placeholder="Write your own..."
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleAddCustom}
+                disabled={!customIntention.trim()}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Add
+              </button>
+            </div>
+            {/* Custom-intention defect fix — a second, reliably-visible copy
+                of the same limitMessage, rendered right next to the input
+                the user is actually looking at (the top-of-page banner
+                further up can be scrolled out of view or hidden behind the
+                on-screen keyboard once this input has focus - found live). */}
+            {limitMessage && (
+              <p className="text-xs text-secondary font-semibold px-1" role="status">{limitMessage}</p>
+            )}
           </div>
         ) : (
           <button
