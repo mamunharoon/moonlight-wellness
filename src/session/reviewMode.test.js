@@ -387,35 +387,47 @@ describe('Every Morning/Evening step page wires review mode consistently', () =>
   });
 });
 
-describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) require an explicit "Repeat this exercise" tap before replaying', () => {
-  it('gates the live exercise UI behind isRepeatGated = isReviewMode && !hasStartedRepeat', () => {
+// isRepeatGated hidden-options defect fix — found live: reviewing an
+// earlier, already-passed Stretch/Breathe/Breathing step (via Back or a
+// progress-bar review tap) showed "You already completed this step -
+// Repeat this exercise?" instead of the real setup screen with all
+// choices, unlike Meditation/Affirmation/Intention, which have no
+// equivalent gate and already show real choices directly during review -
+// directly blocking the approved "review the previous step with setup
+// options" behaviour. isRepeatGated is now permanently `false` in all
+// three files (no longer derived from isReviewMode/hasStartedRepeat at
+// all) - every downstream `!isRepeatGated`/`isRepeatGated &&` reference
+// in each file's own render (unchanged, not touched by this fix) now
+// resolves exactly as if the gate never existed, and the old "Repeat this
+// exercise" panel/button no longer exist anywhere in these three files.
+describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) no longer gate their setup/active UI behind a "Repeat this exercise" tap when reviewing an earlier step', () => {
+  it('isRepeatGated is hardcoded false in all three files - no hasStartedRepeat state remains in real code (each file\'s own doc comment legitimately names it in prose, explaining the fix - comments stripped first)', () => {
     for (const source of Object.values(REPEAT_GATED_PAGES)) {
-      expect(source).toMatch(/const \[hasStartedRepeat, setHasStartedRepeat\] = useState\(false\);/);
-      expect(source).toMatch(/const isRepeatGated = isReviewMode && !hasStartedRepeat;/);
+      expect(source).toMatch(/const isRepeatGated = false;/);
+      const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(codeOnly).not.toMatch(/hasStartedRepeat/);
     }
   });
 
-  it('the timer effect never runs while gated - isRepeatGated is in the effect\'s own early-return guard and dependency array, alongside isConfirming (pause-during-review fix)', () => {
+  it('the timer effect\'s own early-return guard and dependency array still reference isRepeatGated by name (a token that is always false now, not removed from every call site - the smallest fix that leaves every other reference correct without touching it), alongside isConfirming (pause-during-review fix)', () => {
     // Build 15 — none of the three timed pages has an awaitingMusicChoice
     // concept left (no music-entry-choice gate - see
     // musicEntryChoice.test.js): each now gates on hasBegun (MorningFlow.jsx
     // additionally on its own locked activeSequence), since nothing may
     // run before its own new pre-start screen's explicit Begin gesture.
     expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
-    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming\) return;/);
+    // Continue-lock/Skip-semantics fix adds hasFinished to Breathe.jsx/
+    // EveningBreathing.jsx's own guard too (MorningFlow.jsx/Stretch is
+    // untouched by that fix) - see embeddedBreathingContinueLock.test.js.
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
+    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
   });
 
-  it('renders a distinct "Repeat this exercise" affordance instead of the live ring/countdown while gated', () => {
+  it('no "Repeat this exercise" affordance exists anywhere in these three files any more - reviewing an earlier step now shows the real setup screen (all pattern/movement/music choices) directly, matching Meditation/Affirmation/Intention\'s own already-correct review-mode behaviour (each file\'s own doc comment legitimately names the old copy in prose, explaining the fix - comments stripped first)', () => {
     for (const source of Object.values(REPEAT_GATED_PAGES)) {
-      expect(source).toMatch(/isRepeatGated \? \(/);
-      expect(source).toMatch(/Repeat this exercise/);
-    }
-  });
-
-  it('tapping "Repeat this exercise" only sets local hasStartedRepeat - never advances the session, never marks a second completion', () => {
-    for (const source of Object.values(REPEAT_GATED_PAGES)) {
-      expect(source).toMatch(/onClick=\{\(\) => setHasStartedRepeat\(true\)\}/);
+      const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(codeOnly).not.toMatch(/Repeat this exercise/);
+      expect(codeOnly).not.toMatch(/setHasStartedRepeat/);
     }
   });
 });
@@ -569,15 +581,15 @@ describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wi
     }
   });
 
-  it('seeds its own countdown/phase state from the snapshot when present, defaulting otherwise', () => {
+  it('seeds its own countdown/phase state from the TRUSTED snapshot when present, defaulting otherwise - review-mode auto-start defect fix: trustedSnapshot is null unless this mount is genuinely the live step (isLiveStep), see backNavigationCanonicalMap.test.js', () => {
     for (const { source, timeField } of Object.values(TIMED_PAGES)) {
-      expect(source).toMatch(new RegExp(`useState\\(\\(\\) => pausedSnapshot\\?\\.${timeField} \\?\\?`));
+      expect(source).toMatch(new RegExp(`useState\\(\\(\\) => trustedSnapshot\\?\\.${timeField} \\?\\?`));
     }
   });
 
-  it('seeds manuallyPaused to true when resuming from a snapshot - never auto-resumes the countdown, always shows the paused panel first', () => {
+  it('seeds manuallyPaused to true when resuming from a TRUSTED snapshot - never auto-resumes the countdown, always shows the paused panel first', () => {
     for (const { source } of Object.values(TIMED_PAGES)) {
-      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
+      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
     }
   });
 

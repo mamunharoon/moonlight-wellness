@@ -37,7 +37,7 @@ describe('1. Automatic first-use Welcome has no Back control', () => {
     expect(authSource).toMatch(/navigate\(`\/introduction\?auto=1\$\{existingParam\}`, \{ replace: true \}\);/);
   });
 
-  it('a deliberate replay (Profile\'s "About WakeWise" row, Home\'s "Watch: How WakeWise works" pill) never adds the marker, so the Back control still shows there', () => {
+  it('a deliberate replay (Profile\'s "About WakeWise" row, Home\'s "See how WakeWise can help" pill) never adds the marker, so the Back control still shows there', () => {
     const profileSource = read('./Profile.jsx');
     const homeSource = read('./Home.jsx');
     expect(profileSource).toMatch(/<Link to="\/introduction" className=\{rowClass\}>/);

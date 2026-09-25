@@ -77,7 +77,7 @@ describe('Evening Wind-down back-navigation chain', () => {
 
 describe('Build 15 Evening UX correction — Back never interrupts the active session on any Evening screen', () => {
   it('EveningSceneShell always renders its BackButton with guardActiveRoute={false} - the old "Leave this routine?" dialog can never open from Back on an Evening screen', () => {
-    expect(shellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*\/>/);
+    expect(shellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
   });
 
   it('EveningSceneShell no longer passes confirmTitle/confirmMessage to BackButton - that confirmation can never fire here any more, since guardActiveRoute is always false', () => {

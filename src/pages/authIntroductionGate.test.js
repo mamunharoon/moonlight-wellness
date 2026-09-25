@@ -17,6 +17,25 @@ describe('redirectAfterAuth — one-shot Introduction gate, never a persistent p
     expect(authSource).toMatch(/import \{ shouldShowIntroduction \} from '\.\.\/lib\/introductionVersion';/);
   });
 
+  // Redirect-order defect fix — found live: a normal sign-up with email
+  // confirmation (Supabase's default) returns no session at signup time,
+  // so this synchronous redirectAfterAuth never runs for that account at
+  // all; when the user later opens the confirmation link, nothing else in
+  // the app ever showed them Introduction. OnboardingGate.jsx now ALSO
+  // evaluates the same decision passively, from AuthContext's own loaded
+  // profile - markPostAuthRedirectHandled() here is what stops that
+  // passive check from ever double-acting on top of THIS synchronous
+  // redirect, which alone knows the correct pendingJourneyIntent/
+  // pendingContent/existing=1/resume= destination.
+  it('imports and calls markPostAuthRedirectHandled synchronously, before anything else (including the first await) in this function', () => {
+    expect(authSource).toMatch(/import \{ markPostAuthRedirectHandled \} from '\.\.\/lib\/postAuthRedirectGuard';/);
+    const body = redirectBody();
+    const markIndex = body.indexOf('markPostAuthRedirectHandled();');
+    const firstAwaitIndex = body.indexOf('await ');
+    expect(markIndex).toBeGreaterThan(-1);
+    expect(firstAwaitIndex).toBeGreaterThan(markIndex);
+  });
+
   it('queries the profile row directly (never AuthContext\'s own possibly-stale `profile` state)', () => {
     const body = redirectBody();
     expect(body).toMatch(/await supabase\s*\n\s*\.from\('profiles'\)\s*\n\s*\.select\('introduction_completed_version'\)\s*\n\s*\.eq\('id', authUser\.id\)\s*\n\s*\.maybeSingle\(\);/);

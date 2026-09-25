@@ -151,7 +151,7 @@ describe('Dynamic pre-start copy and Begin label - real execution', () => {
 // -> Skip -> Exit routine. Verified by comparing each landmark's own
 // index() in the pre-start branch's source text, in the approved order.
 describe('Compact Stretch pre-start order', () => {
-  const preStartBranch = source.slice(source.indexOf(': !hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+  const preStartBranch = source.slice(source.indexOf('{!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
 
   it('landmarks appear in the exact approved order: summary -> music -> Begin -> Choose movements -> guided sessions -> Skip -> Exit', () => {
     const iSummary = preStartBranch.indexOf('total');
@@ -264,9 +264,9 @@ describe('Item 3 - total duration and selected count are calculated, never hard-
 
 // 4, 5, 6. Nothing starts on mount.
 describe('Items 4/5/6 - timer, animation and music never start on mount', () => {
-  it('the pre-start branch is gated on !hasBegun, and hasBegun defaults to false (true only when genuinely resuming a paused snapshot)', () => {
-    expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
-    expect(source).toMatch(/\) : !hasBegun \? \(/);
+  it('the pre-start branch is gated on !hasBegun, and hasBegun defaults to false (true only when genuinely resuming a TRUSTED paused snapshot)', () => {
+    expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
+    expect(source).toMatch(/\{!hasBegun \? \(/);
   });
 
   it('the countdown effect refuses to run at all while !hasBegun (or with no locked activeSequence yet)', () => {
@@ -274,7 +274,7 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
   });
 
   it('the active movement list (the only place a "current" highlighted movement/animation-style state renders) is entirely inside the hasBegun branch - never rendered pre-start', () => {
-    const preStartBranch = source.slice(source.indexOf(': !hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+    const preStartBranch = source.slice(source.indexOf('{!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
     expect(preStartBranch).not.toMatch(/Stretching Progress/);
   });
 
@@ -400,8 +400,8 @@ describe('Selection persistence and isolation', () => {
   });
 
   it('a resumed snapshot restores the already-locked sequence and hasBegun=true, never re-showing the pre-start selection screen for an in-progress run', () => {
-    expect(source).toMatch(/if \(pausedSnapshot\?\.selectedMovements\) return \[\.\.\.pausedSnapshot\.selectedMovements\]\.sort\(\(a, b\) => a - b\);/);
-    expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
+    expect(source).toMatch(/if \(trustedSnapshot\?\.selectedMovements\) return \[\.\.\.trustedSnapshot\.selectedMovements\]\.sort\(\(a, b\) => a - b\);/);
+    expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
   });
 
   it('the music preference is never seeded true for a guest, even if a stored preference exists', () => {

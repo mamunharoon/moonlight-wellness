@@ -67,16 +67,36 @@ export const EveningBreathing = () => {
   const { effectiveTimezone, userId } = useAlarm();
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { isGuest } = useAuth();
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, skipStep } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('breathing', 'evening-wind-down');
-  const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
-  const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  // isRepeatGated hidden-options defect fix — the exact same defect and
+  // fix as MorningFlow.jsx/Breathe.jsx (found live: "Back from Meditation
+  // opened an already-running Breathing countdown, with no pattern
+  // choices available" was actually two separate bugs - the paused-
+  // snapshot auto-start fixed above via trustedSnapshot, and this
+  // isRepeatGated gate independently hiding the real setup screen behind
+  // a "Repeat this exercise?" tap whenever reviewing an already-passed
+  // step). Always false now.
+  const isRepeatGated = false;
   const [pausedSnapshot] = useState(() => loadPausedExerciseState('evening-wind-down', 'breathing'));
   useEffect(() => {
     if (pausedSnapshot) clearPausedExerciseState('evening-wind-down', 'breathing');
   }, [pausedSnapshot]);
 
-  const [hasBegun, setHasBegun] = useState(() => Boolean(pausedSnapshot));
+  // Review-mode auto-start defect fix — found live: "Back from Meditation
+  // opened an already-running Breathing countdown, with no pattern
+  // choices available." A pausedSnapshot only represents a genuine "I
+  // left THIS exact live step mid-run to review something else" resume;
+  // if this mount is not currently the live step (isLiveStep false - a
+  // stale, un-consumed snapshot from an earlier, unrelated interrupted
+  // round-trip can still sit in sessionStorage), it must never be
+  // trusted to auto-restore an already-active exercise. The raw snapshot
+  // is still read and cleared unconditionally above so a stale one can
+  // never resurface later either way; only TRUSTED for seeding initial
+  // UI state when isLiveStep is true at mount.
+  const trustedSnapshot = isLiveStep ? pausedSnapshot : null;
+
+  const [hasBegun, setHasBegun] = useState(() => Boolean(trustedSnapshot));
 
   // Build 15 Evening UX correction — tonight's selected pattern. Priority:
   // a genuine review-round-trip snapshot (same as Breathe.jsx's own
@@ -84,7 +104,7 @@ export const EveningBreathing = () => {
   // earlier tonight (survives backgrounding/remount/leaving to Home and
   // resuming), then the established 4-7-8 default.
   const [selectedPatternId, setSelectedPatternId] = useState(
-    () => pausedSnapshot?.patternId ?? loadEveningBreathingPattern(userId, today) ?? DEFAULT_PATTERN_ID
+    () => trustedSnapshot?.patternId ?? loadEveningBreathingPattern(userId, today) ?? DEFAULT_PATTERN_ID
   );
   const activePattern = getBreathingPatternById(selectedPatternId) ?? getBreathingPatternById(DEFAULT_PATTERN_ID);
   const handleSelectPattern = (patternId) => {
@@ -103,9 +123,9 @@ export const EveningBreathing = () => {
       musicEnabled: musicPreferenceOn
     })
   });
-  const [breatheState, setBreatheState] = useState(() => pausedSnapshot?.breatheState ?? 'Inhale');
-  const [secondsLeft, setSecondsLeft] = useState(() => pausedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
-  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
+  const [breatheState, setBreatheState] = useState(() => trustedSnapshot?.breatheState ?? 'Inhale');
+  const [secondsLeft, setSecondsLeft] = useState(() => trustedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
+  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const handleResumeExercise = () => setManuallyPaused(false);
   const musicPlayerRef = useRef(null);
@@ -121,7 +141,7 @@ export const EveningBreathing = () => {
   // Build 15 — genuinely safe to seed from the persisted preference now:
   // Begin Breathing is a real mandatory gesture before any playback.
   const [musicPreferenceOn, setMusicPreferenceOn] = useState(() => {
-    if (pausedSnapshot) return Boolean(pausedSnapshot.musicEnabled);
+    if (trustedSnapshot) return Boolean(trustedSnapshot.musicEnabled);
     if (isGuest) return false;
     return musicEligible && getMusicPreference();
   });
@@ -147,21 +167,23 @@ export const EveningBreathing = () => {
     };
   }, [state.status, currentStep, advanceStep]);
 
+  // Continue-lock/Skip-semantics fix, found live: "Continue was tappable
+  // with 50 seconds still remaining, and doing so marked the step as
+  // completed." Natural timer completion used to auto-navigate
+  // immediately (identical to a manual Continue tap), and Continue itself
+  // was tappable at any point while active/unpaused - not gated on the
+  // timer actually finishing. Now: reaching 0 only STOPS the countdown
+  // (no navigation) and hasFinished (below) unlocks the Continue button -
+  // Continue itself, tapped afterward, is what records completion and
+  // advances. Skip remains the only early-exit action while still
+  // running, and now calls the canonical, separately-validated
+  // skipStep() (see handleSkip) instead of sharing this completion path -
+  // previously Continue and Skip were the exact same handler.
+  const hasFinished = secondsLeft <= 0;
   useEffect(() => {
     // Build 15: nothing runs until hasBegun. Pause-during-review fix -
     // freeze the countdown the instant the confirmation dialog opens.
-    if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming) return;
-
-    if (secondsLeft <= 0) {
-      // Journey Embedding — Meditation is now the next step (optional,
-      // inserted immediately after Breathing in EVENING_ROUTINE_SESSION).
-      // mirrorExitRef.current() is unchanged: it already advances the
-      // Session Engine from whatever the registry's real NEXT step is
-      // after 'breathing' - no logic change needed there, only this route.
-      navigate('/evening-meditate');
-      mirrorExitRef.current();
-      return;
-    }
+    if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming || hasFinished) return;
 
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -172,7 +194,7 @@ export const EveningBreathing = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, hasBegun, manuallyPaused, isRepeatGated, isConfirming, activePattern]);
+  }, [hasFinished, hasBegun, manuallyPaused, isRepeatGated, isConfirming, activePattern]);
 
   // Double-tap protection - see Breathe.jsx's identical rationale. Also
   // where the selected pattern is effectively "locked" for the active
@@ -190,16 +212,50 @@ export const EveningBreathing = () => {
     }
   };
 
-  const handleAdvance = () => {
+  // Only reachable once hasFinished (Continue is hidden until then, see
+  // render below) or from the pre-start Skip-equivalent Skip button -
+  // records genuine completion and advances.
+  const handleComplete = () => {
     navigate('/evening-meditate');
     mirrorExitRef.current();
+  };
+
+  // Continue-lock/Skip-semantics fix — Skip is the explicit early-exit
+  // action while still running (or at any point), genuinely distinct from
+  // Continue/natural completion: it calls the Session Engine's own
+  // canonical skipStep() (validated against currentStep.skippable and
+  // 'playing' status by the reducer itself) rather than the
+  // completion-mirror's advanceStep(), so it can never be recorded as
+  // completing the step.
+  const handleSkip = () => {
+    navigate('/evening-meditate');
+    skipStep();
+  };
+
+  // Back-navigation repair (canonical Morning/Evening map) — Active
+  // Breathing Back must safely stop the exercise and return to this
+  // step's own pre-start screen, never straight to Gratitude and never
+  // the whole-routine exit (Evening's Back is already unguarded -
+  // EveningSceneShell's own guardActiveRoute={false} - only its separate
+  // showExit control leaves the routine outright). A subsequent Back tap,
+  // once hasBegun is false again, falls through to the ordinary
+  // previous-step navigation. Mirrors Breathe.jsx's identical handler.
+  const handleBackFromActive = () => {
+    if (!hasBegun || isRepeatGated) return;
+    hasBegunOnceRef.current = false;
+    setManuallyPaused(false);
+    setBreatheState('Inhale');
+    setSecondsLeft(activePattern.totalSeconds);
+    setHasBegun(false);
+    musicPlayerRef.current?.stop();
+    return false;
   };
 
   return (
     // Build 15 Evening UX correction — fixes the confirmed Back-matrix bug:
     // the missing `?q=3` meant Back landed on Gratitude Q1 (parseActiveIndex
     // defaults a missing q to index 0), not Gratitude Q3 as required.
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" showExit>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" onBeforeLeave={handleBackFromActive} showExit>
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" onReviewStep={requestReview} />
       {/* Journey Embedding (correction) — total is now 7, not 6. */}
       <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 7</span>
@@ -208,27 +264,7 @@ export const EveningBreathing = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {isRepeatGated ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-          <div className="space-y-2">
-            <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
-            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              Slow, easy breaths. There is nowhere else to be.
-            </p>
-          </div>
-          <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10 w-full">
-            <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the breathing exercise from the beginning.</p>
-            <button
-              type="button"
-              onClick={() => setHasStartedRepeat(true)}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-            >
-              <span className="material-symbols-outlined text-sm">replay</span>
-              <span>Repeat this exercise</span>
-            </button>
-          </div>
-        </div>
-      ) : !hasBegun ? (
+      {!hasBegun ? (
         <>
           {/* Build 15 Evening UX correction — real pattern selection,
               replacing the former fixed-4-7-8-only preview. Nothing
@@ -276,7 +312,7 @@ export const EveningBreathing = () => {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
             <button
-              onClick={handleAdvance}
+              onClick={handleSkip}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
             >
               Skip
@@ -345,9 +381,9 @@ export const EveningBreathing = () => {
             )
           ) : (
             <>
-              {!manuallyPaused && (
+              {hasFinished && !manuallyPaused && (
                 <button
-                  onClick={handleAdvance}
+                  onClick={handleComplete}
                   className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
                 >
                   <span>Continue</span>
@@ -355,7 +391,7 @@ export const EveningBreathing = () => {
                 </button>
               )}
               <button
-                onClick={handleAdvance}
+                onClick={handleSkip}
                 className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
               >
                 Skip

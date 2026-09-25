@@ -891,10 +891,11 @@ export const Home = () => {
         <div className="flex justify-center">
           <Link
             to="/introduction"
+            aria-label="Play the WakeWise introduction video: see how WakeWise can help."
             className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/15 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-lg" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-            <span>Watch: How WakeWise works</span>
+            <span>See how WakeWise can help</span>
           </Link>
         </div>
       </div>

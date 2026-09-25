@@ -192,8 +192,8 @@ describe('Cleanup remains correct — unaffected by this round, confirmed unchan
     expect(playerSource).toMatch(/audio\.pause\(\);\s*\n\s*audio\.removeAttribute\('src'\);\s*\n\s*audio\.load\(\);/);
   });
 
-  it('QuietBreathing.jsx standalone branch: InteractiveAmbientMusic still sits once, outside the pre-start/active ternary, with hideToggle={!hasBegun} - the same single-stable-instance shape proven before, unaffected by the non-standalone branch\'s own separate fix', () => {
+  it('QuietBreathing.jsx standalone branch: InteractiveAmbientMusic still sits once, outside the pre-start/active ternary, hidden pre-start or once complete (standalone completion redesign added the isComplete term) - the same single-stable-instance shape proven before, unaffected by the non-standalone branch\'s own separate fix', () => {
     const standaloneReturn = quietBreathingSource.slice(quietBreathingSource.indexOf('if (standalone) {'), quietBreathingSource.indexOf('return (\n    <EveningSceneShell'));
-    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isComplete\}\s*\n\s*\/>/);
   });
 });

@@ -228,7 +228,7 @@ describe('Navigation protection for unsaved Edit drafts', () => {
   });
 
   it('EveningSceneShell forwards onBeforeLeave through to BackButton, optional and defaulting to undefined', () => {
-    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, showExit = false, children/);
+    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, children/);
     expect(sceneShellSource).toMatch(/onBeforeLeave=\{onBeforeLeave\}/);
   });
 

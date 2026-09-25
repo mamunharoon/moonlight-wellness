@@ -44,7 +44,10 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
   });
 
   it('the disclosure sits after Skip this step/Exit routine in the pre-start branch', () => {
-    const preStartBranch = breatheSource.slice(breatheSource.indexOf(': !hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
+    // isRepeatGated hidden-options defect fix removed the whole-screen
+    // "Repeat this exercise?" branch that used to precede this ternary -
+    // it now opens directly with `{!hasBegun ? (`, no leading `: `.
+    const preStartBranch = breatheSource.slice(breatheSource.indexOf('{!hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
     const iDisclosure = preStartBranch.indexOf('Explore guided breathing sessions');

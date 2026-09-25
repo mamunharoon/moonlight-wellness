@@ -163,11 +163,28 @@ export const QuietBreathing = ({ standalone = false }) => {
   // (awaitingMusicChoice alone) - never affected by hasBegun at all.
   const canRun = standalone ? hasBegun : !awaitingMusicChoice;
 
+  // Standalone completion redesign — found live: "Continue" was tappable
+  // at any time (premature exit, misleadingly implying real completion)
+  // and both natural completion and Skip/Continue converged on an
+  // immediate, silent navigate('/') with no distinct completion state at
+  // all. isComplete is a plain derived value (never its own state, so
+  // there is nothing to keep in sync) - true only once the countdown has
+  // genuinely reached 0 during an active standalone run. Never true for
+  // non-standalone, which keeps navigating away exactly as before.
+  const isComplete = standalone && hasBegun && secondsLeft <= 0;
+  useEffect(() => {
+    if (isComplete) musicPlayerRef.current?.stop();
+  }, [isComplete]);
+
   useEffect(() => {
     if (!canRun) return;
 
     if (secondsLeft <= 0) {
-      navigate(completionRoute);
+      // Standalone completion redesign — natural end now surfaces the new
+      // "Breathing complete" state (isComplete, above) instead of
+      // silently navigating away; non-standalone (Support) keeps its
+      // exact original behaviour.
+      if (!standalone) navigate(completionRoute);
       return;
     }
 
@@ -180,16 +197,59 @@ export const QuietBreathing = ({ standalone = false }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, canRun, activePattern, completionRoute]);
+  }, [secondsLeft, navigate, canRun, activePattern, completionRoute, standalone]);
 
   const handleAdvance = () => {
     navigate(completionRoute);
   };
 
+  // Standalone completion redesign — the active phase's only early-exit
+  // action while genuinely running (replaces the old, misleading
+  // always-tappable Continue/Skip pair): cleans up by simply navigating
+  // Home, same as backFallback, without ever touching isComplete/claiming
+  // completion.
+  const handleEndEarly = () => {
+    musicPlayerRef.current?.stop();
+    navigate(backFallback);
+  };
+
+  // "Breathe again" - returns to this same screen's own pattern-choice
+  // setup, not a direct restart, per spec ("Breathe again -> standalone
+  // setup"). No remount: just resets local state back to pre-start.
+  const handleBreatheAgain = () => {
+    hasBegunOnceRef.current = false;
+    setHasBegun(false);
+  };
+
   if (standalone) {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback}>
-        {!hasBegun ? (
+        {isComplete ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-on-surface">Breathing complete</h2>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Take a moment to notice how you feel.
+              </p>
+            </div>
+            <div className="space-y-3 w-full">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                <span>Done</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleBreatheAgain}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Breathe again
+              </button>
+            </div>
+          </div>
+        ) : !hasBegun ? (
           <>
             <div className="text-center space-y-2">
               <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Mindful Breathing</span>
@@ -296,18 +356,17 @@ export const QuietBreathing = ({ standalone = false }) => {
             </div>
 
             <div className="space-y-3 w-full">
+              {/* Standalone completion redesign — no active-phase Continue
+                  (it previously allowed premature exit while misleadingly
+                  implying real completion). "End early" is the only
+                  early-exit action; it never claims completion - only
+                  genuine natural completion (the countdown effect above)
+                  reveals the "Breathing complete" screen. */}
               <button
-                onClick={handleAdvance}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-              >
-                <span>Continue</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-              <button
-                onClick={handleAdvance}
+                onClick={handleEndEarly}
                 className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Skip
+                End early
               </button>
             </div>
 
@@ -375,7 +434,7 @@ export const QuietBreathing = ({ standalone = false }) => {
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
           suspended={false}
-          hideToggle={!hasBegun}
+          hideToggle={!hasBegun || isComplete}
         />
 
         {openVideo && (

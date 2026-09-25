@@ -126,7 +126,7 @@ export const EveningComplete = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/" alwaysFallback>
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         {/* Evening Visual Uplift (Build 17) — periwinkle badge/icon ring,
             the same restrained circular-icon shape SessionComplete.jsx's

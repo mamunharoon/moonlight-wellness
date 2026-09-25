@@ -261,9 +261,14 @@ describe('Introduction.jsx — optional "Watch introduction" pill, gated on real
     expect(introductionMediaSource).toMatch(/id: 'why-wakewise',[\s\S]*?available: true/);
   });
 
-  it('its "(1 min)" duration is the video\'s real, verified duration - present in betaVideoManifest.js, not fabricated here', () => {
-    expect(introductionSource).toMatch(/Watch introduction \(1 min\) · Why WakeWise works/);
+  it('its "1 min" duration is the video\'s real, verified duration - present in betaVideoManifest.js, not fabricated here (connection-copy fix: pill text is now "See how WakeWise can help · 1 min", replacing the old product-focused "Watch introduction (1 min) · Why WakeWise works")', () => {
+    expect(introductionSource).toMatch(/See how WakeWise can help · 1 min/);
+    expect(introductionSource).not.toMatch(/Watch introduction \(1 min\) · Why WakeWise works/);
     expect(manifestSource).toMatch(/id: 'I01',[\s\S]*?durationLabel: '1 min'/);
+  });
+
+  it('carries an explicit accessible label matching the required copy exactly - the pill\'s own play_circle icon is aria-hidden, so this label is the button\'s real accessible name', () => {
+    expect(introductionSource).toMatch(/aria-label="Play one-minute introduction: See how WakeWise can help\."/);
   });
 
   it('never autoplays - opens via the same shared BetaVideoModal every other private video uses, which always requires its own explicit Play tap', () => {

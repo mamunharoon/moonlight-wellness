@@ -57,7 +57,7 @@ const formatRemaining = (ms) => {
  * of those flows, not a QA artifact - Beta.jsx passes true explicitly to
  * keep the label on its own standalone admin/QA catalogue.
  */
-export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
+export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded }) => {
   const { isGuest } = useAuth();
   const isSleepSound = entry.category === 'Sleep Soundscapes';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
@@ -259,6 +259,11 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
       setIsFullscreen(false);
       setFallbackFullscreen(false);
       setHasEnded(true);
+      // Anytime Reset completion fix — optional, additive callback for the
+      // real natural-end event, distinct from onClose (which also fires on
+      // an early/manual close and must never be mistaken for completion).
+      // Every existing caller omits this prop and is completely unaffected.
+      onEnded?.();
     };
 
     video.addEventListener('webkitbeginfullscreen', handleBeginFullscreen);
@@ -272,7 +277,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false }) => {
       document.removeEventListener('fullscreenchange', handleStandardFullscreenChange);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [videoUrl]);
+  }, [videoUrl, onEnded]);
 
   // Escape only closes the whole modal from the small preview state.
   // While the standards-track Fullscreen API is active (isFullscreen),

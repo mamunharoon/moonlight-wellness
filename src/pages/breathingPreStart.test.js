@@ -224,7 +224,7 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
 
   it('defaults to the real Morning 4-4-6 pattern ("morning")', () => {
     expect(breatheSource).toMatch(/const DEFAULT_PATTERN_ID = 'morning';/);
-    expect(breatheSource).toMatch(/const \[selectedPatternId, setSelectedPatternId\] = useState\(\(\) => pausedSnapshot\?\.patternId \?\? DEFAULT_PATTERN_ID\);/);
+    expect(breatheSource).toMatch(/const \[selectedPatternId, setSelectedPatternId\] = useState\(\(\) => trustedSnapshot\?\.patternId \?\? DEFAULT_PATTERN_ID\);/);
   });
 
   it('never fabricates a pattern name - BreathingPatternRow itself only ever renders pattern.label, sourced from the shared config', () => {
@@ -261,9 +261,9 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
 // music; music can stop without resetting the exercise.
 // ---------------------------------------------------------------------
 describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything', () => {
-  it('hasBegun defaults to false (true only when resuming a paused snapshot) and gates the countdown effect entirely', () => {
-    expect(breatheSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
+  it('hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - see backNavigationCanonicalMap.test.js for the isLiveStep gate) and gates the countdown effect entirely, which now also stops (rather than auto-navigating) once hasFinished - Continue-lock/Skip-semantics fix, see embeddedBreathingContinueLock.test.js', () => {
+    expect(breatheSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
   });
 
   it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and nothing calls .start() outside handleBeginBreathing/handleResumeWithMusic', () => {
@@ -335,7 +335,7 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
 
   it('resolves tonight\'s selection from a review-round-trip snapshot first, then a persisted same-day selection, then the 4-7-8 default - never a second, hand-typed default fallback', () => {
     expect(eveningBreathingSource).toMatch(
-      /const \[selectedPatternId, setSelectedPatternId\] = useState\(\s*\n\s*\(\) => pausedSnapshot\?\.patternId \?\? loadEveningBreathingPattern\(userId, today\) \?\? DEFAULT_PATTERN_ID\s*\n\s*\);/
+      /const \[selectedPatternId, setSelectedPatternId\] = useState\(\s*\n\s*\(\) => trustedSnapshot\?\.patternId \?\? loadEveningBreathingPattern\(userId, today\) \?\? DEFAULT_PATTERN_ID\s*\n\s*\);/
     );
     expect(eveningBreathingSource).toMatch(/const activePattern = getBreathingPatternById\(selectedPatternId\) \?\? getBreathingPatternById\(DEFAULT_PATTERN_ID\);/);
   });
@@ -347,9 +347,9 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(body).toMatch(/saveEveningBreathingPattern\(userId, patternId, today\);/);
   });
 
-  it('nothing starts on mount - hasBegun defaults to false (true only when resuming a paused snapshot), gating the countdown entirely', () => {
-    expect(eveningBreathingSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
-    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming\) return;/);
+  it('nothing starts on mount - hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - isLiveStep gate, see backNavigationCanonicalMap.test.js), gating the countdown entirely (which now also stops rather than auto-navigating once hasFinished - see embeddedBreathingContinueLock.test.js)', () => {
+    expect(eveningBreathingSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
+    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
   });
 
   it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle, and Begin is the only place (besides Resume with Music) that starts it', () => {
@@ -370,7 +370,7 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
   });
 
   it('the picker UI only renders while !hasBegun - once Begin fires, selectedPatternId can never change again for the active run (structural lock, no separate "locked" flag needed)', () => {
-    const preStartBlock = eveningBreathingSource.match(/\) : !hasBegun \? \(([\s\S]*?)\n {6}\) : \(/)?.[1] ?? '';
+    const preStartBlock = eveningBreathingSource.match(/\{!hasBegun \? \(([\s\S]*?)\n {6}\) : \(/)?.[1] ?? '';
     expect(preStartBlock).toMatch(/role="radiogroup"/);
     const activeBlock = eveningBreathingSource.slice(eveningBreathingSource.indexOf(') : (', eveningBreathingSource.indexOf('!hasBegun ?')));
     // BreathingRing (the active view) never itself renders a radiogroup.

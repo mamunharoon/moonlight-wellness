@@ -132,17 +132,22 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start via hideToggle, never suspended (no guided-video concept on this screen)', () => {
+  it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start (or once complete) via hideToggle, never suspended (no guided-video concept on this screen)', () => {
     const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
     const mountCount = (standaloneReturn.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
-    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isComplete\}\s*\n\s*\/>/);
   });
 
-  it('standalone completion/Skip both navigate to "/" (Home) - never /support-complete, and use the shared completionRoute, not a second literal', () => {
+  // Standalone completion redesign — found live: Continue/Skip were both
+  // tappable at any time and converged on the exact same immediate,
+  // silent navigate('/') with no distinct completion state at all
+  // (handleAdvance, still used unchanged by non-standalone below). See
+  // standaloneBreatheCompletion.test.js for the full completion-screen
+  // regression coverage.
+  it('standalone no longer uses handleAdvance at all - it has its own End early/Done/Breathe again handlers instead', () => {
     const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
-    expect(standaloneReturn).toMatch(/onClick=\{handleAdvance\}/);
-    expect(source).toMatch(/const handleAdvance = \(\) => \{\s*\n\s*navigate\(completionRoute\);\s*\n\s*\};/);
+    expect(standaloneReturn).not.toMatch(/handleAdvance/);
   });
 
   it('Back returns to Home ("/") in standalone mode via the shared backFallback, never an arbitrary return URL', () => {

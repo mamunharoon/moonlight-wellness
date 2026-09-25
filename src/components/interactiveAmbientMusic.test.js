@@ -270,10 +270,12 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     });
 
     it(`${name}: videoOpenedDuringExercise and the new manuallyPaused flag converge into one isInterrupted flag, and the running timer's own effect bails out on it - preserving the exact remaining time/phase either way`, () => {
-      // manuallyPaused now also seeds true when resuming from a review-
-      // pause snapshot (timedExercisePause.js) - still false on any
-      // ordinary fresh mount.
-      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(pausedSnapshot\)\);/);
+      // manuallyPaused now also seeds true when resuming from a TRUSTED
+      // review-pause snapshot (timedExercisePause.js - review-mode auto-
+      // start defect fix, isLiveStep-gated, see
+      // backNavigationCanonicalMap.test.js) - still false on any ordinary
+      // fresh mount.
+      expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
       expect(source).toMatch(/const isInterrupted = videoOpenedDuringExercise \|\| manuallyPaused;/);
       expect(source).toMatch(/if \([^)]*isInterrupted[^)]*\) return;/);
       // handleResumeExercise itself never touches the countdown/phase state
@@ -332,7 +334,15 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     });
 
     it(`${name}: the ordinary "Continue"/"Next Movement"/"Next Step" control is hidden while interrupted, so it never appears alongside the Pause button or the paused panel`, () => {
-      expect(source).toMatch(/\{!isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/);
+      // Continue-lock/Skip-semantics fix (Breathe.jsx only - MorningFlow.jsx/
+      // Stretch is untouched by that fix, see
+      // embeddedBreathingContinueLock.test.js): Breathe.jsx's own Continue is
+      // now ALSO gated on hasFinished, so its guard reads
+      // "hasFinished && !isInterrupted", not just "!isInterrupted" alone.
+      const expected = name === 'Breathe.jsx'
+        ? /\{hasFinished && !isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/
+        : /\{!isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/;
+      expect(source).toMatch(expected);
     });
 
     it(`${name}: "Resume with Music" starts this screen's own ambient loop via the ref InteractiveAmbientMusic exposes, only from this dedicated handler - never automatically`, () => {

@@ -86,15 +86,30 @@ describe('SelfGuidedMeditation.jsx — completion reproduces the exact original 
   });
 });
 
-describe('SelfGuidedMeditation.jsx — End Session reproduces the exact original navigate-away behaviour', () => {
-  it('performLeave stops the session via the hook then navigates to context.fallback - byte-identical net effect to before extraction', () => {
+describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and returns to this screen\'s own setup, Close ends and leaves', () => {
+  // Found live: Back and Close previously both resolved to the exact same
+  // performLeave (end + navigate away) - Back never actually returned to
+  // setup the way MorningMeditate.jsx/EveningMeditate.jsx's identical Back
+  // already does. performLeave now only ends the session; phase falling
+  // back to 'setup' is what makes this component's own render show the
+  // pre-start screen again - no navigate needed. performClose is the new,
+  // separate "leave" action, mirroring MorningMeditate.jsx's own
+  // onRequestLeave/onRequestClose split exactly.
+  it('performLeave (Back, via MeditationActiveSession\'s own local confirm dialog) only ends the session - it never navigates', () => {
     const body = source.match(/const performLeave = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/session\.endSession\(\);/);
+    expect(body).not.toMatch(/navigate/);
+  });
+
+  it('performClose (the header Close/X, bypassing that local dialog) ends the session then navigates to context.fallback - the one real "leave" action', () => {
+    const body = source.match(/const performClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/session\.endSession\(\);/);
     expect(body).toMatch(/navigate\(context\.fallback\);/);
   });
 
-  it('the active screen wires performLeave as onRequestLeave - MeditationActiveSession owns its own confirmation, never a duplicated dialog here', () => {
+  it('the active screen wires performLeave as onRequestLeave and performClose as onRequestClose - MeditationActiveSession owns its own confirmation, never a duplicated dialog here', () => {
     expect(source).toMatch(/onRequestLeave=\{performLeave\}/);
+    expect(source).toMatch(/onRequestClose=\{performClose\}/);
     expect(source).not.toMatch(/ConfirmDialog/);
   });
 });

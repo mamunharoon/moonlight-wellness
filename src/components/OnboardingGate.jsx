@@ -1,9 +1,12 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { hasChosenGuestEntry, markGuestEntryChosen } from '../lib/guestEntry';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
+import { shouldRedirectToIntroduction, buildIntroductionRedirectPath } from '../lib/introductionVersion';
+import { hasPostAuthRedirectBeenHandled, markPostAuthRedirectHandled } from '../lib/postAuthRedirectGuard';
+import { consumePendingJourneyIntent, resolveJourneyResumeTarget } from '../lib/pendingJourneyIntent';
 import { Welcome } from '../pages/Welcome';
 
 /*
@@ -37,7 +40,7 @@ const ALLOWED_PRE_ENTRY_PATHS = new Set([
 ]);
 
 export const OnboardingGate = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest, profile, profileLoading, profileError } = useAuth();
   const location = useLocation();
   // First-use welcome screen (Build 16) — a brand-new guest (never chosen
   // guest entry on this device before) is sent straight to /introduction
@@ -74,6 +77,77 @@ export const OnboardingGate = ({ children }) => {
     return onSignOutBroadcast(() => setGuestEntryChosen(false));
   }, []);
 
+  // Pending journey intent survives authentication (item 8) — same
+  // redirect-order gap as the Introduction check below: a guest who taps
+  // "Start my morning"/"Wind down for sleep", signs up, and confirms their
+  // email never passes through Auth.jsx's own synchronous redirectAfterAuth
+  // (which is the ONLY other place resolveJourneyResumeTarget/
+  // consumePendingJourneyIntent are read) - without this, the intent would
+  // silently expire (pendingJourneyIntent.js's own 10-minute TTL) or simply
+  // never be read at all. hasCheckedJourneyIntentRef guards this to run
+  // AT MOST ONCE per app lifetime (OnboardingGate mounts once for the
+  // whole app - see this file's own top comment) - consumePendingJourneyIntent
+  // reads-and-clears in one step, so this must never run twice regardless
+  // of render timing; a ref (checked/set inside the effect body, never
+  // during render) is what guarantees that, matching Introduction.jsx's
+  // own hasResumedRef for the identical one-shot-resume shape. Ordinary
+  // sign-in via the Auth form already consumed the intent synchronously
+  // (and called markPostAuthRedirectHandled) before this effect ever gets
+  // a chance to run - consumePendingJourneyIntent() here then correctly
+  // finds nothing and this is a harmless no-op.
+  const hasCheckedJourneyIntentRef = useRef(false);
+  useEffect(() => {
+    if (loading || hasCheckedJourneyIntentRef.current) return;
+    if (!user || isGuest) return;
+    hasCheckedJourneyIntentRef.current = true;
+    const journeyTarget = resolveJourneyResumeTarget(consumePendingJourneyIntent());
+    if (journeyTarget) {
+      markPostAuthRedirectHandled();
+      navigate(journeyTarget, { replace: true });
+    }
+  }, [loading, user, isGuest, navigate]);
+
+  // Redirect-order defect fix — Auth.jsx's own redirectAfterAuth only ever
+  // runs from a synchronous handleSignIn/handleSignUp success path (an
+  // immediate session). It never runs for a session established any other
+  // way: a normal sign-up with email confirmation (Supabase's default,
+  // where the initial signUp() call returns no session at all) whose
+  // confirmation link is opened later, or an existing account below
+  // CURRENT_INTRODUCTION_VERSION simply reopening the app with an already-
+  // valid stored session - neither ever touches the Auth form in this
+  // session, so nothing else in the app would ever show them Introduction.
+  // This passive check catches both, purely from AuthContext's own
+  // already-loaded profile - the exact same shouldShowIntroduction
+  // decision, just evaluated here instead of only inside a click handler.
+  //
+  // hasPostAuthRedirectBeenHandled() defers to Auth.jsx's own redirect
+  // whenever it already ran (it knows the correct pendingJourneyIntent/
+  // pendingContent/existing=1/resume= destination, which this passive
+  // check does not) - see postAuthRedirectGuard.js's own doc comment.
+  // location.pathname !== '/introduction' stops this from ever re-firing
+  // once the user is already there. No further guard is needed beyond
+  // that: completing/skipping/choosing a destination writes
+  // introduction_completed_version and refreshes `profile`, which makes
+  // shouldShowIntroduction false and this check permanently inert for
+  // that account until the version is next bumped.
+  const needsIntroductionRedirect = shouldRedirectToIntroduction({
+    user,
+    isGuest,
+    profile,
+    profileLoading,
+    profileError,
+    pathname: location.pathname,
+    alreadyHandled: hasPostAuthRedirectBeenHandled()
+  });
+
+  // The flag write is a side effect (mutates module state outside React) -
+  // it belongs in an effect, never directly during render, so a render
+  // that never commits can never mark this handled without actually
+  // having redirected.
+  useEffect(() => {
+    if (needsIntroductionRedirect) markPostAuthRedirectHandled();
+  }, [needsIntroductionRedirect]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-on-surface-variant text-sm">
@@ -98,6 +172,10 @@ export const OnboardingGate = ({ children }) => {
         }}
       />
     );
+  }
+
+  if (needsIntroductionRedirect) {
+    return <Navigate to={buildIntroductionRedirectPath(profile)} replace />;
   }
 
   return children;

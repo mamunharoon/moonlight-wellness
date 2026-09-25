@@ -56,7 +56,9 @@ describe('BetaVideoModal.jsx — event wiring: iOS\'s own proprietary event pair
   });
 
   it('every listener is symmetrically removed in the same effect\'s cleanup', () => {
-    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl\]\);/)?.[0] ?? '';
+    // Anytime Reset completion fix — onEnded added to this effect's own
+    // dependency array (it's read inside handleEnded) alongside videoUrl.
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl, onEnded\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/video\.removeEventListener\('webkitbeginfullscreen', handleBeginFullscreen\);/);
     expect(body).toMatch(/video\.removeEventListener\('webkitendfullscreen', handleEndFullscreen\);/);

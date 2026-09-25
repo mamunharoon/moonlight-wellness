@@ -108,6 +108,12 @@ export const AnytimeReset = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Anytime Reset completion fix — true only once the recommended media's
+  // own natural end event fires (BetaVideoModal's new onEnded callback,
+  // below); closing the modal early (handleVideoClose) never sets this.
+  // Reset to false by every action that changes what's being recommended
+  // (a fresh recommendation should never inherit a stale completion state).
+  const [isComplete, setIsComplete] = useState(false);
 
   // Strips consumed restore params immediately so they can never
   // re-trigger on a later re-render, browser back/forward, or a reload
@@ -134,12 +140,14 @@ export const AnytimeReset = () => {
   const handleSelectNeed = (id) => {
     setNeedId(id);
     setStep('duration');
+    setIsComplete(false);
   };
 
   const handleSelectDuration = (id) => {
     setDurationId(id);
     setOptionIndex(0);
     setStep('recommend');
+    setIsComplete(false);
   };
 
   // Required Back semantics: recommendation -> duration -> need -> Home.
@@ -148,13 +156,22 @@ export const AnytimeReset = () => {
     else if (step === 'recommend') setStep('duration');
   };
 
-  const handleChangeTime = () => setStep('duration');
-  const handleChangeNeed = () => setStep('need');
+  const handleChangeTime = () => {
+    setStep('duration');
+    setIsComplete(false);
+  };
+  const handleChangeNeed = () => {
+    setStep('need');
+    setIsComplete(false);
+  };
   // Never immediately repeats the item just shown while alternatives
   // exist - a plain increment only wraps back to the first item after
   // cycling through every other one, exactly like Meditate.jsx's own
   // handleChooseAnother.
-  const handleChooseAnother = () => setOptionIndex((i) => i + 1);
+  const handleChooseAnother = () => {
+    setOptionIndex((i) => i + 1);
+    setIsComplete(false);
+  };
 
   const returnPath = () => `/anytime-reset?need=${needId}&duration=${durationId}`;
 
@@ -214,8 +231,21 @@ export const AnytimeReset = () => {
   };
 
   // Closing the video returns to the recommendation step, not out of the
-  // journey entirely - required by the approved design.
+  // journey entirely - required by the approved design. Deliberately
+  // never touches isComplete - completion is tracked independently of
+  // closing (see BetaVideoModal's own onEnded callback below), so an
+  // early close here always falls through to the ordinary "Recommended
+  // for you" state, never the completion state.
   const handleVideoClose = () => setOpenVideoId(null);
+
+  // Anytime Reset completion fix — "Play again" replays the exact same
+  // recommended item via the existing guest/auth-verified open path
+  // (handleBegin), first clearing isComplete so a subsequent early close
+  // of the replay doesn't show stale "Reset complete" copy.
+  const handlePlayAgain = () => {
+    setIsComplete(false);
+    handleBegin();
+  };
 
   const handleClose = () => navigate('/');
 
@@ -305,13 +335,34 @@ export const AnytimeReset = () => {
       {step === 'recommend' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">Recommended for you</h1>
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">
+              {isComplete ? 'Reset complete' : 'Recommended for you'}
+            </h1>
             <p className="text-sm text-on-surface-variant">
-              {ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label} · {ANYTIME_RESET_DURATIONS.find((d) => d.id === durationId)?.label}
+              {isComplete
+                ? 'Take a moment to notice how you feel.'
+                : `${ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label} · ${ANYTIME_RESET_DURATIONS.find((d) => d.id === durationId)?.label}`}
             </p>
           </div>
 
-          {current ? (
+          {isComplete ? (
+            <div className="space-y-3 w-full">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              >
+                <span>Done</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePlayAgain}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Play again
+              </button>
+            </div>
+          ) : current ? (
             <RecommendationCard
               title={current.title}
               durationLabel={formatDuration(current.anytimeReset.durationSeconds)}
@@ -334,6 +385,19 @@ export const AnytimeReset = () => {
             </div>
           )}
 
+          {/* Anytime Reset completion fix — this "Choose another" control
+              (and the two secondary step-switch controls just below) remain
+              available in the completion state too, per spec. */}
+          {isComplete && items.length > 1 && (
+            <button
+              type="button"
+              onClick={handleChooseAnother}
+              className="w-full glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Choose another
+            </button>
+          )}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -354,7 +418,7 @@ export const AnytimeReset = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} />
+        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setIsComplete(true)} />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

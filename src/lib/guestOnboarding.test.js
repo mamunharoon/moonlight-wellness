@@ -39,12 +39,13 @@ describe('First unauthenticated launch shows the Welcome screen', () => {
     expect(appSource).toMatch(/<\/Routes>\s*\n\s*<\/OnboardingGate>/);
   });
 
-  it('Welcome offers exactly the three required actions with the required explanatory copy', () => {
+  it('Welcome offers exactly the three required actions with the required explanatory copy (connection-copy fix: guest access now names the actual selected experiences available, never implying ALL audio/video requires an account)', () => {
     expect(welcomeSource).toMatch(/Create Free Account/);
     expect(welcomeSource).toMatch(/>\s*Sign In\s*</);
     expect(welcomeSource).toMatch(/Continue as Guest/);
-    expect(welcomeSource).toMatch(/browse/i);
-    expect(welcomeSource).toMatch(/play audio or video/i);
+    expect(welcomeSource).toMatch(/explore WakeWise and try/);
+    expect(welcomeSource).toMatch(/selected breathing, meditation, music and sleep experiences/);
+    expect(welcomeSource).not.toMatch(/play audio or video/i);
   });
 
   it('Welcome never auto-navigates to /auth on its own - only an explicit tap does', () => {
@@ -64,7 +65,7 @@ describe('"Continue as Guest" persistence and returning-user behaviour', () => {
     // needsWelcome's own `!user &&` short-circuit already covers this;
     // this test locks in that the check is on `user` from useAuth(), not
     // some other proxy that could drift out of sync.
-    expect(onboardingGateSource).toMatch(/const \{ user, loading \} = useAuth\(\);/);
+    expect(onboardingGateSource).toMatch(/const \{ user, loading, isGuest, profile, profileLoading, profileError \} = useAuth\(\);/);
   });
 
   it('sign-out clears the persisted guest-entry choice, so it returns to Welcome next time - never silently restoring the previous decision', () => {

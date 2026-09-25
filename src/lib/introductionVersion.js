@@ -25,3 +25,56 @@ export const CURRENT_INTRODUCTION_VERSION = 2;
  */
 export const shouldShowIntroduction = (completedVersion) =>
   (completedVersion ?? 0) < CURRENT_INTRODUCTION_VERSION;
+
+/**
+ * First-Use Welcome redirect-order defect fix — OnboardingGate.jsx's own
+ * passive check, extracted as a pure function so it can be real-execution
+ * tested directly (this repo's Vitest runs in a plain Node environment,
+ * with no DOM/component rendering available - see any other test file's
+ * own note on this - so a pure decision function is what "real execution,
+ * not source-string assertions" means for logic that would otherwise only
+ * ever run inside a React component).
+ *
+ * Every input is passed in explicitly, never read from module state
+ * inside this function - `alreadyHandled` in particular is the caller's
+ * own hasPostAuthRedirectBeenHandled() read, kept a parameter rather than
+ * an internal side-effecting read so this stays a pure, trivially-testable
+ * function of its inputs.
+ *
+ * @param {object} params
+ * @param {object|null} params.user - AuthContext's own user, or null/undefined
+ * @param {boolean} params.isGuest
+ * @param {object|null} params.profile - AuthContext's own profile row, or null while loading/absent
+ * @param {boolean} params.profileLoading
+ * @param {string|null} params.profileError
+ * @param {string} params.pathname - the current route, e.g. location.pathname
+ * @param {boolean} params.alreadyHandled - hasPostAuthRedirectBeenHandled()
+ * @returns {boolean}
+ */
+export const shouldRedirectToIntroduction = ({
+  user,
+  isGuest,
+  profile,
+  profileLoading,
+  profileError,
+  pathname,
+  alreadyHandled
+}) => {
+  if (!user || isGuest) return false;
+  if (profileLoading || profileError || !profile) return false;
+  if (alreadyHandled) return false;
+  if (pathname === '/introduction') return false;
+  return shouldShowIntroduction(profile.introduction_completed_version);
+};
+
+/**
+ * The one real destination this whole passive check produces - mirrors
+ * Auth.jsx's own redirectAfterAuth `existingParam` signal exactly:
+ * `&existing=1` only when this account already had a real, previously-
+ * completed version (an existing user below CURRENT_INTRODUCTION_VERSION),
+ * never for a genuinely brand-new profile.
+ * @param {object} profile - a profile row that already passed shouldRedirectToIntroduction's own checks (never null here)
+ * @returns {string}
+ */
+export const buildIntroductionRedirectPath = (profile) =>
+  `/introduction?auto=1${profile.introduction_completed_version ? '&existing=1' : ''}`;

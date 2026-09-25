@@ -79,8 +79,17 @@ import { ExitEveningButton } from './ExitEveningButton';
  * does or doesn't pass this). Deliberately a sibling control, not a
  * BackButton variant, since Back and Exit now have two different
  * meanings that must never collapse back into one dialog.
+ *
+ * `alwaysFallback` (Back-navigation repair, canonical Morning/Evening map
+ * — additive, default false, every existing caller unaffected): forwarded
+ * straight to the inner BackButton. Used only by EveningComplete.jsx,
+ * mirroring SessionComplete.jsx's identical Morning fix — that screen's
+ * real in-app history always has the just-finished Prepare for Rest step
+ * behind it, and BackButton's normal goBack would otherwise navigate(-1)
+ * straight back into that completed step ("do not re-enter a completed
+ * journey using browser Back").
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, showExit = false, children }) => {
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
@@ -126,6 +135,7 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
               className="!bg-black/55 !border-white/40"
               onBeforeLeave={onBeforeLeave}
               guardActiveRoute={false}
+              alwaysFallback={alwaysFallback}
             />
           </div>
         )}

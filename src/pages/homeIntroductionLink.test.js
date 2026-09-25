@@ -10,9 +10,10 @@
 // the greeting. It is now a compact tinted pill button - WakeWise's own
 // peach accent (bg-primary/10 + border-primary/20 + text-primary, the
 // same "chip" treatment as the card's own eyebrow badge), a play-circle
-// icon, and the label "Watch: How WakeWise works" - while staying
-// visually lighter than the primary CTA's solid bg-primary fill below it.
-// Same single control, same /introduction route, same replay behaviour.
+// icon, and the label "See how WakeWise can help" (connection-copy fix -
+// was "Watch: How WakeWise works") - while staying visually lighter than
+// the primary CTA's solid bg-primary fill below it. Same single control,
+// same /introduction route, same replay behaviour.
 //
 // No DOM/component rendering is available in this repo's Vitest (see
 // Home.routineState.test.js's own note) - source-level checks, matching
@@ -40,9 +41,11 @@ describe('Home.jsx — "Watch: How WakeWise works" Introduction replay control',
     expect(gridIndex).toBeGreaterThan(activeIntentionIndex);
   });
 
-  it('uses the exact required label and a play-circle icon, never the old plain-text info-icon treatment', () => {
+  it('uses the exact required label (connection-copy fix: "See how WakeWise can help", replacing the old product-focused "Watch: How WakeWise works"), an explicit accessible label, and a play-circle icon, never the old plain-text info-icon treatment', () => {
     const linkBlock = homeSource.match(/<Link\s+to="\/introduction"[\s\S]*?<\/Link>/)?.[0] ?? '';
-    expect(linkBlock).toMatch(/Watch: How WakeWise works/);
+    expect(linkBlock).toMatch(/>See how WakeWise can help</);
+    expect(linkBlock).not.toMatch(/Watch: How WakeWise works/);
+    expect(linkBlock).toMatch(/aria-label="Play the WakeWise introduction video: see how WakeWise can help\."/);
     expect(linkBlock).toMatch(/material-symbols-outlined text-lg" aria-hidden="true"[\s\S]*?>play_circle</);
     expect(linkBlock).not.toMatch(/>info</);
   });

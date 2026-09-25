@@ -82,8 +82,17 @@ export const MorningFlow = () => {
   // Safe backward navigation ("Review Mode") - see Breathe.jsx's
   // identical block for the full rationale.
   const { isReviewMode, isLiveStep } = useStepReviewMode('stretch', 'morning-routine');
-  const [hasStartedRepeat, setHasStartedRepeat] = useState(false);
-  const isRepeatGated = isReviewMode && !hasStartedRepeat;
+  // isRepeatGated hidden-options defect fix — found live: reviewing an
+  // earlier, already-passed Stretch step (via Back or a progress-bar
+  // review tap) showed "You already completed this step - Repeat this
+  // exercise?" instead of the real setup screen with all movement
+  // choices, unlike Meditation/Affirmation/Intention, which have no
+  // equivalent gate and already show real choices directly during review
+  // - directly blocking the approved "review the previous step with setup
+  // options" behaviour. Always false now (was `isReviewMode &&
+  // !hasStartedRepeat`) - every other reference below already behaves
+  // correctly as a result, with no other call site needing to change.
+  const isRepeatGated = false;
   const { isGuest } = useAuth();
 
   const steps = [
@@ -105,6 +114,21 @@ export const MorningFlow = () => {
     if (pausedSnapshot) clearPausedExerciseState('morning-routine', 'stretch');
   }, [pausedSnapshot]);
 
+  // Review-mode auto-start defect fix — a pausedSnapshot only represents
+  // a genuine "I left THIS exact live step mid-run to review something
+  // else" resume. If this mount is not currently the live step
+  // (isLiveStep false - e.g. arrived here via an ordinary Back/forward
+  // navigation while a stale, un-consumed snapshot from an earlier,
+  // unrelated interrupted round-trip still sits in sessionStorage), it
+  // must never be trusted to auto-restore an already-active exercise
+  // with no setup/movement choices shown - found live on Evening's
+  // identical mechanism ("Back from Meditation opened an already-running
+  // Breathing countdown"). The raw snapshot is still read and cleared
+  // unconditionally above so a stale one can never resurface later
+  // either way; only TRUSTED for seeding initial UI state when
+  // isLiveStep is true at mount.
+  const trustedSnapshot = isLiveStep ? pausedSnapshot : null;
+
   // Build 15 — movement multi-selection, pre-start only. All 4 selected
   // by default. Pure local component state, never written to
   // localStorage — so it can never leak across users or survive a
@@ -115,7 +139,7 @@ export const MorningFlow = () => {
   // for the one legitimate case that must survive a remount: leaving the
   // LIVE step via Review Mode and returning to it.
   const [selectedMovements, setSelectedMovements] = useState(() => {
-    if (pausedSnapshot?.selectedMovements) return new Set(pausedSnapshot.selectedMovements);
+    if (trustedSnapshot?.selectedMovements) return new Set(trustedSnapshot.selectedMovements);
     return new Set(steps.map((_, i) => i));
   });
   const [lastMovementNotice, setLastMovementNotice] = useState(false);
@@ -149,7 +173,7 @@ export const MorningFlow = () => {
   // true immediately when resuming from a paused snapshot (the exercise
   // was already begun before being paused for review). Nothing below
   // (timer, animation, music) can start while this is false.
-  const [hasBegun, setHasBegun] = useState(() => Boolean(pausedSnapshot));
+  const [hasBegun, setHasBegun] = useState(() => Boolean(trustedSnapshot));
   // The locked, canonically-ordered sequence of STEP INDICES for this
   // active run - set once at Begin (or restored, already-locked, from
   // the paused snapshot). "Locked" means the pre-start selection UI is
@@ -157,7 +181,7 @@ export const MorningFlow = () => {
   // isn't offered, matching "lock the chosen sequence for that active
   // run."
   const [activeSequence, setActiveSequence] = useState(() => {
-    if (pausedSnapshot?.selectedMovements) return [...pausedSnapshot.selectedMovements].sort((a, b) => a - b);
+    if (trustedSnapshot?.selectedMovements) return [...trustedSnapshot.selectedMovements].sort((a, b) => a - b);
     return null;
   });
   const orderedActiveSteps = activeSequence ? activeSequence.map((i) => steps[i]) : [];
@@ -174,7 +198,7 @@ export const MorningFlow = () => {
     })
   });
 
-  const [activeStep, setActiveStep] = useState(() => pausedSnapshot?.activeStep ?? 0);
+  const [activeStep, setActiveStep] = useState(() => trustedSnapshot?.activeStep ?? 0);
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
@@ -182,7 +206,7 @@ export const MorningFlow = () => {
   // Usability remediation - see Breathe.jsx's identical block for the
   // full rationale. Also true immediately on mount when resuming from a
   // review-paused snapshot - see Breathe.jsx's identical block.
-  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(pausedSnapshot));
+  const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
   const handlePauseExercise = () => setManuallyPaused(true);
   const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
   const {
@@ -233,7 +257,7 @@ export const MorningFlow = () => {
   // true in the first place - InteractiveAmbientMusic's own toggle
   // already refuses to for them).
   const [musicPreferenceOn, setMusicPreferenceOn] = useState(() => {
-    if (pausedSnapshot) return Boolean(pausedSnapshot.musicEnabled);
+    if (trustedSnapshot) return Boolean(trustedSnapshot.musicEnabled);
     if (isGuest) return false;
     return musicEligible && getMusicPreference();
   });
@@ -269,7 +293,7 @@ export const MorningFlow = () => {
     };
   }, [state.status, currentStep, advanceStep]);
 
-  const [timeLeft, setTimeLeft] = useState(() => pausedSnapshot?.timeLeft ?? getStepDuration());
+  const [timeLeft, setTimeLeft] = useState(() => trustedSnapshot?.timeLeft ?? getStepDuration());
 
   useEffect(() => {
     // Build 15: nothing runs until hasBegun (or a genuine resume from a
@@ -405,19 +429,7 @@ export const MorningFlow = () => {
         </p>
       </div>
 
-      {isRepeatGated ? (
-        <div className="glass-panel rounded-2xl p-6 text-center space-y-4 border-white/10">
-          <p className="text-sm text-on-surface-variant">You already completed this step. Repeating it starts the stretch sequence from the beginning.</p>
-          <button
-            type="button"
-            onClick={() => setHasStartedRepeat(true)}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-          >
-            <span className="material-symbols-outlined text-sm">replay</span>
-            <span>Repeat this exercise</span>
-          </button>
-        </div>
-      ) : !hasBegun ? (
+      {!hasBegun ? (
         <>
           {/* Build 15 — pre-start summary + movement selection. Nothing
               below this point runs a timer, animation, or plays music -

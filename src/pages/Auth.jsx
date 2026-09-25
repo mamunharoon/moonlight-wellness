@@ -7,6 +7,7 @@ import { consumePendingJourneyIntent, resolveJourneyResumeTarget } from '../lib/
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
 import { markGuestEntryChosen } from '../lib/guestEntry';
 import { shouldShowIntroduction } from '../lib/introductionVersion';
+import { markPostAuthRedirectHandled } from '../lib/postAuthRedirectGuard';
 import { BackButton } from '../components/BackButton';
 import {
   resolveAuthError,
@@ -159,6 +160,15 @@ export const Auth = () => {
   // WHERE to send the user, never what to do once they arrive, so there
   // is exactly one place in the whole app that starts Morning/Evening.
   const redirectAfterAuth = async (authUser) => {
+    // Redirect-order defect fix — marked synchronously, before anything
+    // else below (including the first await), so OnboardingGate's own
+    // passive introduction-version check (which reacts to AuthContext's
+    // separately-timed profile fetch) can never race ahead of or
+    // double-act on top of this exact, more-informed redirect decision -
+    // see postAuthRedirectGuard.js's own doc comment for the full
+    // rationale.
+    markPostAuthRedirectHandled();
+
     const journeyTarget = resolveJourneyResumeTarget(consumePendingJourneyIntent());
     if (journeyTarget) {
       navigate(journeyTarget, { replace: true });

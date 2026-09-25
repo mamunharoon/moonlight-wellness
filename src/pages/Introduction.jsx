@@ -498,6 +498,7 @@ export const Introduction = () => {
           <button
             type="button"
             onClick={() => handleSelect(introVideo.storageRef)}
+            aria-label="Play one-minute introduction: See how WakeWise can help."
             className="inline-flex items-center gap-2 mx-auto px-4 py-2.5 rounded-full glass-panel hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span
@@ -507,7 +508,7 @@ export const Introduction = () => {
             >
               play_circle
             </span>
-            <span className="text-xs font-semibold text-on-surface">Watch introduction (1 min) · Why WakeWise works</span>
+            <span className="text-xs font-semibold text-on-surface">See how WakeWise can help · 1 min</span>
           </button>
         )}
       </div>

@@ -64,7 +64,22 @@ export const SelfGuidedMeditation = () => {
     onComplete: handleComplete
   });
 
+  // Standalone Back/Close split fix, found live: Back and Close previously
+  // resolved to the exact same performLeave (end + navigate away), so
+  // Back never actually returned to this screen's own setup the way
+  // MorningMeditate.jsx/EveningMeditate.jsx's identical Back already does.
+  // onRequestLeave (Back, via MeditationActiveSession's own local confirm
+  // dialog) now only ends the session - phase falls back to 'setup' and
+  // this component's own render (below) naturally shows the pre-start
+  // screen again, no navigation. onRequestClose (the header's Close/X,
+  // bypassing that local dialog - see MeditationActiveSession's own doc
+  // comment) is the one real "leave" action, mirroring MorningMeditate.jsx's
+  // identical onRequestLeave/onRequestClose split exactly.
   const performLeave = () => {
+    session.endSession();
+  };
+
+  const performClose = () => {
     session.endSession();
     navigate(context.fallback);
   };
@@ -85,6 +100,7 @@ export const SelfGuidedMeditation = () => {
         onPause={session.pause}
         onResume={session.resume}
         onRequestLeave={performLeave}
+        onRequestClose={performClose}
       />
     );
   }

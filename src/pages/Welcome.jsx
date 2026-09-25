@@ -31,18 +31,19 @@ export const Welcome = ({ onContinueAsGuest }) => {
         <div className="space-y-2">
           <h1 className="text-3xl font-extrabold text-on-surface tracking-tight">Welcome to WakeWise</h1>
           <p className="text-sm text-on-surface-variant leading-relaxed max-w-xs mx-auto">
-            Gentle morning and evening routines, guided exercises, and sleep sounds — at your own pace.
+            Morning routines, anytime resets, meditation, breathing and evening wind-downs—at your own pace.
           </p>
         </div>
 
         <div className="glass-panel rounded-2xl p-5 space-y-3 text-left w-full">
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            <span className="font-bold text-on-surface">As a guest</span>, you can explore WakeWise and browse
-            every routine, exercise, and sleep sound in the library.
+            <span className="font-bold text-on-surface">As a guest</span>, you can explore WakeWise and try
+            selected breathing, meditation, music and sleep experiences.
           </p>
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            <span className="font-bold text-on-surface">Signing in</span> is only needed to play audio or video,
-            save your progress and reflections, get a personalised greeting, and manage a subscription.
+            <span className="font-bold text-on-surface">Create an account or sign in</span> to save your
+            intentions, progress and reflections, personalise reminders and access the complete WakeWise
+            experience.
           </p>
         </div>
       </div>

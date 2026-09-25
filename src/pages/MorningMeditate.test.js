@@ -88,9 +88,9 @@ describe('MorningMeditate.jsx — Skip and Complete both continue to Affirmation
 });
 
 describe('MorningMeditate.jsx — registry wiring proves Breathe -> Meditate -> Affirm', () => {
-  it('Breathe.jsx now routes to /morning-meditate on completion/Skip/manual Continue (three call sites), never directly to /affirmation', () => {
+  it('Breathe.jsx routes to /morning-meditate on Continue and Skip (two call sites - Continue-lock/Skip-semantics fix removed the timer effect\'s own third, auto-navigating call site: natural completion now only unlocks Continue, a real tap is what navigates - see embeddedBreathingContinueLock.test.js), never directly to /affirmation', () => {
     const matches = breatheSource.match(/navigate\('\/morning-meditate'\);/g) ?? [];
-    expect(matches.length).toBe(3);
+    expect(matches.length).toBe(2);
     expect(breatheSource).not.toMatch(/navigate\('\/affirmation'\);/);
   });
 

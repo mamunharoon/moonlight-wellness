@@ -76,9 +76,13 @@ describe('AnytimeReset.jsx — required navigation controls and Back semantics',
     expect(source).toMatch(/onClose=\{handleClose\}/);
   });
 
-  it('Change need and Change time controls exist and route to the correct steps', () => {
-    expect(source).toMatch(/const handleChangeNeed = \(\) => setStep\('need'\);/);
-    expect(source).toMatch(/const handleChangeTime = \(\) => setStep\('duration'\);/);
+  it('Change need and Change time controls exist and route to the correct steps, and clear the new isComplete flag (Anytime Reset completion fix - a fresh recommendation must never inherit a stale completion state)', () => {
+    const changeNeedBody = source.match(/const handleChangeNeed = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const changeTimeBody = source.match(/const handleChangeTime = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(changeNeedBody).toMatch(/setStep\('need'\);/);
+    expect(changeNeedBody).toMatch(/setIsComplete\(false\);/);
+    expect(changeTimeBody).toMatch(/setStep\('duration'\);/);
+    expect(changeTimeBody).toMatch(/setIsComplete\(false\);/);
   });
 
   it('Choose another only renders when more than one item is available (Phase B: passed as RecommendationCard\'s showChooseAnother prop), and advances without ever resetting need/duration', () => {
@@ -167,9 +171,9 @@ describe('AnytimeReset.jsx — guest / post-sign-in restore, allowlisted and str
 });
 
 describe('AnytimeReset.jsx — BetaVideoModal integration, unchanged component', () => {
-  it('reuses BetaVideoModal directly - never a second/alternate player', () => {
+  it('reuses BetaVideoModal directly - never a second/alternate player. Anytime Reset completion fix adds the new, optional onEnded callback (BetaVideoModal.jsx itself defaults it to undefined - every other caller is unaffected)', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} \/>/);
+    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setIsComplete\(true\)\} \/>/);
   });
 });
 

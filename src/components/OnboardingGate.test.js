@@ -10,8 +10,8 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const source = read('./OnboardingGate.jsx');
 
 describe('OnboardingGate — a brand-new guest is sent straight to /introduction the moment they tap Continue as Guest', () => {
-  it('imports useNavigate alongside the existing useLocation', () => {
-    expect(source).toMatch(/import \{ useLocation, useNavigate \} from 'react-router-dom';/);
+  it('imports useNavigate/Navigate alongside the existing useLocation', () => {
+    expect(source).toMatch(/import \{ useLocation, useNavigate, Navigate \} from 'react-router-dom';/);
   });
 
   it('calls navigate() with replace:true and the ?auto=1 first-use marker inside the same handler as the existing guest-entry persistence - never a ref/state flag consumed on a later render', () => {
@@ -19,11 +19,17 @@ describe('OnboardingGate — a brand-new guest is sent straight to /introduction
     expect(handler).toMatch(/markGuestEntryChosen\(\);/);
     expect(handler).toMatch(/setGuestEntryChosen\(true\);/);
     expect(handler).toMatch(/navigate\('\/introduction\?auto=1', \{ replace: true \}\);/);
-    // No ref-during-render pattern (React's react-hooks/refs rule forbids
-    // reading/writing a ref during render - this file deliberately avoids
-    // that entire class of bug by using an imperative navigate() call
-    // instead of a "consume once" ref/state flag).
-    expect(source).not.toMatch(/useRef/);
+    // No ref-during-render pattern for THIS handler specifically (React's
+    // react-hooks/refs rule forbids reading/writing a ref during render -
+    // this handler deliberately avoids that entire class of bug by using
+    // an imperative navigate() call instead of a "consume once" ref/state
+    // flag). useRef itself is now legitimately used elsewhere in this file
+    // for a genuinely different, one-shot-per-app-lifetime purpose (the
+    // pending-journey-intent check, inside a real useEffect - see
+    // onboardingGateIntroductionRedirect.test.js for that piece's own
+    // coverage) - this assertion only proves this ONE handler is
+    // untouched by that, not that useRef is absent from the whole file.
+    expect(handler).not.toMatch(/useRef|\.current/);
   });
 
   it('this does not change needsWelcome\'s own decision logic - only what happens the moment guest entry is chosen', () => {
