@@ -98,6 +98,18 @@ export const EveningMeditate = () => {
     handleComplete();
   };
 
+  // "Choose another meditation" (mirrors MorningMeditate.jsx's identical
+  // fix) — ends the current session (same cleanup as Back/Finish &
+  // continue, never claims completion, never advances the journey, never
+  // navigates Home/standalone/a later step) and reopens this same step's
+  // own setup panel already expanded to the full style/duration/sound
+  // picker.
+  const [chooseAnotherExpanded, setChooseAnotherExpanded] = useState(false);
+  const handleChooseAnother = () => {
+    session.endSession();
+    setChooseAnotherExpanded(true);
+  };
+
   useEffect(() => {
     mirrorMeditateExitRef.current = () => {
       if (hasMirroredExitRef.current) return;
@@ -158,6 +170,7 @@ export const EveningMeditate = () => {
             cancelLabel: 'Keep meditating',
             onConfirm: handleFinishAndContinue
           }}
+          onChooseAnother={handleChooseAnother}
         />
       </EveningSceneShell>
     );
@@ -194,6 +207,8 @@ export const EveningMeditate = () => {
         // "Return to [current step]" already covers that.
         onSkip={isReviewMode ? undefined : handleSkip}
         skipLabel={hasStartedThisVisit ? 'Continue to Prepare for Rest' : 'Skip meditation'}
+        defaultExpanded={chooseAnotherExpanded}
+        onExpandedConsumed={() => setChooseAnotherExpanded(false)}
       />
 
       <ConfirmDialog

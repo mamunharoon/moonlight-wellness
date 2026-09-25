@@ -64,6 +64,23 @@ import { MeditationOptionRow } from './MeditationControls';
  * exact same "End this meditation?" dialog, both always landing back on
  * Meditation setup with no way to finish-and-move-on from the active
  * screen itself, forcing "End Meditation -> setup -> Skip meditation."
+ *
+ * `onChooseAnother` (Morning/Evening journey meditation-selection fix,
+ * additive - default null, standalone and every other existing caller
+ * omits it and is completely unaffected): the active screen only ever
+ * offered a sound choice (Gentle Ambient/Soft Piano/No Music) - there was
+ * no visible way to switch to a different meditation STYLE or DURATION
+ * once running, short of Back's "End this meditation?" (which returns to
+ * the compact setup card, still requiring another tap on "Choose style,
+ * time & sound"). When provided, renders a third, clearly distinct
+ * secondary button ("Choose another meditation") below the primary bottom
+ * action, with its own "Change meditation?" confirmation - explicitly
+ * about CHANGING the meditation, never confused with Back's "end this
+ * session" framing or bottomAction's "finish and continue" framing.
+ * Confirming calls `onChooseAnother()` directly (the caller decides what
+ * "choosing another" means - Morning/Evening end the session and reopen
+ * their own setup panel already expanded to the full style/duration/sound
+ * picker, never navigating Home/standalone/a later step).
  */
 const DEFAULT_END_COPY = {
   buttonLabel: 'End Session',
@@ -87,10 +104,12 @@ export const MeditationActiveSession = ({
   onRequestClose,
   endCopy = DEFAULT_END_COPY,
   showHeaderClose = true,
-  bottomAction = null
+  bottomAction = null,
+  onChooseAnother = null
 }) => {
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [bottomActionConfirmOpen, setBottomActionConfirmOpen] = useState(false);
+  const [chooseAnotherConfirmOpen, setChooseAnotherConfirmOpen] = useState(false);
   const copy = { ...DEFAULT_END_COPY, ...endCopy };
 
   const handleConfirmLeave = () => {
@@ -101,6 +120,11 @@ export const MeditationActiveSession = ({
   const handleConfirmBottomAction = () => {
     setBottomActionConfirmOpen(false);
     bottomAction?.onConfirm();
+  };
+
+  const handleConfirmChooseAnother = () => {
+    setChooseAnotherConfirmOpen(false);
+    onChooseAnother();
   };
 
   return (
@@ -192,6 +216,16 @@ export const MeditationActiveSession = ({
             {copy.buttonLabel}
           </button>
         )}
+
+        {onChooseAnother && (
+          <button
+            type="button"
+            onClick={() => setChooseAnotherConfirmOpen(true)}
+            className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Choose another meditation
+          </button>
+        )}
       </div>
 
       <ConfirmDialog
@@ -214,6 +248,19 @@ export const MeditationActiveSession = ({
           cancelLabel={bottomAction.cancelLabel}
           onConfirm={handleConfirmBottomAction}
           onDismiss={() => setBottomActionConfirmOpen(false)}
+        />
+      )}
+
+      {onChooseAnother && (
+        <ConfirmDialog
+          open={chooseAnotherConfirmOpen}
+          title="Change meditation?"
+          message="Your current meditation will end and its progress will be lost."
+          confirmLabel="Choose another"
+          cancelLabel="Keep meditating"
+          mildDestructive
+          onConfirm={handleConfirmChooseAnother}
+          onDismiss={() => setChooseAnotherConfirmOpen(false)}
         />
       )}
     </div>

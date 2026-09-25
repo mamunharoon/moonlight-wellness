@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MEDITATION_STYLES } from '../../lib/meditationStyles';
 import { MEDITATION_DURATIONS } from '../../lib/meditationDurations';
 import { MEDITATION_SOUNDS, getMeditationSoundById } from '../../lib/meditationSounds';
@@ -48,9 +48,32 @@ export const MeditationSetupPanel = ({
   onBegin,
   onSkip,
   skipLabel = 'Skip meditation',
-  onExploreGuided
+  onExploreGuided,
+  defaultExpanded = false,
+  onExpandedConsumed
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  // Morning/Evening journey meditation-selection fix — `defaultExpanded`
+  // (additive, default false: every existing caller either omits it or
+  // this is unchanged for them) lets a caller open this panel already
+  // expanded to the full style/duration/sound picker, for "Choose another
+  // meditation" specifically (see MeditationActiveSession.jsx's own doc
+  // comment) - the user just asked to change their meditation, so forcing
+  // them to tap "Choose style, time & sound" again would defeat the point.
+  // Only read once, via the lazy useState initializer: MorningMeditate.jsx/
+  // EveningMeditate.jsx never keep this component mounted across the
+  // active<->setup phase transition (a different top-level return branch
+  // entirely), so every return to setup is a genuinely fresh mount -
+  // reading defaultExpanded here can never "stick" past that one mount.
+  // `onExpandedConsumed` (optional) fires once, immediately after mount,
+  // so the CALLER can reset its own "next setup should open expanded" flag
+  // back to false - without this, an ordinary Back (not Choose another)
+  // reached after a prior Choose-another-triggered mount would incorrectly
+  // inherit the expanded default too.
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  useEffect(() => {
+    if (defaultExpanded) onExpandedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on mount only, matching the lazy useState initializer above
+  }, []);
   const sound = getMeditationSoundById(soundId);
   const showOptions = !compact || expanded;
 

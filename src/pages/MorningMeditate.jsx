@@ -148,6 +148,26 @@ export const MorningMeditate = () => {
     handleComplete();
   };
 
+  // "Choose another meditation" (active-screen secondary action, Morning
+  // journey meditation-selection fix) — found live: once a meditation
+  // started, there was no way to switch STYLE or DURATION (only the sound
+  // choice was ever exposed on the active screen); the only route back to
+  // the picker was Back's "End this meditation?", landing on the compact
+  // recommended-card setup, still requiring another tap on "Choose style,
+  // time & sound" to actually see the other options. This ends the current
+  // session (same session.endSession() cleanup as Back/Finish & continue -
+  // stops timer/audio, never claims completion, never advances the
+  // journey, never navigates Home/standalone/a later step) and opens this
+  // same step's own setup panel already expanded, via
+  // chooseAnotherExpanded/onExpandedConsumed (see MeditationSetupPanel.jsx's
+  // own doc comment for why this is safe to read only once per fresh
+  // mount).
+  const [chooseAnotherExpanded, setChooseAnotherExpanded] = useState(false);
+  const handleChooseAnother = () => {
+    session.endSession();
+    setChooseAnotherExpanded(true);
+  };
+
   useEffect(() => {
     mirrorMeditateExitRef.current = () => {
       if (hasMirroredExitRef.current) return;
@@ -212,6 +232,7 @@ export const MorningMeditate = () => {
             cancelLabel: 'Keep meditating',
             onConfirm: handleFinishAndContinue
           }}
+          onChooseAnother={handleChooseAnother}
         />
         {/* Same copy/severity as BackButton.jsx's own default "Leave this
             routine?" guard - the canonical whole-Morning-routine exit
@@ -266,6 +287,8 @@ export const MorningMeditate = () => {
         // user has actually engaged with Meditation this visit yet.
         onSkip={isReviewMode ? undefined : handleSkip}
         skipLabel={hasStartedThisVisit ? 'Continue to Affirmation' : 'Skip meditation'}
+        defaultExpanded={chooseAnotherExpanded}
+        onExpandedConsumed={() => setChooseAnotherExpanded(false)}
       />
 
       <button

@@ -43,7 +43,12 @@ describe('MeditationSetupPanel — Recommended badge is context-driven, never th
 
 describe('MeditationSetupPanel — compact mode (embedded): recommended summary, disclosure, Skip', () => {
   it('compact mode shows a recommended-choice summary and hides the full option list until expanded', () => {
-    expect(source).toMatch(/const \[expanded, setExpanded\] = useState\(false\);/);
+    // Morning/Evening journey meditation-selection fix: expanded now
+    // defaults from the additive `defaultExpanded` prop (still false for
+    // every existing caller that omits it) rather than a hardcoded
+    // useState(false), so "Choose another meditation" can open this panel
+    // already expanded - see this file's own updated doc comment.
+    expect(source).toMatch(/const \[expanded, setExpanded\] = useState\(defaultExpanded\);/);
     expect(source).toMatch(/const showOptions = !compact \|\| expanded;/);
   });
 
