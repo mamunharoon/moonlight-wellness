@@ -5,6 +5,7 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
 import { MeditationActiveSession } from '../components/journey/MeditationActiveSession';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getRecommendedDurationId } from '../lib/meditationDurations';
 import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationNav';
 import { useMeditationSession } from '../hooks/useMeditationSession';
@@ -27,11 +28,33 @@ import { useMeditationSession } from '../hooks/useMeditationSession';
  * passed (defaults false), so every option still renders immediately with
  * no disclosure/Skip button, exactly as before. `onComplete` reproduces
  * the original inline `navigate('/self-guided-meditation-complete', ...)`
- * call verbatim; `onRequestLeave` (from the active screen) and
- * `performLeave` (from the pre-start screen, End Session) both still
- * resolve to `navigate(context.fallback)` after the hook's own
- * endSession() stops the timer/audio - byte-identical net effect to the
- * previous single-file implementation.
+ * call verbatim.
+ *
+ * Standalone Home quick-action correction — Back vs Close, found live:
+ * `performLeave` (Back) already correctly ended the session and returned
+ * to THIS screen's own setup (phase falls back to 'setup', no navigate) -
+ * that half was already right. Two real defects remained: (1) Back's own
+ * local dialog still showed MeditationActiveSession's DEFAULT_END_COPY
+ * ("Leave meditation?" / "End and Leave" / "Continue Meditation"), wording
+ * written for actually leaving - misleading once Back stopped meaning
+ * that. Fixed with an explicit `endCopy` override using the same "End this
+ * meditation?" / "Keep Meditating" / "End Meditation" wording
+ * MorningMeditate.jsx/EveningMeditate.jsx's own Back dialog already
+ * establishes. (2) Close/X (`onRequestClose`) called `performClose`
+ * directly with NO confirmation at all - reproduced live: a single tap
+ * ended the session and navigated Home immediately, unlike Morning's own
+ * onRequestClose (MorningMeditate.jsx's handleRequestExitRoutine), which
+ * always opens its own confirmation first. Fixed the same way: Close now
+ * opens a local `exitConfirmOpen` dialog (reusing the original "Leave
+ * meditation?" / "End and Leave" / "Continue Meditation" wording, which
+ * was always correct framing for a genuine whole-feature exit - only
+ * misapplied to Back before this fix); only confirming it calls
+ * `performClose` (endSession + navigate(context.fallback)). Cancelling
+ * leaves the active session completely untouched. Never reached from an
+ * early End Session or Back - those still return directly to this
+ * screen's own setup, never to /self-guided-meditation-complete (see that
+ * file's own doc comment: "ending early is not a completion" - unchanged,
+ * not redesigned by this fix).
  */
 export const SelfGuidedMeditation = () => {
   const navigate = useNavigate();
@@ -64,22 +87,21 @@ export const SelfGuidedMeditation = () => {
     onComplete: handleComplete
   });
 
-  // Standalone Back/Close split fix, found live: Back and Close previously
-  // resolved to the exact same performLeave (end + navigate away), so
-  // Back never actually returned to this screen's own setup the way
-  // MorningMeditate.jsx/EveningMeditate.jsx's identical Back already does.
-  // onRequestLeave (Back, via MeditationActiveSession's own local confirm
-  // dialog) now only ends the session - phase falls back to 'setup' and
-  // this component's own render (below) naturally shows the pre-start
-  // screen again, no navigation. onRequestClose (the header's Close/X,
-  // bypassing that local dialog - see MeditationActiveSession's own doc
-  // comment) is the one real "leave" action, mirroring MorningMeditate.jsx's
-  // identical onRequestLeave/onRequestClose split exactly.
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+
+  // Back: ends only this meditation, returns to this screen's own setup -
+  // phase falls back to 'setup' and this component's own render (below)
+  // naturally shows the pre-start screen again, no navigation.
   const performLeave = () => {
     session.endSession();
   };
 
+  // Close/X: the one real "leave the whole standalone experience" action -
+  // opens its own confirmation first (see this file's own top doc comment
+  // for why this was missing before), and only navigates on confirm.
+  const handleRequestClose = () => setExitConfirmOpen(true);
   const performClose = () => {
+    setExitConfirmOpen(false);
     session.endSession();
     navigate(context.fallback);
   };
@@ -90,18 +112,41 @@ export const SelfGuidedMeditation = () => {
 
   if (session.phase === 'active' && session.snapshot) {
     return (
-      <MeditationActiveSession
-        style={session.style}
-        snapshot={session.snapshot}
-        soundId={session.soundId}
-        soundUnavailable={session.soundUnavailable}
-        reducedMotion={reducedMotion}
-        onSelectSound={session.selectSound}
-        onPause={session.pause}
-        onResume={session.resume}
-        onRequestLeave={performLeave}
-        onRequestClose={performClose}
-      />
+      <>
+        <MeditationActiveSession
+          style={session.style}
+          snapshot={session.snapshot}
+          soundId={session.soundId}
+          soundUnavailable={session.soundUnavailable}
+          reducedMotion={reducedMotion}
+          onSelectSound={session.selectSound}
+          onPause={session.pause}
+          onResume={session.resume}
+          onRequestLeave={performLeave}
+          onRequestClose={handleRequestClose}
+          endCopy={{
+            buttonLabel: 'End Session',
+            buttonAriaLabel: 'End meditation',
+            dialogTitle: 'End this meditation?',
+            dialogMessage: 'Your current meditation will end.',
+            confirmLabel: 'End Meditation',
+            cancelLabel: 'Keep Meditating'
+          }}
+        />
+        {/* Severity matches MorningMeditate.jsx's own whole-routine exit
+            dialog (destructive, strong) - this is the equivalent
+            whole-feature exit for standalone, not a mere pause. */}
+        <ConfirmDialog
+          open={exitConfirmOpen}
+          title="Leave meditation?"
+          message="Your current meditation will end."
+          confirmLabel="End and Leave"
+          cancelLabel="Continue Meditation"
+          destructive
+          onConfirm={performClose}
+          onDismiss={() => setExitConfirmOpen(false)}
+        />
+      </>
     );
   }
 

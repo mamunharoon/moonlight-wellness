@@ -6,6 +6,7 @@ import { BreathingPatternRow } from '../components/BreathingPatternRow';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
@@ -156,7 +157,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     }
   };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BetaVideoModal && BetaVideoRow && SignInPromptDialog) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog) { /* no-op to satisfy blind linter */ }
 
   // The single gate the countdown effect uses: standalone waits for
   // hasBegun; non-standalone (Support) preserves its exact original gate
@@ -221,9 +222,36 @@ export const QuietBreathing = ({ standalone = false }) => {
     setHasBegun(false);
   };
 
+  // Standalone Home quick-action correction — Back while active, found
+  // live: EveningSceneShell's shared BackButton (guardActiveRoute={false},
+  // no onBeforeLeave) always resolved straight to backFallback ('/' for
+  // standalone) regardless of hasBegun, so a single Back tap during active
+  // breathing silently ejected the user all the way to Home mid-session -
+  // never a local "stop and reconsider" action the way every embedded
+  // Breathe screen (Breathe.jsx/EveningBreathing.jsx) already has via their
+  // own handleBackFromActive. `onBeforeLeave` only intercepts the ordinary
+  // Back path while genuinely active (hasBegun, not yet complete) -
+  // returning false cancels that tap's navigation so BackButton never
+  // calls goBack(); setup and the "Breathing complete" screen are
+  // unaffected (this returns undefined there, so Back proceeds normally
+  // to Home) - matching "Back from Breathe setup returns Home" and
+  // "Back must not jump directly from active breathing to Home."
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const handleBackFromActive = () => {
+    if (!hasBegun || isComplete) return;
+    setEndConfirmOpen(true);
+    return false;
+  };
+  const handleConfirmEndSession = () => {
+    setEndConfirmOpen(false);
+    musicPlayerRef.current?.stop();
+    hasBegunOnceRef.current = false;
+    setHasBegun(false);
+  };
+
   if (standalone) {
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback}>
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
         {isComplete ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">
@@ -445,6 +473,21 @@ export const QuietBreathing = ({ standalone = false }) => {
           onSignIn={confirmSignInForVideo}
           onCreateAccount={confirmCreateAccountForVideo}
           onDismiss={dismissPrompt}
+        />
+        {/* Standalone Home quick-action correction — describes ending THIS
+            breathing session, never "leaving the entire Breathe feature"
+            (this dialog only ever opens from an active session; Back from
+            setup or the completion screen proceeds straight Home with no
+            dialog at all, per handleBackFromActive above). */}
+        <ConfirmDialog
+          open={endConfirmOpen}
+          title="End this breathing session?"
+          message="Your current breathing session will end."
+          confirmLabel="End Session"
+          cancelLabel="Keep Breathing"
+          mildDestructive
+          onConfirm={handleConfirmEndSession}
+          onDismiss={() => setEndConfirmOpen(false)}
         />
       </EveningSceneShell>
     );

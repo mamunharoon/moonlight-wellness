@@ -150,13 +150,54 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(standaloneReturn).not.toMatch(/handleAdvance/);
   });
 
-  it('Back returns to Home ("/") in standalone mode via the shared backFallback, never an arbitrary return URL', () => {
+  it('Back from setup/complete (not active) still resolves to Home ("/") via the shared backFallback, never an arbitrary return URL', () => {
     expect(source).toMatch(/showBack backFallback=\{backFallback\}/);
   });
 
   it('creates no completion/progress event of any kind - navigating to "/" is a plain route change, no flag/state write accompanies it (see the no-Session-Engine-coupling assertions above)', () => {
     const bodyBetweenBeginAndReturn = source.slice(source.indexOf('const handleBeginBreathing'), source.indexOf('if (standalone) {'));
     expect(bodyBetweenBeginAndReturn).not.toMatch(/localStorage\.setItem/);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Standalone Home quick-action correction — Back while active, found live:
+// EveningSceneShell's shared BackButton always resolved straight to Home
+// regardless of hasBegun, so a single Back tap during active breathing
+// silently ejected the user mid-session with no way back to setup, no
+// pattern/music reselection, and no timer/audio cleanup confirmation.
+// ---------------------------------------------------------------------
+describe('Standalone Home quick-action correction — Back while active is a local session action, not a feature exit', () => {
+  it('onBeforeLeave is wired on the standalone EveningSceneShell, alongside the unchanged backFallback', () => {
+    expect(source).toMatch(/showBack backFallback=\{backFallback\} onBeforeLeave=\{handleBackFromActive\}/);
+  });
+
+  it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete) - setup and the completion screen let Back proceed to Home normally', () => {
+    const body = source.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(!hasBegun \|\| isComplete\) return;/);
+    expect(body).toMatch(/setEndConfirmOpen\(true\);/);
+    expect(body).toMatch(/return false;/);
+  });
+
+  it('confirming stops music and resets to setup using the exact same reset shape as handleBreatheAgain (hasBegunOnceRef, setHasBegun(false)) - no navigation, no route change', () => {
+    const body = source.match(/const handleConfirmEndSession = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
+    expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
+    expect(body).toMatch(/setHasBegun\(false\);/);
+    expect(body).not.toMatch(/navigate/);
+  });
+
+  it('the confirmation dialog describes ending THIS session, never leaving the whole Breathe feature - matches the approved wording exactly', () => {
+    expect(source).toMatch(/title="End this breathing session\?"/);
+    expect(source).toMatch(/message="Your current breathing session will end\."/);
+    expect(source).toMatch(/confirmLabel="End Session"/);
+    expect(source).toMatch(/cancelLabel="Keep Breathing"/);
+  });
+
+  it('the existing "End early" bottom button (active phase) and the natural "Breathing complete" screen are both untouched by this fix', () => {
+    expect(source).toMatch(/const handleEndEarly = \(\) => \{/);
+    expect(source).toMatch(/onClick=\{handleEndEarly\}/);
+    expect(source).toMatch(/Breathing complete/);
   });
 });
 

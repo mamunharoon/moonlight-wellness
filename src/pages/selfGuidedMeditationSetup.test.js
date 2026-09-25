@@ -107,10 +107,34 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
     expect(body).toMatch(/navigate\(context\.fallback\);/);
   });
 
-  it('the active screen wires performLeave as onRequestLeave and performClose as onRequestClose - MeditationActiveSession owns its own confirmation, never a duplicated dialog here', () => {
+  // Standalone Home quick-action correction — Close/X previously called
+  // performClose directly with NO confirmation at all (reproduced live: a
+  // single tap ended the session and navigated Home immediately). Close
+  // now opens its own local exitConfirmOpen dialog first (mirroring
+  // MorningMeditate.jsx's handleRequestExitRoutine); only confirming it
+  // calls performClose. Back is unaffected - MeditationActiveSession still
+  // owns that confirmation via endCopy (now overridden, see below).
+  it('the active screen wires performLeave as onRequestLeave (MeditationActiveSession owns that confirmation) and handleRequestClose as onRequestClose (opens this page\'s own ConfirmDialog, only calling performClose once confirmed)', () => {
     expect(source).toMatch(/onRequestLeave=\{performLeave\}/);
-    expect(source).toMatch(/onRequestClose=\{performClose\}/);
-    expect(source).not.toMatch(/ConfirmDialog/);
+    expect(source).toMatch(/onRequestClose=\{handleRequestClose\}/);
+    expect(source).toMatch(/<ConfirmDialog/);
+    const performCloseBody = source.match(/const performClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(performCloseBody).toMatch(/setExitConfirmOpen\(false\);/);
+  });
+
+  it('the active screen\'s Back dialog uses the "End this meditation?" wording (matches MorningMeditate.jsx/EveningMeditate.jsx), not the stale "Leave meditation?"/"End and Leave" wording written for actually leaving', () => {
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    expect(activeReturnBlock).toMatch(/dialogTitle: 'End this meditation\?'/);
+    expect(activeReturnBlock).toMatch(/confirmLabel: 'End Meditation'/);
+    expect(activeReturnBlock).toMatch(/cancelLabel: 'Keep Meditating'/);
+  });
+
+  it('the Close/X ConfirmDialog reuses the original "Leave meditation?"/"End and Leave"/"Continue Meditation" wording - correct framing for a genuine whole-feature exit, only ever misapplied to Back before this fix', () => {
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    expect(activeReturnBlock).toMatch(/title="Leave meditation\?"/);
+    expect(activeReturnBlock).toMatch(/confirmLabel="End and Leave"/);
+    expect(activeReturnBlock).toMatch(/cancelLabel="Continue Meditation"/);
+    expect(activeReturnBlock).toMatch(/onConfirm=\{performClose\}/);
   });
 });
 
@@ -144,7 +168,9 @@ describe('SelfGuidedMeditation.jsx — retains its existing Close/End behaviour,
     expect(source).not.toMatch(/showHeaderClose/);
   });
 
-  it('End Session copy is still the component\'s own default (endCopy is never passed here)', () => {
-    expect(source).not.toMatch(/endCopy=/);
+  it('End Session button/aria-label copy is still the component\'s own established wording ("End Session"), even though dialogTitle/confirmLabel/cancelLabel are now overridden for the Back dialog\'s correctness', () => {
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    expect(activeReturnBlock).toMatch(/buttonLabel: 'End Session'/);
+    expect(activeReturnBlock).toMatch(/buttonAriaLabel: 'End meditation'/);
   });
 });
