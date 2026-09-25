@@ -46,8 +46,17 @@ describe('EveningMeditate.jsx — context-specific defaults: Quiet Meditation, 5
     expect(source).toMatch(/recommendedDurationId=\{getRecommendedDurationId\(\)\}/);
   });
 
-  it('the primary action reads exactly "Begin 5-Minute Meditation"', () => {
-    expect(source).toMatch(/beginLabel="Begin 5-Minute Meditation"/);
+  // Pre-Build-15 defect fix — found live: the previous hardcoded
+  // beginLabel="Begin 5-Minute Meditation" was only correct while the
+  // duration stayed at its initial 5-minute seed; it went stale (never
+  // updated) the moment the user picked 2 or 10 minutes in "Choose
+  // style, time & sound". No longer supplied at all here - the live
+  // "Begin N-Minute Meditation" is now computed inside
+  // MeditationSetupPanel.jsx from the actual `duration` prop (already
+  // passed just below), so it can never diverge from the real selection.
+  it('never supplies a hardcoded beginLabel override - the live label is computed from the real duration prop (session.duration) inside MeditationSetupPanel.jsx instead', () => {
+    expect(source).not.toMatch(/beginLabel=/);
+    expect(source).toMatch(/duration=\{session\.duration\}/);
   });
 
   it('session-local: this hook instance is completely independent of Morning\'s or standalone\'s own selections', () => {

@@ -193,7 +193,12 @@ export const EveningMeditate = () => {
         compact
         purpose="A quiet pause to settle your mind before you rest."
         recommendedDurationId={getRecommendedDurationId()}
-        beginLabel="Begin 5-Minute Meditation"
+        // Defect fix — beginLabel omitted entirely: it previously
+        // hardcoded "Begin 5-Minute Meditation" regardless of the
+        // actually-selected duration, going stale the moment the user
+        // picked 2/10 minutes in "Choose style, time & sound". Omitting
+        // it lets MeditationSetupPanel.jsx compute the live label from
+        // `duration` (below) instead - see that file's own doc comment.
         style={session.style}
         duration={session.duration}
         soundId={session.soundId}

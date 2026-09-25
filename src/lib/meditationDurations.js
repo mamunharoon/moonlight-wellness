@@ -33,3 +33,25 @@ export const MEDITATION_CONTEXTS = Object.freeze({
 
 export const getRecommendedDurationId = (context = MEDITATION_CONTEXTS.STANDALONE) =>
   context === MEDITATION_CONTEXTS.MORNING_EMBEDDED ? '2min' : DEFAULT_MEDITATION_DURATION_ID;
+
+// Pre-Build-15 defect fix — found live: MorningMeditate.jsx/EveningMeditate.jsx
+// each passed MeditationSetupPanel.jsx's own `beginLabel` prop as a
+// hardcoded literal ("Begin 2-Minute Meditation"/"Begin 5-Minute
+// Meditation"), completely disconnected from the actually-selected
+// `duration` state - correct on first paint (matching each context's own
+// starting duration), but never updated again once the user picked a
+// different duration in "Choose style, time & sound", even though the
+// recommendation card and the duration chip's own selected state (both
+// driven by the same live `duration` prop) updated correctly. The timer
+// itself was never affected (useMeditationSession's own begin() always
+// reads the live `duration.seconds` at call time, confirmed live) - only
+// this one label was stale. Single source of truth for the exact
+// required format ("Begin 2-Minute Meditation", singular "Minute",
+// hyphenated) - `MEDITATION_DURATIONS`' own `label` field ("2 minutes")
+// is deliberately not reused as-is, since it's plural/unhyphenated and
+// used for a different purpose (the duration chip's own visible text,
+// the recommendation card's own summary).
+export const formatMeditationBeginLabel = (duration) => {
+  const minutes = duration.seconds / 60;
+  return `Begin ${minutes}-Minute Meditation`;
+};

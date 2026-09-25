@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from 'react';
 import { MEDITATION_STYLES } from '../../lib/meditationStyles';
-import { MEDITATION_DURATIONS } from '../../lib/meditationDurations';
+import { MEDITATION_DURATIONS, formatMeditationBeginLabel } from '../../lib/meditationDurations';
 import { MEDITATION_SOUNDS, getMeditationSoundById } from '../../lib/meditationSounds';
 import { MeditationOptionRow, MeditationDurationChip, MeditationStyleCard } from './MeditationControls';
 
@@ -33,12 +33,23 @@ import { MeditationOptionRow, MeditationDurationChip, MeditationStyleCard } from
  * flag is never read here) - see getRecommendedDurationId in
  * meditationDurations.js for why this varies by context without mutating
  * the shared registry.
+ *
+ * `beginLabel` (defect fix - optional override, default null): every
+ * current caller (Morning/Evening/standalone) now omits it and gets the
+ * live-computed "Begin N-Minute Meditation" (formatMeditationBeginLabel,
+ * meditationDurations.js), which always reflects the current `duration`
+ * prop and updates immediately when the user picks a different one -
+ * found live that a caller-supplied static string went stale the moment
+ * the user changed duration after the initial paint. Kept as an optional
+ * override (rather than removed) only for a genuinely different wording
+ * pattern a future context might need - still expected to incorporate
+ * the live duration itself if it ever supplies one.
  */
 export const MeditationSetupPanel = ({
   compact = false,
   purpose,
   recommendedDurationId,
-  beginLabel = 'Begin Meditation',
+  beginLabel = null,
   style,
   duration,
   soundId,
@@ -76,6 +87,10 @@ export const MeditationSetupPanel = ({
   }, []);
   const sound = getMeditationSoundById(soundId);
   const showOptions = !compact || expanded;
+  // Defect fix — always derived from the live `duration` prop (same
+  // source the recommendation card and the selected duration chip
+  // already read correctly), never a stale caller-supplied string.
+  const resolvedBeginLabel = beginLabel || formatMeditationBeginLabel(duration);
 
   return (
     <div className="space-y-6">
@@ -167,7 +182,7 @@ export const MeditationSetupPanel = ({
           onClick={onBegin}
           className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         >
-          <span>{beginLabel}</span>
+          <span>{resolvedBeginLabel}</span>
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
         </button>
 

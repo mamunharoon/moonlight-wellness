@@ -69,9 +69,18 @@ describe('MeditationSetupPanel — compact mode (embedded): recommended summary,
     expect(source).toMatch(/Explore Guided Meditations/);
   });
 
-  it('the Begin button label is a prop, not hardcoded - so Morning/Evening/standalone can each use their own exact required copy', () => {
-    expect(source).toMatch(/beginLabel = 'Begin Meditation'/);
-    expect(source).toMatch(/<span>\{beginLabel\}<\/span>/);
+  // Pre-Build-15 defect fix — beginLabel is still an optional override
+  // prop, but its default changed from a static "Begin Meditation"
+  // string to null, resolved at render time from the live `duration`
+  // prop (formatMeditationBeginLabel) - see MeditationSetupPanel.jsx's
+  // own doc comment for the "Begin 5-Minute Meditation" stale-label bug
+  // this replaces. Morning/Evening no longer supply a caller-hardcoded
+  // override at all (see MorningMeditate.test.js/EveningMeditate.test.js).
+  it('the Begin button label defaults to null (an optional override) and is resolved from the live duration prop, never a hardcoded string', () => {
+    expect(source).toMatch(/beginLabel = null/);
+    expect(source).toMatch(/import \{ MEDITATION_DURATIONS, formatMeditationBeginLabel \} from '\.\.\/\.\.\/lib\/meditationDurations';/);
+    expect(source).toMatch(/const resolvedBeginLabel = beginLabel \|\| formatMeditationBeginLabel\(duration\);/);
+    expect(source).toMatch(/<span>\{resolvedBeginLabel\}<\/span>/);
   });
 });
 

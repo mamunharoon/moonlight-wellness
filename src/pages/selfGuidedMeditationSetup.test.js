@@ -71,6 +71,19 @@ describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no con
     expect(source).toMatch(/onExploreGuided=\{handleExploreGuided\}/);
     expect(source).toMatch(/navigate\('\/library\?category=meditation&from=meditation-setup'\);/);
   });
+
+  // Pre-Build-15 defect fix — standalone never supplied a beginLabel
+  // override before this fix either, so it already received
+  // MeditationSetupPanel.jsx's own default - but that default used to be
+  // the static, duration-agnostic "Begin Meditation" (never naming a
+  // duration at all, so technically never "stale", but also never
+  // reflecting the real selection the way Morning/Evening's own hardcoded
+  // strings were SUPPOSED to). It now gets the same live "Begin N-Minute
+  // Meditation" every other context gets, computed from `session.duration`.
+  it('never supplies a beginLabel override - gets the live "Begin N-Minute Meditation" computed from session.duration inside MeditationSetupPanel.jsx, same as Morning/Evening', () => {
+    expect(source).not.toMatch(/beginLabel=/);
+    expect(source).toMatch(/duration=\{session\.duration\}/);
+  });
 });
 
 describe('SelfGuidedMeditation.jsx — completion reproduces the exact original navigate target', () => {
