@@ -85,9 +85,9 @@ describe('IntentionSetup — real functional contract untouched by the restyle',
     expect(source).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
   });
 
-  it('Continue and Skip both still call the same handleComplete, which always advances to Stretch next - the one canonical step order, no conditional skip branch reintroduced', () => {
-    expect(source).toMatch(/onClick=\{handleComplete\}[\s\S]{0,80}disabled=\{isSaving \|\| intentions\.length === 0\}/);
-    expect(source).toMatch(/onClick=\{handleComplete\}[\s\S]{0,40}disabled=\{isSaving\}/);
+  it('Continue and Skip both still call the same handleComplete (F1: with opposite explicit confirmed arguments), which always advances to Stretch next - the one canonical step order, no conditional skip branch reintroduced', () => {
+    expect(source).toMatch(/onClick=\{\(\) => handleComplete\(true\)\}[\s\S]{0,80}disabled=\{isSaving \|\| intentions\.length === 0\}/);
+    expect(source).toMatch(/onClick=\{\(\) => handleComplete\(false\)\}[\s\S]{0,40}disabled=\{isSaving\}/);
     expect(source).toMatch(/setJourneyStep\('stretch'\);\s*\n\s*navigate\('\/morning-flow'\);/);
   });
 

@@ -298,3 +298,45 @@ describe('AnytimeReset.jsx — Visual Uplift Phase 2: mint identity, approved de
     expect(block).toMatch(/accent="anytime"/);
   });
 });
+
+// F3 (pre-Build-15 usability pass) — a guest could complete the whole
+// Need -> Time -> Recommendation wizard and only discover the sign-in
+// requirement after tapping Start or Choose another. One early,
+// guest-only disclosure (Step 1's own subtitle) plus Step 3's lock
+// badge/relabeled Start close that gap - authenticated copy stays
+// byte-identical, and the existing gate mechanism (handleBegin ->
+// SignInPromptDialog) is completely untouched.
+describe('AnytimeReset.jsx — F3 guest-gate disclosure', () => {
+  it('Step 1 subtitle is guest-only extended, authenticated copy is byte-identical to before this fix', () => {
+    const block = source.match(/<p className="text-sm text-on-surface-variant">\s*\n\s*\{isGuest[\s\S]*?<\/p>/)?.[0] ?? '';
+    expect(block).toMatch(/Choose what you need and how much time you have\. Sign in is required to play your personalised recommendation\./);
+    expect(block).toMatch(/: 'Choose what you need and how much time you have\.'/);
+  });
+
+  it('Step 3: RecommendationCard receives locked={isGuest} and a guest-specific startLabel, never a hardcoded "Start"', () => {
+    const block = source.match(/<RecommendationCard[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/startLabel=\{isGuest \? 'Sign in to start' : 'Start'\}/);
+    expect(block).toMatch(/locked=\{isGuest\}/);
+  });
+
+  it('the actual gate action (handleBegin -> SignInPromptDialog) is completely untouched by this fix - still the one real mechanism, not duplicated', () => {
+    const body = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(isGuest\) \{\s*\n\s*setSignInPromptOpen\(true\);\s*\n\s*return;\s*\n\s*\}/);
+  });
+
+  it('Continue Browsing (SignInPromptDialog\'s onDismiss) just closes the dialog - already returns to Step 3 with no navigation, selections and recommendation untouched', () => {
+    const block = source.match(/<SignInPromptDialog[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/onDismiss=\{\(\) => setSignInPromptOpen\(false\)\}/);
+  });
+
+  it('signing in preserves the pending Anytime intent via the existing setPendingContent+returnPath mechanism - untouched by this fix', () => {
+    const signInBody = source.match(/const handleSignIn = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(signInBody).toMatch(/setPendingContent\(\{ id: current\.id, returnPath: returnPath\(\) \}\);/);
+  });
+
+  it('"Choose another" is never relabeled or gated by this fix - it never required authentication in the first place (handleChooseAnother only cycles optionIndex, no auth check)', () => {
+    const body = source.match(/const handleChooseAnother = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/isGuest|SignIn|auth/i);
+    expect(source).toMatch(/chooseAnotherLabel="Choose another"/);
+  });
+});

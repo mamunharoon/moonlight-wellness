@@ -65,7 +65,7 @@ import { SelectionChip } from '../components/journey/SelectionChip';
 export const ChangeIntention = () => {
   const navigate = useNavigate();
   const { isGuest, loading: authLoading } = useAuth();
-  const { userId, intentions, setIntentions } = useAlarm();
+  const { userId, intentions, setIntentions, setIntentionsConfirmed } = useAlarm();
 
   const [manualDraft, setManualDraft] = useState(null);
   const draftSelection = manualDraft ?? (intentions.length > 0 ? intentions : ['Stay calm']);
@@ -135,6 +135,9 @@ export const ChangeIntention = () => {
     if (draftSelection.length === 0) return;
     setIsSaving(true);
     setIntentions(draftSelection);
+    // F1 — this screen (ChangeIntention.jsx) already only exists as a
+    // deliberate, explicit change to a real selection - a genuine confirm.
+    setIntentionsConfirmed(true);
     await saveIntentionsToCloud(userId, draftSelection);
     setIsSaving(false);
     navigate('/');

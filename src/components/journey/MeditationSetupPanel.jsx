@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { MEDITATION_STYLES } from '../../lib/meditationStyles';
 import { MEDITATION_DURATIONS } from '../../lib/meditationDurations';
 import { MEDITATION_SOUNDS, getMeditationSoundById } from '../../lib/meditationSounds';
-import { MeditationOptionRow, MeditationDurationChip } from './MeditationControls';
+import { MeditationOptionRow, MeditationDurationChip, MeditationStyleCard } from './MeditationControls';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared setup
@@ -102,18 +102,29 @@ export const MeditationSetupPanel = ({
         <>
           <div className="space-y-2">
             <h2 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Meditation style</h2>
-            <div className="space-y-2" role="radiogroup" aria-label="Meditation style">
-              {MEDITATION_STYLES.map((s) => (
-                <MeditationOptionRow
+            {/* F6 (pre-Build-15 usability pass) — approved compact two-
+                column layout (see MeditationStyleCard's own doc comment
+                for the accessible-name reasoning). Odd-numbered last
+                style (Loving-Kindness) spans both columns rather than
+                leaving a half-empty row - generic on array length, not
+                hardcoded to "5". */}
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Meditation style">
+              {MEDITATION_STYLES.map((s, idx) => (
+                <MeditationStyleCard
                   key={s.id}
                   groupName="meditation-style"
                   label={s.label}
                   description={s.description}
                   selected={style.id === s.id}
                   onSelect={() => onSelectStyle(s.id)}
+                  fullWidth={MEDITATION_STYLES.length % 2 === 1 && idx === MEDITATION_STYLES.length - 1}
                 />
               ))}
             </div>
+            {/* Selected style's description, shown once below the grid -
+                updates immediately with `style` (the caller's own live
+                selection), never a stale/cached copy. */}
+            <p className="text-xs text-on-surface-variant px-1" aria-live="polite">{style.description}</p>
           </div>
 
           <div className="space-y-2">

@@ -156,11 +156,31 @@ export const SelfGuidedMeditation = () => {
           onRequestLeave={performLeave}
           onRequestClose={handleRequestClose}
           onEndSession={performEndSession}
+          // F4 (pre-Build-15 usability pass) — found live: Back and End
+          // Session showed IDENTICAL dialog wording ("End this
+          // meditation?") despite resolving to genuinely different
+          // destinations (Back -> setup silently; End Session -> the
+          // "Session ended early" result) - nothing in the wording itself
+          // signalled that difference before the tap. `endCopy` is now
+          // Back's own wording exclusively (its title/body explicitly
+          // describe returning to choose another style/duration/sound);
+          // `endSessionCopy` (new prop, see MeditationActiveSession.jsx's
+          // own doc comment) is End Session's own, completion-oriented
+          // wording. The bottom button's own resting label ("End
+          // Session") is unchanged either way.
           endCopy={{
             buttonLabel: 'End Session',
             buttonAriaLabel: 'End meditation',
+            dialogTitle: 'Return to meditation choices?',
+            dialogMessage: 'Your current meditation will end, and you can choose another style, duration or sound.',
+            confirmLabel: 'Return to Choices',
+            cancelLabel: 'Keep Meditating'
+          }}
+          endSessionCopy={{
+            buttonLabel: 'End Session',
+            buttonAriaLabel: 'End meditation',
             dialogTitle: 'End this meditation?',
-            dialogMessage: 'Your current meditation will end.',
+            dialogMessage: 'Your current meditation will end before the timer finishes.',
             confirmLabel: 'End Meditation',
             cancelLabel: 'Keep Meditating'
           }}

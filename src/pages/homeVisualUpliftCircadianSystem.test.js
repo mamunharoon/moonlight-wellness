@@ -62,8 +62,8 @@ describe('Home Visual Uplift — Home-scoped background is genuinely additive an
 });
 
 describe('Home Visual Uplift — Active Intention: mint label + restrained, period-aware surface depth', () => {
-  it('the "Active Intention" label reuses the existing tertiary (mint) token, not a new colour - the separate, unrelated PRIMARY/SUPPORTING role tags (neutral text-secondary, matching Stitch\'s own neutral slate treatment for those) are untouched', () => {
-    expect(activeIntentionCardSource).toMatch(/<p className="text-xs font-semibold uppercase tracking-wider text-tertiary">\{label\}<\/p>/);
+  it('the "Active Intention" label reuses the existing tertiary (mint) token, not a new colour - the separate, unrelated PRIMARY/SUPPORTING role tags (neutral text-secondary, matching Stitch\'s own neutral slate treatment for those) are untouched (F1: the label text itself now also branches on confirmed, but the mint token styling is unconditional either way)', () => {
+    expect(activeIntentionCardSource).toMatch(/<p className="text-xs font-semibold uppercase tracking-wider text-tertiary">\{confirmed \? label : 'Suggested Intention'\}<\/p>/);
     expect(activeIntentionCardSource).toMatch(/text-\[9px\] not-italic font-bold uppercase tracking-wider text-secondary shrink-0/);
   });
 

@@ -570,7 +570,13 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
   it('applySelection (chip-tap, used by handleSelectPreset and the summary-chip removal buttons) updates the live intentions unconditionally via the shared toggleIntention helper - no Session Engine call gated behind isReviewMode. handleAddCustom now uses its own ADD-only addCustomIntention path - see IntentionSetup.customIntentionFix.test.js - but mirrors this same review-mode save.', () => {
     expect(intentionSetupSource).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
     expect(intentionSetupSource).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
-    expect(intentionSetupSource).not.toMatch(/if \(isReviewMode\)[\s\S]{0,80}setIntentions/);
+    // setIntentions( is asserted absent inside the isReviewMode block
+    // specifically (a second, redundant array-state write would be the
+    // real bug this originally guarded against) - setIntentionsConfirmed(
+    // (F1, added since) is a different setter and must not trip this.
+    const reviewBlock = intentionSetupSource.match(/if \(isReviewMode\) \{[\s\S]{0,120}?\n {4}\}/)?.[0] ?? '';
+    expect(reviewBlock).not.toMatch(/setIntentions\(/);
+    expect(reviewBlock).toMatch(/setIntentionsConfirmed\(true\);/);
   });
 
   // Bug fix, found live: Continue (the only place that otherwise calls
@@ -581,8 +587,8 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
   // reload. Reproduced live via a real browser session, fixed by saving
   // immediately when isReviewMode is true; the ordinary live-step flow
   // (isReviewMode false) is unchanged and still defers to Continue.
-  it('saves to Supabase immediately when changed during review, since Continue/handleComplete is unreachable then', () => {
-    expect(intentionSetupSource).toMatch(/setIntentions\(next\);\s*\n\s*if \(isReviewMode\) saveIntentionsToCloud\(userId, next\);/);
+  it('saves to Supabase immediately when changed during review, since Continue/handleComplete is unreachable then (F1: also confirms - a review-mode edit is a genuine save, not just browsing)', () => {
+    expect(intentionSetupSource).toMatch(/setIntentions\(next\);\s*\n[\s\S]*?if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}/);
   });
 
   it('has no ProgressIndicator of its own (Step 1 - nothing earlier to review from here)', () => {

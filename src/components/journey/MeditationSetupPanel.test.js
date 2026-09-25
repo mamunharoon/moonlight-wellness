@@ -16,13 +16,15 @@ describe('MeditationSetupPanel — five styles, three durations, three sounds vi
   });
 
   it('styles/durations/sounds each render via a single map (never a hand-duplicated list)', () => {
-    expect(source).toMatch(/\{MEDITATION_STYLES\.map\(\(s\) => \(/);
+    // F6 — styles now map with an index too (idx), for the compact grid's
+    // last-item-spans-full-width logic (MeditationStyleCard's fullWidth).
+    expect(source).toMatch(/\{MEDITATION_STYLES\.map\(\(s, idx\) => \(/);
     expect(source).toMatch(/\{MEDITATION_DURATIONS\.map\(\(d\) => \(/);
     expect(source).toMatch(/\{MEDITATION_SOUNDS\.map\(\(s\) => \(/);
   });
 
-  it('reuses the shared MeditationOptionRow/MeditationDurationChip controls, never a second radio implementation', () => {
-    expect(source).toMatch(/import \{ MeditationOptionRow, MeditationDurationChip \} from '\.\/MeditationControls';/);
+  it('reuses the shared MeditationOptionRow/MeditationDurationChip/MeditationStyleCard controls, never a second radio implementation', () => {
+    expect(source).toMatch(/import \{ MeditationOptionRow, MeditationDurationChip, MeditationStyleCard \} from '\.\/MeditationControls';/);
   });
 });
 
@@ -80,6 +82,40 @@ describe('MeditationSetupPanel — non-compact mode (standalone, unchanged): eve
     // for every non-compact caller, exactly like the original always-shown
     // SelfGuidedMeditation.jsx setup screen.
     expect(source).toMatch(/const showOptions = !compact \|\| expanded;/);
+  });
+});
+
+// F6 (pre-Build-15 usability pass) — approved compact two-column layout
+// for the 5 meditation styles, replacing 5 stacked full-width rows (each
+// with its own inline description) to shorten the setup screen. Applies
+// to this one shared component, so standalone/Morning/Evening all get it
+// consistently (no per-caller variant).
+describe('MeditationSetupPanel — F6 compact two-column Meditation Style grid', () => {
+  it('the style radiogroup is a 2-column grid (grid-cols-2), not the stacked space-y-2 rows every other radiogroup here still uses', () => {
+    const block = source.match(/<div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Meditation style">[\s\S]*?<\/div>/)?.[0] ?? '';
+    expect(block.length).toBeGreaterThan(0);
+    expect(block).toMatch(/<MeditationStyleCard/);
+    expect(block).not.toMatch(/<MeditationOptionRow/);
+  });
+
+  it('the last (odd-numbered) style spans both columns generically - never hardcoded to a literal index/count of 5', () => {
+    expect(source).toMatch(/fullWidth=\{MEDITATION_STYLES\.length % 2 === 1 && idx === MEDITATION_STYLES\.length - 1\}/);
+    expect(source).not.toMatch(/fullWidth=\{idx === 4\}/);
+  });
+
+  it('the selected style\'s description renders exactly once, below the grid, reading live from the current `style` prop (never a separate/stale copy)', () => {
+    expect(source).toMatch(/<p className="text-xs text-on-surface-variant px-1" aria-live="polite">\{style\.description\}<\/p>/);
+    // Only this one description paragraph for style - MeditationStyleCard
+    // itself never renders a visible description inline (see that
+    // component's own test for its accessible-name-only treatment).
+    const styleBlock = source.slice(source.indexOf('Meditation style'), source.indexOf('Duration</h2>'));
+    expect((styleBlock.match(/text-on-surface-variant px-1"/g) ?? []).length).toBe(1);
+  });
+
+  it('duration and sound sections are completely untouched - still their own original controls/layout', () => {
+    expect(source).toMatch(/<MeditationDurationChip/);
+    expect(source).toMatch(/<MeditationOptionRow/);
+    expect(source).toMatch(/grid grid-cols-3 gap-2" role="radiogroup" aria-label="Duration"/);
   });
 });
 

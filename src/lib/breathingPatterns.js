@@ -161,3 +161,30 @@ export const formatCadence = (pattern) =>
   ]
     .filter(Boolean)
     .join(' · ');
+
+// F7 (pre-Build-15 usability pass) — approved compact duration format for
+// the breathing pattern cards specifically ("56 sec" / "1 min"),
+// deliberately a SEPARATE function from formatTotalDuration
+// (formatDuration.js), which MorningFlow.jsx's own unrelated Stretch
+// summary also reads - changing that shared formatter's own output
+// ("56s") would have silently changed Stretch's display too, outside
+// this pass's approved scope.
+//
+// Correction (acceptance review) — the first version of this function
+// mirrored formatTotalDuration's own "~N mins" rounding for a non-exact
+// minute count. Checked against the real registry: only `coherent` (60s)
+// is an exact minute; `quiet`/`box` (64s) and `evening` (76s) are not -
+// `evening` in particular is 76s, genuinely 16s (≈27%) longer than the
+// "~1 min" that rounding produced, which is not a cosmetic rounding
+// difference. Per the approved correction, this never approximates: any
+// total that is not an exact whole number of minutes is shown as its
+// real, exact second count instead ("76 sec", not "~1 min" or "1 min").
+// Every current real pattern is well under 2 minutes, so this never
+// produces an unwieldy "137 sec"-style value in practice; if a future
+// pattern's duration ever exceeds that, this still shows the true exact
+// count rather than a misleading rounded one.
+export const formatBreathingDuration = (totalSeconds) => {
+  const mins = totalSeconds / 60;
+  if (Number.isInteger(mins)) return `${mins} min${mins === 1 ? '' : 's'}`;
+  return `${totalSeconds} sec`;
+};

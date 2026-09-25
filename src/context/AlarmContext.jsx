@@ -22,6 +22,33 @@ const INTENTIONS_KEY = 'moonlight_intentions';
 const LEGACY_INTENTION_KEY = 'moonlight_today_intention';
 const DEFAULT_INTENTIONS = ['Stay calm', 'Be kind to yourself'];
 
+// F1 (pre-Build-15 usability pass) — suggested-vs-selected distinction.
+// Found live: a fresh guest's `intentions` state settles to
+// DEFAULT_INTENTIONS on first render, and the guest-persist effect below
+// immediately writes that untouched default into INTENTIONS_KEY - so by
+// the time Home reads `intentions`, a never-touched default is byte-
+// identical to a guest who deliberately picked exactly those two values.
+// Comparing the VALUE against DEFAULT_INTENTIONS can never distinguish
+// them (explicitly ruled out by the brief). The one reliable signal is
+// WHETHER A SAVE EVER HAPPENED:
+//   - Authenticated: a `user_intentions` row already only ever exists
+//     after a genuine save (IntentionSetup.jsx/ChangeIntention.jsx's own
+//     saveIntentionsToCloud) - row-fetched-successfully is already the
+//     correct signal, no schema change needed.
+//   - Guest: no equivalent signal existed, so this one new boolean is
+//     the smallest addition that creates one, mirroring INTENTIONS_KEY's
+//     own guest-only localStorage shape exactly (same identity-guarded
+//     persist effect below, same reset-on-account-switch handling).
+const INTENTIONS_CONFIRMED_KEY = 'moonlight_intentions_confirmed';
+
+const getInitialIntentionsConfirmed = () => {
+  try {
+    return localStorage.getItem(INTENTIONS_CONFIRMED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 // One or two intentions, ordered (index 0 = Primary, index 1 =
 // Supporting), distinct case-insensitively - sanitizeIntentions is the
 // single shared source of truth for that shape (also used to validate a
@@ -120,6 +147,13 @@ export const AlarmProvider = ({ children }) => {
   const [isAlarmSet, setIsAlarmSet] = useState(true);
   const [isRinging, setIsRinging] = useState(false);
   const [intentions, setIntentions] = useState(getInitialIntentions);
+  // F1 — see getInitialIntentionsConfirmed's own doc comment above. This
+  // initial value is only ever correct for the guest case (the
+  // authenticated case is necessarily async - fetchIntention below - same
+  // unavoidable limitation `intentions` itself already has); the
+  // identity-sync layout effect further below corrects it before paint
+  // either way, exactly like `intentions`.
+  const [intentionsConfirmed, setIntentionsConfirmed] = useState(getInitialIntentionsConfirmed);
 
   // Morning Journey Progress State (With local storage synchronization for resume support)
   const [routineDuration, setRoutineDuration] = useState(() => {
@@ -200,6 +234,15 @@ export const AlarmProvider = ({ children }) => {
     if (settledIntentionsUserIdRef.current !== userId) return;
     localStorage.setItem(INTENTIONS_KEY, JSON.stringify(intentions));
   }, [intentions, authLoading, isGuest, userId]);
+
+  // F1 — same identity guard as the intentions-persist effect just above,
+  // so a stale outgoing identity's confirmed flag can never be written
+  // into the next guest's storage.
+  useEffect(() => {
+    if (authLoading || !isGuest) return;
+    if (settledIntentionsUserIdRef.current !== userId) return;
+    localStorage.setItem(INTENTIONS_CONFIRMED_KEY, intentionsConfirmed ? 'true' : 'false');
+  }, [intentionsConfirmed, authLoading, isGuest, userId]);
 
   // Fetch sleep/wake rhythms from Supabase
   const fetchRhythm = async (uid) => {
@@ -291,8 +334,13 @@ export const AlarmProvider = ({ children }) => {
     const fetched = sanitizeIntentions(data.intentions);
     if (fetched.length > 0) {
       setIntentions(fetched);
+      // F1 — a row existing at all is already proof of a genuine past
+      // save (see this file's own top comment); never inferred from the
+      // fetched VALUE.
+      setIntentionsConfirmed(true);
     } else if (typeof data.intention === 'string' && data.intention.trim().length > 0) {
       setIntentions([data.intention]);
+      setIntentionsConfirmed(true);
     }
   };
 
@@ -313,10 +361,19 @@ export const AlarmProvider = ({ children }) => {
 
       if (!userId) {
         setIntentions(getInitialIntentions());
+        // F1 — re-read fresh on every guest transition (e.g. right after
+        // sign-out), exactly like getInitialIntentions() itself just
+        // above - never carried over from a previous identity's state.
+        setIntentionsConfirmed(getInitialIntentionsConfirmed());
         return;
       }
 
       setIntentions(DEFAULT_INTENTIONS);
+      // F1 — reset to unconfirmed before the fetch, so a freshly signed-in
+      // identity never briefly inherits a previous identity's confirmed
+      // flag while its own row is still loading. fetchIntention sets this
+      // true only if a real row exists.
+      setIntentionsConfirmed(false);
       await fetchIntention(userId);
     };
 
@@ -509,6 +566,8 @@ export const AlarmProvider = ({ children }) => {
       setIsRinging,
       intentions,
       setIntentions,
+      intentionsConfirmed,
+      setIntentionsConfirmed,
       snooze,
       dismissAlarm,
       updateRhythm,

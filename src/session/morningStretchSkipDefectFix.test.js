@@ -95,7 +95,11 @@ describe('3. Previously completed Stretch state is cleared for the new active ru
 
 describe('4. Intention Continue cannot navigate directly to Breathe', () => {
   it('handleComplete never contains a literal /breathe navigation or a routineDuration branch any more', () => {
-    const body = intentionSetupSource.match(/const handleComplete = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    // F1 correction: handleComplete now takes an explicit `confirmed`
+    // parameter (Continue passes true, Skip passes false) - see this
+    // file's own IntentionSetup.jsx doc comment - the step-advance
+    // destination itself is unaffected.
+    const body = intentionSetupSource.match(/const handleComplete = async \(confirmed\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).not.toMatch(/\/breathe/);
     expect(body).not.toMatch(/routineDuration/);
     expect(body).toMatch(/setJourneyStep\('stretch'\);\s*\n\s*navigate\('\/morning-flow'\);/);
@@ -115,9 +119,9 @@ describe('4. Intention Continue cannot navigate directly to Breathe', () => {
 });
 
 describe('5. Intention Skip still goes to Stretch (Skip and Continue are the same handler, both fixed together)', () => {
-  it('the Skip button ("Skip this step") is wired to the exact same handleComplete as Continue - no separate skip-specific navigation path exists to independently regress', () => {
-    const continueButton = intentionSetupSource.match(/onClick=\{handleComplete\}\s*\n\s*disabled=\{isSaving \|\| intentions\.length === 0\}/);
-    const skipButton = intentionSetupSource.match(/onClick=\{handleComplete\}\s*\n\s*disabled=\{isSaving\}[\s\S]{0,300}Skip this step/);
+  it('the Skip button ("Skip this step") is wired to the same handleComplete as Continue (only the confirmed argument differs, F1 correction) - no separate skip-specific navigation path exists to independently regress', () => {
+    const continueButton = intentionSetupSource.match(/onClick=\{\(\) => handleComplete\(true\)\}\s*\n\s*disabled=\{isSaving \|\| intentions\.length === 0\}/);
+    const skipButton = intentionSetupSource.match(/onClick=\{\(\) => handleComplete\(false\)\}\s*\n\s*disabled=\{isSaving\}[\s\S]{0,300}Skip this step/);
     expect(continueButton).not.toBeNull();
     expect(skipButton).not.toBeNull();
   });

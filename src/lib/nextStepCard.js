@@ -27,6 +27,18 @@ export const MORNING_DAYPART = Object.freeze({
   EVENING_NIGHT: 'evening-night'
 });
 
+// F2 (pre-Build-15 usability pass) — found live: both off-hours variants
+// (afternoon, evening/night) branded the full Morning routine as a
+// "reset" ("Start a Daytime Reset" / "Start a Gentle Reset"), colliding
+// with "Gentle Reset" - the name already reserved for the real, separate,
+// short standalone breathing experience (Routines.jsx/RoutineDetail.jsx's
+// Anytime entry). Tapping either button here still launches the complete
+// Morning routine (handleMorningAction, unchanged) - only the copy
+// mislabeled what it actually does. Both off-hours variants now use the
+// same approved copy (there is no meaningful difference between
+// "afternoon" and "evening/night" framing once neither is allowed to call
+// itself a reset) - the daypart split itself is untouched, matching the
+// approved "correct copy only, no route/handler change" scope.
 const MORNING_NOT_STARTED_BY_DAYPART = {
   [MORNING_DAYPART.MORNING]: {
     title: 'Start your Morning Reset',
@@ -34,14 +46,14 @@ const MORNING_NOT_STARTED_BY_DAYPART = {
     buttonLabel: 'Begin My Morning'
   },
   [MORNING_DAYPART.AFTERNOON]: {
-    title: 'It’s not too late for a reset',
-    explanation: 'Take a few minutes to reconnect with your intention and approach the rest of your day with focus.',
-    buttonLabel: 'Start a Daytime Reset'
+    title: 'Revisit your morning routine',
+    explanation: 'Move through intention, stretching, breathing, meditation and affirmation at your own pace.',
+    buttonLabel: 'Start Morning Routine'
   },
   [MORNING_DAYPART.EVENING_NIGHT]: {
-    title: 'Take a moment to reset',
-    explanation: 'Reconnect with your intention and move gently through a short reset whenever it feels useful.',
-    buttonLabel: 'Start a Gentle Reset'
+    title: 'Revisit your morning routine',
+    explanation: 'Move through intention, stretching, breathing, meditation and affirmation at your own pace.',
+    buttonLabel: 'Start Morning Routine'
   }
 };
 

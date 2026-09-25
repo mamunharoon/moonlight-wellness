@@ -122,11 +122,27 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
     expect(performCloseBody).toMatch(/setExitConfirmOpen\(false\);/);
   });
 
-  it('the active screen\'s Back dialog uses the "End this meditation?" wording (matches MorningMeditate.jsx/EveningMeditate.jsx), not the stale "Leave meditation?"/"End and Leave" wording written for actually leaving', () => {
+  // F4 (pre-Build-15 usability pass) — found live: Back's dialog and End
+  // Session's own dialog still shared identical "End this meditation?"
+  // wording even after being independently wired, with no signal that
+  // Back quietly returns to setup while End Session shows a distinct
+  // "ended early" result. Back's own wording (endCopy) now explicitly
+  // names returning to choose another style/duration/sound; End
+  // Session's own wording (endSessionCopy) stays completion-oriented.
+  it('the active screen\'s Back dialog (endCopy) uses "Return to meditation choices?" wording, not the stale "Leave meditation?"/"End and Leave" wording written for actually leaving, and not End Session\'s own wording', () => {
     const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
-    expect(activeReturnBlock).toMatch(/dialogTitle: 'End this meditation\?'/);
-    expect(activeReturnBlock).toMatch(/confirmLabel: 'End Meditation'/);
+    expect(activeReturnBlock).toMatch(/dialogTitle: 'Return to meditation choices\?'/);
+    expect(activeReturnBlock).toMatch(/dialogMessage: 'Your current meditation will end, and you can choose another style, duration or sound\.'/);
+    expect(activeReturnBlock).toMatch(/confirmLabel: 'Return to Choices'/);
     expect(activeReturnBlock).toMatch(/cancelLabel: 'Keep Meditating'/);
+  });
+
+  it('End Session has its own distinct, completion-oriented wording (endSessionCopy), separate from Back\'s', () => {
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    expect(activeReturnBlock).toMatch(/endSessionCopy=\{\{/);
+    expect(activeReturnBlock).toMatch(/dialogTitle: 'End this meditation\?'/);
+    expect(activeReturnBlock).toMatch(/dialogMessage: 'Your current meditation will end before the timer finishes\.'/);
+    expect(activeReturnBlock).toMatch(/confirmLabel: 'End Meditation'/);
   });
 
   it('the Close/X ConfirmDialog reuses the original "Leave meditation?"/"End and Leave"/"Continue Meditation" wording - correct framing for a genuine whole-feature exit, only ever misapplied to Back before this fix', () => {

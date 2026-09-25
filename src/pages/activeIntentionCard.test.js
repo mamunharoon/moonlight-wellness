@@ -63,11 +63,11 @@ describe('IntentionSetup.jsx — Morning routine\'s own Step 1, a distinct Sessi
     expect(intentionSetupSource).not.toMatch(/Choose one primary intention/);
   });
 
-  it('Continue is disabled whenever nothing is selected - Skip is not (it deliberately still lets the user move on)', () => {
-    const continueButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{handleComplete\}\s*\n\s*disabled=\{isSaving \|\| intentions\.length === 0\}[\s\S]*?<\/button>/);
+  it('Continue is disabled whenever nothing is selected - Skip is not (it deliberately still lets the user move on); F1: Continue passes confirmed=true, Skip passes confirmed=false', () => {
+    const continueButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{\(\) => handleComplete\(true\)\}\s*\n\s*disabled=\{isSaving \|\| intentions\.length === 0\}[\s\S]*?<\/button>/);
     expect(continueButton).not.toBeNull();
     expect(continueButton[0]).toMatch(/Continue/);
-    const skipButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{handleComplete\}\s*\n\s*disabled=\{isSaving\}[\s\S]*?Skip this step/);
+    const skipButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{\(\) => handleComplete\(false\)\}\s*\n\s*disabled=\{isSaving\}[\s\S]*?Skip this step/);
     expect(skipButton).not.toBeNull();
   });
 
@@ -109,8 +109,8 @@ describe('Home.jsx — no longer owns intention save logic at all; ActiveIntenti
     expect(homeSource).not.toMatch(/import \{ saveIntentionsToCloud \}/);
   });
 
-  it('no longer destructures setIntentions from useAlarm (Home never mutates intentions directly any more) - checked in real code only, since a prose comment is free to name the identifier that moved away', () => {
-    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, effectiveTimezone, userId \} = useAlarm\(\);/);
+  it('no longer destructures setIntentions from useAlarm (Home never mutates intentions directly any more) - checked in real code only, since a prose comment is free to name the identifier that moved away (F1: now also destructures intentionsConfirmed, read-only, for the suggested-vs-selected distinction)', () => {
+    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, intentionsConfirmed, effectiveTimezone, userId \} = useAlarm\(\);/);
     const codeOnly = homeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(codeOnly).not.toMatch(/setIntentions/);
   });
@@ -171,5 +171,82 @@ describe('ActiveIntentionCard.jsx — display-only, navigates to the dedicated s
   it('never imports or references the Session Engine, routine start/resume, journal/history writes, or the selection/persistence helpers (all of that now lives only in ChangeIntention.jsx) - checked in real code only, since this file\'s own prose comment names what moved away', () => {
     const codeOnly = cardSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(codeOnly).not.toMatch(/useSession|startSession|resumeRoutine|resetRoutine|supabase|toggleIntention|saveIntentionsToCloud|INTENTION_PRESETS/);
+  });
+});
+
+// F1 (pre-Build-15 usability pass) — suggested-vs-selected intention
+// distinction: `confirmed` (AlarmContext's own `intentionsConfirmed`)
+// switches ONLY the label/action wording below; `intentions`, the guest
+// gate, and navigation are all completely unaffected either way.
+describe('ActiveIntentionCard.jsx — F1 confirmed prop (default true, additive)', () => {
+  it('defaults to true - any caller that omits it (there is only ever the one, Home.jsx, which always passes it explicitly) keeps the original "Active Intention"/"Change intention" wording', () => {
+    expect(cardSource).toMatch(/confirmed = true/);
+  });
+
+  it('shows "Suggested Intention"/"Choose intention" only when confirmed is false, never touching the passed intentions array or the guest gate', () => {
+    expect(cardSource).toMatch(/\{confirmed \? label : 'Suggested Intention'\}/);
+    expect(cardSource).toMatch(/\{confirmed \? 'Change intention' : 'Choose intention'\}/);
+  });
+
+  it('handleChangeTap (the guest gate + navigation) does not reference confirmed at all - unaffected either way', () => {
+    const body = cardSource.match(/const handleChangeTap = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/confirmed/);
+  });
+
+  it('an explanatory line appears only while unconfirmed, matching the approved copy exactly', () => {
+    expect(cardSource).toMatch(/\{!confirmed && \(/);
+    expect(cardSource).toMatch(/A gentle starting point — make it your own\./);
+  });
+});
+
+describe('Home.jsx — passes intentionsConfirmed straight through as the confirmed prop, no re-derivation', () => {
+  it('ActiveIntentionCard receives confirmed={intentionsConfirmed} - never inferring it from the intentions array\'s own value', () => {
+    const block = homeSource.match(/<ActiveIntentionCard[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/confirmed=\{intentionsConfirmed\}/);
+  });
+});
+
+describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-confirm wiring', () => {
+  it('destructures intentionsConfirmed/setIntentionsConfirmed from useAlarm', () => {
+    expect(intentionSetupSource).toMatch(/const \{ userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep \} = useAlarm\(\);/);
+  });
+
+  it('shows the suggested-starting-point hint only while unconfirmed, never claiming a previous saved choice', () => {
+    expect(intentionSetupSource).toMatch(/\{!intentionsConfirmed && \(/);
+    expect(intentionSetupSource).toMatch(/Suggested starting points — keep, remove or add your own\./);
+  });
+
+  it('handleComplete only confirms when called with confirmed=true (Continue) - Skip (confirmed=false) must never convert a suggested default into a confirmed Active Intention', () => {
+    const body = intentionSetupSource.match(/const handleComplete = async \(confirmed\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(confirmed\) setIntentionsConfirmed\(true\);/);
+  });
+
+  it('Continue and Skip pass explicit, opposite confirmed values - never a shared default that could silently confirm both', () => {
+    expect(intentionSetupSource).toMatch(/onClick=\{\(\) => handleComplete\(true\)\}/);
+    expect(intentionSetupSource).toMatch(/onClick=\{\(\) => handleComplete\(false\)\}/);
+  });
+
+  it('a review-mode edit (applySelection/handleAddCustom, which already saves to Supabase immediately) also confirms - it is a genuine save, not just browsing', () => {
+    expect(intentionSetupSource).toMatch(/if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}/);
+  });
+
+  // F1 acceptance correction — found on review: the ORIGINAL fix had
+  // Continue and Skip share one unconditional setIntentionsConfirmed(true)
+  // call, meaning skipping Intention Setup on untouched suggested
+  // defaults falsely marked them as a genuine selection. Required
+  // contract: suggested defaults are never genuine merely by being
+  // present in state; only a deliberate accept (Continue, Save, or a
+  // review-mode immediate save) may confirm; Skip must not.
+  it('Skip (confirmed=false) still saves/advances exactly as before (unchanged step-advance/cloud-save behaviour) but never sets intentionsConfirmed - a fresh guest who skips must still see SUGGESTED INTENTION on Home afterward, not ACTIVE INTENTION', () => {
+    const body = intentionSetupSource.match(/const handleComplete = async \(confirmed\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    // The unconditional parts (save + advance) still run regardless of confirmed.
+    expect(body).toMatch(/await saveIntentionsToCloud\(userId, toSave\);/);
+    expect(body).toMatch(/setJourneyStep\('stretch'\);\s*\n\s*navigate\('\/morning-flow'\);/);
+    // setIntentionsConfirmed(true) appears EXACTLY once in the whole
+    // function body, gated behind `if (confirmed)` - there is no
+    // unconditional or duplicate call path that could still fire for Skip.
+    const confirmCalls = body.match(/setIntentionsConfirmed\(true\)/g) ?? [];
+    expect(confirmCalls.length).toBe(1);
+    expect(body).toMatch(/if \(confirmed\) setIntentionsConfirmed\(true\);/);
   });
 });

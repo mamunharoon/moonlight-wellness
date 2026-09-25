@@ -34,6 +34,34 @@ export const MeditationOptionRow = ({ groupName, label, description, selected, o
   </label>
 );
 
+// F6 (pre-Build-15 usability pass) — approved compact two-column layout
+// for the 5 meditation styles, replacing 5 stacked full-width
+// MeditationOptionRow rows (each carrying its own description inline,
+// making the setup screen unnecessarily long). This card shows only the
+// style NAME - the description moves to one shared line below the grid
+// in MeditationSetupPanel.jsx instead, updating with the current
+// selection. The accessible name still carries the full "label:
+// description" pair via aria-label on the actual <input> (not the
+// wrapping <label>, which is what a screen reader's default label-text
+// computation would otherwise use) - a screen reader user gets the same
+// information a sighted user gets from the shared description line,
+// even though it isn't inside this element's own visible text.
+// `fullWidth` (used only for the 5th/odd-numbered style, Loving-
+// Kindness) spans both grid columns rather than leaving a lone card
+// half-empty in its own row.
+export const MeditationStyleCard = ({ groupName, label, description, selected, onSelect, fullWidth = false }) => (
+  <label
+    className={`flex items-center justify-center min-h-[44px] px-3 py-3.5 rounded-2xl border text-center transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+      fullWidth ? 'col-span-2' : ''
+    } ${
+      selected ? 'bg-primary/10 border-primary' : 'bg-surface-container border-primary/50 hover:bg-white/10'
+    }`}
+  >
+    <input type="radio" name={groupName} checked={selected} onChange={onSelect} className="sr-only" aria-label={description ? `${label}: ${description}` : label} />
+    <span className={`text-sm leading-snug ${selected ? 'text-primary font-bold' : 'text-on-surface font-medium'}`}>{label}</span>
+  </label>
+);
+
 // Compact 3-across radio grid for the 3 durations - a segmented-control
 // shape rather than 3 stacked full-width rows.
 export const MeditationDurationChip = ({ groupName, label, sublabel, selected, onSelect }) => (

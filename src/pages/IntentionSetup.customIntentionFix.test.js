@@ -62,7 +62,7 @@ describe('IntentionSetup.jsx — handleAddCustom uses addCustomIntention (ADD-on
   });
 
   it('a genuine add writes directly into the LIVE AlarmContext intentions (setIntentions), and mirrors applySelection\'s own review-mode immediate cloud-save (parity with the chip-tap path, item 9: appears on Home via the same context Home.jsx reads)', () => {
-    expect(handleAddCustomBody).toMatch(/setIntentions\(next\);\s*\n\s*if \(isReviewMode\) saveIntentionsToCloud\(userId, next\);\s*\n\s*setCustomIntention\(''\);/);
+    expect(handleAddCustomBody).toMatch(/setIntentions\(next\);\s*\n[\s\S]*?if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}\s*\n\s*setCustomIntention\(''\);/);
   });
 });
 
@@ -104,7 +104,7 @@ describe('IntentionSetup.jsx — existing preset chip-tap behaviour is completel
   it('applySelection (handleSelectPreset and summary-chip removal) still uses the original toggleIntention/LIMIT_MESSAGE path, byte-for-byte', () => {
     expect(applySelectionBody).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
     expect(applySelectionBody).toMatch(/setLimitMessage\(LIMIT_MESSAGE\);/);
-    expect(applySelectionBody).toMatch(/setIntentions\(next\);\s*\n\s*if \(isReviewMode\) saveIntentionsToCloud\(userId, next\);/);
+    expect(applySelectionBody).toMatch(/setIntentions\(next\);\s*\n[\s\S]*?if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}/);
   });
 
   it('handleSelectPreset and the summary-chip removal buttons still call applySelection directly, not handleAddCustom', () => {

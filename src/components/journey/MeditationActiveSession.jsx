@@ -97,6 +97,20 @@ import { MeditationOptionRow } from './MeditationControls';
  * setup, End Session shows a truthful "ended early" result first). When
  * omitted, the bottom button falls back to `setLeaveConfirmOpen(true)` -
  * byte-identical to before this prop existed.
+ *
+ * `endSessionCopy` (additive, optional, default null - F4 pre-Build-15
+ * usability pass): found live that Back's dialog and End Session's own
+ * dialog, despite being genuinely separate controls after the
+ * `onEndSession` fix above, still showed IDENTICAL wording (both reused
+ * `copy`, derived from `endCopy` alone) - "End this meditation?" for
+ * both, with no wording signal that Back returns quietly to setup while
+ * End Session shows a distinct "ended early" result. When both
+ * `onEndSession` and `endSessionCopy` are provided, the bottom button's
+ * own label AND its own dialog use `endSessionCopy` instead of `copy`
+ * (`endCopy` remains exclusively Back's own wording - never touched by
+ * this prop). When `endSessionCopy` is omitted (every caller before this
+ * fix), the bottom button falls back to sharing `copy` exactly as before
+ * - byte-identical to before this prop existed.
  */
 const DEFAULT_END_COPY = {
   buttonLabel: 'End Session',
@@ -119,6 +133,7 @@ export const MeditationActiveSession = ({
   onRequestLeave,
   onRequestClose,
   endCopy = DEFAULT_END_COPY,
+  endSessionCopy = null,
   showHeaderClose = true,
   bottomAction = null,
   onChooseAnother = null,
@@ -129,6 +144,8 @@ export const MeditationActiveSession = ({
   const [chooseAnotherConfirmOpen, setChooseAnotherConfirmOpen] = useState(false);
   const [endSessionConfirmOpen, setEndSessionConfirmOpen] = useState(false);
   const copy = { ...DEFAULT_END_COPY, ...endCopy };
+  // F4 — see this file's own top doc comment for `endSessionCopy`.
+  const endSessionActiveCopy = endSessionCopy ? { ...DEFAULT_END_COPY, ...endSessionCopy } : copy;
 
   const handleConfirmLeave = () => {
     setLeaveConfirmOpen(false);
@@ -268,10 +285,10 @@ export const MeditationActiveSession = ({
           <button
             type="button"
             onClick={() => (onEndSession ? setEndSessionConfirmOpen(true) : setLeaveConfirmOpen(true))}
-            aria-label={copy.buttonAriaLabel}
+            aria-label={onEndSession ? endSessionActiveCopy.buttonAriaLabel : copy.buttonAriaLabel}
             className="w-full py-4 rounded-full font-semibold text-center min-h-[44px] bg-[#b3555f]/15 text-[#b3555f] border border-[#b3555f]/40 hover:bg-[#b3555f]/25 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#b3555f] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           >
-            {copy.buttonLabel}
+            {onEndSession ? endSessionActiveCopy.buttonLabel : copy.buttonLabel}
           </button>
         )}
 
@@ -312,10 +329,10 @@ export const MeditationActiveSession = ({
       {onEndSession && (
         <ConfirmDialog
           open={endSessionConfirmOpen}
-          title={copy.dialogTitle}
-          message={copy.dialogMessage}
-          confirmLabel={copy.confirmLabel}
-          cancelLabel={copy.cancelLabel}
+          title={endSessionActiveCopy.dialogTitle}
+          message={endSessionActiveCopy.dialogMessage}
+          confirmLabel={endSessionActiveCopy.confirmLabel}
+          cancelLabel={endSessionActiveCopy.cancelLabel}
           mildDestructive
           onConfirm={handleConfirmEndSession}
           onDismiss={() => setEndSessionConfirmOpen(false)}

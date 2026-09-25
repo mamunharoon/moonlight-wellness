@@ -56,7 +56,7 @@ describe('MeditationActiveSession — onRequestClose (additive, optional; standa
 
   it('the big bottom button only falls back to the same local leave dialog when the caller omits onEndSession too (see the dedicated onEndSession describe block below for the split behaviour)', () => {
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(codeOnly).toMatch(/onClick=\{\(\) => \(onEndSession \? setEndSessionConfirmOpen\(true\) : setLeaveConfirmOpen\(true\)\)\}\s*\n\s*aria-label=\{copy\.buttonAriaLabel\}/);
+    expect(codeOnly).toMatch(/onClick=\{\(\) => \(onEndSession \? setEndSessionConfirmOpen\(true\) : setLeaveConfirmOpen\(true\)\)\}\s*\n\s*aria-label=\{onEndSession \? endSessionActiveCopy\.buttonAriaLabel : copy\.buttonAriaLabel\}/);
   });
 
   it('End Meditation preserving only-meditation semantics: neither this component nor its local dialog ever calls leaveActiveRoutine/interruptSession - only onRequestClose (a caller-supplied function this file never defines) can reach a whole-journey exit', () => {
@@ -83,14 +83,34 @@ describe('MeditationActiveSession — onEndSession (additive, optional; makes th
     expect(source).toMatch(/const handleConfirmEndSession = \(\) => \{\s*\n\s*setEndSessionConfirmOpen\(false\);\s*\n\s*onEndSession\(\);\s*\n\s*\};/);
   });
 
-  it('reuses the same endCopy wording Back already shows - ending "this meditation" means the same thing regardless of which control asked', () => {
+  it('uses endSessionActiveCopy (its own wording, distinct from Back\'s copy when endSessionCopy is supplied - F4) for its own dialog', () => {
     const dialogBlock = source.match(/\{onEndSession && \(\s*\n\s*<ConfirmDialog[\s\S]*?\/>\s*\n\s*\)\}/)?.[0] ?? '';
     expect(dialogBlock).toMatch(/open=\{endSessionConfirmOpen\}/);
-    expect(dialogBlock).toMatch(/title=\{copy\.dialogTitle\}/);
-    expect(dialogBlock).toMatch(/message=\{copy\.dialogMessage\}/);
-    expect(dialogBlock).toMatch(/confirmLabel=\{copy\.confirmLabel\}/);
-    expect(dialogBlock).toMatch(/cancelLabel=\{copy\.cancelLabel\}/);
+    expect(dialogBlock).toMatch(/title=\{endSessionActiveCopy\.dialogTitle\}/);
+    expect(dialogBlock).toMatch(/message=\{endSessionActiveCopy\.dialogMessage\}/);
+    expect(dialogBlock).toMatch(/confirmLabel=\{endSessionActiveCopy\.confirmLabel\}/);
+    expect(dialogBlock).toMatch(/cancelLabel=\{endSessionActiveCopy\.cancelLabel\}/);
     expect(dialogBlock).toMatch(/onConfirm=\{handleConfirmEndSession\}/);
+  });
+
+  // F4 (pre-Build-15 usability pass) — found live: Back's dialog and End
+  // Session's own dialog still showed IDENTICAL wording even after the
+  // controls became independently wired (both derived from `copy` alone),
+  // with no signal that Back returns quietly to setup while End Session
+  // shows a distinct "ended early" result. `endSessionCopy` lets a caller
+  // give End Session its own wording; omitting it preserves the exact
+  // prior shared-copy behaviour (backward compatible with any future
+  // caller that only passes `onEndSession`).
+  it('endSessionCopy (additive, optional, default null) lets a caller give End Session its own wording, independent of endCopy/Back - falling back to sharing `copy` when omitted', () => {
+    const propsBlock = source.match(/export const MeditationActiveSession = \(\{[\s\S]*?\}\) => \{/)?.[0] ?? '';
+    expect(propsBlock).toMatch(/endSessionCopy = null/);
+    expect(source).toMatch(/const endSessionActiveCopy = endSessionCopy \? \{ \.\.\.DEFAULT_END_COPY, \.\.\.endSessionCopy \} : copy;/);
+  });
+
+  it('the bottom button\'s own label/aria-label use endSessionActiveCopy only when onEndSession is active, falling back to copy otherwise', () => {
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).toMatch(/aria-label=\{onEndSession \? endSessionActiveCopy\.buttonAriaLabel : copy\.buttonAriaLabel\}/);
+    expect(codeOnly).toMatch(/\{onEndSession \? endSessionActiveCopy\.buttonLabel : copy\.buttonLabel\}/);
   });
 
   it('onStepBack/Back is completely untouched by this prop - still always opens the original leaveConfirmOpen dialog via onRequestLeave, regardless of whether onEndSession is provided', () => {
@@ -123,7 +143,7 @@ describe('MeditationActiveSession — default (standalone) leave-confirmation co
 
 describe('MeditationActiveSession — End button uses quiet caution styling, not alarming bright red', () => {
   it('reuses the existing mild-destructive colour token (#b3555f, same as ConfirmDialog.jsx), never Tailwind red/bg-red', () => {
-    const block = source.match(/aria-label=\{copy\.buttonAriaLabel\}[\s\S]{0,20}className="([^"]+)"/)?.[1] ?? '';
+    const block = source.match(/aria-label=\{onEndSession \? endSessionActiveCopy\.buttonAriaLabel : copy\.buttonAriaLabel\}[\s\S]{0,20}className="([^"]+)"/)?.[1] ?? '';
     expect(block).toMatch(/#b3555f/);
     expect(block).not.toMatch(/bg-red/);
   });

@@ -31,26 +31,34 @@ describe('resolveNextStepCard — Morning, not-started', () => {
     expect(card.buttonLabel).toBe('Begin My Morning');
   });
 
-  it('afternoon daypart: exact required copy', () => {
+  // F2 (pre-Build-15 usability pass) — found live: both off-hours
+  // variants previously branded the full Morning routine as a "reset"
+  // ("Start a Daytime Reset" / "Start a Gentle Reset"), colliding with
+  // "Gentle Reset" (the real, separate, short standalone breathing
+  // experience). Both now use the same approved copy - see
+  // nextStepCard.js's own doc comment on MORNING_NOT_STARTED_BY_DAYPART.
+  it('afternoon daypart: exact required copy, never "reset" branding for the full routine', () => {
     const card = resolveNextStepCard({
       period: 'morning',
       cardState: 'not-started',
       morningDaypart: MORNING_DAYPART.AFTERNOON
     });
-    expect(card.title).toBe('It’s not too late for a reset');
-    expect(card.supportingText).toBe('Take a few minutes to reconnect with your intention and approach the rest of your day with focus.');
-    expect(card.buttonLabel).toBe('Start a Daytime Reset');
+    expect(card.title).toBe('Revisit your morning routine');
+    expect(card.supportingText).toBe('Move through intention, stretching, breathing, meditation and affirmation at your own pace.');
+    expect(card.buttonLabel).toBe('Start Morning Routine');
+    expect(card.buttonLabel).not.toMatch(/Reset|Instant Calm/i);
   });
 
-  it('evening-night daypart: exact required copy', () => {
+  it('evening-night daypart: exact required copy, never "Gentle Reset"/"reset" branding for the full routine', () => {
     const card = resolveNextStepCard({
       period: 'morning',
       cardState: 'not-started',
       morningDaypart: MORNING_DAYPART.EVENING_NIGHT
     });
-    expect(card.title).toBe('Take a moment to reset');
-    expect(card.supportingText).toBe('Reconnect with your intention and move gently through a short reset whenever it feels useful.');
-    expect(card.buttonLabel).toBe('Start a Gentle Reset');
+    expect(card.title).toBe('Revisit your morning routine');
+    expect(card.supportingText).toBe('Move through intention, stretching, breathing, meditation and affirmation at your own pace.');
+    expect(card.buttonLabel).toBe('Start Morning Routine');
+    expect(card.buttonLabel).not.toMatch(/Reset|Instant Calm/i);
   });
 
   it('never omits the body sentence - it is not gated by any first-time/returning distinction', () => {

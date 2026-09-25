@@ -68,13 +68,13 @@ describe('AlarmContext resets intentions/rhythm synchronously (useLayoutEffect) 
     expect(wrapperMatch?.[1]).toBe('useLayoutEffect');
   });
 
-  it('the synchronous reset still happens before the async fetch in both effects (unchanged logic - only the hook timing changed)', () => {
-    expect(alarmContextSource).toMatch(/setIntentions\(DEFAULT_INTENTIONS\);\s*\n\s*await fetchIntention\(userId\);/);
+  it('the synchronous reset still happens before the async fetch in both effects (unchanged logic - only the hook timing changed; F1 also resets intentionsConfirmed to false in between, before the fetch)', () => {
+    expect(alarmContextSource).toMatch(/setIntentions\(DEFAULT_INTENTIONS\);\s*\n[\s\S]*?setIntentionsConfirmed\(false\);\s*\n\s*await fetchIntention\(userId\);/);
     expect(alarmContextSource).toMatch(/setTimezoneState\(null\);\s*\n\s*await fetchRhythm\(userId\);/);
   });
 
-  it('a missing/guest identity resets from getInitialIntentions(), never from a previous authenticated identity\'s in-memory value', () => {
-    expect(alarmContextSource).toMatch(/if \(!userId\) \{\s*\n\s*setIntentions\(getInitialIntentions\(\)\);\s*\n\s*return;\s*\n\s*\}/);
+  it('a missing/guest identity resets from getInitialIntentions(), never from a previous authenticated identity\'s in-memory value (F1 also re-reads intentionsConfirmed fresh from guest storage in the same branch)', () => {
+    expect(alarmContextSource).toMatch(/if \(!userId\) \{\s*\n\s*setIntentions\(getInitialIntentions\(\)\);\s*\n[\s\S]*?setIntentionsConfirmed\(getInitialIntentionsConfirmed\(\)\);\s*\n\s*return;\s*\n\s*\}/);
   });
 });
 

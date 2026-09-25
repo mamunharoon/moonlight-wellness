@@ -1,5 +1,4 @@
-import { formatTotalDuration } from '../lib/formatDuration';
-import { formatCadence } from '../lib/breathingPatterns';
+import { formatCadence, formatBreathingDuration } from '../lib/breathingPatterns';
 
 /*
  * Build 15 — BreathingPatternRow
@@ -16,6 +15,26 @@ import { formatCadence } from '../lib/breathingPatterns';
  * reuse of AnswerOptionButton, which lives under components/evening/ and
  * carries Reflection/Gratitude's own section-accent contract) so
  * Morning/standalone/Evening each just pass their own accent identity.
+ *
+ * F7 (pre-Build-15 usability pass) — approved compact card structure:
+ * the duration used to sit on its own third line below the cadence
+ * ("Inhale 4s · Hold 4s · Exhale 6s" then, on its own line, "56 sec"),
+ * making every card unnecessarily tall. Duration now sits beside the
+ * cadence on the same row (justify-between, so it right-aligns when
+ * there's room), wrapping onto its own line at narrow widths
+ * (flex-wrap) rather than ever overlapping the cadence text or the
+ * radio indicator - both still ordinary text within the same flex-1
+ * label content, so the whole card stays selectable exactly as before.
+ * min-h-[56px] -> min-h-[44px] (still the established minimum, just no
+ * longer padded for a fourth line of content this shape no longer has).
+ *
+ * Correction (acceptance review) — the duration span had carried
+ * `uppercase` since before this pass (the original third-line design),
+ * so live verification showed "56 SEC"/"~1 MIN" despite the approved
+ * copy reading "56 sec"/"1 min" in real sentence case. Removed here -
+ * the rendered text now matches the approved copy's own casing exactly.
+ * See breathingPatterns.js's own doc comment for the separate "~1 min"
+ * rounding correction.
  *
  * `accent` (additive, default 'primary' - every existing Morning/
  * standalone caller omits it and keeps its exact original WakeWise-peach
@@ -70,7 +89,7 @@ export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, ac
 
   return (
     <label
-      className={`flex items-center justify-between gap-3 w-full min-h-[56px] px-5 py-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+      className={`flex items-center justify-between gap-3 w-full min-h-[44px] px-5 py-2.5 rounded-2xl border text-left transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
         selected ? tokens.selectedRow : tokens.unselectedRow
       }`}
     >
@@ -85,11 +104,13 @@ export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, ac
         <span className={`block text-sm leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-medium'}`}>
           {pattern.label}
         </span>
-        <span className="block text-xs text-on-surface-variant mt-1">
-          {formatCadence(pattern)}
-        </span>
-        <span className="block text-[10px] text-on-surface-variant/70 mt-1 uppercase font-semibold tracking-wide">
-          {formatTotalDuration(pattern.totalSeconds)}
+        <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mt-1">
+          <span className="text-xs text-on-surface-variant">
+            {formatCadence(pattern)}
+          </span>
+          <span className="text-[10px] text-on-surface-variant/70 font-semibold tracking-wide shrink-0">
+            {formatBreathingDuration(pattern.totalSeconds)}
+          </span>
         </span>
       </span>
       <span

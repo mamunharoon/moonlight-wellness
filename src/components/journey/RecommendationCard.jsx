@@ -41,6 +41,18 @@
  * uses an inline style - see that file's doc comment). An inline style
  * always wins regardless of stylesheet order, so this is the only
  * mechanism that actually renders a visible colour change here.
+ *
+ * `locked` (additive, optional, default false — F3 guest-gate disclosure):
+ * Meditate.jsx's own caller never passes it and is completely unaffected.
+ * AnytimeReset.jsx passes `locked={isGuest}` so a guest sees a "Sign in to
+ * play" badge (same lock-icon pill shape AudioPlayerPlaceholder.jsx
+ * already established for gated content) BEFORE tapping Start, rather
+ * than discovering the gate only after the tap. This component still
+ * never knows what "signing in" means - `onStart` is unconditionally the
+ * same prop as before; AnytimeReset.jsx's own handleBegin still decides
+ * whether to open SignInPromptDialog. `startLabel` already lets the
+ * caller swap the button's own text (e.g. "Sign in to start"), so the
+ * button itself needs no locked-specific branching here.
  */
 const CARD_ACCENT_STYLE = {
   primary: undefined,
@@ -64,7 +76,8 @@ export const RecommendationCard = ({
   onChooseAnother,
   showChooseAnother,
   chooseAnotherLabel,
-  accent = 'primary'
+  accent = 'primary',
+  locked = false
 }) => (
   <div
     className={`glass-panel rounded-3xl p-5 space-y-3 border-white/10 ${CARD_ACCENT_CLASS[accent] ?? ''}`}
@@ -77,6 +90,12 @@ export const RecommendationCard = ({
       </span>
     </div>
     <p className="text-sm text-on-surface-variant leading-relaxed">{description}</p>
+    {locked && (
+      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+        <span className="material-symbols-outlined text-xs" aria-hidden="true">lock</span>
+        Sign in to play
+      </span>
+    )}
     {isClosestMatch && (
       <p className="text-[11px] text-secondary font-semibold uppercase tracking-wider">Closest match</p>
     )}

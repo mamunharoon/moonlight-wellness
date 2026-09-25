@@ -6,8 +6,9 @@ import { hasChosenGuestEntry, markGuestEntryChosen } from '../lib/guestEntry';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
 import { shouldRedirectToIntroduction, buildIntroductionRedirectPath } from '../lib/introductionVersion';
 import { hasPostAuthRedirectBeenHandled, markPostAuthRedirectHandled } from '../lib/postAuthRedirectGuard';
-import { consumePendingJourneyIntent, resolveJourneyResumeTarget } from '../lib/pendingJourneyIntent';
+import { consumePendingJourneyIntent, resolveJourneyResumeTarget, setPendingJourneyIntent } from '../lib/pendingJourneyIntent';
 import { Welcome } from '../pages/Welcome';
+import { SignInPromptDialog } from './SignInPromptDialog';
 
 /*
  * Guest Onboarding — OnboardingGate
@@ -37,6 +38,37 @@ const ALLOWED_PRE_ENTRY_PATHS = new Set([
   '/reset-password',
   '/settings/terms-of-service',
   '/settings/privacy-policy'
+]);
+
+// F5 (pre-Build-15 usability pass) — found live: Home already correctly
+// gates guest entry into Morning/Evening (its own promptRoutineSignIn),
+// but that gate lives only on Home's own tap handlers - a direct URL,
+// bookmark, browser-history entry, or a stale tab left open across
+// sign-out could still load and interact with the real, authenticated
+// routine content before any sign-in requirement was ever shown. Every
+// real Morning/Evening step route (App.jsx - some inside <Layout>, some
+// not, deliberately not assumed, read directly from the route
+// registrations) is listed here explicitly, matching sessionDefinitions.js's
+// own canonical step->route map for each session. Standalone Breathe/
+// Meditation (/breathe-standalone, /self-guided-meditation, /quiet-breathing),
+// Welcome, Auth, Library and Profile are deliberately NOT included - none
+// of them are gated today and this pass must not start gating them.
+const PROTECTED_MORNING_PATHS = new Set([
+  '/intention-setup',
+  '/morning-flow',
+  '/breathe',
+  '/morning-meditate',
+  '/affirmation',
+  '/session-complete'
+]);
+const PROTECTED_EVENING_PATHS = new Set([
+  '/evening-wind-down',
+  '/reflection',
+  '/gratitude',
+  '/evening-breathing',
+  '/evening-meditate',
+  '/prepare-for-rest',
+  '/evening-complete'
 ]);
 
 export const OnboardingGate = ({ children }) => {
@@ -176,6 +208,46 @@ export const OnboardingGate = ({ children }) => {
 
   if (needsIntroductionRedirect) {
     return <Navigate to={buildIntroductionRedirectPath(profile)} replace />;
+  }
+
+  // F5 — see this file's own PROTECTED_MORNING_PATHS/PROTECTED_EVENING_PATHS
+  // comment above. Deliberately evaluated here, after needsWelcome/
+  // needsIntroductionRedirect (both already correctly short-circuit
+  // before `children` ever renders, so this inherits the same
+  // no-content-flash guarantee) and before `return children` - the one
+  // remaining case where a guest (guestEntryChosen, so needsWelcome is
+  // already false) lands directly on a protected step route. Mirrors
+  // Welcome's own onContinueAsGuest pattern: preserve which journey via
+  // setPendingJourneyIntent before navigating to /auth, so a genuine
+  // sign-in/sign-up still resumes Morning/Evening from the top afterward
+  // (see pendingJourneyIntent.js's own doc comment for why this is
+  // "resume from the top", not a deep link back to the exact step -
+  // that's this mechanism's own existing, pre-existing limit, not
+  // something this fix introduces).
+  const journeyAction = PROTECTED_MORNING_PATHS.has(location.pathname)
+    ? 'morning'
+    : PROTECTED_EVENING_PATHS.has(location.pathname)
+    ? 'sleep'
+    : null;
+  const needsJourneyGuard = isGuest && journeyAction !== null;
+
+  if (needsJourneyGuard) {
+    return (
+      <div className="min-h-screen bg-background">
+        <SignInPromptDialog
+          open
+          onSignIn={() => {
+            setPendingJourneyIntent(journeyAction);
+            navigate('/auth');
+          }}
+          onCreateAccount={() => {
+            setPendingJourneyIntent(journeyAction);
+            navigate('/auth?tab=signup');
+          }}
+          onDismiss={() => navigate('/', { replace: true })}
+        />
+      </div>
+    );
   }
 
   return children;

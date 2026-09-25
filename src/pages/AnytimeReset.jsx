@@ -301,7 +301,19 @@ export const AnytimeReset = () => {
           <div className="space-y-1">
             <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt</span>
             <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">Take an Anytime Reset</h1>
-            <p className="text-sm text-on-surface-variant">Choose what you need and how much time you have.</p>
+            {/* F3 (pre-Build-15 usability pass) — found live: a guest could
+                complete the whole Need -> Time -> Recommendation wizard
+                and only discover the sign-in requirement after tapping
+                Start. One calm, early disclosure at the first useful
+                point (this subtitle), guest-only - authenticated copy is
+                completely unchanged. See Step 3's RecommendationCard
+                `locked` badge + "Sign in to start" label below for the
+                second half of this fix. */}
+            <p className="text-sm text-on-surface-variant">
+              {isGuest
+                ? 'Choose what you need and how much time you have. Sign in is required to play your personalised recommendation.'
+                : 'Choose what you need and how much time you have.'}
+            </p>
           </div>
           <div className="space-y-1">
             <h2 className="text-sm font-bold text-on-surface">What do you need right now?</h2>
@@ -379,13 +391,18 @@ export const AnytimeReset = () => {
               isClosestMatch={recommendation.matchQuality === 'closest'}
               matchReason={current.matchReason}
               onStart={handleBegin}
-              startLabel="Start"
+              // F3 — a guest sees "Sign in to start" instead of a
+              // normal-looking "Start" that unexpectedly opens a gate;
+              // the actual gate mechanism (handleBegin -> SignInPromptDialog)
+              // is completely unchanged, only the label differs.
+              startLabel={isGuest ? 'Sign in to start' : 'Start'}
               startDisabled={authLoading || verifyingAuth}
               startBusy={verifyingAuth}
               onChooseAnother={handleChooseAnother}
               showChooseAnother={items.length > 1}
               chooseAnotherLabel="Choose another"
               accent="anytime"
+              locked={isGuest}
             />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">

@@ -49,7 +49,7 @@ import { clearEveningBreathingPattern } from '../lib/eveningBreathingSelection';
 
 export const Home = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, intentions, effectiveTimezone, userId } = useAlarm();
+  const { alarmTime, bedTime, intentions, intentionsConfirmed, effectiveTimezone, userId } = useAlarm();
   const { profile, user, isGuest } = useAuth();
   const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
 
@@ -1257,6 +1257,7 @@ export const Home = () => {
           intentions={displayIntentions}
           isGuest={isGuest}
           onRequireSignIn={promptRoutineSignIn}
+          confirmed={intentionsConfirmed}
         />
       </div>
 

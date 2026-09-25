@@ -25,7 +25,7 @@ describe('Home.jsx reads the CURRENT identity\'s own completion key, never a bar
   });
 
   it('derives isMorningDone/isEveningDone/isMeditatedToday from the scoped key, keyed off the destructured userId', () => {
-    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, effectiveTimezone, userId \} = useAlarm\(\);/);
+    expect(homeSource).toMatch(/const \{ alarmTime, bedTime, intentions, intentionsConfirmed, effectiveTimezone, userId \} = useAlarm\(\);/);
     expect(homeSource).toMatch(/localStorage\.getItem\(getMorningCompletionKey\(userId\)\) === today/);
     expect(homeSource).toMatch(/localStorage\.getItem\(getEveningCompletionKey\(userId\)\) === today/);
     expect(homeSource).toMatch(/localStorage\.getItem\(getMeditationCompletionKey\(userId\)\) === today/);

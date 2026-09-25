@@ -67,7 +67,7 @@ import { getStepLabel } from '../lib/stepLabels';
  */
 export const IntentionSetup = () => {
   const navigate = useNavigate();
-  const { userId, intentions, setIntentions, setJourneyStep } = useAlarm();
+  const { userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep } = useAlarm();
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - handleSelectPreset/
   // handleAddCustom below already only ever call setIntentions (no
@@ -164,7 +164,13 @@ export const IntentionSetup = () => {
     }
     setLimitMessage('');
     setIntentions(next);
-    if (isReviewMode) saveIntentionsToCloud(userId, next);
+    // F1 — a review-mode edit saves to Supabase immediately (see this
+    // effect's own established comment above), which already makes it a
+    // genuine confirmed selection, not just a suggestion being browsed.
+    if (isReviewMode) {
+      saveIntentionsToCloud(userId, next);
+      setIntentionsConfirmed(true);
+    }
   };
 
   const handleSelectPreset = (preset) => applySelection(preset);
@@ -191,7 +197,10 @@ export const IntentionSetup = () => {
     }
     setLimitMessage('');
     setIntentions(next);
-    if (isReviewMode) saveIntentionsToCloud(userId, next);
+    if (isReviewMode) {
+      saveIntentionsToCloud(userId, next);
+      setIntentionsConfirmed(true);
+    }
     setCustomIntention('');
   };
 
@@ -213,7 +222,23 @@ export const IntentionSetup = () => {
     advanceStep();
   };
 
-  const handleComplete = async () => {
+  // F1 correction — found on review: Continue and Skip previously shared
+  // one unconditional setIntentionsConfirmed(true), treating a Skip
+  // exactly like a deliberate accept. That's wrong: Skip's own purpose is
+  // "let the user move on WITHOUT an explicit choice" (see the toSave
+  // fallback's own established comment below) - it must never be read as
+  // endorsing whatever happens to sit in `intentions` at that moment,
+  // suggested defaults included. Continue is different: it is disabled
+  // whenever intentions is empty (below), so a reachable Continue tap
+  // always means the user is deliberately submitting a real, non-empty
+  // selection via the intended form action - genuinely confirming,
+  // regardless of whether that selection happens to still equal the
+  // untouched defaults (tapping Continue on them IS the deliberate
+  // accept). `confirmed` is a plain caller-supplied boolean, not inferred
+  // from which intentions are present - the smallest change that
+  // separates "confirm" from "advance" without duplicating the shared
+  // save-and-advance logic between two near-identical functions.
+  const handleComplete = async (confirmed) => {
     setIsSaving(true);
 
     // Continue itself is disabled below whenever intentions is empty, so
@@ -227,6 +252,10 @@ export const IntentionSetup = () => {
     if (intentions.length === 0) setIntentions(toSave);
 
     await saveIntentionsToCloud(userId, toSave);
+    // F1 — only a genuine Continue confirms (see this function's own top
+    // comment); Skip never does, even when it just fell back to the
+    // suggested default above.
+    if (confirmed) setIntentionsConfirmed(true);
 
     setIsSaving(false);
 
@@ -300,6 +329,15 @@ export const IntentionSetup = () => {
         <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
           Choose one or two qualities you want to carry into today.
         </p>
+        {/* F1 — visible only until the user has genuinely confirmed a
+            selection (Continue/Skip on the live step, or a saved edit
+            while reviewing); the two starting presets are real defaults,
+            not a previous choice, and must not be presented as one. */}
+        {!intentionsConfirmed && (
+          <p className="text-[11px] text-morning-accent/90 font-semibold max-w-sm mx-auto leading-relaxed">
+            Suggested starting points — keep, remove or add your own.
+          </p>
+        )}
         {limitMessage && (
           <p className="text-xs text-secondary font-semibold" role="status">{limitMessage}</p>
         )}
@@ -391,7 +429,7 @@ export const IntentionSetup = () => {
         {!isReviewMode && (
           <>
             <button
-              onClick={handleComplete}
+              onClick={() => handleComplete(true)}
               disabled={isSaving || intentions.length === 0}
               className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
             >
@@ -399,7 +437,7 @@ export const IntentionSetup = () => {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
             <button
-              onClick={handleComplete}
+              onClick={() => handleComplete(false)}
               disabled={isSaving}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
             >

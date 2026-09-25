@@ -75,3 +75,28 @@ describe('RecommendationCard.jsx — Anytime Reset Visual Uplift: accent is addi
     expect(buttonBlock).not.toMatch(/accent/);
   });
 });
+
+// F3 (pre-Build-15 usability pass) — a guest could complete the whole
+// Anytime Reset wizard and only discover the sign-in requirement after
+// tapping Start. `locked` (additive, default false - Meditate.jsx's own
+// caller never passes it and is completely unaffected) shows a "Sign in
+// to play" badge before the tap; the actual gate mechanism itself
+// (AnytimeReset.jsx's handleBegin/SignInPromptDialog) is untouched -
+// this component still owns only the shell.
+describe('RecommendationCard.jsx — F3 guest-gate disclosure: locked badge (additive, default false)', () => {
+  it('locked defaults to false - Meditate.jsx (which never passes it) renders no badge at all, exactly as before this fix', () => {
+    expect(source).toMatch(/locked = false/);
+  });
+
+  it('the badge only renders when locked is true, reuses the established lock-icon pill shape (AudioPlayerPlaceholder.jsx premium badge), and reads "Sign in to play"', () => {
+    const block = source.match(/\{locked && \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(block).toMatch(/material-symbols-outlined text-xs" aria-hidden="true">lock</);
+    expect(block).toMatch(/Sign in to play/);
+    expect(block).toMatch(/text-primary bg-primary\/10/);
+  });
+
+  it('locked never touches onStart/startLabel/startDisabled - the caller (AnytimeReset.jsx) still fully owns the gate action and the "Sign in to start" label text', () => {
+    const badgeBlock = source.match(/\{locked && \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(badgeBlock).not.toMatch(/onStart|startLabel|startDisabled/);
+  });
+});

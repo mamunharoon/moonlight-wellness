@@ -157,16 +157,18 @@ describe('ChangeIntention.jsx — custom-intention defect fix: remaining regress
   });
 
   it('Save writes into the exact same AlarmContext `intentions` that Home.jsx/ActiveIntentionCard render (see activeIntentionCard.test.js\'s own cross-file wiring proof) - so a saved custom intention reaches Home through the same, already-proven path (item: saved custom intention appears on Home)', () => {
-    expect(source).toMatch(/const \{ userId, intentions, setIntentions \} = useAlarm\(\);/);
+    // F1: also destructures setIntentionsConfirmed - this screen only ever
+    // represents a deliberate, explicit change, so Save always confirms.
+    expect(source).toMatch(/const \{ userId, intentions, setIntentions, setIntentionsConfirmed \} = useAlarm\(\);/);
     const handleSaveBody = source.match(/const handleSave = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(handleSaveBody).toMatch(/setIntentions\(draftSelection\);\s*\n\s*await saveIntentionsToCloud\(userId, draftSelection\);/);
+    expect(handleSaveBody).toMatch(/setIntentions\(draftSelection\);\s*\n[\s\S]*?setIntentionsConfirmed\(true\);\s*\n\s*await saveIntentionsToCloud\(userId, draftSelection\);/);
   });
 });
 
 describe('ChangeIntention.jsx — Save/Cancel/Back/Close all return Home; only Save persists', () => {
-  it('Save navigates home only after both the context update and the cloud save have completed', () => {
+  it('Save navigates home only after the context update, the F1 confirm flag, and the cloud save have all completed', () => {
     const body = source.match(/const handleSave = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/setIntentions\(draftSelection\);\s*\n\s*await saveIntentionsToCloud\(userId, draftSelection\);\s*\n\s*setIsSaving\(false\);\s*\n\s*navigate\('\/'\);/);
+    expect(body).toMatch(/setIntentions\(draftSelection\);\s*\n[\s\S]*?setIntentionsConfirmed\(true\);\s*\n\s*await saveIntentionsToCloud\(userId, draftSelection\);\s*\n\s*setIsSaving\(false\);\s*\n\s*navigate\('\/'\);/);
   });
 
   it('Save is disabled while empty or already saving, and shows a "Saving..." busy label', () => {

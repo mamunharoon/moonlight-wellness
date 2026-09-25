@@ -20,8 +20,8 @@ describe('OnboardingGate.jsx — imports the real, shared decision functions, ne
     expect(source).toMatch(/import \{ hasPostAuthRedirectBeenHandled, markPostAuthRedirectHandled \} from '\.\.\/lib\/postAuthRedirectGuard';/);
   });
 
-  it('imports consumePendingJourneyIntent/resolveJourneyResumeTarget from the same dedicated module Auth.jsx uses - never a second, parallel journey-intent mechanism', () => {
-    expect(source).toMatch(/import \{ consumePendingJourneyIntent, resolveJourneyResumeTarget \} from '\.\.\/lib\/pendingJourneyIntent';/);
+  it('imports consumePendingJourneyIntent/resolveJourneyResumeTarget from the same dedicated module Auth.jsx uses - never a second, parallel journey-intent mechanism (F5: also imports setPendingJourneyIntent, for the new guest journey-route guard below)', () => {
+    expect(source).toMatch(/import \{ consumePendingJourneyIntent, resolveJourneyResumeTarget, setPendingJourneyIntent \} from '\.\.\/lib\/pendingJourneyIntent';/);
   });
 });
 
