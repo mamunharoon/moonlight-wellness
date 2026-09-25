@@ -110,9 +110,28 @@ describe('Safe-area support — env(safe-area-inset-*), additive, never doubled,
   });
 
   it('py-6 was removed from the root className (replaced by the inline-style equivalent, not left in addition to it - which would double the base padding)', () => {
-    const rootDivMatch = authSource.match(/<div\s+className="min-h-\[85vh\][^"]*"/);
+    // Build 15 viewport-blocker fix: the content div's className changed
+    // from min-h-[85vh] to min-h-full (it now lives inside its own
+    // h-dvh/overflow-y-auto scroll wrappers - see this file's own doc
+    // comment - so it grows with content instead of clamping to 85% of
+    // the viewport), and justify-center became justify-[safe_center] so
+    // overflowing content is never clipped at the top. Neither change
+    // touches padding, so this check still anchors on the same div, just
+    // via its now-current className.
+    const rootDivMatch = authSource.match(/className="min-h-full[^"]*"/);
     expect(rootDivMatch).toBeTruthy();
     expect(rootDivMatch[0]).not.toMatch(/\bpy-6\b/);
+  });
+
+  it('the new scroll-repair wrappers (Build 15 viewport blocker fix) are present: this route gets no scroll container from <Layout>, so it must own its own', () => {
+    expect(authSource).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(authSource).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  });
+
+  it('justify-[safe_center] replaces justify-center on the content div - centers when content fits, falls back to top-aligned (scrollable) instead of clipping when it does not', () => {
+    const rootDivMatch = authSource.match(/className="min-h-full[^"]*"/);
+    expect(rootDivMatch[0]).toMatch(/justify-\[safe_center\]/);
+    expect(rootDivMatch[0]).not.toMatch(/\bjustify-center\b/);
   });
 
   it('no hard-coded device-specific inset value (a raw pixel constant standing in for the safe area) was introduced', () => {

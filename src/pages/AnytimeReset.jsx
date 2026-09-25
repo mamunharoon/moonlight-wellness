@@ -258,8 +258,17 @@ export const AnytimeReset = () => {
   const stepIndex = step === 'need' ? 0 : step === 'duration' ? 1 : 2;
 
   return (
+    // Mobile scroll repair (Build 15 viewport audit): rendered outside
+    // <Layout> with no scroll container of its own, relying on document
+    // scroll - which index.html deliberately disables on both axes (see
+    // Introduction.jsx's own identical fix and doc comment). Step 1's need
+    // grid and Step 3's recommendation actions were unreachable on small
+    // phones as a result. Same proven shape as Introduction.jsx/
+    // Layout.jsx: this screen now owns its own single scroll container.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
+      className="min-h-full max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
       style={{
         // Build 15 Phase B — 20px mobile margin, reducing safely to 16px
         // on very small screens (clamp between the two, scaling on
@@ -426,6 +435,8 @@ export const AnytimeReset = () => {
         onCreateAccount={handleCreateAccount}
         onDismiss={() => setSignInPromptOpen(false)}
       />
+    </div>
+    </div>
     </div>
   );
 };

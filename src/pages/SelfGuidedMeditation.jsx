@@ -106,28 +106,42 @@ export const SelfGuidedMeditation = () => {
   }
 
   return (
-    <div
-      className="max-w-md w-full mx-auto space-y-6 animate-in fade-in duration-500 pb-6"
-      style={{
-        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-      }}
-    >
-      <JourneyHeader showBackButton backFallback={context.fallback} onClose={() => navigate(context.fallback)} />
+    // Mobile scroll repair (Build 15 viewport audit): this setup screen is
+    // rendered outside <Layout> (full-bleed, see App.jsx routing) and had
+    // no scroll container of its own, so it relied on document scroll -
+    // which index.html deliberately disables on both axes (see
+    // Introduction.jsx's own identical fix and doc comment for why). With
+    // 5 style options + duration + sound choices + Begin Meditation
+    // routinely taller than one screen, "Begin Meditation" was unreachable
+    // at every tested size, Pro Max included. Same proven shape as
+    // Introduction.jsx/Layout.jsx: this screen now owns its own single
+    // scroll container instead of depending on document scroll.
+    <div className="h-dvh overflow-hidden">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+        <div
+          className="min-h-full max-w-md w-full mx-auto space-y-6 animate-in fade-in duration-500 pb-6"
+          style={{
+            paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+            paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
+            paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+          }}
+        >
+          <JourneyHeader showBackButton backFallback={context.fallback} onClose={() => navigate(context.fallback)} />
 
-      <MeditationSetupPanel
-        compact={false}
-        recommendedDurationId={getRecommendedDurationId()}
-        style={session.style}
-        duration={session.duration}
-        soundId={session.soundId}
-        onSelectStyle={session.selectStyle}
-        onSelectDuration={session.setDurationId}
-        onSelectSound={session.selectSound}
-        onBegin={session.begin}
-        onExploreGuided={handleExploreGuided}
-      />
+          <MeditationSetupPanel
+            compact={false}
+            recommendedDurationId={getRecommendedDurationId()}
+            style={session.style}
+            duration={session.duration}
+            soundId={session.soundId}
+            onSelectStyle={session.selectStyle}
+            onSelectDuration={session.setDurationId}
+            onSelectSound={session.selectSound}
+            onBegin={session.begin}
+            onExploreGuided={handleExploreGuided}
+          />
+        </div>
+      </div>
     </div>
   );
 };

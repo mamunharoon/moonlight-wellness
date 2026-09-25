@@ -178,22 +178,32 @@ describe('AnytimeReset.jsx — BetaVideoModal integration, unchanged component',
 });
 
 describe('AnytimeReset.jsx — desktop layout: bounded/centred container, never full-bleed', () => {
+  // Build 15 viewport-blocker fix: the root return now opens with two
+  // additional scroll-repair wrapper divs (h-dvh overflow-hidden, then
+  // h-full overflow-y-auto - see this file's own doc comment) before the
+  // real content div these checks care about, so the anchor targets that
+  // content div (the one carrying max-w-md) directly rather than
+  // whichever div happens to open the return.
+  const rootOpenTag = source.match(/<div\s+className="min-h-full max-w-md[\s\S]*?>/)?.[0] ?? '';
+
   it('the root element is bounded to max-w-md and centred, matching the app\'s existing mobile-simulating shell width', () => {
-    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
     expect(rootOpenTag).toMatch(/max-w-md/);
     expect(rootOpenTag).toMatch(/mx-auto/);
   });
 
   it('horizontal padding is safe-area-aware AND responsive (Phase B: 20px default, clamped down to 16px on very small screens) - never a bare fixed px value that could double up with a safe-area inset elsewhere', () => {
-    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
     expect(rootOpenTag).toMatch(/paddingLeft:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-left\)\)'/);
     expect(rootOpenTag).toMatch(/paddingRight:\s*'calc\(clamp\(1rem, 4vw, 1\.25rem\) \+ env\(safe-area-inset-right\)\)'/);
   });
 
   it('width stays fluid (max-w-md + w-full), never a fixed pixel width that could overflow a narrow mobile viewport', () => {
-    const rootOpenTag = source.match(/return \(\s*\n\s*<div\s*\n?([\s\S]*?)>/)?.[0] ?? '';
     expect(rootOpenTag).toMatch(/w-full/);
     expect(rootOpenTag).not.toMatch(/w-\[\d+px\]/);
+  });
+
+  it('the new scroll-repair wrappers (Build 15 viewport blocker fix) are present: full-bleed routes get no scroll container from <Layout>, so this screen must own its own', () => {
+    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
   });
 });
 

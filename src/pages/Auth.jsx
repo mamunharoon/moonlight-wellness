@@ -400,8 +400,29 @@ export const Auth = () => {
   };
 
   return (
+    // Mobile scroll repair (Build 15 viewport audit): the comment this
+    // replaces was wrong - index.html deliberately sets `overflow: hidden`
+    // on both body and html (see that file's own doc comment), specifically
+    // because every Layout-wrapped page already owns its own internal
+    // scroll container and relying on document scroll causes two competing
+    // scrollers. This page had no scroll container of its own, so on a
+    // real device (not just a desktop browser, where Chrome happens to
+    // fall back to scrolling <html>) content past the fold was completely
+    // unreachable - confirmed live: Create Account was unreachable at
+    // every size except the largest iPhone, Sign In at the smallest size.
+    // Same proven shape as Introduction.jsx/Layout.jsx: this screen now
+    // owns its own single scroll container instead of depending on
+    // document scroll.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-[85vh] flex flex-col justify-center max-w-md mx-auto space-y-8"
+      // justify-[safe_center], not justify-center: keeps the existing
+      // vertical centering when content fits (every size this form has
+      // ever fit at), but falls back to top-aligned - and therefore fully
+      // scrollable via the wrapper above - the moment content is taller
+      // than the scroll area, instead of centering-and-clipping the start
+      // of the form the way plain `center` does when content overflows.
+      className="min-h-full flex flex-col justify-[safe_center] max-w-md mx-auto space-y-8"
       // Safe-area support: Auth/ResetPassword render outside <Layout> (see
       // App.jsx routing) and capacitor.config.ts sets `contentInset:
       // 'never'`, so nothing else insets these two pages from the notch/
@@ -410,11 +431,7 @@ export const Auth = () => {
       // header/nav (see Layout.jsx's own safe-area comments). Adds to the
       // existing 1.5rem (previously py-6) padding rather than replacing
       // it, and never doubles up since this is the only safe-area padding
-      // either page applies. No overflow/height constraint exists on this
-      // div, index.css, or index.html (confirmed - no #root or html/body
-      // height/overflow rule anywhere in this repo), so content taller
-      // than the viewport already scrolls via the normal document scroll;
-      // nothing here needs to change to keep that working.
+      // either page applies.
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
@@ -749,6 +766,8 @@ export const Auth = () => {
       <Link to="/profile" onClick={markGuestEntryChosen} className="block text-center text-xs text-on-surface-variant">
         Continue as guest
       </Link>
+    </div>
+    </div>
     </div>
   );
 };

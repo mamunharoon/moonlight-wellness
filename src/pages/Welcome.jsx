@@ -18,7 +18,29 @@ export const Welcome = ({ onContinueAsGuest }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col justify-between px-6 py-10 max-w-md mx-auto">
+    // Mobile scroll repair (Build 15 viewport audit): this is the very
+    // first screen an unauthenticated visitor sees, rendered before
+    // <Layout> mounts (see OnboardingGate.jsx), so it never got Layout's
+    // own scroll container and instead relied on document scroll - which
+    // index.html deliberately disables on both axes (see that file's own
+    // doc comment, and Introduction.jsx's identical fix). At the smallest
+    // supported size, "Sign In" and "Continue as Guest" were unreachable
+    // with no way to scroll to them. Same proven shape as Introduction.jsx/
+    // Layout.jsx: this screen now owns its own single scroll container.
+    // justify-between/justify-center below are unchanged - they only
+    // matter once content already fits inside `min-h-full`, and simply
+    // overflow downward (into the new scrollable area) rather than
+    // clipping when it doesn't, so the existing "buttons anchored to the
+    // bottom on a tall phone" look is preserved exactly.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+    <div
+      className="min-h-full flex flex-col justify-between px-6 max-w-md mx-auto"
+      style={{
+        paddingTop: 'calc(2.5rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))',
+      }}
+    >
       <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6">
         <span
           className="material-symbols-outlined text-primary text-5xl"
@@ -71,6 +93,8 @@ export const Welcome = ({ onContinueAsGuest }) => {
           Continue as Guest
         </button>
       </div>
+    </div>
+    </div>
     </div>
   );
 };
