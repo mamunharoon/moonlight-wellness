@@ -63,7 +63,7 @@ describe('4. Morning-specific cards use dawn gold', () => {
   });
 
   it('Home\'s Today\'s Rhythm Morning pill (pre-existing, confirmed unaffected)', () => {
-    expect(homeSource).toMatch(/'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'/);
+    expect(homeSource).toMatch(/'bg-morning-accent text-on-morning-accent border-morning-accent shadow-morning-glow'/);
   });
 });
 
@@ -88,7 +88,7 @@ describe('5. Equivalent repeated destinations use the same semantic accent every
       introductionSource.includes("iconClass: 'bg-morning-accent/15 text-morning-accent'"),
       routinesCatalogSource.includes("accentColor: 'var(--color-gratitude-accent)'"),
       mediaCatalogSource.includes("Morning: 'text-morning-accent'"),
-      homeSource.includes("'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'")
+      homeSource.includes("'bg-morning-accent text-on-morning-accent border-morning-accent shadow-morning-glow'")
     ];
     expect(goldSurfaces.every(Boolean)).toBe(true);
   });

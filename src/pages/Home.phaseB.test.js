@@ -43,19 +43,21 @@ describe('Home.jsx — card padding consistency (Phase B)', () => {
 
 describe('Home.jsx — in-progress routine cards show real step progress, not a new invented value (Phase B)', () => {
   it('the in-progress card body call passes resolveStepLabel(...) - the exact same function/data already used by the stale-choice card and cross-routine banner above it', () => {
-    // Morning Visual Uplift (Build 16): Morning's three call sites gained
-    // a third `isMorning` argument (see nextStepCardBody's own doc
-    // comment) - Evening's own three call sites are still exactly the
-    // original 1-2 argument calls, completely unaffected.
-    expect(source).toMatch(/nextStepCardBody\(morningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.morning, morningResolvedStepIndex\), true\)/);
-    expect(source).toMatch(/nextStepCardBody\(eveningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.evening, eveningResolvedStepIndex\)\)/);
+    // Morning Visual Uplift (Build 16) / Home Visual Uplift: Morning's
+    // three call sites pass a third 'morning' period argument, and
+    // (Home Visual Uplift correction) Evening's own three call sites now
+    // explicitly pass 'evening' too - see nextStepCardBody's own doc
+    // comment. Neither routine's step-progress DATA (resolveStepLabel)
+    // changed at all.
+    expect(source).toMatch(/nextStepCardBody\(morningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.morning, morningResolvedStepIndex\), 'morning'\)/);
+    expect(source).toMatch(/nextStepCardBody\(eveningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.evening, eveningResolvedStepIndex\), 'evening'\)/);
   });
 
-  it('the not-started and completed card calls are unchanged for Evening (single-argument) - the step-progress badge is additive, only for in-progress; Morning\'s equivalents now also pass `true` for the new isMorning styling flag', () => {
-    expect(source).toMatch(/nextStepCardBody\(morningNotStartedCard, undefined, true\)/);
-    expect(source).toMatch(/nextStepCardBody\(morningCompletedCard, undefined, true\)/);
-    expect(source).toMatch(/nextStepCardBody\(eveningNotStartedCard\)/);
-    expect(source).toMatch(/nextStepCardBody\(eveningCompletedCard\)/);
+  it('the not-started and completed card calls carry no step-progress label for either routine (undefined) - the step-progress badge is additive, only for in-progress; both routines now also pass their own explicit period for styling', () => {
+    expect(source).toMatch(/nextStepCardBody\(morningNotStartedCard, undefined, 'morning'\)/);
+    expect(source).toMatch(/nextStepCardBody\(morningCompletedCard, undefined, 'morning'\)/);
+    expect(source).toMatch(/nextStepCardBody\(eveningNotStartedCard, undefined, 'evening'\)/);
+    expect(source).toMatch(/nextStepCardBody\(eveningCompletedCard, undefined, 'evening'\)/);
   });
 });
 

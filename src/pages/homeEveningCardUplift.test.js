@@ -18,8 +18,8 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)), 'utf-8');
 
 describe('Home.jsx — Evening card shells gain border-evening-accent/25 shadow-evening-glow', () => {
-  it('exactly 4 Evening cards carry the new className (stale-choice, not-started, in-progress, completed)', () => {
-    const count = (source.match(/className="glass-panel p-6 rounded-3xl space-y-[56] border-evening-accent\/25 shadow-evening-glow"/g) ?? []).length;
+  it('exactly 4 Evening cards carry the new className (stale-choice, not-started, in-progress, completed) - p-5, Home Visual Uplift compaction (was p-6)', () => {
+    const count = (source.match(/className="glass-panel p-5 rounded-3xl space-y-[56] border-evening-accent\/25 shadow-evening-glow"/g) ?? []).length;
     expect(count).toBe(4);
   });
 
@@ -46,10 +46,10 @@ describe('Home.jsx — Evening card logic is completely untouched by the restyle
     expect(source).toMatch(/eveningCardState === 'completed'/);
   });
 
-  it('nextStepCardBody call sites for Evening are still 1-arg (no isMorning/isEvening flag was added to the shared badge/heading helper for Evening)', () => {
-    expect(source).toMatch(/\{nextStepCardBody\(eveningNotStartedCard\)\}/);
-    expect(source).toMatch(/\{nextStepCardBody\(eveningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.evening, eveningResolvedStepIndex\)\)\}/);
-    expect(source).toMatch(/\{nextStepCardBody\(eveningCompletedCard\)\}/);
+  it('nextStepCardBody call sites for Evening now pass \'evening\' as the period (Home Visual Uplift correction - Evening previously got no period, silently rendering the generic peach/plain-sans treatment; the state logic/conditions themselves are unchanged)', () => {
+    expect(source).toMatch(/\{nextStepCardBody\(eveningNotStartedCard, undefined, 'evening'\)\}/);
+    expect(source).toMatch(/\{nextStepCardBody\(eveningInProgressCard, resolveStepLabel\(RITUAL_SESSION_IDS\.evening, eveningResolvedStepIndex\), 'evening'\)\}/);
+    expect(source).toMatch(/\{nextStepCardBody\(eveningCompletedCard, undefined, 'evening'\)\}/);
   });
 
   it('guest-vs-authenticated completed-state buttons (Begin Evening Wind-Down / Review-Edit / Redo / Return Home path) are untouched', () => {

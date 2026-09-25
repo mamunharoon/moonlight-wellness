@@ -18,13 +18,13 @@ const recommendationCardSource = readFileSync(
 );
 
 describe('Home.jsx — Build 15 "Today\'s Rhythm" cards meet the 44px minimum, selected state and switching logic intact', () => {
-  it('all three cards carry min-h-[64px] plus a flex-centered layout so the box (not just its content) comfortably clears 44px', () => {
+  it('all three cards carry min-h-[52px] plus a flex-centered layout so the box (not just its content) still comfortably clears the 44px floor (Home Visual Uplift compact treatment - reduced from 64px, still 8px above the minimum)', () => {
     const morningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('morning'\)\}[\s\S]{0,300}/)?.[0] ?? '';
     const anytimeTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}[\s\S]{0,300}/)?.[0] ?? '';
     const eveningTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('evening'\)\}[\s\S]{0,300}/)?.[0] ?? '';
-    expect(morningTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
-    expect(anytimeTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
-    expect(eveningTab).toMatch(/min-h-\[64px\] flex flex-col items-center justify-center/);
+    expect(morningTab).toMatch(/min-h-\[52px\] flex flex-col items-center justify-center/);
+    expect(anytimeTab).toMatch(/min-h-\[52px\] flex flex-col items-center justify-center/);
+    expect(eveningTab).toMatch(/min-h-\[52px\] flex flex-col items-center justify-center/);
   });
 
   it('all three cards carry a visible focus-visible ring', () => {
@@ -43,10 +43,13 @@ describe('Home.jsx — Build 15 "Today\'s Rhythm" cards meet the 44px minimum, s
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'morning'\}/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'anytime'\}/);
     expect(homeSource).toMatch(/aria-selected=\{activePeriod === 'evening'\}/);
-    expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm/);
+    // Home Visual Uplift — each active tab now carries its own already-
+    // existing named circadian glow (shadow-morning-glow/shadow-mint-glow/
+    // shadow-evening-glow) in place of the old generic shadow-sm.
+    expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-morning-glow/);
     // Anytime Reset Visual Uplift (Phase 2) - mint now, not the generic peach.
-    expect(homeSource).toMatch(/bg-tertiary text-on-tertiary border-tertiary shadow-sm/);
-    expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm/);
+    expect(homeSource).toMatch(/bg-tertiary text-on-tertiary border-tertiary shadow-mint-glow/);
+    expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-evening-glow/);
   });
 
   it('the compact text-[10px] label footprint is preserved on all three cards', () => {

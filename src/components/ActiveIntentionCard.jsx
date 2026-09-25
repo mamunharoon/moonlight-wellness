@@ -36,7 +36,15 @@ export const ActiveIntentionCard = ({ label, intentions, isGuest, onRequireSignI
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-secondary">{label}</p>
+        {/* Home Visual Uplift — text-secondary (blue) -> text-tertiary
+            (mint): all three Home Stitch references (Morning/Anytime/
+            Evening-complete) independently give this exact label its own
+            fixed mint/cyan identity regardless of which circadian period is
+            active - not a per-file placeholder, a consistent cross-
+            reference signal. Reuses the existing tertiary mint token,
+            already used elsewhere in this app (Anytime's own badge/border),
+            rather than introducing a new colour. */}
+        <p className="text-xs font-semibold uppercase tracking-wider text-tertiary">{label}</p>
         <button
           type="button"
           onClick={handleChangeTap}

@@ -54,6 +54,11 @@ export default {
         "on-evening-accent": "var(--color-on-evening-accent)",
         "evening-track-off": "var(--color-evening-track-off)",
         "background": "var(--color-background)",
+        // Home Visual Uplift — Home-scoped only (see src/index.css's
+        // matching comment). A second, additive Tailwind key; the shared
+        // "background" token above is completely untouched, so every other
+        // page's bg-background stays exactly as it renders today.
+        "home-background": "var(--color-home-background)",
         "on-background": "var(--color-on-background)",
         "surface": "var(--color-surface)",
         "on-surface": "var(--color-on-surface)",

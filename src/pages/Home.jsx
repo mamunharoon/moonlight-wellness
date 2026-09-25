@@ -608,56 +608,86 @@ export const Home = () => {
   // a second place the same real data is shown, so a paused routine's
   // card states its progress as plainly as its title already does.
   //
-  // Morning Visual Uplift (Build 16) — `isMorning` is a fourth, additive,
-  // default-false param. Every one of the three real Evening call sites
-  // below omits it, so their eyebrow chip/heading render exactly the same
-  // peach/sans classes they always have - byte-for-byte unaffected. Only
-  // the three real Morning call sites pass `true`, swapping the eyebrow
-  // chip to the already-verified morning-accent gold and the heading to
-  // Morning's own Playfair Display serif (Georgia/serif fallback if the
-  // font request ever fails) - never touching Evening's shared branch of
-  // this same function.
-  const nextStepCardBody = (card, stepProgressLabel, isMorning = false) => (
-    <>
-      {/* inline-flex (not flex/block) deliberately - Morning's cards are
-          text-center, Evening's are not, and an inline-level box is what
-          lets this chip row inherit whichever alignment its own card
-          ancestor already uses (the same way the original bare <span>
-          did) rather than this wrapper imposing its own justify-content
-          and silently re-centering Evening's otherwise left-aligned
-          cards. */}
-      <div className="inline-flex items-center gap-2 flex-wrap">
-        <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-            isMorning ? 'bg-morning-accent/10 border border-morning-accent/30 text-morning-accent' : 'bg-primary/10 border border-primary/20 text-primary'
-          }`}
-        >
-          {card.eyebrow}
-        </span>
-        {stepProgressLabel && (
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">
-            {stepProgressLabel}
+  // Morning Visual Uplift (Build 16) / Home Visual Uplift (typography
+  // contract, both Home Stitch review rounds) — `period` replaces the
+  // original boolean `isMorning` param, additive in the same spirit:
+  // default 'anytime' reproduces the exact same peach eyebrow / plain
+  // heading every pre-existing call site (Evening included) already
+  // rendered, byte-for-byte, since Evening never passed a third argument
+  // before this change either. Only the real Morning call sites now pass
+  // 'morning' (unchanged behaviour, gold eyebrow + Playfair/font-morning-
+  // display) and the real Evening call sites now pass 'evening' (NEW:
+  // Evening's eyebrow chip was still rendering the generic peach/primary
+  // treatment before this change, and its heading was still plain sans -
+  // found during the Home Visual Uplift Stitch audit, since only the
+  // outer card SHELL below had ever been given
+  // border-evening-accent/shadow-evening-glow, never this shared inner
+  // body - now genuinely periwinkle-badged + font-serif italic
+  // (Newsreader), matching the approved circadian typography contract for
+  // Evening exactly as it already did for Morning).
+  const nextStepCardBody = (card, stepProgressLabel, period = 'anytime') => {
+    const isMorningPeriod = period === 'morning';
+    const isEveningPeriod = period === 'evening';
+    return (
+      <>
+        {/* inline-flex (not flex/block) deliberately - Morning's cards are
+            text-center, Evening's are not, and an inline-level box is what
+            lets this chip row inherit whichever alignment its own card
+            ancestor already uses (the same way the original bare <span>
+            did) rather than this wrapper imposing its own justify-content
+            and silently re-centering Evening's otherwise left-aligned
+            cards. */}
+        <div className="inline-flex items-center gap-2 flex-wrap">
+          <span
+            className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              isMorningPeriod
+                ? 'bg-morning-accent/10 border border-morning-accent/30 text-morning-accent'
+                : isEveningPeriod
+                ? 'bg-evening-accent/10 border border-evening-accent/30 text-evening-accent'
+                : 'bg-primary/10 border border-primary/20 text-primary'
+            }`}
+          >
+            {card.eyebrow}
           </span>
-        )}
-      </div>
-      <div className="space-y-2">
-        <h3
-          className={`text-2xl font-bold leading-tight text-on-surface ${isMorning ? 'font-morning-display italic' : ''}`}
-        >
-          {card.title}
-        </h3>
-        {card.supportingText && (
-          <p className="text-sm text-on-surface-variant font-medium">{card.supportingText}</p>
-        )}
-        {card.duration && (
-          <p className="text-xs text-on-surface-variant/70 font-semibold">{card.duration}</p>
-        )}
-      </div>
-    </>
-  );
+          {stepProgressLabel && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">
+              {stepProgressLabel}
+            </span>
+          )}
+        </div>
+        <div className="space-y-2">
+          <h3
+            className={`text-2xl font-bold leading-tight text-on-surface ${
+              isMorningPeriod ? 'font-morning-display italic' : isEveningPeriod ? 'font-serif italic' : ''
+            }`}
+          >
+            {card.title}
+          </h3>
+          {card.supportingText && (
+            <p className="text-sm text-on-surface-variant font-medium">{card.supportingText}</p>
+          )}
+          {card.duration && (
+            <p className="text-xs text-on-surface-variant/70 font-semibold">{card.duration}</p>
+          )}
+        </div>
+      </>
+    );
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    // Home Visual Uplift — Home-scoped background (see index.css/
+    // tailwind.config.js's matching "home-background" comments): -m-4 p-4
+    // bleeds this div out to Layout.jsx's own existing px-4 content
+    // padding and reclaims it as this element's own solid fill instead,
+    // and min-h-full asks that fill to cover at least the full scrollable
+    // viewport (Layout's Outlet container genuinely has a real computed
+    // height - h-dvh flex column - so min-h-full resolves to it, not 0),
+    // growing further if Home's own content is taller. This paints over
+    // Layout's shared bg-background/ambient-glow layer only for the
+    // vertical extent of THIS page's own root element - every other route
+    // rendered through the same <Outlet> is completely unaffected, and
+    // Layout.jsx itself is never touched.
+    <div className="relative -m-4 p-4 min-h-full bg-home-background space-y-8 animate-in fade-in duration-500">
 
       {/* Morning-flow redesign — one-time migration notice. Required exact
           copy: "Your Morning routine has been refreshed. Start today's
@@ -705,19 +735,31 @@ export const Home = () => {
         <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 mb-2 px-1">
           Today's Rhythm
         </p>
+        {/* Home Visual Uplift — compact treatment (Stitch reference, all
+            three Home mockups): min-h-[64px] -> min-h-[52px] (still clears
+            the 44px floor with room to spare) and the active tab's own
+            shadow-sm swapped for its already-existing named circadian glow
+            (shadow-morning-glow/shadow-mint-glow/shadow-evening-glow -
+            tailwind.config.js, already used on the main cards below) so
+            the selector itself gets the same restrained per-period glow
+            Stitch shows, reusing tokens rather than inventing new ones.
+            Fill/text colours (bg-morning-accent/on-morning-accent etc.) are
+            completely unchanged - they already matched Stitch's own active-
+            tab treatment exactly (dark accessible text on a light circadian
+            fill), confirmed against all three Stitch references. */}
         <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Today's rhythm">
           <button
             type="button"
             role="tab"
             onClick={() => setSelectedPeriod('morning')}
             aria-selected={activePeriod === 'morning'}
-            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-morning-accent ${
+            className={`min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-morning-accent ${
               activePeriod === 'morning'
-                ? 'bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm'
+                ? 'bg-morning-accent text-on-morning-accent border-morning-accent shadow-morning-glow'
                 : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">wb_twilight</span>
+            <span className="material-symbols-outlined text-lg">wb_twilight</span>
             <span className="text-[10px] font-bold uppercase tracking-wider">
               {isMorningDone ? '✓ Morning' : 'Morning'}
             </span>
@@ -732,13 +774,13 @@ export const Home = () => {
             role="tab"
             onClick={() => setSelectedPeriod('anytime')}
             aria-selected={activePeriod === 'anytime'}
-            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary ${
+            className={`min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary ${
               activePeriod === 'anytime'
-                ? 'bg-tertiary text-on-tertiary border-tertiary shadow-sm'
+                ? 'bg-tertiary text-on-tertiary border-tertiary shadow-mint-glow'
                 : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">bolt</span>
+            <span className="material-symbols-outlined text-lg">bolt</span>
             <span className="text-[10px] font-bold uppercase tracking-wider">Anytime</span>
           </button>
           <button
@@ -746,13 +788,13 @@ export const Home = () => {
             role="tab"
             onClick={() => setSelectedPeriod('evening')}
             aria-selected={activePeriod === 'evening'}
-            className={`min-h-[64px] flex flex-col items-center justify-center gap-1 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent ${
+            className={`min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent ${
               activePeriod === 'evening'
-                ? 'bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm'
+                ? 'bg-evening-accent text-on-evening-accent border-evening-accent shadow-evening-glow'
                 : 'bg-white/5 text-on-surface-variant/60 border-transparent hover:bg-white/10'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">bedtime</span>
+            <span className="material-symbols-outlined text-lg">bedtime</span>
             <span className="text-[10px] font-bold uppercase tracking-wider">
               {isEveningDone ? '✓ Evening' : 'Evening'}
             </span>
@@ -837,7 +879,14 @@ export const Home = () => {
           touch target regardless of the shorter label's own line height. */}
       <div className="space-y-2">
         {greetingText && (
-          <h2 className="text-4xl font-extrabold text-on-surface tracking-tight">{greetingText}</h2>
+          // Home Visual Uplift — text-4xl (36px) -> text-3xl (30px),
+          // matching Stitch's own reduced hierarchy (all three Home
+          // references land between 30-36px; 30px is the shared, moderate
+          // choice). break-words (new) is the actual long-name safety net -
+          // this heading had no wrap guard before, so a genuinely long
+          // first name could threaten horizontal overflow; an ordinary name
+          // ("Mamun") is unaffected and still renders on one line at 375px.
+          <h2 className="text-3xl font-extrabold text-on-surface tracking-tight break-words">{greetingText}</h2>
         )}
         <div className="flex justify-center">
           <Link
@@ -866,7 +915,7 @@ export const Home = () => {
               both explicit choices are always shown side by side. */}
           {morningCardState === 'not-started' && morningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-morning-accent/30 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl space-y-5 border-morning-accent/30 shadow-morning-glow"
               // Build 15 Phase B fix: an inline style, not the
               // bg-morning-tint/10 utility class - .glass-panel's own
               // plain-CSS `background` shorthand sits later in the
@@ -896,7 +945,7 @@ export const Home = () => {
                 type="button"
                 onClick={handleResumeStaleMorning}
                 aria-label={`Resume previous Morning routine, ${resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}`}
-                className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="block w-full min-h-[44px] py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Resume Previous Routine
               </button>
@@ -916,14 +965,14 @@ export const Home = () => {
               (morning/afternoon/evening-night) per nextStepCard.js. */}
           {morningCardState === 'not-started' && !morningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningNotStartedCard, undefined, true)}
+              {nextStepCardBody(morningNotStartedCard, undefined, 'morning')}
               <button
                 type="button"
                 onClick={handleMorningAction}
-                className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
               >
                 {morningNotStartedCard.buttonLabel}
               </button>
@@ -933,14 +982,14 @@ export const Home = () => {
           {/* MORNING — paused today. */}
           {morningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), true)}
+              {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), 'morning')}
               <button
                 type="button"
                 onClick={handleMorningAction}
-                className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
               >
                 {morningInProgressCard.buttonLabel}
               </button>
@@ -957,10 +1006,10 @@ export const Home = () => {
           {/* MORNING — completed today. */}
           {morningCardState === 'completed' && (
             <div
-              className="glass-panel p-6 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
-              {nextStepCardBody(morningCompletedCard, undefined, true)}
+              {nextStepCardBody(morningCompletedCard, undefined, 'morning')}
               <button
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
@@ -989,7 +1038,7 @@ export const Home = () => {
               Morning stale-choice card exactly. */}
           {eveningCardState === 'not-started' && eveningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-5 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-5 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
               role="region"
               aria-label="Unfinished previous Evening Wind-Down routine"
@@ -1007,7 +1056,7 @@ export const Home = () => {
                 type="button"
                 onClick={handleResumeStaleEvening}
                 aria-label={`Resume previous Evening routine, ${resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}`}
-                className="block w-full min-h-[44px] py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+                className="block w-full min-h-[44px] py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
               >
                 Resume Previous Routine
               </button>
@@ -1015,7 +1064,7 @@ export const Home = () => {
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'discard-stale', period: 'evening' })}
                 aria-label="Start today's Evening routine and clear the unfinished previous one"
-                className="block w-full min-h-[44px] py-4 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+                className="block w-full min-h-[44px] py-3.5 rounded-xl glass-panel text-on-surface-variant text-center font-semibold hover:bg-white/10 active:scale-95 transition-all !border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
               >
                 Start Today's Routine
               </button>
@@ -1025,14 +1074,14 @@ export const Home = () => {
           {/* EVENING — not started, no stale choice. */}
           {eveningCardState === 'not-started' && !eveningHasStaleChoice && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
-              {nextStepCardBody(eveningNotStartedCard)}
+              {nextStepCardBody(eveningNotStartedCard, undefined, 'evening')}
               <button
                 type="button"
                 onClick={handleEveningAction}
-                className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
               >
                 {eveningNotStartedCard.buttonLabel}
               </button>
@@ -1042,14 +1091,14 @@ export const Home = () => {
           {/* EVENING — paused today. */}
           {eveningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
-              {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex))}
+              {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex), 'evening')}
               <button
                 type="button"
                 onClick={handleEveningAction}
-                className="block w-full py-4 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
               >
                 {eveningInProgressCard.buttonLabel}
               </button>
@@ -1081,10 +1130,10 @@ export const Home = () => {
               simply begin the routine again. */}
           {eveningCardState === 'completed' && (
             <div
-              className="glass-panel p-6 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
-              {nextStepCardBody(eveningCompletedCard)}
+              {nextStepCardBody(eveningCompletedCard, undefined, 'evening')}
               {isGuest ? (
                 <button
                   type="button"
@@ -1159,7 +1208,7 @@ export const Home = () => {
         // cannot support a /<n> modifier (the same class of defect this
         // phase's AnytimeResetProgress.jsx fix addresses).
         <div
-          className="glass-panel p-6 rounded-3xl text-center space-y-6 border-tertiary-tint/40 shadow-mint-glow"
+          className="glass-panel p-5 rounded-3xl text-center space-y-6 border-tertiary-tint/40 shadow-mint-glow"
           style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
         >
           <div className="space-y-2">
@@ -1175,7 +1224,7 @@ export const Home = () => {
           </div>
           <Link
             to="/anytime-reset"
-            className="block w-full py-4 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+            className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
           >
             Start Anytime Reset
           </Link>
@@ -1184,8 +1233,24 @@ export const Home = () => {
 
       {/* 6. Active intentions — always visible, one fixed position, right
           below the recommended card+button, for both guests (gated on
-          tap, not on visibility - onRequireSignIn) and registered users. */}
-      <div className="glass-panel p-6 rounded-3xl shadow-sm">
+          tap, not on visibility - onRequireSignIn) and registered users.
+          Home Visual Uplift — "same refined surface depth/shadow language
+          as the primary card, but keep it visually secondary": reuses the
+          SAME period border-colour token the main card above already uses
+          (morning-accent/tertiary-tint/evening-accent), at roughly half its
+          opacity (/12 vs the main card's /25-/40) and with no glow shadow
+          at all - still a plain shadow-sm, exactly as before. This is
+          additive/restrained on purpose, never competing with the primary
+          card's own stronger border+glow. */}
+      <div
+        className={`glass-panel p-5 rounded-3xl shadow-sm ${
+          activePeriod === 'morning'
+            ? 'border-morning-accent/12'
+            : activePeriod === 'evening'
+            ? 'border-evening-accent/12'
+            : 'border-tertiary-tint/20'
+        }`}
+      >
         <ActiveIntentionCard
           label="Active Intention"
           intentions={displayIntentions}

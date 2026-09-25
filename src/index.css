@@ -89,6 +89,19 @@
     --color-surface-high: #222a3d;
     --color-surface-highest: #2d3449;
 
+    /* Home Visual Uplift — a Home-SCOPED background, deliberately separate
+       from --color-background/--color-surface above (#0b1326, shared by
+       every page via Layout.jsx's own bg-background). Stitch's three Home
+       reference mockups (Morning/Anytime/Evening-complete) each use a
+       slightly different near-black value (#0A0F1D/#080c16/#070B14) - not
+       a deliberate per-period difference, just Stitch export drift -
+       reconciled here to one shared value, applied only inside Home.jsx's
+       own root element (never Layout.jsx, never any other page). Measurably
+       less blue than the shared background (R10 G15 B29 vs R11 G19 B38),
+       which is the real, verifiable basis for "less heavily blue" - not a
+       guess from the screenshot. */
+    --color-home-background: #0a0f1d;
+
     /* Build 15 Phase A — shared Morning/Evening tint tokens. Additive
        only: defined here, not yet applied anywhere (wiring them into a
        real screen is a later phase, not this one). Formalises the two

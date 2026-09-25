@@ -10,8 +10,8 @@ const homeSource = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.
 describe('Home.jsx — Anytime rhythm pill is mint only when Anytime is active (decision A)', () => {
   const anytimeTab = homeSource.match(/onClick=\{\(\) => setSelectedPeriod\('anytime'\)\}[\s\S]{0,600}/)?.[0] ?? '';
 
-  it('the active-state ternary resolves to real tertiary/on-tertiary tokens, never the generic primary peach', () => {
-    expect(anytimeTab).toMatch(/activePeriod === 'anytime'\s*\n\s*\? 'bg-tertiary text-on-tertiary border-tertiary shadow-sm'/);
+  it('the active-state ternary resolves to real tertiary/on-tertiary tokens, never the generic primary peach (Home Visual Uplift: shadow-sm -> shadow-mint-glow, the existing named mint glow)', () => {
+    expect(anytimeTab).toMatch(/activePeriod === 'anytime'\s*\n\s*\? 'bg-tertiary text-on-tertiary border-tertiary shadow-mint-glow'/);
   });
 
   it('the inactive state is unchanged - the same neutral bg-white/5 treatment every tab shares when not selected', () => {
@@ -25,8 +25,8 @@ describe('Home.jsx — Anytime rhythm pill is mint only when Anytime is active (
 
 describe('Home.jsx — Morning and Evening rhythm pills are untouched by the Anytime mint change', () => {
   it('Morning stays gold (morning-accent), Evening stays periwinkle (evening-accent) - unaffected by the Anytime edit', () => {
-    expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-sm/);
-    expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-sm/);
+    expect(homeSource).toMatch(/bg-morning-accent text-on-morning-accent border-morning-accent shadow-morning-glow/);
+    expect(homeSource).toMatch(/bg-evening-accent text-on-evening-accent border-evening-accent shadow-evening-glow/);
     expect(homeSource).toMatch(/focus-visible:ring-2 focus-visible:ring-morning-accent/);
     expect(homeSource).toMatch(/focus-visible:ring-2 focus-visible:ring-evening-accent/);
   });
