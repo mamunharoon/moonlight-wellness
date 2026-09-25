@@ -80,9 +80,13 @@ export const SignInPromptDialog = ({ open, onSignIn, onCreateAccount, onDismiss 
           >
             Create Free Account
           </button>
+          {/* Viewport audit follow-up — touch-target correction: measured
+              32px tall (py-2 alone), below the 44px minimum. This is a
+              shared dialog (Library, Support, Anytime gate, every
+              locked-content row), so the fix applies everywhere at once. */}
           <button
             onClick={onDismiss}
-            className="w-full py-2 text-center text-xs text-on-surface-variant font-semibold hover:text-on-surface transition-colors"
+            className="w-full min-h-[44px] flex items-center justify-center text-center text-xs text-on-surface-variant font-semibold hover:text-on-surface transition-colors"
           >
             Continue Browsing
           </button>

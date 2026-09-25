@@ -471,11 +471,16 @@ export const Auth = () => {
       </div>
 
       {mode !== 'forgotPassword' && (
+        // Viewport audit follow-up — touch-target correction: measured
+        // 32px tall (py-2 alone), below the 44px minimum. min-h-[44px] +
+        // flex centering guarantees the real target without changing the
+        // pill's visual proportions (same technique already used by
+        // AnytimeReset.jsx's own min-h-[44px] buttons).
         <div className="glass-panel p-1 rounded-full flex items-center gap-1">
           <button
             type="button"
             onClick={() => switchMode('signIn')}
-            className={`flex-1 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`flex-1 min-h-[44px] flex items-center justify-center rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
               mode === 'signIn' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
             }`}
           >
@@ -484,7 +489,7 @@ export const Auth = () => {
           <button
             type="button"
             onClick={() => switchMode('signUp')}
-            className={`flex-1 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`flex-1 min-h-[44px] flex items-center justify-center rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
               mode === 'signUp' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
             }`}
           >
@@ -706,11 +711,16 @@ export const Auth = () => {
             </div>
           </div>
 
+          {/* Viewport audit follow-up — vertical hit-slop: measured 16px
+              tall (line-height only, no padding). py-2.5 adds invisible
+              tap-area padding without changing the visible text size or
+              position (the surrounding text-right wrapper absorbs the
+              extra height). */}
           <div className="text-right">
             <button
               type="button"
               onClick={() => switchMode('forgotPassword')}
-              className="text-xs text-primary font-semibold"
+              className="inline-block py-2.5 text-xs text-primary font-semibold"
             >
               Forgot password?
             </button>
@@ -748,10 +758,12 @@ export const Auth = () => {
             {isSubmitting ? 'Sending link...' : 'Send Reset Link'}
           </button>
 
+          {/* Viewport audit follow-up — vertical hit-slop, same rationale
+              as "Forgot password?" above. */}
           <button
             type="button"
             onClick={() => switchMode('signIn')}
-            className="w-full text-center text-xs text-on-surface-variant font-semibold"
+            className="w-full py-2.5 text-center text-xs text-on-surface-variant font-semibold"
           >
             Back to Sign In
           </button>
@@ -762,8 +774,10 @@ export const Auth = () => {
           "Continue as Guest" choice Welcome's own button offers — must
           persist the exact same way (lib/guestEntry.js), or a user who
           bailed out here would incorrectly see the Welcome screen again
-          next launch despite having already said "just let me browse". */}
-      <Link to="/profile" onClick={markGuestEntryChosen} className="block text-center text-xs text-on-surface-variant">
+          next launch despite having already said "just let me browse".
+          Viewport audit follow-up — vertical hit-slop, same rationale as
+          "Forgot password?" above. */}
+      <Link to="/profile" onClick={markGuestEntryChosen} className="block py-2.5 text-center text-xs text-on-surface-variant">
         Continue as guest
       </Link>
     </div>

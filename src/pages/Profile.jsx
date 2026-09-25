@@ -123,16 +123,20 @@ export const Profile = () => {
               <h3 className="text-xl font-extrabold text-on-surface">Guest Profile</h3>
               <p className="text-[10px] text-secondary uppercase font-bold tracking-widest mt-1">Local Mode</p>
             </div>
+            {/* Viewport audit follow-up — touch-target correction:
+                measured 34px tall (px-4 py-2 alone), below the 44px
+                minimum. min-h-[44px] + flex centering guarantees the real
+                target without changing the pill's visual proportions. */}
             <div className="flex gap-2 justify-center">
               <Link
                 to="/auth"
-                className="px-4 py-2 rounded-full bg-primary text-on-primary text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all"
+                className="px-4 min-h-[44px] flex items-center justify-center rounded-full bg-primary text-on-primary text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all"
               >
                 Sign In
               </Link>
               <Link
                 to="/auth?tab=signup"
-                className="px-4 py-2 rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
+                className="px-4 min-h-[44px] flex items-center justify-center rounded-full glass-panel border border-white/10 text-on-surface text-xs font-bold uppercase tracking-wider hover:bg-white/5 active:scale-95 transition-all"
               >
                 Create Account
               </Link>
@@ -197,12 +201,15 @@ export const Profile = () => {
             Morning routine duration
           </span>
           <span className="flex gap-1">
+            {/* Viewport audit follow-up — touch-target correction: this
+                row's minimum height was previously 32px, below the 44px
+                minimum. */}
             {DURATION_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => setRoutineDuration(opt.id)}
-                className={`px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all min-h-[32px] ${
+                className={`px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all min-h-[44px] ${
                   routineDuration === opt.id ? 'bg-primary text-on-primary' : 'bg-white/5 text-on-surface-variant hover:bg-white/10'
                 }`}
               >

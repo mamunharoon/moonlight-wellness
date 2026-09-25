@@ -66,18 +66,24 @@ export const MusicEntryChoice = ({ onStartWithMusic, onContinueWithoutMusic, acc
     <p className="text-[11px] text-on-surface-variant">
       You can switch it off at any time.
     </p>
+    {/* Viewport audit follow-up — touch-target correction: py-3 alone
+        measured 42px tall, 2px under the 44px minimum. min-h-[44px] +
+        flex centering closes the gap without changing the button's
+        visual padding/proportions. This is a shared component (Breathe,
+        MorningFlow, EveningBreathing, QuietBreathing), so the fix applies
+        everywhere at once. */}
     <div className="flex gap-2 pt-1">
       <button
         type="button"
         onClick={onContinueWithoutMusic}
-        className="flex-1 glass-panel text-on-surface py-3 rounded-full font-bold text-xs hover:bg-white/10 active:scale-95 transition-all border-white/10"
+        className="flex-1 min-h-[44px] flex items-center justify-center glass-panel text-on-surface py-3 rounded-full font-bold text-xs hover:bg-white/10 active:scale-95 transition-all border-white/10"
       >
         Continue Without Music
       </button>
       <button
         type="button"
         onClick={onStartWithMusic}
-        className={START_BUTTON_CLASS[accent] ?? START_BUTTON_CLASS.primary}
+        className={`min-h-[44px] flex items-center justify-center ${START_BUTTON_CLASS[accent] ?? START_BUTTON_CLASS.primary}`}
       >
         Start with Music
       </button>

@@ -51,7 +51,7 @@ describe('Auth.jsx redirectAfterAuth — ordinary sign-in goes Home, never Profi
   });
 
   it('"Continue as guest" never sets a pending destination - only marks guest entry chosen and navigates directly', () => {
-    expect(authSource).toMatch(/<Link to="\/profile" onClick=\{markGuestEntryChosen\} className="block text-center text-xs text-on-surface-variant">/);
+    expect(authSource).toMatch(/<Link to="\/profile" onClick=\{markGuestEntryChosen\} className="block py-2\.5 text-center text-xs text-on-surface-variant">/);
     expect(authSource).not.toMatch(/setPendingContent/);
   });
 });
