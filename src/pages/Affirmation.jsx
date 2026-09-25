@@ -93,8 +93,11 @@ export const Affirmation = () => {
             (Breathe -> Meditate (optional) -> Affirm), so Back must return
             there, not skip over it straight to Breathe - "Back returns to
             the immediately preceding step" is the same rule every other
-            Morning page already follows. */}
-        <BackButton fallback="/morning-meditate" />
+            Morning page already follows. Back-navigation repair (Morning
+            canonical map): guardActiveRoute is off - the whole-routine
+            "Leave this routine?" confirmation belongs only to Intention
+            (the first step), never to a plain previous-step Back. */}
+        <BackButton fallback="/morning-meditate" guardActiveRoute={false} />
       </div>
       <ProgressIndicator activeStep="affirmation" onReviewStep={(stepId) => navigate(routeForStep(stepId))} />
 

@@ -94,8 +94,8 @@ describe('MorningMeditate.jsx — registry wiring proves Breathe -> Meditate -> 
     expect(breatheSource).not.toMatch(/navigate\('\/affirmation'\);/);
   });
 
-  it('Affirmation.jsx\'s own Back now returns to /morning-meditate, not directly to /breathe - Meditate is the real preceding step', () => {
-    expect(affirmationSource).toMatch(/<BackButton fallback="\/morning-meditate" \/>/);
+  it('Affirmation.jsx\'s own Back now returns to /morning-meditate, not directly to /breathe - Meditate is the real preceding step; guardActiveRoute is off (Back-navigation repair, Morning canonical map - see backNavigationCanonicalMap.test.js)', () => {
+    expect(affirmationSource).toMatch(/<BackButton fallback="\/morning-meditate" guardActiveRoute=\{false\} \/>/);
   });
 });
 
@@ -114,9 +114,8 @@ describe('MorningMeditate.jsx — End Meditation (embedded copy), never advances
 });
 
 describe('MorningMeditate.jsx — Back/Exit reuse Morning\'s existing conventions, no meditation-only exception', () => {
-  it('pre-start Back is a guarded BackButton falling back to /breathe (Morning\'s own established per-step convention, same shape as every other Morning page)', () => {
-    expect(source).toMatch(/<BackButton fallback="\/breathe" \/>/);
-    expect(source).not.toMatch(/guardActiveRoute/);
+  it('pre-start Back falls back to /breathe with guardActiveRoute off (Back-navigation repair, Morning canonical map - see backNavigationCanonicalMap.test.js: the whole-routine "Leave this routine?" confirmation belongs only to Intention and to this screen\'s own active-phase Close/X, never to a plain previous-step Back)', () => {
+    expect(source).toMatch(/<BackButton fallback="\/breathe" guardActiveRoute=\{false\} \/>/);
   });
 
   it('a plain, unconfirmed "Exit routine" link exists too, matching Affirmation.jsx/Breathe.jsx\'s own identical pattern exactly', () => {

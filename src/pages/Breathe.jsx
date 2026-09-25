@@ -256,10 +256,31 @@ export const Breathe = () => {
     if (state.status === 'playing' && currentStep?.id === 'breathe') abandonSession();
   };
 
+  // Back-navigation repair (Morning canonical map) — Active Breathe Back
+  // must safely stop breathing and return to THIS step's own pre-start
+  // screen, never straight to Stretch and never the whole-routine "Leave
+  // this routine?" confirmation (guardActiveRoute is off on this screen's
+  // BackButton below - only Skip/Exit still leave the routine outright).
+  // A subsequent Back tap, once hasBegun is false again, falls through to
+  // BackButton's own ordinary previous-step navigation. Pre-start (and the
+  // gated repeat-intro) are untouched - only a genuinely active run is
+  // ever stopped here. Mirrors MorningFlow.jsx's identical handler.
+  const handleBackFromActive = () => {
+    if (!hasBegun || isRepeatGated) return;
+    hasBegunOnceRef.current = false;
+    setVideoOpenedDuringExercise(false);
+    setManuallyPaused(false);
+    setBreatheState('Inhale');
+    setSecondsLeft(activePattern.totalSeconds);
+    setHasBegun(false);
+    musicPlayerRef.current?.stop();
+    return false;
+  };
+
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/morning-flow" />
+        <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
       <ProgressIndicator activeStep="breathe" onReviewStep={requestReview} />
 

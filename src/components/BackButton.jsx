@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useNavigationHistory } from '../context/NavigationHistoryContext';
 import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -64,6 +64,17 @@ import { ConfirmDialog } from './ConfirmDialog';
  * never protect its own unsaved draft; a second, narrower hook was
  * needed rather than widening the active-routine-step concept to
  * something it was never meant to describe.
+ *
+ * `alwaysFallback` (Back-navigation repair, Morning canonical map —
+ * additive, every existing caller omits it and is unaffected): when
+ * true, a successful ordinary-path tap always navigates straight to
+ * `fallback` (replacing, never pushing) instead of goBack's normal
+ * "prefer the real previous in-app screen" behaviour. Used only by
+ * SessionComplete.jsx — that screen's real in-app history always has
+ * the just-finished routine's last step behind it, and goBack's usual
+ * navigate(-1) would silently re-enter that completed step, which the
+ * canonical Morning navigation map explicitly forbids ("do not re-enter
+ * a completed journey using browser Back").
  */
 export const BackButton = ({
   fallback = '/',
@@ -72,9 +83,11 @@ export const BackButton = ({
   confirmTitle = 'Leave this routine?',
   confirmMessage = 'Your current progress may be paused.',
   onBeforeLeave,
-  guardActiveRoute = true
+  guardActiveRoute = true,
+  alwaysFallback = false
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { goBack } = useNavigationHistory();
   const { activeRoute, leaveActiveRoutine } = useActiveRoutineStep();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -87,6 +100,10 @@ export const BackButton = ({
       return;
     }
     if (onBeforeLeave && onBeforeLeave() === false) return;
+    if (alwaysFallback) {
+      navigate(fallback, { replace: true });
+      return;
+    }
     goBack(fallback);
   };
 

@@ -64,11 +64,11 @@ import { MEDITATION_CONTEXTS, getRecommendedDurationId } from '../lib/meditation
  * (no elapsed-seconds persistence exists for this or any other timed
  * Morning step).
  *
- * Whole-journey exit from the PRE-START screen reuses Morning's own
- * existing, unmodified conventions exactly as Affirmation.jsx/Breathe.jsx
- * already establish them - no meditation-only exception: BackButton
- * (guarded, shows "Leave this routine?" when this is the live step) for
- * the header Back, plus the same plain, unconfirmed "Exit routine" link
+ * The PRE-START screen's header Back returns to Breathe (guardActiveRoute
+ * is off - see Back-navigation repair, Morning canonical map: the
+ * whole-routine "Leave this routine?" confirmation belongs only to
+ * Intention, the first step, and to this screen's own active-phase
+ * Close/X above), plus the same plain, unconfirmed "Exit routine" link
  * every other Morning step already has.
  */
 export const MorningMeditate = () => {
@@ -175,7 +175,12 @@ export const MorningMeditate = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/breathe" />
+        {/* Back-navigation repair (Morning canonical map) — Meditation
+            setup Back returns to Breathe; the whole-routine "Leave this
+            routine?" confirmation belongs only to Intention (the first
+            step) and to this screen's own active-phase Close/X control
+            above (handleRequestExitRoutine), never here. */}
+        <BackButton fallback="/breathe" guardActiveRoute={false} />
       </div>
       <ProgressIndicator activeStep="meditate" onReviewStep={requestReview} />
 

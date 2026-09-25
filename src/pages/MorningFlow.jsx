@@ -352,6 +352,26 @@ export const MorningFlow = () => {
     if (state.status === 'playing' && currentStep?.id === 'stretch') abandonSession();
   };
 
+  // Back-navigation repair (Morning canonical map) — Active Stretch Back
+  // must safely stop the exercise and return to THIS step's own pre-start
+  // screen, never straight to Intention and never the whole-routine "Leave
+  // this routine?" confirmation (guardActiveRoute is off on this screen's
+  // BackButton below - only Skip/Exit still leave the routine outright).
+  // A subsequent Back tap, once hasBegun is false again, falls through to
+  // BackButton's own ordinary previous-step navigation. Pre-start (and the
+  // gated repeat-intro) are untouched - only a genuinely active run is
+  // ever stopped here.
+  const handleBackFromActive = () => {
+    if (!hasBegun || isRepeatGated) return;
+    hasBegunOnceRef.current = false;
+    setVideoOpenedDuringExercise(false);
+    setManuallyPaused(false);
+    setActiveSequence(null);
+    setHasBegun(false);
+    musicPlayerRef.current?.stop();
+    return false;
+  };
+
   const selectedCount = selectedMovements.size;
   const totalSeconds = selectedCount * getStepDuration();
 
@@ -369,7 +389,7 @@ export const MorningFlow = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/intention-setup" />
+        <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
       <ProgressIndicator activeStep="stretch" onReviewStep={requestReview} />
 

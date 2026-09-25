@@ -195,7 +195,13 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // gesture, exactly like a direct toggle tap. Called unconditionally
   // (not gated on eligible/hooks-order below) since useImperativeHandle
   // must run on every render regardless of `eligible`.
-  useImperativeHandle(ref, () => ({ start }));
+  //
+  // Back-navigation repair (Morning canonical map) — `stop` is also now
+  // exposed so Breathe.jsx/MorningFlow.jsx's "Active [exercise] Back"
+  // handler can silence any already-playing music the instant the user
+  // safely stops the exercise, without waiting for the `suspended` prop
+  // (which only reacts to an open guided video/manual pause, not this).
+  useImperativeHandle(ref, () => ({ start, stop }));
 
   if (!eligible) return null;
 

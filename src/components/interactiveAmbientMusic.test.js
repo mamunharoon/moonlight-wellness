@@ -370,9 +370,14 @@ describe('ExercisePausedPanel.jsx - the shared paused-for-video panel itself', (
   });
 });
 
-describe('InteractiveAmbientMusic.jsx exposes start() via ref, and re-checks `suspended` after its own async gap', () => {
-  it('is wrapped in forwardRef and exposes exactly { start } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
-    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start \}\)\);/);
+describe('InteractiveAmbientMusic.jsx exposes start() and stop() via ref, and re-checks `suspended` after its own async gap', () => {
+  it('is wrapped in forwardRef and exposes exactly { start, stop } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
+    // Back-navigation repair (Morning canonical map) — stop() was added
+    // alongside the pre-existing start() so Breathe.jsx/MorningFlow.jsx's
+    // "Active [exercise] Back" handler can silence already-playing music
+    // the instant the user safely stops the exercise (see
+    // backNavigationCanonicalMap.test.js).
+    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop \}\)\);/);
     const imperativeIndex = playerSource.indexOf('useImperativeHandle(ref');
     const eligibleReturnIndex = playerSource.indexOf('if (!eligible) return null;');
     expect(imperativeIndex).toBeGreaterThan(-1);

@@ -70,7 +70,14 @@ export const SessionComplete = () => {
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">
       <div className="flex items-center justify-between gap-3">
-        <BackButton fallback="/" />
+        {/* Back-navigation repair (Morning canonical map) — Morning is
+            finished; there is no "leave this routine" concept left, so
+            guardActiveRoute is off. alwaysFallback forces a plain replace
+            to Home instead of BackButton's normal goBack (which would
+            otherwise navigate(-1) straight back into the just-completed
+            Affirmation step - "do not re-enter a completed journey using
+            browser Back"). */}
+        <BackButton fallback="/" guardActiveRoute={false} alwaysFallback />
         {/* Morning Visual Uplift (Build 16) — a small decorative orienting
             badge, the same established pattern Home's own "YOUR MORNING"
             pill already uses (Build 15) - not new data, just a label. */}
