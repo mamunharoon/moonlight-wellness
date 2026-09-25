@@ -80,8 +80,8 @@ describe('IntentionSetup — preset-selection phase visual uplift', () => {
 });
 
 describe('IntentionSetup — real functional contract untouched by the restyle', () => {
-  it('the one-or-two-item selection limit and custom-add logic (toggleIntention/roleForIndex/LIMIT_MESSAGE) are still imported and used exactly as before', () => {
-    expect(source).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
+  it('the one-or-two-item chip-tap selection limit (toggleIntention/roleForIndex/LIMIT_MESSAGE) is still imported and used exactly as before; the custom-add path now also imports the ADD-only defect fix helper (see IntentionSetup.customIntentionFix.test.js)', () => {
+    expect(source).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
     expect(source).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
   });
 

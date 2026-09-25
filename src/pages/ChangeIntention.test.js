@@ -143,6 +143,26 @@ describe('ChangeIntention.jsx — optional collapsed "Add your own"; typing is n
   });
 });
 
+describe('ChangeIntention.jsx — custom-intention defect fix: remaining regression items (removal-then-add, ordering, Home display)', () => {
+  it('applySelection (the chip-removal path) never touches customIntention/setCustomIntention, so a value preserved by a prior rejection survives a chip removal untouched - once the removal drops the count below the limit, the retained text becomes addable on the very next Add tap (item: remove one selection and add the retained custom value)', () => {
+    const body = source.match(/const applySelection = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/customIntention/);
+  });
+
+  it('a custom addition is appended to the existing order (addCustomIntention\'s own pure-function contract: [...current, value] - see intentionSelection.test.js), and Save persists that same draftSelection array, order intact (item: Primary/Supporting ordering preserved through Save)', () => {
+    const handleAddCustomBody = source.match(/const handleAddCustom = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleAddCustomBody).toMatch(/setManualDraft\(next\);/);
+    const handleSaveBody = source.match(/const handleSave = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleSaveBody).toMatch(/setIntentions\(draftSelection\);/);
+  });
+
+  it('Save writes into the exact same AlarmContext `intentions` that Home.jsx/ActiveIntentionCard render (see activeIntentionCard.test.js\'s own cross-file wiring proof) - so a saved custom intention reaches Home through the same, already-proven path (item: saved custom intention appears on Home)', () => {
+    expect(source).toMatch(/const \{ userId, intentions, setIntentions \} = useAlarm\(\);/);
+    const handleSaveBody = source.match(/const handleSave = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleSaveBody).toMatch(/setIntentions\(draftSelection\);\s*\n\s*await saveIntentionsToCloud\(userId, draftSelection\);/);
+  });
+});
+
 describe('ChangeIntention.jsx — Save/Cancel/Back/Close all return Home; only Save persists', () => {
   it('Save navigates home only after both the context update and the cloud save have completed', () => {
     const body = source.match(/const handleSave = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';

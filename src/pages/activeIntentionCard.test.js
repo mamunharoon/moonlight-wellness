@@ -42,7 +42,7 @@ describe('INTENTION_PRESETS - the single shared preset list', () => {
   });
 });
 
-describe('IntentionSetup.jsx — untouched by the Change Intention remediation (Morning routine\'s own Step 1, a distinct Session-Engine-coupled screen)', () => {
+describe('IntentionSetup.jsx — Morning routine\'s own Step 1, a distinct Session-Engine-coupled screen (chip-tap path untouched by the Change Intention remediation; its own custom-input path has its own dedicated fix, see IntentionSetup.customIntentionFix.test.js)', () => {
   it('imports INTENTION_PRESETS instead of a local hardcoded array', () => {
     expect(intentionSetupSource).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
     expect(intentionSetupSource).toMatch(/const presets = INTENTION_PRESETS;/);
@@ -54,8 +54,8 @@ describe('IntentionSetup.jsx — untouched by the Change Intention remediation (
     expect(intentionSetupSource).not.toMatch(/from\('user_intentions'\)\s*\n\s*\.upsert/);
   });
 
-  it('imports the shared intentionSelection helpers - toggleIntention, roleForIndex, LIMIT_MESSAGE', () => {
-    expect(intentionSetupSource).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
+  it('imports the shared intentionSelection helpers - toggleIntention (chip-tap), addCustomIntention (custom-input fix), roleForIndex and both message constants', () => {
+    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
   });
 
   it('the instruction copy asks for one or two intentions, never "exactly one"', () => {

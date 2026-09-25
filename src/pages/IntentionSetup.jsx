@@ -6,7 +6,14 @@ import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
 import { saveIntentionsToCloud } from '../lib/intentionPersistence';
-import { toggleIntention, roleForIndex, LIMIT_MESSAGE } from '../lib/intentionSelection';
+import {
+  toggleIntention,
+  addCustomIntention,
+  roleForIndex,
+  LIMIT_MESSAGE,
+  CUSTOM_LIMIT_MESSAGE,
+  DUPLICATE_INTENTION_MESSAGE
+} from '../lib/intentionSelection';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
@@ -162,10 +169,29 @@ export const IntentionSetup = () => {
 
   const handleSelectPreset = (preset) => applySelection(preset);
 
+  // Custom-intention defect fix — mirrors ChangeIntention.jsx's own fix:
+  // addCustomIntention (ADD-only) rather than the chip-tap
+  // toggleIntention/applySelection above, so typing an already-selected
+  // value is rejected as a duplicate instead of silently deselecting it.
+  // Writes directly into the live `intentions` (this screen has no draft
+  // model), and mirrors applySelection's own review-mode cloud-save so a
+  // custom addition here has the same persistence guarantee as a chip tap.
   const handleAddCustom = () => {
-    const trimmed = customIntention.trim();
-    if (!trimmed) return;
-    applySelection(trimmed);
+    const { intentions: next, status } = addCustomIntention(intentions, customIntention);
+    if (status === 'blank') return;
+    if (status === 'duplicate') {
+      setLimitMessage(DUPLICATE_INTENTION_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
+    if (status === 'limit-reached') {
+      setLimitMessage(CUSTOM_LIMIT_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
+    setLimitMessage('');
+    setIntentions(next);
+    if (isReviewMode) saveIntentionsToCloud(userId, next);
     setCustomIntention('');
   };
 
@@ -327,22 +353,31 @@ export const IntentionSetup = () => {
       )}
 
       {/* Unified custom input/button control */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
-        <input
-          type="text"
-          value={customIntention}
-          onChange={(e) => setCustomIntention(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
-          placeholder="Write your own..."
-        />
-        <button
-          onClick={handleAddCustom}
-          disabled={!customIntention.trim()}
-          className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
-        >
-          Add
-        </button>
+      <div className="space-y-1.5 w-full">
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+          <input
+            type="text"
+            value={customIntention}
+            onChange={(e) => setCustomIntention(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+            placeholder="Write your own..."
+          />
+          <button
+            onClick={handleAddCustom}
+            disabled={!customIntention.trim()}
+            className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
+          >
+            Add
+          </button>
+        </div>
+        {/* Custom-intention defect fix — a second, reliably-visible copy of
+            limitMessage right next to the input, since the banner further
+            up can be scrolled out of view or hidden behind the on-screen
+            keyboard once this input has focus (same fix as ChangeIntention.jsx). */}
+        {limitMessage && (
+          <p className="text-xs text-secondary font-semibold px-1" role="status">{limitMessage}</p>
+        )}
       </div>
 
       <div className="space-y-3 w-full">

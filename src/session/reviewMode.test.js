@@ -526,8 +526,8 @@ describe('Reflection/Gratitude - review-mode Continue never advances the session
 });
 
 describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intentions with no extra gating (same mechanism as Home\'s Change Intention)', () => {
-  it('applySelection (used by both handleSelectPreset and handleAddCustom) updates the live intentions unconditionally via the shared toggleIntention helper - no Session Engine call gated behind isReviewMode', () => {
-    expect(intentionSetupSource).toMatch(/import \{ toggleIntention, roleForIndex, LIMIT_MESSAGE \} from '\.\.\/lib\/intentionSelection';/);
+  it('applySelection (chip-tap, used by handleSelectPreset and the summary-chip removal buttons) updates the live intentions unconditionally via the shared toggleIntention helper - no Session Engine call gated behind isReviewMode. handleAddCustom now uses its own ADD-only addCustomIntention path - see IntentionSetup.customIntentionFix.test.js - but mirrors this same review-mode save.', () => {
+    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
     expect(intentionSetupSource).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
     expect(intentionSetupSource).not.toMatch(/if \(isReviewMode\)[\s\S]{0,80}setIntentions/);
   });
