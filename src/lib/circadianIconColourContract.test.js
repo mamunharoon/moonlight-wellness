@@ -95,8 +95,8 @@ describe('5. Equivalent repeated destinations use the same semantic accent every
 });
 
 describe('6. Bottom navigation remains unchanged - neutral inactive, WakeWise-peach active, destination-agnostic', () => {
-  it('active tab uses primary-container regardless of which tab it is - never a per-destination colour', () => {
-    expect(layoutSource).toMatch(/isActive\s*\n\s*\? 'bg-primary-container\/80 text-on-primary-container shadow-md shadow-primary\/10'\s*\n\s*: 'text-on-surface-variant\/70 hover:text-on-surface active:bg-white\/5'/);
+  it('active tab uses the plain peach primary token regardless of which tab it is - never a per-destination colour (Bottom Navigation Visual Uplift: bg-primary-container/on-primary-container - which resolved to a dark brown #783221 - replaced with plain text-primary/text-on-surface, matching the Stitch source)', () => {
+    expect(layoutSource).toMatch(/isActive \? 'text-primary' : 'text-on-surface hover:text-primary active:bg-white\/5'/);
   });
 
   it('no morning-accent/tertiary/evening-accent token appears anywhere in the bottom-nav render block', () => {

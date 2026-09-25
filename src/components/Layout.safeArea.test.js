@@ -131,9 +131,9 @@ describe('Layout bottom-nav clearance — real arithmetic proof (parsed from the
 });
 
 describe('Layout bottom-nav Phase A type-scale bump (icons/labels "could be larger" per tester feedback)', () => {
-  it('nav icon and label are bumped one step (24px/11px), matching the approved Phase A plan', () => {
+  it('nav icon and label are bumped one step (24px/11px), matching the approved Phase A plan (Bottom Navigation Visual Uplift: label weight is now active/inactive-aware - font-bold active, font-semibold inactive - rather than always-bold)', () => {
     expect(layoutSource).toMatch(/material-symbols-outlined text-\[24px\]/);
-    expect(layoutSource).toMatch(/text-\[11px\] font-bold leading-none/);
+    expect(layoutSource).toMatch(/text-\[11px\] leading-none \$\{isActive \? 'font-bold' : 'font-semibold'\}/);
   });
 
   it('the nav bar itself was NOT grown to fit the larger type - h-[72px] is unchanged, so the bottom-nav clearance arithmetic proved above still holds without modification', () => {

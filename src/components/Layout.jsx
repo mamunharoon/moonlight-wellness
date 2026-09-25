@@ -177,8 +177,27 @@ export const Layout = () => {
             pseudo-class — fires on touch-down, not gated behind any JS),
             so every tap gets immediate visual feedback, not just the
             already-active tab. */}
+        {/* Bottom Navigation Visual Uplift — Stitch source audit (all three
+            Home reference mockups - Morning/Anytime/Evening-complete - agree
+            exactly): a near-midnight, more opaque translucent surface
+            (bg-[#121A2B]/90 / bg-[#0d1424]/90 / rgba(14,20,34,0.88)) with a
+            neutral shadow-2xl (never a warm/brown-tinted one) and a
+            restrained slate/white border. The shared `.glass-panel` class
+            (rgba(255,255,255,0.05), used everywhere else in the app) is
+            deliberately NOT used here - its own plain-CSS background
+            shorthand sits later in the compiled stylesheet than any
+            Tailwind utility class and silently wins over one at the same
+            specificity (the same pre-existing quirk Home.jsx's own tint
+            backgrounds already work around with an inline style) - an
+            inline style is used here for the same reason, reusing the app's
+            own existing near-black surface-lowest hex (#060e20, converted to
+            rgba for the opacity Stitch's own surface needs) rather than
+            inventing a new colour. The old warm-brown shadow
+            (rgba(149,72,53,0.15) - the literal cause of the "dull brown"
+            look found live) is replaced with Tailwind's plain neutral
+            shadow-2xl, matching Stitch exactly. */}
         {!hideNavigation && (
-          <nav className="absolute left-4 right-4 z-40 glass-panel rounded-full h-[72px] shadow-[0_10px_20px_rgba(149,72,53,0.15)] border border-white/10 flex items-stretch px-2" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+          <nav className="absolute left-4 right-4 z-40 rounded-full h-[72px] backdrop-blur-xl shadow-2xl border border-white/10 flex items-stretch px-2" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', backgroundColor: 'rgba(6, 14, 32, 0.9)' }}>
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '/today');
               return (
@@ -192,10 +211,27 @@ export const Layout = () => {
                   // suspenders against rapid repeated taps.
                   onClick={(e) => { if (isActive) e.preventDefault(); }}
                   aria-current={isActive ? 'page' : undefined}
+                  // Bottom Navigation Visual Uplift — active: plain
+                  // text-primary (the app's own existing peach, already used
+                  // for every CTA - Stitch's own three near-identical peach
+                  // literals, #FFB29D/#fbb7a5/#FFB89E, all reconcile to this
+                  // one existing token). No background fill/glow on the
+                  // active item - none of the three Stitch references ever
+                  // show one (icon+label colour change only), so none is
+                  // added here either, per the "only if supported by the
+                  // Stitch source" instruction. Inactive: text-on-surface,
+                  // the app's own existing bright periwinkle-white body-text
+                  // token (#dae2fd) - reused here instead of Stitch's plain
+                  // Tailwind slate-400/200, since it already reads as
+                  // exactly the "brighter neutral, not muddy brown"
+                  // treatment asked for, and is the app's own established
+                  // readable-on-dark colour. The old bg-primary-container/
+                  // text-on-primary-container pairing (on-primary-container
+                  // resolves to #783221, a dark brown - the literal cause of
+                  // the "dull brown active Home state" found live) is
+                  // removed entirely.
                   className={`flex-1 min-w-[44px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-150 active:scale-90 ${
-                    isActive
-                      ? 'bg-primary-container/80 text-on-primary-container shadow-md shadow-primary/10'
-                      : 'text-on-surface-variant/70 hover:text-on-surface active:bg-white/5'
+                    isActive ? 'text-primary' : 'text-on-surface hover:text-primary active:bg-white/5'
                   }`}
                 >
                   {/* Build 15 Phase A — icon/label bumped one step
@@ -209,7 +245,11 @@ export const Layout = () => {
                   <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
                     {item.icon}
                   </span>
-                  <span className="text-[11px] font-bold leading-none">{item.label}</span>
+                  {/* Bottom Navigation Visual Uplift — font-weight now
+                      mirrors Stitch's own active/inactive distinction
+                      (font-bold active, a lighter weight inactive) on top of
+                      the colour change above, rather than always-bold. */}
+                  <span className={`text-[11px] leading-none ${isActive ? 'font-bold' : 'font-semibold'}`}>{item.label}</span>
                 </Link>
               );
             })}
