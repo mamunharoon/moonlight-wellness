@@ -45,7 +45,23 @@ workflows:
       # leaving it unpinned, if it needs to change.
       xcode: 26.6
       cocoapods: default
-      node: 20.18.1
+      # Build 15 failed here: @supabase/realtime-js (pulled in by
+      # supabaseClient.js, exercised at module-load time by
+      # meditationSessionController.test.js) requires Node's native
+      # WebSocket global, which only exists from Node 22 onward - Node
+      # 20.18.1 doesn't have it ("Node.js detected but native WebSocket
+      # not found"). This had never surfaced before because every prior
+      # Codemagic build was cut from `main`, which predates the commit
+      # that added that test file - this is the first build from `dev`.
+      # 22.23.3 is the current Node 22 ("Jod") LTS patch release (an
+      # exact pin, not an unbounded `latest`/`lts` stream) - verified
+      # locally under this exact binary (official nodejs.org build,
+      # checksum-verified) before this change: npm ci, the previously-
+      # failing test, the full suite (194 files / 3263 tests), lint, and
+      # the production build all pass identically to the Node-agnostic
+      # local baseline. Deliberately not Node 24 - 22 is the smallest
+      # runtime bump that supplies the required WebSocket support.
+      node: 22.23.3
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
