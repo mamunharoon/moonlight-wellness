@@ -55,6 +55,26 @@ import { useMeditationSession } from '../hooks/useMeditationSession';
  * screen's own setup, never to /self-guided-meditation-complete (see that
  * file's own doc comment: "ending early is not a completion" - unchanged,
  * not redesigned by this fix).
+ *
+ * Early-end result correction — found live: the bottom "End Session"
+ * button and Back were wired to the exact same state and handler
+ * (MeditationActiveSession's own `leaveConfirmOpen`/`onRequestLeave`),
+ * so "test End Session independently from Back" surfaced that they were
+ * never actually independent - both silently returned to this screen's
+ * setup with no distinct outcome, unlike natural completion's own
+ * /self-guided-meditation-complete screen. Back keeps its original,
+ * unchanged behaviour (still `performLeave` -> straight to setup, no
+ * screen). End Session now uses the new, separate `onEndSession` prop:
+ * `performEndSession` ends the session and sets `earlyEnded`, which this
+ * component renders as its own small inline "Session ended early" panel
+ * (Done -> context.fallback; Meditate Again -> clears `earlyEnded`,
+ * revealing the setup panel again with the same style/duration/sound
+ * still selected, since `endSession()` never resets those). Deliberately
+ * not routed through /self-guided-meditation-complete or given a
+ * completion flag - that screen's own doc comment is explicit that ending
+ * early is not a completion, and this fix does not change that; it only
+ * gives "ended early" its own truthful, distinct wording instead of no
+ * screen at all.
  */
 export const SelfGuidedMeditation = () => {
   const navigate = useNavigate();
@@ -88,6 +108,7 @@ export const SelfGuidedMeditation = () => {
   });
 
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [earlyEnded, setEarlyEnded] = useState(false);
 
   // Back: ends only this meditation, returns to this screen's own setup -
   // phase falls back to 'setup' and this component's own render (below)
@@ -95,6 +116,16 @@ export const SelfGuidedMeditation = () => {
   const performLeave = () => {
     session.endSession();
   };
+
+  // End Session (bottom button, independent of Back - see this file's own
+  // top doc comment): ends the session the same way, but surfaces the new
+  // truthful "Session ended early" panel below instead of silently
+  // reopening setup.
+  const performEndSession = () => {
+    session.endSession();
+    setEarlyEnded(true);
+  };
+  const handleMeditateAgainFromEarlyEnd = () => setEarlyEnded(false);
 
   // Close/X: the one real "leave the whole standalone experience" action -
   // opens its own confirmation first (see this file's own top doc comment
@@ -124,6 +155,7 @@ export const SelfGuidedMeditation = () => {
           onResume={session.resume}
           onRequestLeave={performLeave}
           onRequestClose={handleRequestClose}
+          onEndSession={performEndSession}
           endCopy={{
             buttonLabel: 'End Session',
             buttonAriaLabel: 'End meditation',
@@ -147,6 +179,48 @@ export const SelfGuidedMeditation = () => {
           onDismiss={() => setExitConfirmOpen(false)}
         />
       </>
+    );
+  }
+
+  if (earlyEnded) {
+    return (
+      <div className="h-dvh overflow-hidden">
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+          <div
+            className="min-h-full max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-10 animate-in fade-in duration-500"
+            style={{
+              paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+              paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
+              paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+            }}
+          >
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+              <span className="material-symbols-outlined text-on-surface-variant text-4xl" aria-hidden="true">timer_off</span>
+              <h1 className="font-serif italic text-3xl text-on-surface">Session ended early</h1>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Your {session.duration.label} {session.style.label} session ended before the timer finished.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => navigate(context.fallback)}
+                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                <span>Done</span>
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleMeditateAgainFromEarlyEnd}
+                className="w-full glass-panel text-on-surface py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Meditate Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 

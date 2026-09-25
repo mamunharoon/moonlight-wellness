@@ -72,8 +72,8 @@ describe('IntentionSetup — preset-selection phase visual uplift', () => {
     expect(source).toMatch(/bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40/);
   });
 
-  it('Continue/Skip/Exit/Return-to-step controls are all still the plain bg-primary or glass-panel treatment - never gold, matching the approved canonical tokens', () => {
-    const controlsBlock = source.match(/<div className="space-y-3 w-full">\s*\n\s*\{isReviewMode[\s\S]*?\n {6}<\/div>/)?.[0] ?? '';
+  it('Continue/Skip/Exit controls are all still the plain bg-primary or glass-panel treatment - never gold, matching the approved canonical tokens', () => {
+    const controlsBlock = source.match(/<div className="space-y-3 w-full">\s*\n\s*\{\/\*[\s\S]*?\n {6}<\/div>/)?.[0] ?? '';
     expect(controlsBlock.length).toBeGreaterThan(0);
     expect(controlsBlock).not.toMatch(/morning-accent|morning-display/);
   });

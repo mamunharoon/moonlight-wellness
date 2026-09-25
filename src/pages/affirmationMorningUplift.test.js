@@ -99,8 +99,8 @@ describe('Affirmation.jsx — real dynamic, intention-matched affirmation logic 
     expect(source).toMatch(/setJourneyStep\('complete'\);\s*\n\s*navigate\('\/session-complete'\);/);
   });
 
-  it('Continue/Skip/Exit/Return-to-step buttons are all still the plain bg-primary or glass-panel treatment - never gold, matching the approved canonical tokens (primary action buttons stay peach app-wide)', () => {
-    const controlsBlock = source.match(/<div className="space-y-3 w-full">\s*\n\s*\{isReviewMode[\s\S]*?\n {4}<\/div>/)?.[0] ?? '';
+  it('Continue/Exit buttons are all still the plain bg-primary or glass-panel treatment - never gold, matching the approved canonical tokens (primary action buttons stay peach app-wide)', () => {
+    const controlsBlock = source.match(/<div className="space-y-3 w-full">\s*\n\s*\{\/\*[\s\S]*?\n {4}<\/div>/)?.[0] ?? '';
     expect(controlsBlock.length).toBeGreaterThan(0);
     expect(controlsBlock).not.toMatch(/morning-accent|morning-display/);
   });

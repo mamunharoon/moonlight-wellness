@@ -433,17 +433,46 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) n
 });
 
 describe('Bottom controls swap to "Return to [current step]" while reviewing - Continue/Skip/Exit never shown mid-review', () => {
-  it('Breathe/MorningFlow/EveningBreathing/EveningWindDown/PrepareForRest branch their bottom controls on isReviewMode', () => {
-    for (const source of [breatheSource, morningFlowSource, eveningBreathingSource, eveningWindDownSource, prepareForRestSource]) {
-      expect(source).toMatch(/isReviewMode \? \(/);
-      expect(source).toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+  // Duplicate-return-action fix, found live: reviewing Breathe/MorningFlow
+  // (Stretch)/EveningBreathing from a later step and then replaying it
+  // (tapping Begin) used to show BOTH the ReviewModeBanner's own
+  // "Return to X" (top, always rendered whenever isReviewMode) AND an
+  // identical second button here - two controls doing the exact same
+  // thing simultaneously. Affirmation/IntentionSetup have no
+  // active/pre-start split at all, so their own duplicate was reachable
+  // every single time they were reviewed (no replay needed). Fixed by
+  // removing the redundant branch (`!isReviewMode &&` - nothing renders
+  // here while reviewing; the banner covers it) rather than the banner,
+  // since the banner is the one universal, always-present mechanism
+  // every reviewable screen in the app already shares. EveningWindDown/
+  // PrepareForRest are unaffected: EveningWindDown never renders
+  // ReviewModeBanner at all (a deliberate, different, non-duplicating
+  // design - see its own doc comment) so its ternary-based label swap
+  // was never a duplicate; PrepareForRest DID duplicate (fixed below,
+  // separately, since its shape is `const primaryAction = isReviewMode ?
+  // null : (...)`, not an inline ternary in the JSX).
+  it('Breathe/MorningFlow/EveningBreathing no longer render a second "Return to X" button - the ReviewModeBanner is the sole return control', () => {
+    for (const source of [breatheSource, morningFlowSource, eveningBreathingSource]) {
+      expect(source).not.toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+      expect(source).toMatch(/\{!isReviewMode && \(/);
     }
   });
 
-  it('Affirmation and IntentionSetup (no repeat gate, no timer) also swap their own Continue/Skip/Exit controls while reviewing', () => {
+  it('EveningWindDown keeps its own, different, non-duplicating ternary label-swap unchanged (it never renders ReviewModeBanner)', () => {
+    expect(eveningWindDownSource).toMatch(/isReviewMode \? \(/);
+    expect(eveningWindDownSource).toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+    expect(eveningWindDownSource).not.toMatch(/<ReviewModeBanner/);
+  });
+
+  it('PrepareForRest\'s primaryAction is null while reviewing - the ReviewModeBanner (rendered separately, further down) is the sole return control', () => {
+    expect(prepareForRestSource).toMatch(/const primaryAction = isReviewMode \? null : \(/);
+    expect(prepareForRestSource).not.toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+  });
+
+  it('Affirmation and IntentionSetup (no repeat gate, no timer) no longer render a second "Return to X" button either', () => {
     for (const source of [affirmationSource, intentionSetupSource]) {
-      expect(source).toMatch(/isReviewMode \? \(/);
-      expect(source).toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+      expect(source).not.toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+      expect(source).toMatch(/\{!isReviewMode && \(/);
     }
   });
 });

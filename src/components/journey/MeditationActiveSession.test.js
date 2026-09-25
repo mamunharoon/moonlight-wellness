@@ -49,15 +49,54 @@ describe('MeditationActiveSession — onRequestClose (additive, optional; standa
     expect(propsBlock).not.toMatch(/onRequestClose = /);
   });
 
-  it('the big End Meditation button and onStepBack are both unaffected by onRequestClose - they always open the local dialog regardless', () => {
+  it('onStepBack is unaffected by onRequestClose - it always opens the local dialog regardless', () => {
+    const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/onStepBack=\{\(\) => setLeaveConfirmOpen\(true\)\}/);
+  });
+
+  it('the big bottom button only falls back to the same local leave dialog when the caller omits onEndSession too (see the dedicated onEndSession describe block below for the split behaviour)', () => {
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(codeOnly).toMatch(/onClick=\{\(\) => setLeaveConfirmOpen\(true\)\}\s*\n\s*aria-label=\{copy\.buttonAriaLabel\}/);
+    expect(codeOnly).toMatch(/onClick=\{\(\) => \(onEndSession \? setEndSessionConfirmOpen\(true\) : setLeaveConfirmOpen\(true\)\)\}\s*\n\s*aria-label=\{copy\.buttonAriaLabel\}/);
   });
 
   it('End Meditation preserving only-meditation semantics: neither this component nor its local dialog ever calls leaveActiveRoutine/interruptSession - only onRequestClose (a caller-supplied function this file never defines) can reach a whole-journey exit', () => {
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(codeOnly).not.toMatch(/leaveActiveRoutine/);
     expect(codeOnly).not.toMatch(/interruptSession/);
+  });
+});
+
+// Found live: the bottom "End Session" button and the header Back arrow
+// were wired to the exact same state (leaveConfirmOpen) and the exact
+// same confirm handler (onRequestLeave) - two visibly separate controls
+// that were actually one control in two places. onEndSession gives a
+// caller (standalone) a genuinely independent confirm dialog and confirm
+// handler for the bottom button, with Back completely untouched.
+describe('MeditationActiveSession — onEndSession (additive, optional; makes the bottom End Session button independent of Back)', () => {
+  it('is destructured as a plain optional prop, defaulting to null - a caller that omits it keeps the bottom button wired to setLeaveConfirmOpen, byte-identical to before this fix', () => {
+    const propsBlock = source.match(/export const MeditationActiveSession = \(\{[\s\S]*?\}\) => \{/)?.[0] ?? '';
+    expect(propsBlock).toMatch(/onEndSession = null/);
+  });
+
+  it('has its own separate confirm-open state and confirm handler, never touching leaveConfirmOpen/onRequestLeave', () => {
+    expect(source).toMatch(/const \[endSessionConfirmOpen, setEndSessionConfirmOpen\] = useState\(false\);/);
+    expect(source).toMatch(/const handleConfirmEndSession = \(\) => \{\s*\n\s*setEndSessionConfirmOpen\(false\);\s*\n\s*onEndSession\(\);\s*\n\s*\};/);
+  });
+
+  it('reuses the same endCopy wording Back already shows - ending "this meditation" means the same thing regardless of which control asked', () => {
+    const dialogBlock = source.match(/\{onEndSession && \(\s*\n\s*<ConfirmDialog[\s\S]*?\/>\s*\n\s*\)\}/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/open=\{endSessionConfirmOpen\}/);
+    expect(dialogBlock).toMatch(/title=\{copy\.dialogTitle\}/);
+    expect(dialogBlock).toMatch(/message=\{copy\.dialogMessage\}/);
+    expect(dialogBlock).toMatch(/confirmLabel=\{copy\.confirmLabel\}/);
+    expect(dialogBlock).toMatch(/cancelLabel=\{copy\.cancelLabel\}/);
+    expect(dialogBlock).toMatch(/onConfirm=\{handleConfirmEndSession\}/);
+  });
+
+  it('onStepBack/Back is completely untouched by this prop - still always opens the original leaveConfirmOpen dialog via onRequestLeave, regardless of whether onEndSession is provided', () => {
+    const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
+    expect(block).toMatch(/onStepBack=\{\(\) => setLeaveConfirmOpen\(true\)\}/);
+    expect(source).toMatch(/const handleConfirmLeave = \(\) => \{\s*\n\s*setLeaveConfirmOpen\(false\);\s*\n\s*onRequestLeave\(\);\s*\n\s*\};/);
   });
 });
 

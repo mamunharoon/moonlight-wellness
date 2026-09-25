@@ -81,6 +81,22 @@ import { MeditationOptionRow } from './MeditationControls';
  * "choosing another" means - Morning/Evening end the session and reopen
  * their own setup panel already expanded to the full style/duration/sound
  * picker, never navigating Home/standalone/a later step).
+ *
+ * `onEndSession` (additive, optional - default null, every existing caller
+ * before this fix omits it and falls back to the original behaviour):
+ * found live that the bottom "End Session" button and the header Back
+ * arrow were wired to the exact same state (`leaveConfirmOpen`) and the
+ * exact same confirm handler (`onRequestLeave`) - two visibly separate
+ * controls that were actually one control in two places, both silently
+ * returning to setup with no distinct outcome. When provided, the bottom
+ * button gets its OWN confirm dialog (`endSessionConfirmOpen`, same copy
+ * as Back's - ending "this meditation" means the same thing regardless of
+ * which control asked) and its OWN confirm handler (`onEndSession`,
+ * independent of `onRequestLeave`), so a caller can give the two controls
+ * genuinely different results (standalone: Back returns straight to
+ * setup, End Session shows a truthful "ended early" result first). When
+ * omitted, the bottom button falls back to `setLeaveConfirmOpen(true)` -
+ * byte-identical to before this prop existed.
  */
 const DEFAULT_END_COPY = {
   buttonLabel: 'End Session',
@@ -105,16 +121,23 @@ export const MeditationActiveSession = ({
   endCopy = DEFAULT_END_COPY,
   showHeaderClose = true,
   bottomAction = null,
-  onChooseAnother = null
+  onChooseAnother = null,
+  onEndSession = null
 }) => {
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [bottomActionConfirmOpen, setBottomActionConfirmOpen] = useState(false);
   const [chooseAnotherConfirmOpen, setChooseAnotherConfirmOpen] = useState(false);
+  const [endSessionConfirmOpen, setEndSessionConfirmOpen] = useState(false);
   const copy = { ...DEFAULT_END_COPY, ...endCopy };
 
   const handleConfirmLeave = () => {
     setLeaveConfirmOpen(false);
     onRequestLeave();
+  };
+
+  const handleConfirmEndSession = () => {
+    setEndSessionConfirmOpen(false);
+    onEndSession();
   };
 
   const handleConfirmBottomAction = () => {
@@ -128,8 +151,43 @@ export const MeditationActiveSession = ({
   };
 
   return (
+    // Mobile scroll repair — found live: this screen is reached only via
+    // Morning/Evening's own authenticated routine flow or standalone
+    // Meditation (both rendered outside <Layout>, see App.jsx routing),
+    // so the original viewport audit's guest-mode pass could never reach
+    // it and this defect was never caught. `min-h-[85vh]` alone relies on
+    // document scroll, which index.html deliberately disables on both
+    // axes (see Introduction.jsx's own identical fix/doc comment) - a real
+    // wheel-scroll simulation confirmed `window.scrollY` never moved at
+    // 320/375/390px width, leaving content below the fold (originally
+    // standalone's own "End Session" button at the larger sizes; adding
+    // "Choose another meditation" made this concretely unreachable at
+    // every tested size, surfacing a pre-existing defect rather than
+    // introducing a new one). Same proven shape as every other full-bleed
+    // screen fixed this way: this screen now owns its own single scroll
+    // container instead of depending on document scroll.
+    //
+    // Nested-scroll-trap correction — found live, Evening only: Evening's
+    // caller wraps this component in EveningSceneShell, which owns its OWN
+    // outer `fixed inset-0 overflow-y-auto` scroll container (Morning and
+    // standalone have no such wrapper). The original fix set
+    // `overscrollBehaviorY: 'contain'` on this component's own inner
+    // scroll container (matching every other single-container screen fixed
+    // this way) - but `contain` also blocks the browser's normal scroll-
+    // chaining once THIS container's own scroll room runs out, so on
+    // Evening specifically, once this inner container hit its own limit,
+    // the remaining wheel delta had nowhere further to go and the bottom
+    // controls stayed a few pixels below the fold even at max scroll -
+    // confirmed live by inspecting both containers' scrollHeight/
+    // clientHeight directly. Removing `contain` costs nothing on Morning/
+    // standalone (there is no outer scrollable ancestor for a leftover
+    // wheel delta to chain into there anyway) and lets Evening's leftover
+    // delta correctly chain up into EveningSceneShell's own outer
+    // container, which has its own additional scroll room.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide">
     <div
-      className="min-h-[85vh] max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-8 animate-in fade-in duration-500"
+      className="min-h-full max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-8 animate-in fade-in duration-500"
       style={{
         paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
         paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
@@ -209,7 +267,7 @@ export const MeditationActiveSession = ({
         ) : (
           <button
             type="button"
-            onClick={() => setLeaveConfirmOpen(true)}
+            onClick={() => (onEndSession ? setEndSessionConfirmOpen(true) : setLeaveConfirmOpen(true))}
             aria-label={copy.buttonAriaLabel}
             className="w-full py-4 rounded-full font-semibold text-center min-h-[44px] bg-[#b3555f]/15 text-[#b3555f] border border-[#b3555f]/40 hover:bg-[#b3555f]/25 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#b3555f] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           >
@@ -251,6 +309,19 @@ export const MeditationActiveSession = ({
         />
       )}
 
+      {onEndSession && (
+        <ConfirmDialog
+          open={endSessionConfirmOpen}
+          title={copy.dialogTitle}
+          message={copy.dialogMessage}
+          confirmLabel={copy.confirmLabel}
+          cancelLabel={copy.cancelLabel}
+          mildDestructive
+          onConfirm={handleConfirmEndSession}
+          onDismiss={() => setEndSessionConfirmOpen(false)}
+        />
+      )}
+
       {onChooseAnother && (
         <ConfirmDialog
           open={chooseAnotherConfirmOpen}
@@ -263,6 +334,8 @@ export const MeditationActiveSession = ({
           onDismiss={() => setChooseAnotherConfirmOpen(false)}
         />
       )}
+    </div>
+    </div>
     </div>
   );
 };

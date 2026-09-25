@@ -69,7 +69,7 @@ describe('Support\'s own embedded (non-standalone) usage is preserved exactly', 
 
   it('hasBegun starts (and, for non-standalone, stays) true - Support\'s own screen never gates on it; its own effect gate is !awaitingMusicChoice alone via the shared canRun', () => {
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => !standalone\);/);
-    expect(source).toMatch(/const canRun = standalone \? hasBegun : !awaitingMusicChoice;/);
+    expect(source).toMatch(/const canRun = standalone \? \(hasBegun && !earlyEnded\) : !awaitingMusicChoice;/);
   });
 
   it('"Just breathe. There is nowhere else to be." remains the exact copy for Support\'s own usage', () => {
@@ -172,32 +172,60 @@ describe('Standalone Home quick-action correction — Back while active is a loc
     expect(source).toMatch(/showBack backFallback=\{backFallback\} onBeforeLeave=\{handleBackFromActive\}/);
   });
 
-  it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete) - setup and the completion screen let Back proceed to Home normally', () => {
+  it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete, not already earlyEnded) - setup and either result screen let Back proceed to Home normally', () => {
     const body = source.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!hasBegun \|\| isComplete\) return;/);
+    expect(body).toMatch(/if \(!hasBegun \|\| isComplete \|\| earlyEnded\) return;/);
+    expect(body).toMatch(/setEndConfirmSource\('back'\);/);
     expect(body).toMatch(/setEndConfirmOpen\(true\);/);
     expect(body).toMatch(/return false;/);
   });
 
-  it('confirming stops music and resets to setup using the exact same reset shape as handleBreatheAgain (hasBegunOnceRef, setHasBegun(false)) - no navigation, no route change', () => {
+  it('confirming resolves differently depending on which control opened the dialog (endConfirmSource): Back still resets straight to setup exactly as before (hasBegunOnceRef, setHasBegun(false), no navigation); the bottom End early button instead sets earlyEnded, surfacing the new result panel', () => {
     const body = source.match(/const handleConfirmEndSession = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
-    expect(body).toMatch(/setHasBegun\(false\);/);
+    expect(body).toMatch(/if \(endConfirmSource === 'button'\) \{\s*\n\s*setEarlyEnded\(true\);\s*\n\s*\} else \{\s*\n\s*hasBegunOnceRef\.current = false;\s*\n\s*setHasBegun\(false\);\s*\n\s*\}/);
     expect(body).not.toMatch(/navigate/);
   });
 
-  it('the confirmation dialog describes ending THIS session, never leaving the whole Breathe feature - matches the approved wording exactly', () => {
+  it('the confirmation dialog describes ending THIS session, never leaving the whole Breathe feature - matches the approved wording exactly, shared by both Back and the bottom End early button', () => {
     expect(source).toMatch(/title="End this breathing session\?"/);
     expect(source).toMatch(/message="Your current breathing session will end\."/);
     expect(source).toMatch(/confirmLabel="End Session"/);
     expect(source).toMatch(/cancelLabel="Keep Breathing"/);
   });
+});
 
-  it('the existing "End early" bottom button (active phase) and the natural "Breathing complete" screen are both untouched by this fix', () => {
-    expect(source).toMatch(/const handleEndEarly = \(\) => \{/);
+// ---------------------------------------------------------------------
+// Early-end result correction — found live: the bottom "End early" button
+// had no confirmation at all and navigated straight Home, unlike natural
+// completion's own distinct "Breathing complete" screen. It must not
+// merely duplicate Back (which still resolves silently to setup) or
+// natural completion (which never went through a confirmation at all).
+// ---------------------------------------------------------------------
+describe('Early-end result correction — "End early" no longer silently duplicates Back or natural completion', () => {
+  it('the bottom "End early" button now opens the shared confirm dialog (endConfirmSource "button") instead of navigating directly', () => {
+    const body = source.match(/const handleEndEarly = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setEndConfirmSource\('button'\);/);
+    expect(body).toMatch(/setEndConfirmOpen\(true\);/);
+    expect(body).not.toMatch(/navigate/);
     expect(source).toMatch(/onClick=\{handleEndEarly\}/);
-    expect(source).toMatch(/Breathing complete/);
+  });
+
+  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end', () => {
+    expect(source).toMatch(/\{isComplete \|\| earlyEnded \? \(/);
+    expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : 'Breathing complete'\}/);
+    expect(source).toMatch(/earlyEnded \? `Your \$\{activePattern\.label\} session ended before the timer finished\.` : 'Take a moment to notice how you feel\.'/);
+  });
+
+  it('Done and "Breathe again" are shared by both result states - Breathe again also clears earlyEnded so it works identically from either', () => {
+    const body = source.match(/const handleBreatheAgain = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
+    expect(body).toMatch(/setHasBegun\(false\);/);
+    expect(body).toMatch(/setEarlyEnded\(false\);/);
+  });
+
+  it('confirming an early end stops the countdown immediately (canRun folds in !earlyEnded) so it can never keep ticking behind the result panel', () => {
+    expect(source).toMatch(/const canRun = standalone \? \(hasBegun && !earlyEnded\) : !awaitingMusicChoice;/);
   });
 });
 

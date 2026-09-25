@@ -563,17 +563,16 @@ export const Breathe = () => {
 
       {hasBegun && !isRepeatGated && (
         <div className="space-y-3 w-full">
-          {isReviewMode ? (
-            currentStep && (
-              <button
-                onClick={() => navigate(routeForStep(currentStep.id))}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-              >
-                <span>Return to {getStepLabel(currentStep.id)}</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            )
-          ) : (
+          {/* Duplicate-return-action fix, found live: reviewing Breathe
+              from a later step (e.g. Meditate/Affirm) and then tapping
+              "Begin Breathing" to replay it used to show BOTH the
+              ReviewModeBanner's own "Return to X" (top, always rendered
+              whenever isReviewMode) AND this identical button here -
+              two controls doing the exact same thing on screen at once.
+              The banner already covers it; nothing replaces this branch
+              while reviewing (Skip/Exit were already hidden here too, for
+              the same reason - reviewing never exposes them). */}
+          {!isReviewMode && (
             <>
               {hasFinished && !isInterrupted && (
                 <button

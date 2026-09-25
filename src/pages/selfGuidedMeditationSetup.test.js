@@ -174,3 +174,44 @@ describe('SelfGuidedMeditation.jsx — retains its existing Close/End behaviour,
     expect(activeReturnBlock).toMatch(/buttonAriaLabel: 'End meditation'/);
   });
 });
+
+// ---------------------------------------------------------------------
+// Early-end result correction — found live: the bottom "End Session"
+// button and Back were wired to MeditationActiveSession's own single
+// leaveConfirmOpen/onRequestLeave pair, so End Session could never be
+// verified "independently from Back" - both silently returned to setup
+// with no distinct outcome. onEndSession (MeditationActiveSession.jsx)
+// gives End Session its own confirm dialog/handler; this page uses it to
+// surface a new, truthful "Session ended early" panel instead, while
+// Back (performLeave) is completely unchanged.
+// ---------------------------------------------------------------------
+describe('SelfGuidedMeditation.jsx — Early-end result correction: End Session is independent of Back', () => {
+  it('performEndSession ends the session and sets earlyEnded - distinct from performLeave, which never touches earlyEnded', () => {
+    const body = source.match(/const performEndSession = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/session\.endSession\(\);/);
+    expect(body).toMatch(/setEarlyEnded\(true\);/);
+    const leaveBody = source.match(/const performLeave = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(leaveBody).not.toMatch(/earlyEnded/);
+  });
+
+  it('the active screen wires performEndSession as onEndSession, alongside the unchanged onRequestLeave/onRequestClose', () => {
+    expect(source).toMatch(/onRequestLeave=\{performLeave\}/);
+    expect(source).toMatch(/onRequestClose=\{handleRequestClose\}/);
+    expect(source).toMatch(/onEndSession=\{performEndSession\}/);
+  });
+
+  it('the earlyEnded panel renders truthful wording - never claims the full selected duration completed - with Done (-> context.fallback) and Meditate Again (-> clears earlyEnded, revealing setup with the same style/duration/sound still selected)', () => {
+    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
+    expect(panelBlock.length).toBeGreaterThan(0);
+    expect(panelBlock).toMatch(/Session ended early/);
+    expect(panelBlock).toMatch(/session ended before the timer finished/);
+    expect(panelBlock).not.toMatch(/complete/i);
+    expect(panelBlock).toMatch(/onClick=\{\(\) => navigate\(context\.fallback\)\}/);
+    expect(panelBlock).toMatch(/onClick=\{handleMeditateAgainFromEarlyEnd\}/);
+  });
+
+  it('handleMeditateAgainFromEarlyEnd only clears earlyEnded - no navigation, no session reset (style/duration/sound and the setup screen underneath are untouched, since endSession() never resets them)', () => {
+    const body = source.match(/const handleMeditateAgainFromEarlyEnd = \(\) => setEarlyEnded\(false\);/);
+    expect(body).not.toBeNull();
+  });
+});

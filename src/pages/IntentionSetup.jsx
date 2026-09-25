@@ -381,17 +381,14 @@ export const IntentionSetup = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        {isReviewMode ? (
-          currentStep && (
-            <button
-              onClick={() => navigate(routeForStep(currentStep.id))}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-            >
-              <span>Return to {getStepLabel(currentStep.id)}</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-          )
-        ) : (
+        {/* Duplicate-return-action fix, found live: the ReviewModeBanner
+            above already renders its own "Return to X" whenever
+            isReviewMode is true - this screen has no active/pre-start
+            split (unlike Breathe/Stretch), so reviewing Intend from any
+            later step (very commonly reached via the progress menu)
+            always showed BOTH controls simultaneously. Nothing replaces
+            this branch while reviewing; the banner covers it. */}
+        {!isReviewMode && (
           <>
             <button
               onClick={handleComplete}

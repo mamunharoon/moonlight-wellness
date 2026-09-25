@@ -42,14 +42,20 @@ describe('QuietBreathing.jsx (standalone) — isComplete is a plain derived valu
 });
 
 describe('QuietBreathing.jsx (standalone) — active phase: no Continue, only "End early", never claims completion', () => {
-  it('handleEndEarly stops music and navigates to backFallback (Home for standalone) - it never touches isComplete', () => {
+  // Early-end result correction — found live: this handler used to stop
+  // music and navigate(backFallback) directly, with zero confirmation.
+  // It now opens the same confirm dialog Back uses (endConfirmSource
+  // 'button'), and only actually stops the session once confirmed - see
+  // standaloneBreathe.test.js's dedicated "Early-end result correction"
+  // describe block for the full confirm-through-to-result-panel coverage.
+  it('handleEndEarly opens the shared confirm dialog (tagged as the "button" source) rather than acting immediately - it never touches isComplete', () => {
     const body = source.match(/const handleEndEarly = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(body).toMatch(/navigate\(backFallback\);/);
+    expect(body).toMatch(/setEndConfirmSource\('button'\);/);
+    expect(body).toMatch(/setEndConfirmOpen\(true\);/);
     expect(body).not.toMatch(/isComplete/);
   });
 
-  it('the active-phase render (hasBegun, not complete) has exactly one button, "End early", and no "Continue"/"Skip" pair', () => {
+  it('the active-phase render (hasBegun, not complete, not earlyEnded) has exactly one button, "End early", and no "Continue"/"Skip" pair', () => {
     const activePhase = standaloneBlock.slice(standaloneBlock.indexOf("Just breathe. There is nowhere else to be."));
     const firstButtonsBlock = activePhase.slice(0, activePhase.indexOf('Explore guided breathing sessions'));
     expect(firstButtonsBlock).toMatch(/onClick=\{handleEndEarly\}/);
@@ -60,22 +66,27 @@ describe('QuietBreathing.jsx (standalone) — active phase: no Continue, only "E
 });
 
 describe('QuietBreathing.jsx (standalone) — natural completion: distinct "Breathing complete" screen', () => {
-  it('isComplete renders before the !hasBegun/active ternary, with the exact required heading/subtext', () => {
-    expect(standaloneBlock).toMatch(/\{isComplete \? \(/);
+  // The result-panel ternary now also covers earlyEnded (see the
+  // dedicated "Early-end result correction" describe block in
+  // standaloneBreathe.test.js) - this file keeps its focus on the
+  // genuine natural-completion path, which is otherwise unchanged.
+  it('isComplete (or earlyEnded) renders before the !hasBegun/active ternary, with the exact required natural-completion heading/subtext', () => {
+    expect(standaloneBlock).toMatch(/\{isComplete \|\| earlyEnded \? \(/);
     expect(standaloneBlock).toMatch(/Breathing complete/);
     expect(standaloneBlock).toMatch(/Take a moment to notice how you feel\./);
   });
 
   it('primary "Done" navigates to Home ("/"), secondary "Breathe again" calls handleBreatheAgain', () => {
-    const completionBlock = standaloneBlock.slice(standaloneBlock.indexOf('{isComplete ? ('), standaloneBlock.indexOf(') : !hasBegun ? ('));
+    const completionBlock = standaloneBlock.slice(standaloneBlock.indexOf('{isComplete || earlyEnded ? ('), standaloneBlock.indexOf(') : !hasBegun ? ('));
     expect(completionBlock).toMatch(/onClick=\{\(\) => navigate\('\/'\)\}[\s\S]*?Done/);
     expect(completionBlock).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]*?Breathe again/);
   });
 
-  it('handleBreatheAgain resets the double-tap guard and hasBegun - returning to this screen\'s own setup, not a direct restart (isComplete falls back to false automatically once hasBegun is false, since it is a derived value)', () => {
+  it('handleBreatheAgain resets the double-tap guard, hasBegun, and earlyEnded - returning to this screen\'s own setup, not a direct restart (isComplete falls back to false automatically once hasBegun is false, since it is a derived value)', () => {
     const body = source.match(/const handleBreatheAgain = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
     expect(body).toMatch(/setHasBegun\(false\);/);
+    expect(body).toMatch(/setEarlyEnded\(false\);/);
   });
 
   it('InteractiveAmbientMusic hides its toggle once complete too, alongside the existing pre-start hide', () => {

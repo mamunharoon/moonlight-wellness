@@ -159,10 +159,17 @@ export const QuietBreathing = ({ standalone = false }) => {
 
   if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog) { /* no-op to satisfy blind linter */ }
 
+  // Early-end result state - declared here (ahead of `canRun`, which reads
+  // it) so the countdown effect below can stop the instant an early end is
+  // confirmed. See the fuller doc comment further down, by handleEndEarly.
+  const [earlyEnded, setEarlyEnded] = useState(false);
+
   // The single gate the countdown effect uses: standalone waits for
-  // hasBegun; non-standalone (Support) preserves its exact original gate
-  // (awaitingMusicChoice alone) - never affected by hasBegun at all.
-  const canRun = standalone ? hasBegun : !awaitingMusicChoice;
+  // hasBegun, and stops the instant an early end is confirmed (earlyEnded)
+  // so the countdown can never keep ticking behind the result panel;
+  // non-standalone (Support) preserves its exact original gate
+  // (awaitingMusicChoice alone) - never affected by hasBegun/earlyEnded.
+  const canRun = standalone ? (hasBegun && !earlyEnded) : !awaitingMusicChoice;
 
   // Standalone completion redesign — found live: "Continue" was tappable
   // at any time (premature exit, misleadingly implying real completion)
@@ -204,22 +211,30 @@ export const QuietBreathing = ({ standalone = false }) => {
     navigate(completionRoute);
   };
 
-  // Standalone completion redesign — the active phase's only early-exit
-  // action while genuinely running (replaces the old, misleading
-  // always-tappable Continue/Skip pair): cleans up by simply navigating
-  // Home, same as backFallback, without ever touching isComplete/claiming
-  // completion.
+  // Early-end result correction — found live: the bottom "End early"
+  // button had NO confirmation at all and navigated straight Home with no
+  // distinct result state, unlike natural completion's own "Breathing
+  // complete" screen. Now opens the same confirm dialog Back already
+  // uses (ending this breathing session means the same thing regardless
+  // of which control asked), tracked via `endConfirmSource` so the two
+  // controls can still resolve differently on confirm: Back -> straight
+  // to setup (unchanged), End early -> the new `earlyEnded` result panel.
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [endConfirmSource, setEndConfirmSource] = useState('back');
   const handleEndEarly = () => {
-    musicPlayerRef.current?.stop();
-    navigate(backFallback);
+    setEndConfirmSource('button');
+    setEndConfirmOpen(true);
   };
 
   // "Breathe again" - returns to this same screen's own pattern-choice
   // setup, not a direct restart, per spec ("Breathe again -> standalone
   // setup"). No remount: just resets local state back to pre-start.
+  // Also clears `earlyEnded` so it works identically from either result
+  // panel (natural completion or early end).
   const handleBreatheAgain = () => {
     hasBegunOnceRef.current = false;
     setHasBegun(false);
+    setEarlyEnded(false);
   };
 
   // Standalone Home quick-action correction — Back while active, found
@@ -236,28 +251,35 @@ export const QuietBreathing = ({ standalone = false }) => {
   // unaffected (this returns undefined there, so Back proceeds normally
   // to Home) - matching "Back from Breathe setup returns Home" and
   // "Back must not jump directly from active breathing to Home."
-  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const handleBackFromActive = () => {
-    if (!hasBegun || isComplete) return;
+    if (!hasBegun || isComplete || earlyEnded) return;
+    setEndConfirmSource('back');
     setEndConfirmOpen(true);
     return false;
   };
+  // Shared confirm handler for both sources (see `endConfirmSource` above):
+  // Back always resolves straight to setup, unchanged; the bottom "End
+  // early" button resolves to the new truthful `earlyEnded` result panel.
   const handleConfirmEndSession = () => {
     setEndConfirmOpen(false);
     musicPlayerRef.current?.stop();
-    hasBegunOnceRef.current = false;
-    setHasBegun(false);
+    if (endConfirmSource === 'button') {
+      setEarlyEnded(true);
+    } else {
+      hasBegunOnceRef.current = false;
+      setHasBegun(false);
+    }
   };
 
   if (standalone) {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
-        {isComplete ? (
+        {isComplete || earlyEnded ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-on-surface">Breathing complete</h2>
+              <h2 className="text-2xl font-bold text-on-surface">{earlyEnded ? 'Session ended early' : 'Breathing complete'}</h2>
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                Take a moment to notice how you feel.
+                {earlyEnded ? `Your ${activePattern.label} session ended before the timer finished.` : 'Take a moment to notice how you feel.'}
               </p>
             </div>
             <div className="space-y-3 w-full">

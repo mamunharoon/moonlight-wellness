@@ -364,8 +364,14 @@ describe('Back and Review Mode wiring are unchanged from the previous subphase',
     expect(source).toMatch(/hasUnsavedProgress: false/);
   });
 
-  it('Review Mode swaps in "Return to [step]" exactly as before - Ready for Sleep is never shown while reviewing', () => {
-    expect(source).toMatch(/isReviewMode \? \(/);
-    expect(source).toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+  // Duplicate-return-action fix, found live: this used to render its own
+  // second "Return to X" button here AND the ReviewModeBanner (rendered
+  // separately, further down in this same file) - two identical controls
+  // at once. primaryAction is now null while reviewing; Ready for Sleep is
+  // still never shown while reviewing either way.
+  it('Review Mode sets primaryAction to null (the ReviewModeBanner alone covers the return action) - Ready for Sleep is never shown while reviewing', () => {
+    expect(source).toMatch(/const primaryAction = isReviewMode \? null : \(/);
+    expect(source).not.toMatch(/Return to \{getStepLabel\(currentStep\.id\)\}/);
+    expect(source).toMatch(/<ReviewModeBanner/);
   });
 });

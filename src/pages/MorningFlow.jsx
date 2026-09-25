@@ -735,17 +735,10 @@ export const MorningFlow = () => {
 
       {hasBegun && !isRepeatGated && (
         <div className="space-y-3 w-full">
-          {isReviewMode ? (
-            currentStep && (
-              <button
-                onClick={() => navigate(routeForStep(currentStep.id))}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-              >
-                <span>Return to {getStepLabel(currentStep.id)}</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            )
-          ) : (
+          {/* Duplicate-return-action fix (mirrors Breathe.jsx's identical
+              fix) — the ReviewModeBanner's own "Return to X" (top) already
+              covers this; nothing replaces this branch while reviewing. */}
+          {!isReviewMode && (
             <>
               {/* Hidden while the ExercisePausedPanel above is showing its own
                   two resume actions - see Breathe.jsx's identical comment. */}

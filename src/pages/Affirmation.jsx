@@ -136,17 +136,11 @@ export const Affirmation = () => {
       </div>
 
       <div className="space-y-3 w-full">
-        {isReviewMode ? (
-          currentStep && (
-            <button
-              onClick={() => navigate(routeForStep(currentStep.id))}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-            >
-              <span>Return to {getStepLabel(currentStep.id)}</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-          )
-        ) : (
+        {/* Duplicate-return-action fix (mirrors IntentionSetup.jsx's
+            identical fix) — the ReviewModeBanner above already renders
+            its own "Return to X" whenever isReviewMode; nothing replaces
+            this branch while reviewing. */}
+        {!isReviewMode && (
           <>
             <button
               onClick={handleNext}

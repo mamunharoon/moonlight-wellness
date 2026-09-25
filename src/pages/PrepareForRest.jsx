@@ -160,17 +160,11 @@ export const PrepareForRest = () => {
   const moreGuidanceItems = MORE_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
   const moreSleepSoundItems = MORE_SLEEP_SOUNDS.map(buildGuidanceItem).filter(Boolean);
 
-  const primaryAction = isReviewMode ? (
-    currentStep && (
-      <button
-        onClick={() => navigate(routeForStep(currentStep.id))}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px]"
-      >
-        <span>Return to {getStepLabel(currentStep.id)}</span>
-        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-      </button>
-    )
-  ) : (
+  // Duplicate-return-action fix, found live: the ReviewModeBanner below
+  // already renders its own "Return to X" whenever isReviewMode is true -
+  // primaryAction rendered an identical second one. null while reviewing;
+  // the banner covers it.
+  const primaryAction = isReviewMode ? null : (
     <button
       onClick={handleReadyForSleep}
       disabled={isAdvancing}
