@@ -73,7 +73,14 @@ export const EveningWindDown = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/" showExit>
+    // Release-candidate verification fix: `guardActiveRoute` opts this one
+    // screen back into BackButton's "Leave this routine?" confirmation
+    // (every other Evening screen keeps it off - see EveningSceneShell.jsx's
+    // own doc comment for why). Wind-Down is the routine's first step with
+    // no internal sub-questions of its own, so this only ever fires for the
+    // genuine duration Wind-Down itself is the live step - matching Exit's
+    // existing confirmation instead of Back silently going Home unguarded.
+    <EveningSceneShell atmosphere={{ phase: 'dusk' }} showBack backFallback="/" showExit guardActiveRoute>
       {/* Build 15 Evening UX correction — this screen deliberately never
           renders ReviewModeBanner, even though useStepReviewMode reports
           isReviewMode=true whenever the journey is already mid-flight

@@ -75,9 +75,27 @@ describe('Evening Wind-down back-navigation chain', () => {
   });
 });
 
-describe('Build 15 Evening UX correction — Back never interrupts the active session on any Evening screen', () => {
-  it('EveningSceneShell always renders its BackButton with guardActiveRoute={false} - the old "Leave this routine?" dialog can never open from Back on an Evening screen', () => {
-    expect(shellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
+describe('Build 15 Evening UX correction — Back never interrupts the active session on multi-question Evening screens', () => {
+  // Release-candidate verification fix: guardActiveRoute is now a real
+  // pass-through prop (default false), not hardcoded {false} - see
+  // EveningSceneShell.jsx's own doc comment. EveningWindDown.jsx is the
+  // sole exception opting into it (own describe block below); every other
+  // Evening screen still gets false via the default, so "Leave this
+  // routine?" still can never open from Back on Reflection/Gratitude/
+  // Breathing/Meditate/PrepareForRest.
+  it('EveningSceneShell forwards guardActiveRoute as a genuine prop (default false), not a hardcoded {false}', () => {
+    expect(shellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{guardActiveRoute\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
+    expect(shellSource).toMatch(/guardActiveRoute = false/);
+  });
+
+  it('the multi-question screens (Reflection/Gratitude/Breathing) never pass guardActiveRoute themselves, so they keep the default false', () => {
+    for (const source of [reflectionSource, gratitudeSource, breathingSource]) {
+      const shellTags = source.match(/<EveningSceneShell\b[^>]*>/g) ?? [];
+      expect(shellTags.length).toBeGreaterThan(0);
+      for (const tag of shellTags) {
+        expect(tag).not.toMatch(/guardActiveRoute/);
+      }
+    }
   });
 
   it('EveningSceneShell no longer passes confirmTitle/confirmMessage to BackButton - that confirmation can never fire here any more, since guardActiveRoute is always false', () => {

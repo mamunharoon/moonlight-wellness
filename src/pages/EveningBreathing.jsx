@@ -235,10 +235,10 @@ export const EveningBreathing = () => {
   // Back-navigation repair (canonical Morning/Evening map) — Active
   // Breathing Back must safely stop the exercise and return to this
   // step's own pre-start screen, never straight to Gratitude and never
-  // the whole-routine exit (Evening's Back is already unguarded -
-  // EveningSceneShell's own guardActiveRoute={false} - only its separate
-  // showExit control leaves the routine outright). A subsequent Back tap,
-  // once hasBegun is false again, falls through to the ordinary
+  // the whole-routine exit (this screen never opts into EveningSceneShell's
+  // guardActiveRoute prop, so Back here stays unguarded - only its
+  // separate showExit control leaves the routine outright). A subsequent
+  // Back tap, once hasBegun is false again, falls through to the ordinary
   // previous-step navigation. Mirrors Breathe.jsx's identical handler.
   const handleBackFromActive = () => {
     if (!hasBegun || isRepeatGated) return;

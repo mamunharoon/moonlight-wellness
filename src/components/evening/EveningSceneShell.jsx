@@ -64,13 +64,32 @@ import { ExitEveningButton } from './ExitEveningButton';
  * cascade precedence than an appended utility class of the same
  * specificity would otherwise have.
  *
- * Build 15 Evening UX correction — BackButton always renders here with
- * `guardActiveRoute={false}`: Back means "previous Evening question/
+ * Build 15 Evening UX correction — BackButton's `guardActiveRoute` prop
+ * defaults to false here: Back means "previous Evening question/
  * stage," a plain navigate(), never the old "Leave this routine?"
  * confirmation (that concern moved entirely to the new, separate
- * `showExit` control below). The former evening-specific confirmTitle/
+ * `showExit` control below). This exists because Reflection/Gratitude/
+ * Evening Breathing/Prepare for Rest each share ONE route across multiple
+ * internal questions/stages, so `activeRoute === location.pathname` is
+ * true for the entire time any of them is the live step - guarding would
+ * wrongly show "Leave this routine?" on, say, Reflection Q2 instead of
+ * simply returning to Q1. The former evening-specific confirmTitle/
  * confirmMessage props are gone from this BackButton usage for the same
- * reason - that dialog can no longer ever open here.
+ * reason - that dialog can no longer open on those screens.
+ *
+ * `guardActiveRoute` (release-candidate verification fix, additive -
+ * default false so every existing caller above keeps the exact behaviour
+ * just described): EveningWindDown.jsx is the one exception - it has no
+ * internal sub-questions and its own unique route
+ * (sessionDefinitions.js's WIND_DOWN step), so `activeRoute ===
+ * location.pathname` is true only for the genuine duration Wind-Down
+ * itself is the live step, exactly when the canonical Evening map
+ * requires Back to show the same whole-routine confirmation Exit already
+ * shows at that first step - confirmed live: Back previously navigated
+ * straight Home with no confirmation at all while Exit correctly showed
+ * one, a real mismatch against "first Wind-Down Back/Exit retains the
+ * existing whole-routine confirmation." EveningWindDown.jsx now passes
+ * `guardActiveRoute` explicitly; every other caller is unaffected.
  *
  * `showExit` (additive, default false): renders ExitEveningButton -
  * a circular Close/X, top-right, mirroring BackButton's own top-left
@@ -89,7 +108,7 @@ import { ExitEveningButton } from './ExitEveningButton';
  * straight back into that completed step ("do not re-enter a completed
  * journey using browser Back").
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, children }) => {
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
@@ -134,7 +153,7 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
               fallback={backFallback}
               className="!bg-black/55 !border-white/40"
               onBeforeLeave={onBeforeLeave}
-              guardActiveRoute={false}
+              guardActiveRoute={guardActiveRoute}
               alwaysFallback={alwaysFallback}
             />
           </div>

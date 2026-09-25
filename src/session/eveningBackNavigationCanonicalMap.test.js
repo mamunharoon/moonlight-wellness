@@ -39,8 +39,17 @@ const prepareForRestSource = read('../pages/PrepareForRest.jsx');
 
 describe('EveningSceneShell — alwaysFallback pass-through, additive only', () => {
   it('accepts alwaysFallback (default false) and forwards it straight to the inner BackButton', () => {
-    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, children/);
-    expect(eveningSceneShellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
+    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, children/);
+    expect(eveningSceneShellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{guardActiveRoute\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
+  });
+
+  // Release-candidate verification fix: guardActiveRoute defaults to false
+  // (every existing caller unaffected) but is now a real pass-through, not
+  // a hardcoded {false} - EveningWindDown.jsx is the one caller that opts
+  // in (see the "EveningWindDown opts into guardActiveRoute" describe
+  // block below), which this test's own regex must not contradict.
+  it('guardActiveRoute is a genuine pass-through prop, not hardcoded to false in the JSX', () => {
+    expect(eveningSceneShellSource).not.toMatch(/guardActiveRoute=\{false\}/);
   });
 });
 
@@ -59,11 +68,25 @@ describe('Canonical map — Morning Complete -> Home is unaffected; Evening Comp
 });
 
 describe('Canonical map — every other Evening screen already had a plain, unguarded Back before this pass (Build 15 Evening UX correction) - confirmed unchanged', () => {
-  it('EveningWindDown/Reflection/Gratitude/EveningMeditate/PrepareForRest all render EveningSceneShell with showBack, never passing guardActiveRoute themselves (the shell already hardcodes it false)', () => {
-    for (const source of [eveningWindDownSource, reflectionSource, gratitudeSource, eveningMeditateSource, prepareForRestSource]) {
+  it('Reflection/Gratitude/EveningMeditate/PrepareForRest all render EveningSceneShell with showBack, never passing guardActiveRoute themselves (the shell default keeps it false for them)', () => {
+    for (const source of [reflectionSource, gratitudeSource, eveningMeditateSource, prepareForRestSource]) {
       expect(source).toMatch(/<EveningSceneShell[^>]*showBack/);
       expect(source).not.toMatch(/guardActiveRoute/);
     }
+  });
+
+  // Release-candidate verification fix: EveningWindDown is the one
+  // exception to the rule above. It has no internal sub-questions and its
+  // own unique route (sessionDefinitions.js's WIND_DOWN step), so
+  // `activeRoute === location.pathname` is true only for the genuine
+  // duration Wind-Down itself is the live step - exactly when the
+  // canonical Evening map requires Back to show the same whole-routine
+  // confirmation Exit already shows at the routine's first step. Confirmed
+  // live: Back previously navigated straight Home with no confirmation at
+  // all while Exit correctly showed one - see EveningSceneShell.jsx's own
+  // doc comment for the full rationale.
+  it('EveningWindDown opts into guardActiveRoute so first-step Back matches Exit\'s existing whole-routine confirmation', () => {
+    expect(eveningWindDownSource).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'dusk' \}\} showBack backFallback="\/" showExit guardActiveRoute>/);
   });
 
   it('EveningMeditate.jsx setup Back falls back to /evening-breathing; PrepareForRest.jsx Back falls back to /evening-meditate - matching Morning\'s identical per-step convention', () => {
