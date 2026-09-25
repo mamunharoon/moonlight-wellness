@@ -35,16 +35,8 @@ import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)), 'utf-8');
 
-// Copy refinement (Home Visual Uplift follow-up) — label restored to the
-// earlier, more user-centred "Need a moment?" wording. Destination, icon,
-// aria-describedby id and every other attribute are unchanged - only this
-// one string. escapeRegExp guards the literal "?" (a regex quantifier if
-// left unescaped) wherever tile.label is interpolated into a `new RegExp`
-// below.
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const TILES = [
-  { href: '/breathe-standalone', label: 'Need a moment?', tipId: 'quick-action-tip-breathe' },
+  { href: '/breathe-standalone', label: 'Breathe', tipId: 'quick-action-tip-breathe' },
   { href: '/self-guided-meditation?from=home', label: 'Meditate', tipId: 'quick-action-tip-meditate' },
   { href: '/library?category=sleep-soundscapes&from=home', label: 'Sleep &amp; Unwind', tipId: 'quick-action-tip-sleep-sounds' }
 ];
@@ -97,12 +89,12 @@ describe('Home — quick-action tile tooltips (desktop hover / keyboard focus)',
       });
 
       it('the tooltip text exactly matches the tile\'s own permanently-visible label', () => {
-        const tipMatch = tileBlock.match(new RegExp(`id="${tile.tipId}"[\\s\\S]*?>\\s*\\n\\s*${escapeRegExp(tile.label)}\\s*\\n`));
+        const tipMatch = tileBlock.match(new RegExp(`id="${tile.tipId}"[\\s\\S]*?>\\s*\\n\\s*${tile.label}\\s*\\n`));
         expect(tipMatch, `tooltip text for ${tile.href} should read "${tile.label}"`).not.toBeNull();
       });
 
       it('the permanently-visible label span is still present, unconditionally (the tooltip never replaces it)', () => {
-        expect(tileBlock).toMatch(new RegExp(`text-\\[11px\\] font-semibold text-on-surface leading-tight">${escapeRegExp(tile.label)}<`));
+        expect(tileBlock).toMatch(new RegExp(`text-\\[11px\\] font-semibold text-on-surface leading-tight">${tile.label}<`));
       });
 
       it('the tooltip is hidden by default and shown only on real hover or keyboard focus-visible - never on plain :focus (which a mouse click also triggers)', () => {
@@ -123,45 +115,4 @@ describe('Home — quick-action tile tooltips (desktop hover / keyboard focus)',
       });
     });
   }
-});
-
-describe('Home — "Need a moment?" copy refinement: only the displayed label changed', () => {
-  const breatheTile = (() => {
-    const start = source.indexOf('to="/breathe-standalone"');
-    expect(start).toBeGreaterThan(-1);
-    return source.slice(start, source.indexOf('</Link>', start));
-  })();
-
-  it('the destination is still exactly /breathe-standalone - no route change', () => {
-    expect(breatheTile).toMatch(/^to="\/breathe-standalone"/);
-  });
-
-  it('the icon is still the same breathing "air" glyph, still tertiary-coloured - no icon change', () => {
-    expect(breatheTile).toMatch(/material-symbols-outlined text-tertiary text-2xl">air</);
-  });
-
-  it('the tile is still a plain <Link>, not a click handler - guest access is identical to every other quick-action tile (no isGuest gate on any of the three, unchanged)', () => {
-    expect(breatheTile).not.toMatch(/onClick=/);
-    expect(source).not.toMatch(/isGuest[\s\S]{0,60}breathe-standalone/);
-  });
-
-  it('aria-describedby and its tooltip id are unchanged (still "quick-action-tip-breathe") - only the text nodes inside changed', () => {
-    expect(breatheTile).toMatch(/aria-describedby="quick-action-tip-breathe"/);
-    expect(breatheTile).toMatch(/id="quick-action-tip-breathe"/);
-  });
-
-  it('the old "Breathe" label no longer appears on this tile - fully replaced, not left as a duplicate/second label', () => {
-    expect(breatheTile).not.toMatch(/>Breathe</);
-  });
-
-  it('no fourth tile was added and the row is still exactly three Links', () => {
-    const quickActionBlock = source.match(/Or choose something quick[\s\S]*?grid grid-cols-3 gap-2\.5">([\s\S]*?)<\/div>\s*<\/div>/)?.[1] ?? '';
-    expect((quickActionBlock.match(/<Link\s/g) ?? []).length).toBe(3);
-  });
-
-  it('Routines and "Browse Exercises" were not reintroduced alongside this copy change', () => {
-    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(codeOnly).not.toMatch(/Browse Exercises/);
-    expect(codeOnly).not.toMatch(/to="\/routines"/);
-  });
 });

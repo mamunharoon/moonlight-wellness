@@ -27,17 +27,8 @@ describe('Home.jsx — Anytime Reset now lives in its own "Today\'s Rhythm" card
     expect(anytimeDetailCard).not.toMatch(/to="\/support"/);
   });
 
-  // Copy refinement (Home Visual Uplift follow-up) — "Need a moment?" was
-  // this Anytime-adjacent entry's own earlier label, retired when Anytime
-  // Reset moved to its own Today's Rhythm card and the quick-action tile
-  // became a standalone Breathe entry point (see the describe block below).
-  // It has now been restored, deliberately, as the more user-centred label
-  // for that SAME Breathe tile (still /breathe-standalone, still the same
-  // icon/handler) - so this file's own historical "no longer appears"
-  // guard is inverted, not merely deleted, to make the intentional
-  // reintroduction explicit rather than silently dropping the assertion.
-  it('"Need a moment?" is back as the Breathe tile\'s own visible label - a deliberate restoration, not a regression of the Anytime-card move above', () => {
-    expect(homeSource).toMatch(/Need a moment\?/);
+  it('the former "Need a moment?" label no longer appears anywhere in Home.jsx', () => {
+    expect(homeSource).not.toMatch(/Need a moment\?/);
   });
 });
 
@@ -53,13 +44,13 @@ describe('Home.jsx — quick-action row stays at exactly three tiles', () => {
     expect(links).toHaveLength(3);
   });
 
-  it('the three tiles are exactly: Need a moment?, Meditate, Sleep & Unwind (in that order) - Anytime Reset moved to its own Today\'s Rhythm card, see the describe block above; Explore Library removed, no replacement tile added', () => {
+  it('the three tiles are exactly: Breathe, Meditate, Sleep & Unwind (in that order) - Anytime Reset moved to its own Today\'s Rhythm card, see the describe block above; Explore Library removed, no replacement tile added', () => {
     const labels = [...quickActionBlock.matchAll(/text-\[11px\] font-semibold text-on-surface leading-tight">([^<]+)</g)].map((m) => m[1]);
-    expect(labels).toEqual(['Need a moment?', 'Meditate', 'Sleep &amp; Unwind']);
+    expect(labels).toEqual(['Breathe', 'Meditate', 'Sleep &amp; Unwind']);
   });
 
-  it('the Breathe tile (labelled "Need a moment?") routes to the standalone /breathe-standalone destination, not /support or the old /anytime-reset slot', () => {
-    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[\s\S]{0,700}Need a moment\?/);
+  it('the Breathe tile routes to the standalone /breathe-standalone destination, not /support or the old /anytime-reset slot', () => {
+    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[\s\S]{0,700}Breathe/);
     expect(tileMatch).toBeTruthy();
     expect(quickActionBlock).not.toMatch(/to="\/support"/);
     expect(quickActionBlock).not.toMatch(/to="\/anytime-reset"/);

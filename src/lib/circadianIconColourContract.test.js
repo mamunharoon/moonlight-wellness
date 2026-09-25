@@ -139,7 +139,7 @@ describe('8. No new duplicate colour literals were introduced', () => {
 
 describe('9. Labels/icons remain accessible without colour alone', () => {
   it('every Home quick-action tile keeps its own visible text label alongside the coloured icon - colour is never the only cue', () => {
-    expect(homeSource).toMatch(/text-\[11px\] font-semibold text-on-surface leading-tight">Need a moment\?</);
+    expect(homeSource).toMatch(/text-\[11px\] font-semibold text-on-surface leading-tight">Breathe</);
     expect(homeSource).toMatch(/text-\[11px\] font-semibold text-on-surface leading-tight">Sleep &amp;Unwind|Sleep &amp; Unwind/);
   });
 
