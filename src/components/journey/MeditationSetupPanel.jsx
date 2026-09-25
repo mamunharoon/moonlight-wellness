@@ -20,8 +20,13 @@ import { MeditationOptionRow, MeditationDurationChip } from './MeditationControl
  * caller's useMeditationSession() was seeded with - see that hook's own
  * initialStyleId/initialDurationId/initialSoundId), a primary Begin
  * action, a "Choose style, time & sound" disclosure that reveals the exact
- * same three radiogroups on demand, and a "Skip meditation" action. Users
- * never face all 5+3+3 choices on first paint in this mode.
+ * same three radiogroups on demand, and a "Skip meditation" action
+ * (`skipLabel`, default 'Skip meditation' - every existing caller keeps
+ * this exact text; Morning journey UX correction: MorningMeditate.jsx
+ * overrides it to "Continue to Affirmation" once the user has already
+ * started Meditation this visit and backed out to setup, since "skip" is
+ * misleading at that point). Users never face all 5+3+3 choices on first
+ * paint in this mode.
  *
  * `recommendedDurationId` drives ONLY the "Recommended" badge shown on the
  * expanded duration chips (meditationDurations.js's own `recommended`
@@ -42,6 +47,7 @@ export const MeditationSetupPanel = ({
   onSelectSound,
   onBegin,
   onSkip,
+  skipLabel = 'Skip meditation',
   onExploreGuided
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -157,7 +163,7 @@ export const MeditationSetupPanel = ({
             onClick={onSkip}
             className="w-full text-on-surface-variant py-3 text-center font-semibold text-sm hover:text-on-surface active:scale-95 transition-all min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary rounded-full"
           >
-            Skip meditation
+            {skipLabel}
           </button>
         )}
       </div>

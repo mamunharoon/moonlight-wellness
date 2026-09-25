@@ -119,18 +119,17 @@ const FALLBACK_STEP_IDS_BY_SESSION = {
   [EVENING_SESSION_ID]: ['windDown', 'reflection', 'gratitude', 'breathing', 'meditation', 'sleepPreparation', 'completion'],
 };
 
-// Review Mode — Journey Embedding: meditation is shown as a completed
-// stage in progress (the ✓ + label still render) but is deliberately never
-// clickable from Review Mode - it has no dedicated review/detail screen to
-// jump back into (unlike affirmation/reflection/etc, which show real
-// entered content on review), and starting a NEW meditation from a
-// completed-step tap would be a surprising, unintended side effect. A
-// narrow id allowlist here, checked as one extra condition on the existing
-// isCompleted && onReviewStep branch below, rather than a new prop or a
-// second code path - every other step's reviewability is completely
-// unaffected (the Set check is additive-only: removing it changes nothing
-// for any id not in it).
-const NON_REVIEWABLE_STEP_IDS = new Set(['meditate', 'meditation']);
+// Review Mode — Morning/Evening journey UX correction: both 'meditate'
+// (Morning) and 'meditation' (Evening) now have a real review/detail
+// screen to jump back into (MorningMeditate.jsx/EveningMeditate.jsx each
+// show Meditation setup - all styles/durations/sounds, Begin Meditation, no
+// auto-start, "Return to [the real canonical current step]" - never "Skip
+// meditation" while reviewing), so this exclusion set is now empty. Left in
+// place (rather than deleted) as the established, already-wired mechanism
+// for excluding a specific step id from review, should a future step ever
+// need it again - the `isReviewable` check and its own test coverage stay
+// exactly as they were.
+const NON_REVIEWABLE_STEP_IDS = new Set([]);
 
 const getVisibleStepIds = (sessionId) => {
   const visibleIds = VISIBLE_STEP_IDS_BY_SESSION[sessionId] ?? VISIBLE_STEP_IDS_BY_SESSION[MORNING_SESSION_ID];
@@ -278,6 +277,50 @@ export const ProgressIndicator = ({ activeStep, sessionId = MORNING_SESSION_ID, 
           {steps.map((step, idx) => `${step.label}${idx < activeIndex ? ' (completed)' : idx === activeIndex ? ' (current)' : ''}`).join(', ')}
         </span>
       </div>
+
+      {/* Morning/Evening journey UX correction — reachability fix, found
+          live: the full dot row below (where every reviewable completed
+          step becomes a real <button>) is `hidden` below the sm (640px)
+          breakpoint, same as every real iPhone width this app targets
+          (320-430px) - meaning NO completed step was ever actually
+          reachable on a real phone, regardless of NON_REVIEWABLE_STEP_IDS,
+          even before this fix. The compact block above intentionally stays
+          plain text (the narrow-screen crowding fix this file's own doc
+          comment describes still applies - cramming 5-7 full labels
+          inline was explicitly rejected), so this is a SEPARATE, additive
+          row beneath it: only the steps that are actually reviewable
+          (completed, onReviewStep provided, not in
+          NON_REVIEWABLE_STEP_IDS) render as small horizontally-scrollable
+          chip buttons, each a real 44px-tall touch target, using the same
+          "✓ Label"/aria-label/onReviewStep wiring renderStep already
+          establishes for the full row - never a second, divergent
+          mechanism. Renders nothing (not even an empty wrapper) when there
+          is nothing yet to review, so a fresh Step 1 screen is completely
+          unaffected. */}
+      {steps.some((step, idx) => idx < activeIndex && onReviewStep && !NON_REVIEWABLE_STEP_IDS.has(step.key)) && (
+        <div
+          className="flex sm:hidden items-center gap-2 overflow-x-auto scroll-hide mt-2 -mx-2 px-2"
+          role="group"
+          aria-label="Review a previous step"
+        >
+          {steps.map((step, idx) => {
+            if (idx >= activeIndex || !onReviewStep || NON_REVIEWABLE_STEP_IDS.has(step.key)) return null;
+            return (
+              <button
+                key={step.key}
+                type="button"
+                onClick={() => onReviewStep(step.key)}
+                aria-label={`Review completed ${step.label} step`}
+                className={`shrink-0 min-h-[44px] px-3 flex items-center justify-center rounded-full glass-panel border-white/10 text-[10px] font-bold uppercase tracking-wider hover:opacity-80 active:scale-95 transition-all ${
+                  isEvening ? 'text-on-surface' : 'text-secondary'
+                }`}
+              >
+                ✓&nbsp;{step.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Full dot-separated row — sm (640px) and above, unchanged from
           before this fix (same classes, same per-step render). */}

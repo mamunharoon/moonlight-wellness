@@ -93,8 +93,9 @@ describe('Affirmation.jsx — real dynamic, intention-matched affirmation logic 
     expect(source).toMatch(/Begin with a supportive thought to shape how you meet the day\./);
   });
 
-  it('Continue and Skip both still call the same handleNext, which always advances to session-complete - Skip-equals-Continue is this step\'s own established pattern, untouched', () => {
-    expect(source).toMatch(/const handleSkip = handleNext;/);
+  it('Continue calls handleNext, which always advances to session-complete exactly once; Morning journey UX correction removed the redundant Skip (it called the exact same handler)', () => {
+    expect(source).not.toMatch(/const handleSkip = handleNext;/);
+    expect(source).not.toMatch(/handleSkip/);
     expect(source).toMatch(/setJourneyStep\('complete'\);\s*\n\s*navigate\('\/session-complete'\);/);
   });
 

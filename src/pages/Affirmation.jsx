@@ -35,6 +35,13 @@ import { getStepLabel } from '../lib/stepLabels';
  * Stretching for quick" behaviour no longer exists anywhere in the app.
  * This screen (the last content step before Complete, in every routine
  * duration) always advances straight to Complete.
+ *
+ * Morning journey UX correction — "Skip this step" removed: it called the
+ * exact same handleNext as Continue (this step has no separate content to
+ * skip past), so presenting both was a redundant, confusing duplicate of
+ * the same single terminal transition. Continue and Exit routine are the
+ * only two actions now, matching the required Affirmation interaction
+ * contract exactly.
  */
 export const Affirmation = () => {
   const navigate = useNavigate();
@@ -73,12 +80,6 @@ export const Affirmation = () => {
     navigate('/session-complete');
     mirrorTransition();
   };
-
-  // Same real action as Continue — this step has no separate content to
-  // skip past (an automatically-shown affirmation, read at a glance),
-  // matching this routine's own established Skip-equals-Continue pattern
-  // (IntentionSetup.jsx's own Skip button behaves identically).
-  const handleSkip = handleNext;
 
   const handleExitRoutine = () => {
     setJourneyStep('');
@@ -153,12 +154,6 @@ export const Affirmation = () => {
             >
               <span>Continue</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-            <button
-              onClick={handleSkip}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-            >
-              Skip this step
             </button>
             <button
               onClick={handleExitRoutine}

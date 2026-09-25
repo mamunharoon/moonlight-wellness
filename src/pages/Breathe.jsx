@@ -364,12 +364,23 @@ export const Breathe = () => {
               <span>Begin Breathing</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
-            <button
-              onClick={handleSkip}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-            >
-              Skip this step
-            </button>
+            {/* Morning journey UX correction — Skip has no meaning while
+                reviewing an already-completed Breathe from a later step
+                (Meditate/Affirm): the ReviewModeBanner's own "Return to
+                [current step]" above already covers that, and "remains
+                available only before the activity has ever been started in
+                that forward visit" excludes review entirely. The
+                whole-routine exit link below stays available either way -
+                leaving the routine is valid regardless of review state,
+                matching MorningMeditate.jsx's identical precedent. */}
+            {!isReviewMode && (
+              <button
+                onClick={handleSkip}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+              >
+                Skip this step
+              </button>
+            )}
             <button
               onClick={handleExitRoutine}
               className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"

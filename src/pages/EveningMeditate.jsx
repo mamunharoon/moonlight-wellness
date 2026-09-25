@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
@@ -32,14 +32,24 @@ import { getRecommendedDurationId } from '../lib/meditationDurations';
  * Session-local, independent of Morning's own embedded selections and of
  * standalone meditation.
  *
- * Skip and natural completion both continue to Prepare for Rest via the
- * exact same advanceStep+navigate+mirror pattern EveningBreathing.jsx
- * already established (see mirrorMeditateExitRef below). Completion NEVER
- * navigates to /self-guided-meditation-complete.
+ * Skip, "Finish & continue", and natural completion all continue to
+ * Prepare for Rest via the exact same advanceStep+navigate+mirror pattern
+ * EveningBreathing.jsx already established (see mirrorMeditateExitRef
+ * below). None of them navigate to /self-guided-meditation-complete.
  *
- * End Meditation (active screen) stops the timer/audio and returns to
- * THIS step's own pre-start screen - the parent Evening session stays
- * exactly where it was (no advanceStep, no interruptSession, no navigate).
+ * Evening journey UX correction (mirrors MorningMeditate.jsx's identical
+ * fix) — Back and the bottom action now mean two different things: Back
+ * (and MeditationActiveSession's own local "End this meditation?" dialog)
+ * stops the timer/audio and returns to THIS step's own pre-start screen -
+ * the parent Evening session stays exactly where it was (no advanceStep,
+ * no interruptSession, no navigate) - and that pre-start screen then shows
+ * "Continue to Prepare for Rest" instead of "Skip meditation"
+ * (`hasStartedThisVisit`), since skip is misleading once the user has
+ * already engaged. The bottom action is now `bottomAction` ("Finish &
+ * continue" / "Finish meditation?"): a deliberate, distinct early finish
+ * that stops the timer/audio and advances straight to Prepare for Rest via
+ * the same guarded handleComplete() every other completion path uses -
+ * never returns to setup.
  *
  * Back/Exit reuse Evening's own existing, unmodified split convention
  * exactly as EveningBreathing.jsx/PrepareForRest.jsx already establish it
@@ -54,6 +64,12 @@ export const EveningMeditate = () => {
 
   const hasMirroredExitRef = useRef(false);
   const mirrorMeditateExitRef = useRef(() => {});
+  // Evening journey UX correction (mirrors MorningMeditate.jsx's identical
+  // fix) — session-local only, resets naturally on a fresh mount of this
+  // route. Real React state, not a ref: this value is read during render
+  // (the setup panel's skipLabel below), and refs must never be read
+  // during render (react-hooks/refs).
+  const [hasStartedThisVisit, setHasStartedThisVisit] = useState(false);
 
   const handleComplete = () => {
     mirrorMeditateExitRef.current();
@@ -66,6 +82,21 @@ export const EveningMeditate = () => {
     initialSoundId: 'IM02',
     onComplete: handleComplete
   });
+
+  const handleBegin = () => {
+    setHasStartedThisVisit(true);
+    session.begin();
+  };
+
+  // "Finish & continue" (mirrors MorningMeditate.jsx's identical fix) — a
+  // deliberate early finish: stops the timer/audio first, then reuses
+  // handleComplete() verbatim so it goes through the same guarded
+  // mirror-to-Session-Engine-exactly-once path as natural completion and
+  // Skip.
+  const handleFinishAndContinue = () => {
+    session.endSession();
+    handleComplete();
+  };
 
   useEffect(() => {
     mirrorMeditateExitRef.current = () => {
@@ -118,6 +149,15 @@ export const EveningMeditate = () => {
             confirmLabel: 'End Meditation',
             cancelLabel: 'Keep Meditating'
           }}
+          bottomAction={{
+            buttonLabel: 'Finish & continue',
+            buttonAriaLabel: 'Finish meditation and continue to Prepare for Rest',
+            dialogTitle: 'Finish meditation?',
+            dialogMessage: 'Your meditation will end and your Evening Wind-Down will continue to Prepare for Rest.',
+            confirmLabel: 'Finish & continue',
+            cancelLabel: 'Keep meditating',
+            onConfirm: handleFinishAndContinue
+          }}
         />
       </EveningSceneShell>
     );
@@ -147,8 +187,13 @@ export const EveningMeditate = () => {
         onSelectStyle={session.selectStyle}
         onSelectDuration={session.setDurationId}
         onSelectSound={session.selectSound}
-        onBegin={session.begin}
-        onSkip={handleSkip}
+        onBegin={handleBegin}
+        // Evening journey UX correction (mirrors MorningMeditate.jsx): no
+        // forward-skip action while reviewing an already-completed
+        // Meditation from a later Evening step - the ReviewModeBanner's own
+        // "Return to [current step]" already covers that.
+        onSkip={isReviewMode ? undefined : handleSkip}
+        skipLabel={hasStartedThisVisit ? 'Continue to Prepare for Rest' : 'Skip meditation'}
       />
 
       <ConfirmDialog

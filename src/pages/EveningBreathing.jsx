@@ -311,12 +311,21 @@ export const EveningBreathing = () => {
               <span>Begin Breathing</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
-            <button
-              onClick={handleSkip}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
-            >
-              Skip
-            </button>
+            {/* Evening journey UX correction (mirrors Breathe.jsx's
+                identical fix) — Skip has no meaning while reviewing an
+                already-completed Breathing from a later Evening step: the
+                ReviewModeBanner's own "Return to [current step]" above
+                already covers that. Evening's own whole-journey exit is
+                EveningSceneShell's separate showExit control, unaffected
+                either way. */}
+            {!isReviewMode && (
+              <button
+                onClick={handleSkip}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+              >
+                Skip
+              </button>
+            )}
           </div>
         </>
       ) : (

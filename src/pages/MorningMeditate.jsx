@@ -36,18 +36,35 @@ import { MEDITATION_CONTEXTS, getRecommendedDurationId } from '../lib/meditation
  * standalone meditation - this page's own useMeditationSession() call is
  * a completely separate hook instance/closure.
  *
- * Skip and natural completion both continue to Affirmation via the exact
- * same setJourneyStep+navigate+mirror-to-Session-Engine pattern Breathe.jsx
- * already established for its own transitions (see mirrorMeditateExitRef
- * below) - never a duplicated/divergent mechanism. Completion NEVER
- * navigates to /self-guided-meditation-complete.
+ * Skip, "Finish & continue", and natural completion all continue to
+ * Affirmation via the exact same setJourneyStep+navigate+mirror-to-
+ * Session-Engine pattern Breathe.jsx already established for its own
+ * transitions (see mirrorMeditateExitRef below) - never a duplicated/
+ * divergent mechanism. None of them navigate to
+ * /self-guided-meditation-complete.
  *
- * End Meditation (active screen: both the Back arrow and the big "End
- * Meditation" button) stops the timer/audio and returns to THIS step's
- * own pre-start screen - the parent Morning session stays exactly where
- * it was (no advanceStep, no interruptSession, no navigate) - the user
- * hasn't left the journey, only abandoned this optional sub-activity.
+ * Morning journey UX correction — the active screen's header Back arrow
+ * and its bottom action now mean two genuinely different things (found
+ * live: they previously both opened the exact same "End this meditation?"
+ * dialog and both always landed back on Meditation setup, leaving no way
+ * to finish early and actually move on - the only forward action from
+ * setup was the since-misleading "Skip meditation," even after a real
+ * attempt at Meditation):
+ *   - Back (and, unchanged, MeditationActiveSession's own local dialog):
+ *     "End this meditation?" - stops the timer/audio and returns to THIS
+ *     step's own pre-start screen. The parent Morning session stays
+ *     exactly where it was (no advanceStep, no interruptSession, no
+ *     navigate) - the user hasn't left the journey, only paused this
+ *     optional sub-activity. The pre-start screen then shows "Continue to
+ *     Affirmation" instead of "Skip meditation" (`hasStartedThisVisit`),
+ *     since skip is misleading once the user has already engaged.
+ *   - The bottom action is now `bottomAction` ("Finish & continue" / "Finish
+ *     meditation?"): a deliberate, distinct early finish that stops the
+ *     timer/audio (handleFinishAndContinue -> session.endSession()) and
+ *     advances straight to Affirmation via the same guarded handleComplete()
+ *     every other completion path uses - never returns to setup.
  *
+
  * Whole-journey exit while meditation is ACTIVE (correction, found live):
  * an earlier revision wired the active screen's Close/X to the SAME local
  * "End this meditation?" dialog as Back, leaving no way to exit the whole
@@ -84,6 +101,18 @@ export const MorningMeditate = () => {
 
   const hasMirroredExitRef = useRef(false);
   const mirrorMeditateExitRef = useRef(() => {});
+  // Morning journey UX correction — distinguishes "never started Meditation
+  // this visit" (setup shows "Skip meditation") from "started, then backed
+  // out to setup via Back -> End Meditation" (setup shows "Continue to
+  // Affirmation" instead - "skip" is misleading once the user has already
+  // engaged with the activity). Session-local only (component state, not
+  // persisted anywhere) - resets naturally on a fresh mount of this route,
+  // exactly matching "the current visit" as the state model requires. Real
+  // React state, not a ref: this value is read during render (the setup
+  // panel's skipLabel below), and refs must never be read during render
+  // (react-hooks/refs - found by lint, not just a style preference: a ref
+  // read during render can silently miss a re-render entirely).
+  const [hasStartedThisVisit, setHasStartedThisVisit] = useState(false);
 
   const handleComplete = () => {
     mirrorMeditateExitRef.current();
@@ -97,6 +126,27 @@ export const MorningMeditate = () => {
     initialSoundId: 'IM01',
     onComplete: handleComplete
   });
+
+  const handleBegin = () => {
+    setHasStartedThisVisit(true);
+    session.begin();
+  };
+
+  // "Finish & continue" (active-screen bottom action, Morning journey UX
+  // correction) — a deliberate EARLY finish, genuinely distinct from
+  // natural completion: stops the timer/audio first (session.endSession(),
+  // the exact same cleanup Back -> End Meditation already uses), then
+  // reuses handleComplete() verbatim, so it goes through the identical
+  // mirror-to-Session-Engine-exactly-once guard (hasMirroredExitRef) and
+  // navigation as natural completion and Skip - never a second, divergent
+  // advance-to-Affirmation path. Never claims the full selected duration
+  // elapsed (no completion summary is fabricated); the Morning progress
+  // checkmark for Meditate means "consciously moved past," not "every
+  // selected minute ran."
+  const handleFinishAndContinue = () => {
+    session.endSession();
+    handleComplete();
+  };
 
   useEffect(() => {
     mirrorMeditateExitRef.current = () => {
@@ -153,6 +203,15 @@ export const MorningMeditate = () => {
             confirmLabel: 'End Meditation',
             cancelLabel: 'Keep Meditating'
           }}
+          bottomAction={{
+            buttonLabel: 'Finish & continue',
+            buttonAriaLabel: 'Finish meditation and continue to Affirmation',
+            dialogTitle: 'Finish meditation?',
+            dialogMessage: 'Your meditation will end and your Morning routine will continue to Affirmation.',
+            confirmLabel: 'Finish & continue',
+            cancelLabel: 'Keep meditating',
+            onConfirm: handleFinishAndContinue
+          }}
         />
         {/* Same copy/severity as BackButton.jsx's own default "Leave this
             routine?" guard - the canonical whole-Morning-routine exit
@@ -199,8 +258,14 @@ export const MorningMeditate = () => {
         onSelectStyle={session.selectStyle}
         onSelectDuration={session.setDurationId}
         onSelectSound={session.selectSound}
-        onBegin={session.begin}
-        onSkip={handleSkip}
+        onBegin={handleBegin}
+        // Morning journey UX correction: no forward-skip action at all
+        // while reviewing an already-completed Meditation from Affirmation
+        // - the ReviewModeBanner's own "Return to Affirmation" already
+        // covers that. Outside review mode, the label reflects whether the
+        // user has actually engaged with Meditation this visit yet.
+        onSkip={isReviewMode ? undefined : handleSkip}
+        skipLabel={hasStartedThisVisit ? 'Continue to Affirmation' : 'Skip meditation'}
       />
 
       <button

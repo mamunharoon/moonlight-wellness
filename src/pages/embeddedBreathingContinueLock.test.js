@@ -83,7 +83,10 @@ describe('EveningBreathing.jsx (Evening) — render gate', () => {
   it('the pre-start Skip button (before Begin is ever tapped) also uses handleSkip, not handleComplete', () => {
     const beginButtonIndex = eveningBreathingSource.indexOf('<span>Begin Breathing</span>');
     expect(beginButtonIndex).toBeGreaterThan(-1);
-    const preStartBlock = eveningBreathingSource.slice(beginButtonIndex, beginButtonIndex + 400);
+    // Widened from 400: Evening journey UX correction wraps this button in
+    // an explanatory comment + `{!isReviewMode && (...)}` before the
+    // onClick itself.
+    const preStartBlock = eveningBreathingSource.slice(beginButtonIndex, beginButtonIndex + 800);
     expect(preStartBlock).toMatch(/onClick=\{handleSkip\}/);
   });
 });

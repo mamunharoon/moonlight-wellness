@@ -48,6 +48,22 @@ import { MeditationOptionRow } from './MeditationControls';
  * omitted (standalone, Evening-with-Close-hidden), Close falls back to
  * the same local dialog Back already opens - byte-identical to before
  * this prop existed.
+ *
+ * `bottomAction` (Morning journey UX correction, additive - default null,
+ * every existing caller (standalone, Evening) omits it and is completely
+ * unaffected): the header's own Back arrow ALWAYS keeps meaning "end only
+ * this meditation" via `copy`/`onRequestLeave`/the local dialog above,
+ * regardless of this prop - never touched. When `bottomAction` is provided,
+ * it REPLACES the bottom big button (which otherwise also opens that same
+ * local "end meditation" dialog) with a second, genuinely distinct action
+ * and its own dialog: shape `{ buttonLabel, buttonAriaLabel, dialogTitle,
+ * dialogMessage, confirmLabel, cancelLabel, onConfirm }`. Morning uses this
+ * for "Finish & continue" (its own "Finish meditation?" dialog, confirming
+ * stops the timer/audio and advances straight to Affirmation) - found live:
+ * the bottom button and the header Back arrow previously both opened the
+ * exact same "End this meditation?" dialog, both always landing back on
+ * Meditation setup with no way to finish-and-move-on from the active
+ * screen itself, forcing "End Meditation -> setup -> Skip meditation."
  */
 const DEFAULT_END_COPY = {
   buttonLabel: 'End Session',
@@ -70,14 +86,21 @@ export const MeditationActiveSession = ({
   onRequestLeave,
   onRequestClose,
   endCopy = DEFAULT_END_COPY,
-  showHeaderClose = true
+  showHeaderClose = true,
+  bottomAction = null
 }) => {
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [bottomActionConfirmOpen, setBottomActionConfirmOpen] = useState(false);
   const copy = { ...DEFAULT_END_COPY, ...endCopy };
 
   const handleConfirmLeave = () => {
     setLeaveConfirmOpen(false);
     onRequestLeave();
+  };
+
+  const handleConfirmBottomAction = () => {
+    setBottomActionConfirmOpen(false);
+    bottomAction?.onConfirm();
   };
 
   return (
@@ -149,14 +172,26 @@ export const MeditationActiveSession = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setLeaveConfirmOpen(true)}
-          aria-label={copy.buttonAriaLabel}
-          className="w-full py-4 rounded-full font-semibold text-center min-h-[44px] bg-[#b3555f]/15 text-[#b3555f] border border-[#b3555f]/40 hover:bg-[#b3555f]/25 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#b3555f] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-        >
-          {copy.buttonLabel}
-        </button>
+        {bottomAction ? (
+          <button
+            type="button"
+            onClick={() => setBottomActionConfirmOpen(true)}
+            aria-label={bottomAction.buttonAriaLabel}
+            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          >
+            <span>{bottomAction.buttonLabel}</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLeaveConfirmOpen(true)}
+            aria-label={copy.buttonAriaLabel}
+            className="w-full py-4 rounded-full font-semibold text-center min-h-[44px] bg-[#b3555f]/15 text-[#b3555f] border border-[#b3555f]/40 hover:bg-[#b3555f]/25 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#b3555f] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          >
+            {copy.buttonLabel}
+          </button>
+        )}
       </div>
 
       <ConfirmDialog
@@ -169,6 +204,18 @@ export const MeditationActiveSession = ({
         onConfirm={handleConfirmLeave}
         onDismiss={() => setLeaveConfirmOpen(false)}
       />
+
+      {bottomAction && (
+        <ConfirmDialog
+          open={bottomActionConfirmOpen}
+          title={bottomAction.dialogTitle}
+          message={bottomAction.dialogMessage}
+          confirmLabel={bottomAction.confirmLabel}
+          cancelLabel={bottomAction.cancelLabel}
+          onConfirm={handleConfirmBottomAction}
+          onDismiss={() => setBottomActionConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 };

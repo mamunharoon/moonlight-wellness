@@ -26,12 +26,14 @@ describe('ProgressIndicator — Meditate/Meditation added to both visible-step s
   });
 });
 
-describe('ProgressIndicator — non-reviewable step mechanism (meditate/meditation shown, never clickable)', () => {
-  it('NON_REVIEWABLE_STEP_IDS contains exactly meditate and meditation', () => {
-    expect(source).toMatch(/const NON_REVIEWABLE_STEP_IDS = new Set\(\['meditate', 'meditation'\]\);/);
+describe('ProgressIndicator — non-reviewable step mechanism (Morning/Evening journey UX correction: both Meditate and Meditation are now reviewable)', () => {
+  it('NON_REVIEWABLE_STEP_IDS is now empty - both MorningMeditate.jsx and EveningMeditate.jsx have a real review/detail screen', () => {
+    expect(source).toMatch(/const NON_REVIEWABLE_STEP_IDS = new Set\(\[\]\);/);
+    expect(source).not.toMatch(/new Set\(\['meditate', 'meditation'\]\)/);
+    expect(source).not.toMatch(/new Set\(\['meditation'\]\)/);
   });
 
-  it('isReviewable is false whenever the step id is in that set, regardless of onReviewStep/isCompleted - a completed Meditate step still renders (✓ + label), just never as a <button>', () => {
+  it('the isReviewable mechanism itself is untouched - an empty Set means every completed step with onReviewStep is reviewable, but the gate/mechanism stays in place for a future exclusion if ever needed', () => {
     const body = source.match(/const renderStep = \(step, idx\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/const isReviewable = isCompleted && onReviewStep && !NON_REVIEWABLE_STEP_IDS\.has\(step\.key\);/);
     expect(body).toMatch(/isReviewable \? \(/);
@@ -41,13 +43,37 @@ describe('ProgressIndicator — non-reviewable step mechanism (meditate/meditati
     expect(body).toMatch(/\{isCompleted \? '✓' : ''\} \{step\.label\}/);
   });
 
-  it('every OTHER step id is unaffected - the Set only ever removes reviewability for the two named ids, never anything else', () => {
+  it('no step id is hardcoded into a second exclusion check anywhere else in the file', () => {
     expect(source).not.toMatch(/NON_REVIEWABLE_STEP_IDS\.has\('intention'\)/);
-    // Structural proof: NON_REVIEWABLE_STEP_IDS is referenced exactly once
-    // (inside isReviewable) - there is no second gate anywhere else that
-    // could silently affect a different step id.
+    expect(source).not.toMatch(/NON_REVIEWABLE_STEP_IDS\.has\('meditate'\)/);
+    expect(source).not.toMatch(/NON_REVIEWABLE_STEP_IDS\.has\('meditation'\)/);
+    // Structural proof: every reference reads step.key generically (never
+    // a hardcoded id) - the declaration, the isReviewable gate, two doc-
+    // comment mentions, and the compact-strip reachability fix's own two
+    // identical .has(step.key) checks (steps.some(...) + the .map()
+    // early-return), all consistent.
     const usages = source.match(/NON_REVIEWABLE_STEP_IDS/g) ?? [];
-    expect(usages.length).toBe(2); // the declaration + the one read inside isReviewable
+    expect(usages.length).toBe(6);
+    const stepKeyReads = source.match(/NON_REVIEWABLE_STEP_IDS\.has\(step\.key\)/g) ?? [];
+    expect(stepKeyReads.length).toBe(3);
+  });
+});
+
+describe('ProgressIndicator — compact-width reachability fix (Morning/Evening journey UX correction)', () => {
+  it('an additive, sm:hidden interactive review strip renders only when at least one step is genuinely reviewable, using the same onReviewStep/aria-label wiring as the full row', () => {
+    expect(source).toMatch(/steps\.some\(\(step, idx\) => idx < activeIndex && onReviewStep && !NON_REVIEWABLE_STEP_IDS\.has\(step\.key\)\)/);
+    expect(source).toMatch(/aria-label=\{`Review completed \$\{step\.label\} step`\}/);
+  });
+
+  it('the existing compact current-step summary line is untouched (same classes, same content) - this is a second, additive block, not a replacement', () => {
+    expect(source).toMatch(/Step \{displayStepNumbers\[activeStep\] \?\? activeIndex \+ 1\} of \{displayStepCount \?\? steps\.length\}/);
+  });
+
+  it('every chip in the strip is a real 44px-minimum touch target', () => {
+    const start = source.indexOf('aria-label="Review a previous step"');
+    expect(start).toBeGreaterThan(-1);
+    const stripBlock = source.slice(start, start + 600);
+    expect(stripBlock).toMatch(/min-h-\[44px\]/);
   });
 });
 

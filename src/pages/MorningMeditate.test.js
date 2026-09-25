@@ -55,9 +55,10 @@ describe('MorningMeditate.jsx — context-specific defaults: Mindful Pause, 2 mi
 });
 
 describe('MorningMeditate.jsx — compact setup: purpose, recommended choice, disclosure, Skip', () => {
-  it('renders MeditationSetupPanel in compact mode with a purpose string and an onSkip handler', () => {
+  it('renders MeditationSetupPanel in compact mode with a purpose string and a conditional onSkip handler (Morning journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
     expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*purpose=/);
-    expect(source).toMatch(/onSkip=\{handleSkip\}/);
+    expect(source).toMatch(/onSkip=\{isReviewMode \? undefined : handleSkip\}/);
+    expect(source).toMatch(/skipLabel=\{hasStartedThisVisit \? 'Continue to Affirmation' : 'Skip meditation'\}/);
   });
 });
 
