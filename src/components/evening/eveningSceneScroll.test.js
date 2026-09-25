@@ -50,12 +50,16 @@ describe('EveningSceneShell.jsx - one explicit, consistent scroll owner per even
     expect(scrollOwnerMatches.length).toBe(1);
   });
 
-  it('showBack and the real page content both render inside the scroll-owner div, not inside AtmosphereManager', () => {
+  it('the nav row and the real page content both render inside the scroll-owner div, not inside AtmosphereManager', () => {
     const scrollOwnerOpenIndex = shellSource.indexOf('<div className="fixed inset-0 z-[101] overflow-y-auto">');
     const atmosphereTagIndex = shellSource.indexOf('<AtmosphereManager');
     expect(scrollOwnerOpenIndex).toBeGreaterThan(-1);
     expect(scrollOwnerOpenIndex).toBeGreaterThan(atmosphereTagIndex);
-    expect(shellSource.indexOf('{showBack &&')).toBeGreaterThan(scrollOwnerOpenIndex);
+    // Build 16 physical-iPhone correction (F9) — Back/Exit are now one
+    // shared in-flow nav row (`{(showBack || showExit) &&`), not a
+    // separate `{showBack &&` block - see eveningFlow.navigation.test.js
+    // for the dedicated nav-row structure assertions.
+    expect(shellSource.indexOf('{(showBack || showExit) &&')).toBeGreaterThan(scrollOwnerOpenIndex);
     expect(shellSource.indexOf('{content}')).toBeGreaterThan(scrollOwnerOpenIndex);
   });
 });

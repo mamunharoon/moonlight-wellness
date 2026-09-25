@@ -167,16 +167,25 @@ export const Reflection = () => {
     // crossing that boundary — only the deliberate Wind-Down -> Reflection
     // transition remains.
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
+      {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
+          identical fix for the full rationale (ProgressIndicator's own
+          mobile compact block already shows "Step 2 of 7"). */}
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      {/* Journey Embedding (correction) — total is now 7, not 6. */}
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 2 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
       <div className="flex-1 flex flex-col justify-center">
-        <div className="glass-panel rounded-3xl p-6">
+        {/* Build 16 physical-iPhone correction (F9, then tightened further
+            by the Decision 3 acceptance correction) — p-6 -> p-5 -> p-4: a
+            modest, further card-padding trim (reducing padding/gaps before
+            font size, per spec) that combines with PromptStepper's own
+            space-y-4 -> space-y-3 trim to bring Next within the 390x844/
+            393x852 viewport - measured precisely (see this file's own
+            acceptance-audit evidence): Next's bottom edge sat 24.8px below
+            an 844px viewport before this pass. */}
+        <div className="glass-panel rounded-3xl p-4">
           {/* Wait for the saved-response load (guests resolve instantly to
               {}) before ever mounting PromptStepper - it only seeds its
               answers once, at its own mount, so mounting it before real

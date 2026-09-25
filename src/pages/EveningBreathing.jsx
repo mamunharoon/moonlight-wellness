@@ -7,6 +7,7 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
+import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
@@ -24,6 +25,8 @@ import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
 import { getStepLabel } from '../lib/stepLabels';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md).
@@ -126,12 +129,23 @@ export const EveningBreathing = () => {
   const [breatheState, setBreatheState] = useState(() => trustedSnapshot?.breatheState ?? 'Inhale');
   const [secondsLeft, setSecondsLeft] = useState(() => trustedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
-  const handlePauseExercise = () => setManuallyPaused(true);
-  const handleResumeExercise = () => setManuallyPaused(false);
   const musicPlayerRef = useRef(null);
-  const handleResumeWithMusic = () => {
+  // Build 16 physical-iPhone correction (F6) — captures whether music was
+  // genuinely playing at the exact moment the pause begins (before
+  // `suspended` pauses it below), so the single Resume action can restore
+  // the same choice automatically. See ExercisePausedPanel.jsx's own doc
+  // comment for the full rationale.
+  const wasMusicPlayingRef = useRef(false);
+  const handlePauseExercise = () => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setManuallyPaused(true);
+  };
+  const handleResume = () => {
     setManuallyPaused(false);
-    musicPlayerRef.current?.start();
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
   };
   const musicEligible = isInteractiveMusicEligible({
     musicVariantId: INTERACTIVE_BREATHING_MUSIC_ID,
@@ -153,7 +167,7 @@ export const EveningBreathing = () => {
     });
   };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && BreathingPatternRow && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && BreathingPatternRow && BreathingPatternDescription && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -201,15 +215,30 @@ export const EveningBreathing = () => {
   // run - the picker UI below only renders while !hasBegun, so
   // selectedPatternId can never change again once this fires.
   const hasBegunOnceRef = useRef(false);
+
+  // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now
+  // transitions into the shared 5-second preparation countdown instead of
+  // starting the timer/music immediately - see MorningFlow.jsx's
+  // identical block for the full rationale.
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => {
+      setSecondsLeft(activePattern.totalSeconds);
+      setBreatheState('Inhale');
+      setHasBegun(true);
+      if (musicEligible && musicPreferenceOn) {
+        musicPlayerRef.current?.start();
+      }
+    }
+  });
+
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
-    setSecondsLeft(activePattern.totalSeconds);
-    setBreatheState('Inhale');
-    setHasBegun(true);
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.start();
+      musicPlayerRef.current?.preload();
     }
+    countdown.start();
   };
 
   // Only reachable once hasFinished (Continue is hidden until then, see
@@ -241,6 +270,14 @@ export const EveningBreathing = () => {
   // Back tap, once hasBegun is false again, falls through to the ordinary
   // previous-step navigation. Mirrors Breathe.jsx's identical handler.
   const handleBackFromActive = () => {
+    // Build 16 physical-iPhone correction (F3) — Back/Cancel during the
+    // preparation countdown returns to this same pre-start screen without
+    // ever marking breathing started or begun.
+    if (countdown.isActive) {
+      countdown.cancel();
+      hasBegunOnceRef.current = false;
+      return false;
+    }
     if (!hasBegun || isRepeatGated) return;
     hasBegunOnceRef.current = false;
     setManuallyPaused(false);
@@ -256,15 +293,29 @@ export const EveningBreathing = () => {
     // the missing `?q=3` meant Back landed on Gratitude Q1 (parseActiveIndex
     // defaults a missing q to index 0), not Gratitude Q3 as required.
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" onBeforeLeave={handleBackFromActive} showExit>
+      {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
+          identical fix for the full rationale (ProgressIndicator's own
+          mobile compact block already shows "Step 4 of 7"). */}
       <ProgressIndicator activeStep="breathing" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      {/* Journey Embedding (correction) — total is now 7, not 6. */}
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 4 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {!hasBegun ? (
+      {/* Build 16 physical-iPhone correction (F3) — shared preparation
+          countdown, shown in place of the pre-start/active content below
+          while running. Back/Cancel is handled entirely by this screen's
+          own EveningSceneShell Back (handleBackFromActive, above). */}
+      {countdown.isActive && (
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable, steady position."
+          onSkip={countdown.skip}
+          accent="evening"
+        />
+      )}
+
+      {!countdown.isActive && (!hasBegun ? (
         <>
           {/* Build 15 Evening UX correction — real pattern selection,
               replacing the former fixed-4-7-8-only preview. Nothing
@@ -279,18 +330,27 @@ export const EveningBreathing = () => {
               </p>
             </div>
 
-            <div className="space-y-3" role="radiogroup" aria-label="Choose your breathing practice">
-              {BREATHING_PATTERNS.map((pattern) => (
+            {/* Build 16 physical-iPhone correction (F5) — compact
+                2-column grid, replacing the five full-width rows. Each
+                card shows its complete name only - the selected
+                pattern's full cadence and exact duration render once,
+                below the grid, via the shared
+                BreathingPatternDescription. */}
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern, idx) => (
                 <BreathingPatternRow
                   key={pattern.id}
+                  compact
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={handleSelectPattern}
                   groupName="evening-breathing-pattern"
                   accent="evening"
+                  className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
                 />
               ))}
             </div>
+            <BreathingPatternDescription pattern={activePattern} />
 
             {musicEligible && (
               <MusicPreferenceToggle
@@ -341,7 +401,7 @@ export const EveningBreathing = () => {
             <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
           </div>
         </>
-      )}
+      ))}
 
       {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
           never remounted across the pre-start -> active transition - see
@@ -358,11 +418,7 @@ export const EveningBreathing = () => {
       )}
 
       {hasBegun && !isRepeatGated && manuallyPaused && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-        />
+        <ExercisePausedPanel onResume={handleResume} />
       )}
 
       {hasBegun && !isRepeatGated && !manuallyPaused && (

@@ -12,6 +12,7 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 
 const source = read('./PrepareForRest.jsx');
 const toggleRowSource = read('../components/evening/PrepareToggleRow.jsx');
+const chooserSource = read('../components/evening/BedtimeMediaChooser.jsx');
 const manifestSource = read('../lib/betaVideoManifest.js');
 const cssSource = read('../index.css');
 const tailwindConfigSource = read('../../tailwind.config.js');
@@ -186,58 +187,57 @@ describe('evening-accent/on-evening-accent - additive, contrast-verified tokens'
   });
 });
 
-// 8. New exact guidance heading and supporting copy.
-describe('Guidance section copy: explicit heading naming both content types, plus optional-framing supporting copy', () => {
-  it('heading reads exactly "Choose a bedtime video or sleep sound"', () => {
+// Build 16 physical-iPhone correction (F10) — "Choose a bedtime video or
+// sleep sound" no longer expands the whole catalogue in-page (that made
+// this screen substantially longer, pushing the checklist and Ready for
+// Sleep off-screen together with the whole catalogue). It's now a single
+// compact control that opens a dedicated BedtimeMediaChooser overlay -
+// see that component's own test coverage below and its own doc comment.
+describe('Bedtime media control: compact heading, no in-page catalogue expansion', () => {
+  it('heading reads exactly "Choose a bedtime video or sleep sound" on the compact control', () => {
     expect(source).toMatch(/Choose a bedtime video or sleep sound/);
-  });
-
-  it('supporting copy reads exactly "Optional — play something calming, or continue when you\'re ready."', () => {
-    expect(source).toMatch(/Optional — play something calming, or continue when you're ready\./);
   });
 
   it('never says "Would some ... guidance help?" (the earlier, too-vague heading this corrects)', () => {
     expect(source).not.toMatch(/Would some.*guidance help\?/);
   });
 
-  it('never says "music" for the Sleep Sounds catalogue - "sleep sound" only, since these are ambient sound, not music', () => {
-    const block = source.match(/const FEATURED_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-    expect(block).not.toMatch(/music/i);
-    expect(block).toMatch(/'Sleep sound'/);
+  it('never says "music" anywhere in the GUIDED_VIDEOS/SLEEP_SOUNDS catalogue data - these are ambient sound, not music', () => {
+    const videosBlock = source.match(/const GUIDED_VIDEOS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    const soundsBlock = source.match(/const SLEEP_SOUNDS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    expect(videosBlock).not.toMatch(/music/i);
+    expect(soundsBlock).not.toMatch(/music/i);
+  });
+
+  it('the compact control opens the chooser (setChooserOpen(true)) - it no longer renders any catalogue rows itself, only when nothing is yet selected', () => {
+    const bodyMatch = source.match(/\) : \(\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => setChooserOpen\(true\)\}[\s\S]*?<\/button>\s*\n\s*\)\}/);
+    expect(bodyMatch).not.toBeNull();
+    expect(source).not.toMatch(/aria-controls="prepare-for-rest-guidance"/);
+    expect(source).not.toMatch(/aria-controls="prepare-for-rest-more-guidance"/);
   });
 });
 
-// 9. Guidance expanded by default.
-describe('Guidance section is expanded by default on first entry', () => {
-  it('guidanceOpen starts true (not false, unlike the earlier round-1 collapsed default)', () => {
-    expect(source).toMatch(/const \[guidanceOpen, setGuidanceOpen\] = useState\(true\);/);
-  });
-});
-
-// 10, 11, 13. Exactly one video + one sound featured; real/active ids; no duplication in More options.
-describe('Exactly one featured guided video and one featured sleep sound, real catalogue ids, never duplicated in More options', () => {
-  it('FEATURED_GUIDANCE is exactly [E05 "Guided video", SL01 "Sleep sound"]', () => {
-    const block = source.match(/const FEATURED_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-    expect(block).toMatch(/id: 'E05', kind: 'Guided video'/);
-    expect(block).toMatch(/id: 'SL01', kind: 'Sleep sound'/);
+// Every real catalogue id (4 guided videos, 10 sleep sounds) is still
+// available somewhere on this page - now inside GUIDED_VIDEOS/
+// SLEEP_SOUNDS (passed to the chooser), not split into featured/more.
+describe('Complete bedtime catalogue: all 4 guided videos and all 10 sleep sounds, real manifest ids, no duplicates', () => {
+  it('GUIDED_VIDEOS has exactly the 4 real guided-video ids, each appearing once', () => {
+    const block = source.match(/const GUIDED_VIDEOS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
     const ids = [...block.matchAll(/id: '([A-Z0-9]+)'/g)].map((m) => m[1]);
-    expect(ids).toEqual(['E05', 'SL01']);
+    expect(ids).toEqual(['E05', 'E30', 'E20', 'E27']);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('SLEEP_SOUNDS has exactly the 10 real sleep-sound ids (SL01-SL10), each appearing once', () => {
+    const block = source.match(/const SLEEP_SOUNDS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
+    const ids = [...block.matchAll(/id: '([A-Z0-9]+)'/g)].map((m) => m[1]);
+    expect(ids).toEqual(['SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10']);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('E05 and SL01 are real entries in betaVideoManifest.js - verified against the actual manifest source, not merely asserted', () => {
     expect(manifestSource).toMatch(/id: 'E05',\s*\n\s*title: 'Night-time Calm',/);
     expect(manifestSource).toMatch(/id: 'SL01',\s*\n\s*title: 'Rain',/);
-  });
-
-  it('SL01 is never repeated inside the More-options sleep sounds list (MORE_SLEEP_SOUNDS starts at SL02)', () => {
-    const block = source.match(/const MORE_SLEEP_SOUNDS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-    expect(block).not.toMatch(/id: 'SL01'/);
-    expect(block).toMatch(/id: 'SL02'/);
-  });
-
-  it('E05 is never repeated inside MORE_GUIDANCE', () => {
-    const block = source.match(/const MORE_GUIDANCE = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-    expect(block).not.toMatch(/id: 'E05'/);
   });
 
   it('every id referenced anywhere on this page (E05, E20, E27, E30, SL01-SL10) is a real entry in the manifest', () => {
@@ -246,50 +246,91 @@ describe('Exactly one featured guided video and one featured sleep sound, real c
       expect(manifestSource).toMatch(new RegExp(`id: '${id}',`));
     }
   });
-});
-
-// Content-type label + real title/description/duration presentation.
-describe('Featured items are explicitly labelled by content type, with real title/description and accurate-or-omitted duration', () => {
-  it('each featured item renders its own kind label ("Guided video"/"Sleep sound") directly above its row', () => {
-    expect(source).toMatch(/\{featuredItems\.map\(\(\{ id, entry, blurb, duration, kind \}\) => \(/);
-    expect(source).toMatch(/>\{kind\}<\/span>/);
-  });
 
   it('duration is entry.durationLabel (real, spec-provided) or a real cached "~N min", falling back to undefined (no badge) - never a fabricated placeholder', () => {
     expect(source).toMatch(/const duration = entry\.durationLabel \|\| \(cachedMinutes \? `~\$\{cachedMinutes\} min` : undefined\);/);
-    expect(source).not.toMatch(/'Guided video'\)/); // never used as a fallback duration string
-  });
-
-  it('guidance rows use the manifest\'s own real entry.title, never a hand-typed display string', () => {
-    expect(source).toMatch(/title=\{entry\.title\}/);
   });
 });
 
-// 12. More options collapsed initially.
-describe('"More bedtime options" is its own independent disclosure, collapsed initially', () => {
-  it('moreGuidanceOpen starts false', () => {
-    expect(source).toMatch(/const \[moreGuidanceOpen, setMoreGuidanceOpen\] = useState\(false\);/);
+// BedtimeMediaChooser - the dedicated overlay itself (F10).
+describe('BedtimeMediaChooser: full catalogue, clearly separated categories, select-only (never auto-plays), real Close/Escape', () => {
+  it('renders two clearly separated, correctly labelled sections - "Guided video" and "Sleep sounds"', () => {
+    expect(chooserSource).toMatch(/>Guided video<\/h3>/);
+    expect(chooserSource).toMatch(/>Sleep sounds<\/h3>/);
   });
 
-  it('is a sibling of the featured guidance section and Ready for Sleep - not nested inside guidanceOpen (so collapsing the featured section doesn\'t hide it, and it doesn\'t require guidanceOpen to be true)', () => {
-    const moreBlock = source.match(/\{\(moreGuidanceItems\.length > 0 \|\| moreSleepSoundItems\.length > 0\) && \(([\s\S]*?)\n {8}\)\}/)?.[0] ?? '';
-    expect(moreBlock).not.toBe('');
-    expect(moreBlock).not.toMatch(/guidanceOpen &&/);
+  it('every row calls onSelect(id) on tap - it never calls a play/open-video handler itself', () => {
+    expect(chooserSource).toMatch(/onClick=\{\(\) => onSelect\(id\)\}/g);
+    expect(chooserSource).not.toMatch(/handleSelect|openVideo/);
+  });
+
+  it('reuses BetaVideoRow for every catalogue item, never a hand-rolled row', () => {
+    expect(chooserSource).toMatch(/<BetaVideoRow key=\{id\} title=\{entry\.title\} description=\{blurb\} duration=\{duration\} onClick=\{\(\) => onSelect\(id\)\} \/>/g);
+  });
+
+  it('has a real 44px+ Close control with an accessible name, and closes on Escape', () => {
+    expect(chooserSource).toMatch(/aria-label="Close"/);
+    expect(chooserSource).toMatch(/w-11 h-11 rounded-full/);
+    expect(chooserSource).toMatch(/if \(e\.key === 'Escape'\) onClose\(\);/);
+  });
+
+  it('the catalogue body is its own independent scroll owner (overflow-y-auto), separate from the backdrop', () => {
+    expect(chooserSource).toMatch(/overflow-y-auto/);
+  });
+
+  it('a tap on the backdrop closes the chooser, but a tap inside the header or catalogue body does not (stopPropagation on both)', () => {
+    const stopPropCount = (chooserSource.match(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/g) ?? []).length;
+    expect(stopPropCount).toBe(2);
+    // z-[110], not z-[100] - see BedtimeMediaChooser.jsx's own doc comment
+    // for the real stacking-context bug this deliberately avoids.
+    expect(chooserSource).toMatch(/className="fixed inset-0 z-\[110\][^"]*"\s*\n\s*role="dialog"\s*\n\s*aria-modal="true"\s*\n\s*aria-label="[^"]*"\s*\n\s*onClick=\{onClose\}/);
+  });
+
+  it('renders as a sibling of EveningSceneShell in PrepareForRest.jsx, never nested inside its children - the real fix for the stacking-context bug (see BedtimeMediaChooser.jsx\'s own doc comment)', () => {
+    const shellCloseIdx = source.indexOf('</EveningSceneShell>');
+    const chooserRenderIdx = source.indexOf('{chooserOpen && (');
+    expect(shellCloseIdx).toBeGreaterThan(-1);
+    expect(chooserRenderIdx).toBeGreaterThan(shellCloseIdx);
   });
 });
 
-// Build 15 Evening UX correction — "More bedtime options" now sits
-// between the featured guidance and Ready for Sleep (previously it was
-// AFTER Ready for Sleep), so browsing the full bedtime library always
-// happens before the exit action, never after it.
-describe('"More bedtime options" sits between the featured guidance and Ready for Sleep', () => {
-  it('the featured-guidance block appears before the More-options block, which appears before {primaryAction}, in source order', () => {
-    const featuredIdx = source.indexOf('featuredItems.length > 0');
-    const moreIdx = source.indexOf('moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0');
+// Selecting vs playing are two distinct actions (F10's own required test
+// matrix: "select a guided video" and "play the selected item" are
+// separate steps).
+describe('Choosing a bedtime item is distinct from playing it', () => {
+  it('handleChooseBedtimeMedia (passed to the chooser as onSelect) only sets state and closes the chooser - it never calls handleSelect/opens BetaVideoModal itself', () => {
+    const body = source.match(/const handleChooseBedtimeMedia = \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setSelectedBedtimeId\(id\);/);
+    expect(body).toMatch(/setChooserOpen\(false\);/);
+    expect(body).not.toMatch(/handleSelect/);
+  });
+
+  it('the compact summary card (once something is selected) is what actually plays it, via the same handleSelect(id) every other BetaVideoRow tap in this app already uses', () => {
+    expect(source).toMatch(/onClick=\{\(\) => handleSelect\(selectedBedtimeId\)\}/);
+  });
+
+  it('the summary card is explicitly labelled by content type ("Guided video selected" / "Sleep sound selected")', () => {
+    expect(source).toMatch(/\{selectedBedtimeIsSound \? 'Sleep sound' : 'Guided video'\} selected/);
+  });
+
+  it('a "Change selection" control reopens the chooser without clearing the existing selection (setChooserOpen(true) only, no setSelectedBedtimeId call nearby)', () => {
+    const changeBlock = source.match(/Change selection[\s\S]{0,20}/)?.[0] ?? '';
+    expect(source).toMatch(/onClick=\{\(\) => setChooserOpen\(true\)\}\s*\n\s*className="text-xs font-semibold[^"]*"\s*\n\s*>\s*\n\s*Change selection/);
+    expect(changeBlock).not.toBe('');
+  });
+});
+
+// The chooser and the compact control/summary appear before Ready for
+// Sleep, in source order, matching the required layout (checklist ->
+// bedtime chooser/summary -> primary action).
+describe('Bedtime chooser control sits between the checklist and Ready for Sleep', () => {
+  it('the compact control/summary block appears after the checklist and before {primaryAction}, in source order', () => {
+    const checklistIdx = source.indexOf('PREP_ITEMS.map');
+    const bedtimeIdx = source.indexOf('selectedBedtimeItem ?');
     const primaryIdx = source.indexOf('{primaryAction}');
-    expect(featuredIdx).toBeGreaterThan(-1);
-    expect(moreIdx).toBeGreaterThan(featuredIdx);
-    expect(primaryIdx).toBeGreaterThan(moreIdx);
+    expect(checklistIdx).toBeGreaterThan(-1);
+    expect(bedtimeIdx).toBeGreaterThan(checklistIdx);
+    expect(primaryIdx).toBeGreaterThan(bedtimeIdx);
   });
 });
 

@@ -130,10 +130,14 @@ describe('Build 15 Evening UX correction — dedicated Exit/X control on every a
     expect(gratitudeReviewSource).not.toMatch(/showExit/);
   });
 
-  it('EveningSceneShell only renders ExitEveningButton when showExit is true, positioned top-right, mirroring BackButton\'s own top-left offset', () => {
-    expect(shellSource).toMatch(/\{showExit && \(/);
-    expect(shellSource).toMatch(/className="absolute right-6 z-20"/);
-    expect(shellSource).toMatch(/<ExitEveningButton \/>/);
+  it('EveningSceneShell only renders ExitEveningButton when showExit is true, in the shared nav row alongside Back (Build 16 physical-iPhone correction F9 - see this file\'s own doc comment)', () => {
+    expect(shellSource).toMatch(/\{showExit \? <ExitEveningButton \/> : <span aria-hidden="true" \/>\}/);
+  });
+
+  it('the nav row itself only renders at all when either Back or Exit is shown, and is a real in-flow flex row (not absolutely positioned)', () => {
+    expect(shellSource).toMatch(/\{\(showBack \|\| showExit\) && \(/);
+    expect(shellSource).toMatch(/className="px-6 flex items-center justify-between shrink-0 relative z-20"/);
+    expect(shellSource).not.toMatch(/className="absolute (left|right)-6 z-20"/);
   });
 });
 

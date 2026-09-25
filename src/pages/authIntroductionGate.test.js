@@ -10,7 +10,7 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 
 const authSource = read('./Auth.jsx');
 
-const redirectBody = () => authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+const redirectBody = () => authSource.match(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
 
 describe('redirectAfterAuth — one-shot Introduction gate, never a persistent per-route guard', () => {
   it('imports shouldShowIntroduction', () => {
@@ -79,6 +79,65 @@ describe('redirectAfterAuth — one-shot Introduction gate, never a persistent p
   });
 });
 
+// Build 16 physical-iPhone correction (F1) — a returning user who signs
+// in explicitly, already caught up to CURRENT_INTRODUCTION_VERSION
+// (shouldShowIntroduction false), previously fell straight through to
+// Home with no acknowledgement. Now reuses the SAME /introduction?
+// auto=1&existing=1 route/screen as the branch above - Introduction.jsx's
+// own isExisting flag already renders "Welcome back, {name}" - gated
+// strictly on the new isSignIn flag so it can never fire for a sign-up,
+// or (since AuthContext's session-restore listener never calls
+// redirectAfterAuth at all) for an app reopen/refresh/foreground-resume.
+describe('redirectAfterAuth — F1 returning-user Welcome back on explicit sign-in', () => {
+  it('when shouldShowIntroduction is false AND isSignIn is true, navigates to the same Welcome-back route as a stale-version return, with replace:true', () => {
+    const body = redirectBody();
+    expect(body).toMatch(/if \(isSignIn\) \{\s*\n\s*navigate\('\/introduction\?auto=1&existing=1', \{ replace: true \}\);\s*\n\s*return;\s*\n\s*\}/);
+  });
+
+  it('the isSignIn check sits after the shouldShowIntroduction branch, before the final unconditional navigate(\'/\') - reached only when nothing else already returned', () => {
+    const body = redirectBody();
+    const shouldShowIndex = body.indexOf('shouldShowIntroduction(profileRow?.introduction_completed_version)');
+    const isSignInIndex = body.indexOf('if (isSignIn) {');
+    const finalHomeIndex = body.lastIndexOf("navigate('/');");
+    expect(shouldShowIndex).toBeGreaterThan(-1);
+    expect(isSignInIndex).toBeGreaterThan(shouldShowIndex);
+    expect(finalHomeIndex).toBeGreaterThan(isSignInIndex);
+  });
+
+  it('the isSignIn check is nested inside the same "if (supabase && authUser && !authUser.is_anonymous)" guest/anonymous guard as everything else in this block - never a separate, unguarded top-level branch', () => {
+    const body = redirectBody();
+    const guardIndex = body.indexOf('if (supabase && authUser && !authUser.is_anonymous) {');
+    const isSignInIndex = body.indexOf('if (isSignIn) {');
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(isSignInIndex).toBeGreaterThan(guardIndex);
+    // Not indented at the function's own top level (4 spaces) - indented
+    // one level deeper (6 spaces), confirming it's nested inside the
+    // guard block rather than a sibling to it.
+    expect(body).toMatch(/\n {6}if \(isSignIn\) \{/);
+    expect(body).not.toMatch(/\n {4}if \(isSignIn\) \{/);
+  });
+
+  it('redirectAfterAuth accepts isSignIn as a named option defaulting to false - a plain positional authUser call (handleSignUp\'s own shape) never accidentally triggers it', () => {
+    expect(authSource).toMatch(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{/);
+  });
+
+  it('only handleSignIn\'s own call site passes { isSignIn: true } - handleSignUp\'s call is untouched, so a brand-new signup can never reach the Welcome-back branch even in the edge case where its profile row already had a completed version', () => {
+    expect(authSource).toMatch(/await redirectAfterAuth\(signInData\?\.user, \{ isSignIn: true \}\);/);
+    expect(authSource).toMatch(/await redirectAfterAuth\(data\.user\);/);
+    expect(authSource).not.toMatch(/await redirectAfterAuth\(data\.user, \{ isSignIn: true \}\);/);
+  });
+
+  it('the pending-journey-intent and pending-content early returns are completely unaffected - both still return before the isSignIn branch is ever reached, preserving "continue correctly after sign-in with a pending intent"', () => {
+    const body = redirectBody();
+    const journeyIndex = body.indexOf('const journeyTarget = resolveJourneyResumeTarget(consumePendingJourneyIntent());');
+    const pendingIndex = body.indexOf('const pending = consumePendingContent();');
+    const isSignInIndex = body.indexOf('if (isSignIn) {');
+    expect(journeyIndex).toBeGreaterThanOrEqual(0);
+    expect(journeyIndex).toBeLessThan(pendingIndex);
+    expect(pendingIndex).toBeLessThan(isSignInIndex);
+  });
+});
+
 describe('redirectAfterAuth — Morning/Evening authentication continuity (delivery follow-up)', () => {
   it('checks the pending journey intent FIRST, before the existing media pendingContent branch, which is otherwise completely untouched', () => {
     const body = redirectBody();
@@ -120,7 +179,7 @@ describe('handleSignIn/handleSignUp — isSubmitting stays true through the redi
     const afterErrorBranch = body.slice(body.indexOf(errorBranch) + errorBranch.length);
     expect(errorBranch).toMatch(/setIsSubmitting\(false\);/);
     expect(afterErrorBranch).not.toMatch(/setIsSubmitting\(false\)/);
-    expect(afterErrorBranch).toMatch(/await redirectAfterAuth\(signInData\?\.user\);/);
+    expect(afterErrorBranch).toMatch(/await redirectAfterAuth\(signInData\?\.user, \{ isSignIn: true \}\);/);
   });
 
   it('handleSignUp resets isSubmitting only in its error/no-session branches, never on the path that reaches the awaited redirect', () => {

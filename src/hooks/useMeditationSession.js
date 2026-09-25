@@ -84,16 +84,51 @@ export const useMeditationSession = ({
   // second-by-second persistence for any caller).
   useEffect(() => () => cleanupSession(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Build 16 physical-iPhone correction (F4/F7) — creates the real
+  // session controller (if one doesn't already exist for this visit) so
+  // its current sound's signed URL can start resolving during the
+  // preparation countdown, well before the timer/audio actually start in
+  // begin() below. Deliberately NOT the same as beganRef/began - creating
+  // the controller here is not "beginning": session.begin() (the pure
+  // timer) is never called from here, only from begin() itself, so
+  // calling preload() alone can never advance the timer or mark the
+  // session started.
+  const getOrCreateController = () => {
+    if (!controllerRef.current) {
+      controllerRef.current = createMeditationSessionController({
+        styleId: style.id,
+        durationSeconds: duration.seconds,
+        initialSoundId: toControllerSoundId(soundId)
+      });
+    }
+    return controllerRef.current;
+  };
+
+  const preload = () => {
+    if (beganRef.current) return; // already begun for real - nothing to preload
+    getOrCreateController().preload();
+  };
+
+  // Countdown cancelled (Back/Cancel) before it ever reached begin() -
+  // destroys the preloaded-but-never-begun controller rather than leaving
+  // it around to be silently reused by a later begin() with a since-
+  // changed style/duration/sound selection (selectStyle/selectSound/
+  // setDurationId are only ever reachable again once back on the setup
+  // screen, i.e. after this runs). No-op if the session was genuinely
+  // begun for real - never tears down an active practice.
+  const cancelPreload = () => {
+    if (beganRef.current) return;
+    if (controllerRef.current) {
+      controllerRef.current.destroy();
+      controllerRef.current = null;
+    }
+  };
+
   const begin = () => {
     if (beganRef.current) return;
     beganRef.current = true;
 
-    const controller = createMeditationSessionController({
-      styleId: style.id,
-      durationSeconds: duration.seconds,
-      initialSoundId: toControllerSoundId(soundId)
-    });
-    controllerRef.current = controller;
+    const controller = getOrCreateController();
     controller.begin();
     setSnapshot(controller.getSnapshot());
     setPhase('active');
@@ -176,6 +211,8 @@ export const useMeditationSession = ({
     setDurationId,
     selectStyle,
     selectSound,
+    preload,
+    cancelPreload,
     begin,
     pause,
     resume,

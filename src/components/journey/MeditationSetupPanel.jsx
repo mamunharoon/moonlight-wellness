@@ -93,7 +93,15 @@ export const MeditationSetupPanel = ({
   const resolvedBeginLabel = beginLabel || formatMeditationBeginLabel(duration);
 
   return (
-    <div className="space-y-6">
+    // Decision 3 acceptance correction — space-y-6 -> space-y-5 -> space-y-4:
+    // a second modest gap trim (reducing padding/gaps before font size, per
+    // spec) - the first trim alone left Begin's bottom edge 0.4px below an
+    // 844px viewport, an unacceptably fragile margin per spec ("do not
+    // allow a three-pixel width difference to push the primary action
+    // below the fold"). Safe for the compact (Morning/Evening) variant
+    // too - it only ever makes an already-comfortable fit more
+    // comfortable there, never worse.
+    <div className="space-y-4">
       {compact ? (
         <div className="space-y-1">
           <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">self_improvement</span>

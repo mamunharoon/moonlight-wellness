@@ -14,7 +14,47 @@
  * colour-only state: selected rows also gain a full-strength border, a
  * subtle primary tint, and bold label text.
  */
-export const MovementCheckboxRow = ({ title, description, durationLabel, icon, isSelected, onToggle }) => {
+// Build 16 physical-iPhone correction (F2) — `compact` renders a 2-column-
+// grid card instead of the full-width row: icon + checkmark badge, title,
+// duration only (the longer `description` is intentionally omitted here -
+// the full row below still shows it, this card exists purely so all four
+// movements are visible on the setup screen at once without scrolling).
+// Same real checkbox input/label wrapping and focus-visible ring as the
+// full row - only the visual layout differs, not the accessibility
+// contract. min-h-[76px] keeps the whole card comfortably above the
+// 44x44pt minimum touch target even with two columns on a 320px-wide
+// screen.
+export const MovementCheckboxRow = ({ title, description, durationLabel, icon, isSelected, onToggle, compact = false }) => {
+  if (compact) {
+    return (
+      <label
+        className={`relative min-h-[76px] px-3 py-3 rounded-2xl border flex flex-col items-center text-center gap-1 transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+          isSelected ? 'bg-primary/10 border-primary' : 'bg-surface-container border-primary/50 hover:bg-white/10'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggle}
+          className="sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className={`absolute top-2 right-2 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors duration-150 ${
+            isSelected ? 'bg-primary border-primary' : 'border-on-surface-variant/50 bg-transparent'
+          }`}
+        >
+          {isSelected && <span className="material-symbols-outlined text-on-primary text-sm leading-none">check</span>}
+        </span>
+        <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-primary/25 text-primary' : 'bg-white/5 text-on-surface-variant'}`}>
+          <span className="material-symbols-outlined text-xl">{icon}</span>
+        </span>
+        <span className={`block text-xs leading-snug ${isSelected ? 'text-primary font-bold' : 'text-on-surface font-semibold'}`}>{title}</span>
+        <span className="block text-[10px] text-on-surface-variant/70 uppercase font-semibold tracking-wide">{durationLabel}</span>
+      </label>
+    );
+  }
+
   return (
     <label
       className={`w-full min-h-[56px] px-5 py-4 rounded-2xl border text-left flex items-center gap-4 transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${

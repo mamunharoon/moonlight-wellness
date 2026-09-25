@@ -246,7 +246,14 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
     .filter(Boolean);
 
   return (
-    <div className="space-y-6 w-full">
+    // Build 16 physical-iPhone correction (F9, then Decision 3 acceptance
+    // correction) — space-y-6 -> space-y-4 -> space-y-3: reduces the
+    // vertical gap between this stepper's own top-level sections (heading,
+    // answer grid, "Add your own", guidance disclosure, Next, Skip) before
+    // touching any font size, per spec. Combines with Reflection.jsx/
+    // Gratitude.jsx's own card-padding trim to bring Next within the
+    // 390x844/393x852 viewport.
+    <div className="space-y-3 w-full">
       {/* Evening colour-contrast fix: the counter was /60 and the
           placeholder /40 - both blend toward whatever's behind them, a
           real WCAG AA failure against the evening gradient's light bands

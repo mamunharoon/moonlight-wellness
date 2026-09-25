@@ -95,6 +95,17 @@ export const createMeditationSessionController = ({
     }
   };
 
+  // Build 16 physical-iPhone correction (F4/F7) — resolves and primes the
+  // CURRENT track's signed URL ahead of begin(), without starting the
+  // timer or audio playback. Safe to call multiple times (idempotent -
+  // see meditationAudioController.js's own preload() guard) and safe to
+  // call for "No Music" (no-op). Never touches `began`/`session` - purely
+  // a network head-start, not a state transition.
+  const preload = () => {
+    if (!currentSoundId) return;
+    getOrCreateAudioController(currentSoundId).preload();
+  };
+
   const begin = () => {
     if (began) return;
     began = true;
@@ -179,5 +190,5 @@ export const createMeditationSessionController = ({
     };
   };
 
-  return { begin, pause, resume, end, tick, setSoundId, destroy, getSnapshot };
+  return { preload, begin, pause, resume, end, tick, setSoundId, destroy, getSnapshot };
 };

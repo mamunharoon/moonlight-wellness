@@ -84,8 +84,47 @@ const ACCENT_TOKENS = {
   }
 };
 
-export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, accent = 'primary' }) => {
+// Build 16 physical-iPhone correction (F5) — `compact` renders a grid-
+// card variant: pattern name only, no cadence/duration on the card
+// itself (a shared description area below the grid shows the currently
+// selected pattern's full cadence+duration once - see Breathe.jsx/
+// EveningBreathing.jsx/QuietBreathing.jsx). Same real radio input/label
+// wrapping, focus-visible ring, and selected-state visual language
+// (filled ring + dot, tinted background, bold text) as the full row -
+// only the layout and the omitted cadence/duration differ. The full
+// name is never abbreviated. min-h-[44px] keeps the touch target at the
+// established minimum even in a 2-column grid on a 320px-wide screen.
+export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, accent = 'primary', compact = false, className = '' }) => {
   const tokens = ACCENT_TOKENS[accent];
+
+  if (compact) {
+    return (
+      <label
+        className={`flex items-center justify-center gap-2 w-full min-h-[44px] px-3 py-3 rounded-2xl border text-center transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+          selected ? tokens.selectedRow : tokens.unselectedRow
+        } ${className}`}
+      >
+        <input
+          type="radio"
+          name={groupName}
+          checked={selected}
+          onChange={() => onSelect(pattern.id)}
+          className="sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className={`relative w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${
+            selected ? tokens.selectedRing : tokens.unselectedRing
+          }`}
+        >
+          {selected && <span className={`absolute inset-0 m-auto w-1.5 h-1.5 rounded-full ${tokens.dot}`} />}
+        </span>
+        <span className={`text-xs leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-medium'}`}>
+          {pattern.label}
+        </span>
+      </label>
+    );
+  }
 
   return (
     <label

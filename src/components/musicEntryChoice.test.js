@@ -62,20 +62,23 @@ describe('MusicEntryChoice.jsx - the shared entry-choice card itself', () => {
   });
 });
 
-describe('ExercisePausedPanel.jsx - "Resume with Music" guest pre-start-music correction (Build 18)', () => {
-  it('has no isGuest/onSignIn prop at all - the component signature is exactly ({ onResumeExercise, onResumeWithMusic, showResumeWithMusic })', () => {
-    expect(pausedPanelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResumeExercise, onResumeWithMusic, showResumeWithMusic \}\) => \(/);
+// Build 16 physical-iPhone correction (F6) — the two-button "Resume
+// Exercise"/"Resume with Music" choice this describe block originally
+// covered is gone, replaced by one `onResume` the calling page wires up
+// after deciding for itself (via InteractiveAmbientMusic's own
+// isPlaying()) whether to restart music - see
+// guestInteractiveMusicFinalCorrection.test.js for that decision's own
+// dedicated coverage. This block now just confirms the panel itself
+// still has no auth-adjacent prop of any kind.
+describe('ExercisePausedPanel.jsx - no isGuest/onSignIn prop, single Resume action', () => {
+  it('the component signature is exactly ({ onResume }) - no isGuest, no onSignIn, no eligibility prop', () => {
+    expect(pausedPanelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume \}\) => \(/);
   });
 
-  it('"Resume with Music" is an unconditional button wired directly to onResumeWithMusic whenever showResumeWithMusic is true - never a Sign In substitute', () => {
-    expect(pausedPanelSource).toMatch(/\{showResumeWithMusic && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{onResumeWithMusic\}/);
+  it('the single Resume button is wired directly to onResume - never a Sign In substitute', () => {
+    expect(pausedPanelSource).toMatch(/onClick=\{onResume\}/);
     const codeOnly = pausedPanelSource.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(codeOnly).not.toMatch(/isGuest|onSignIn|Sign In/);
-  });
-
-  it('"Resume Exercise" (timer only, no music) is unaffected either way - it sits outside the showResumeWithMusic block entirely', () => {
-    const beforeBlock = pausedPanelSource.slice(0, pausedPanelSource.indexOf('{showResumeWithMusic'));
-    expect(beforeBlock).toMatch(/onClick=\{onResumeExercise\}/);
   });
 });
 
@@ -202,13 +205,12 @@ describe.each([
   ['MorningFlow.jsx', morningFlowSource],
   ['EveningBreathing.jsx', eveningBreathingSource]
 ])('%s - passes neither isGuest nor onSignIn to ExercisePausedPanel (Build 18 guest pre-start-music correction)', (name, source) => {
-  it('the ExercisePausedPanel usage carries only onResumeExercise/onResumeWithMusic/showResumeWithMusic - no isGuest, no onSignIn', () => {
+  it('the ExercisePausedPanel usage carries only onResume - no isGuest, no onSignIn, no eligibility prop', () => {
     const block = source.match(/<ExercisePausedPanel[\s\S]*?\/>/)?.[0] ?? '';
     expect(block).not.toBe('');
     expect(block).not.toMatch(/isGuest=/);
     expect(block).not.toMatch(/onSignIn=/);
-    expect(block).toMatch(/onResumeExercise=\{handleResumeExercise\}/);
-    expect(block).toMatch(/onResumeWithMusic=\{handleResumeWithMusic\}/);
+    expect(block).toMatch(/onResume=\{handleResume\}/);
   });
 
   it('still imports useAuth - isGuest remains needed elsewhere on this screen (the pre-start seed, and the shared setMusicPreferenceForUser call)', () => {

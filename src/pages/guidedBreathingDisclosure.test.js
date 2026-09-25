@@ -47,7 +47,11 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
     // isRepeatGated hidden-options defect fix removed the whole-screen
     // "Repeat this exercise?" branch that used to precede this ternary -
     // it now opens directly with `{!hasBegun ? (`, no leading `: `.
-    const preStartBranch = breatheSource.slice(breatheSource.indexOf('{!hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
+    // Build 16 physical-iPhone correction (F3) — the whole ternary is now
+    // wrapped in an additional `{!countdown.isActive && (` guard (a third,
+    // sibling state - the preparation countdown - that doesn't change
+    // this test's own concern: ordering within the pre-start branch).
+    const preStartBranch = breatheSource.slice(breatheSource.indexOf('{!countdown.isActive && (!hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
     const iDisclosure = preStartBranch.indexOf('Explore guided breathing sessions');

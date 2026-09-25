@@ -144,38 +144,67 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
           own `fixed inset-0`/`overflow-y-auto` can never be fought by
           anything the atmosphere layer does. */}
       <div className="fixed inset-0 z-[101] overflow-y-auto">
-        {showBack && (
-          <div
-            className="absolute left-6 z-20"
-            style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
-          >
-            <BackButton
-              fallback={backFallback}
-              className="!bg-black/55 !border-white/40"
-              onBeforeLeave={onBeforeLeave}
-              guardActiveRoute={guardActiveRoute}
-              alwaysFallback={alwaysFallback}
-            />
-          </div>
-        )}
+        {/* Build 16 physical-iPhone correction (F9) — one shared min-h-screen
+            column now owns BOTH the nav row and the content below it (the
+            nav row is `shrink-0`, content is `flex-1`), rather than two
+            independent min-h-screen blocks stacked in the scroll owner -
+            that would have added the nav row's own height as pure extra
+            scroll on every single page using this shell, on top of a full
+            viewport of content, directly fighting F9's own "primary action
+            visible without scrolling where the choices permit" requirement.
+            This way the combined total stays exactly one viewport tall at
+            minimum, exactly as it always was - the nav row simply now
+            takes a small real slice of that one viewport instead of
+            floating (absolutely positioned, zero flow height) over the
+            content's own top edge. */}
+        <div className="flex flex-col min-h-screen max-w-xl w-full mx-auto">
+          {/* Back/Exit are now a genuine in-flow nav row (real flex
+              children, safe-area-aware via this row's own top padding),
+              not two independently absolutely-positioned circles floating
+              over the content. Found live: Back's own `top` offset already
+              added env(safe-area-inset-top), but the content container
+              below it (ProgressIndicator's own first child on every real
+              consumer) only ever had a flat `py-10` with no safe-area
+              awareness at all - on a notched/Dynamic-Island device, Back
+              sat LOWER (safe-area + 24px) than content started (a fixed
+              40px), so content rendered above/into Back's own row,
+              crowding it. A genuine document-flow nav row above the
+              content makes that overlap structurally impossible,
+              regardless of the actual safe-area value on any given
+              device - nothing below this row can ever render above it. */}
+          {(showBack || showExit) && (
+            <div className="px-6 flex items-center justify-between shrink-0 relative z-20" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+              {showBack ? (
+                <BackButton
+                  fallback={backFallback}
+                  className="!bg-black/55 !border-white/40"
+                  onBeforeLeave={onBeforeLeave}
+                  guardActiveRoute={guardActiveRoute}
+                  alwaysFallback={alwaysFallback}
+                />
+              ) : (
+                <span aria-hidden="true" />
+              )}
+              {showExit ? <ExitEveningButton /> : <span aria-hidden="true" />}
+            </div>
+          )}
 
-        {showExit && (
+          {/* Stage 4 Batch F3 fix: flex-1 is required here, not decorative -
+              without it, this container has no distributable height and
+              title/button collapse together instead of spreading across
+              the remaining screen (justify-between needs a definite space
+              to distribute within). Build 16 physical-iPhone correction
+              (F9) — top padding is now conditional: a small gap below the
+              nav row (pt-2) when one renders, or this container's own full
+              safe-area top padding when neither Back nor Exit is shown at
+              all (a shell used with no nav row still needs to clear the
+              notch on its own). */}
           <div
-            className="absolute right-6 z-20"
-            style={{ top: 'calc(1.5rem + env(safe-area-inset-top))' }}
+            className="relative z-10 flex-1 flex flex-col justify-between px-6 pb-10"
+            style={(showBack || showExit) ? { paddingTop: '0.5rem' } : { paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}
           >
-            <ExitEveningButton />
+            {content}
           </div>
-        )}
-
-        {/* Stage 4 Batch F3 fix: min-h-screen is required here, not
-            decorative - without an explicit height, flex-1/justify-between
-            below have nothing to distribute and title/button collapse
-            together instead of spreading across the screen. min-h-screen
-            (a viewport unit) rather than min-h-full deliberately doesn't
-            depend on any ancestor's own height being definite. */}
-        <div className="relative z-10 flex flex-col justify-between min-h-screen max-w-xl w-full mx-auto px-6 py-10">
-          {content}
         </div>
       </div>
     </>

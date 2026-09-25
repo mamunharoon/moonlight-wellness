@@ -214,7 +214,7 @@ describe('formatCadence - real execution, the exact approved copy for every patt
 describe('Breathe.jsx - real pattern choices before Start, single-select radio semantics', () => {
   it('imports the shared BREATHING_PATTERNS/BreathingPatternRow, never a second, hand-typed pattern list', () => {
     expect(breatheSource).toMatch(/import \{ BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
-    expect(breatheSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
+    expect(breatheSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
   });
 
   it('renders inside role="radiogroup", one BreathingPatternRow per real pattern, single groupName so only one can be checked at a time', () => {
@@ -274,15 +274,34 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(startCalls.length).toBe(2);
   });
 
-  it('handleBeginBreathing resets secondsLeft/breatheState, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted) - all inside one handler, guarded against double taps', () => {
+  // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now
+  // transitions into the shared 5-second preparation countdown instead
+  // of starting the timer/music immediately: handleBeginBreathing itself
+  // only guards against a double tap, preloads the music (if eligible+
+  // preferred), and starts the countdown; the countdown's own onComplete
+  // callback (fired at zero, or "Start now") is what actually resets
+  // secondsLeft/breatheState, sets hasBegun, and starts music - see
+  // MorningFlow.jsx's identical split for the full rationale.
+  it('handleBeginBreathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
     const body = breatheSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
-    expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
-    expect(body).toMatch(/setBreatheState\('Inhale'\);/);
-    expect(body).toMatch(/setHasBegun\(true\);/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/countdown\.start\(\);/);
+    expect(body).not.toMatch(/setSecondsLeft|setBreatheState|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
+  });
+
+  it('the countdown\'s onComplete callback resets secondsLeft/breatheState, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+    const countdownBlock = breatheSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).not.toBe('');
+    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
+    expect(countdownBlock).toMatch(/setBreatheState\('Inhale'\);/);
+    expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
+    expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
   it('the active countdown effect drives breatheState from the selected pattern via the shared resolveBreathPhase - never a second, hand-rolled modulo', () => {
@@ -320,7 +339,7 @@ describe('Breathe.jsx - Session Engine boundary unchanged (Morning-only advancem
 describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Evening-themed, same pre-start Begin discipline', () => {
   it('imports the shared BREATHING_PATTERNS/BreathingPatternRow, never a second, hand-typed pattern list', () => {
     expect(eveningBreathingSource).toMatch(/import \{ BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
-    expect(eveningBreathingSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
+    expect(eveningBreathingSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
   });
 
   it('renders inside role="radiogroup", one BreathingPatternRow per real pattern with the Evening accent, single groupName so only one can be checked at a time', () => {
@@ -360,17 +379,33 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(startCalls.length).toBe(2);
   });
 
-  it('Begin Breathing locks the selected pattern by resetting the countdown to its real total, sets hasBegun, guards against double taps, and starts music only if eligible+preferred (Build 18: guest no longer excluded)', () => {
+  // Build 16 physical-iPhone correction (F3/F4) — see breathingPreStart
+  // .test.js's identical Breathe.jsx split above for the full rationale.
+  it('Begin Breathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
     const body = eveningBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
-    expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
-    expect(body).toMatch(/setHasBegun\(true\);/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/countdown\.start\(\);/);
+    expect(body).not.toMatch(/setSecondsLeft|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
   });
 
+  it('the countdown\'s onComplete callback locks the selected pattern by resetting the countdown to its real total, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded)', () => {
+    const countdownBlock = eveningBreathingSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).not.toBe('');
+    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
+    expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(countdownBlock).not.toMatch(/!isGuest/);
+  });
+
   it('the picker UI only renders while !hasBegun - once Begin fires, selectedPatternId can never change again for the active run (structural lock, no separate "locked" flag needed)', () => {
-    const preStartBlock = eveningBreathingSource.match(/\{!hasBegun \? \(([\s\S]*?)\n {6}\) : \(/)?.[1] ?? '';
+    // Build 16 physical-iPhone correction (F3) — the pre-start/active
+    // ternary is now wrapped in an additional `!countdown.isActive &&`
+    // guard (a third, sibling state - the preparation countdown - none
+    // of which changes the underlying !hasBegun lock this test guards).
+    const preStartBlock = eveningBreathingSource.match(/\{!countdown\.isActive && \(!hasBegun \? \(([\s\S]*?)\n {6}\) : \(/)?.[1] ?? '';
     expect(preStartBlock).toMatch(/role="radiogroup"/);
     const activeBlock = eveningBreathingSource.slice(eveningBreathingSource.indexOf(') : (', eveningBreathingSource.indexOf('!hasBegun ?')));
     // BreathingRing (the active view) never itself renders a radiogroup.

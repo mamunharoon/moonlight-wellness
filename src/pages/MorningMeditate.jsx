@@ -12,6 +12,8 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 import { getStepLabel } from '../lib/stepLabels';
 import { useMeditationSession } from '../hooks/useMeditationSession';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
 import { MeditationActiveSession } from '../components/journey/MeditationActiveSession';
 import { MEDITATION_CONTEXTS, getRecommendedDurationId } from '../lib/meditationDurations';
@@ -127,9 +129,22 @@ export const MorningMeditate = () => {
     onComplete: handleComplete
   });
 
+  // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
+  // into a shared 5-second preparation countdown instead of starting the
+  // timer/audio immediately. preload() kicks off the sound's signed-URL
+  // resolution right away, in the same gesture, so it has the whole
+  // countdown to finish before begin() (at zero, or "Start now") actually
+  // needs it - see meditationAudioController.js's own doc comment for why
+  // this is the real fix for "music starts late."
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => session.begin()
+  });
+
   const handleBegin = () => {
     setHasStartedThisVisit(true);
-    session.begin();
+    session.preload();
+    countdown.start();
   };
 
   // "Finish & continue" (active-screen bottom action, Morning journey UX
@@ -202,6 +217,39 @@ export const MorningMeditate = () => {
     navigate('/');
   };
 
+  if (countdown.isActive) {
+    return (
+      // Build 16 physical-iPhone correction (F8) - same safe-area pattern
+      // as this file's own setup/active screens.
+      <div
+        className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto"
+        style={{
+          paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+          paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+          paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <BackButton
+            fallback="/breathe"
+            guardActiveRoute={false}
+            onBeforeLeave={() => {
+              countdown.cancel();
+              session.cancelPreload();
+              return false;
+            }}
+          />
+        </div>
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable position and let your shoulders soften."
+          onSkip={countdown.skip}
+          accent="morning"
+        />
+      </div>
+    );
+  }
+
   if (session.phase === 'active' && session.snapshot) {
     return (
       <>
@@ -253,7 +301,16 @@ export const MorningMeditate = () => {
   }
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
+    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
+    // identical block for the full rationale.
+    <div
+      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center gap-3">
         {/* Back-navigation repair (Morning canonical map) — Meditation
             setup Back returns to Breathe; the whole-routine "Leave this
@@ -299,7 +356,7 @@ export const MorningMeditate = () => {
       <button
         type="button"
         onClick={handleExitRoutine}
-        className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+        className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
       >
         Exit routine
       </button>

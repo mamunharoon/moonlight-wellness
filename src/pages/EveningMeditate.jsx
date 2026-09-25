@@ -10,6 +10,8 @@ import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 import { useMeditationSession } from '../hooks/useMeditationSession';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
 import { MeditationActiveSession } from '../components/journey/MeditationActiveSession';
 import { getRecommendedDurationId } from '../lib/meditationDurations';
@@ -83,9 +85,17 @@ export const EveningMeditate = () => {
     onComplete: handleComplete
   });
 
+  // Build 16 physical-iPhone correction (F3/F4) - see MorningMeditate.jsx's
+  // identical block for the full rationale.
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => session.begin()
+  });
+
   const handleBegin = () => {
     setHasStartedThisVisit(true);
-    session.begin();
+    session.preload();
+    countdown.start();
   };
 
   // "Finish & continue" (mirrors MorningMeditate.jsx's identical fix) — a
@@ -127,6 +137,29 @@ export const EveningMeditate = () => {
   });
 
   const handleSkip = () => handleComplete();
+
+  if (countdown.isActive) {
+    return (
+      <EveningSceneShell
+        atmosphere={{ phase: 'moonlight' }}
+        showBack
+        backFallback="/evening-breathing"
+        onBeforeLeave={() => {
+          countdown.cancel();
+          session.cancelPreload();
+          return false;
+        }}
+        showExit
+      >
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable position and let your shoulders soften."
+          onSkip={countdown.skip}
+          accent="evening"
+        />
+      </EveningSceneShell>
+    );
+  }
 
   if (session.phase === 'active' && session.snapshot) {
     // Structural fix (corrected) - two genuinely distinct controls, no
@@ -178,12 +211,14 @@ export const EveningMeditate = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
+      {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
+          identical fix for the full rationale (ProgressIndicator's own
+          mobile compact block already shows "Step 5 of 7"). The former
+          per-screen span this comment used to describe is removed here
+          along with every other step page's own copy of it, except
+          EveningWindDown.jsx/EveningComplete.jsx, which render no
+          ProgressIndicator at all and so are not duplicates. */}
       <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      {/* Journey Embedding — matching every other Evening step's own
-          per-screen "Step X of 7" label exactly (EveningWindDown.jsx/
-          Reflection.jsx/Gratitude.jsx/EveningBreathing.jsx/
-          PrepareForRest.jsx/EveningComplete.jsx all show one). */}
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 5 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />

@@ -100,7 +100,7 @@ describe('5 & 6. Version-gated visibility: below version 2 sees Welcome once, at
   });
 
   it('redirectAfterAuth (Auth.jsx) is the one gate for both a brand-new sign-up and an existing below-version account - shouldShowIntroduction makes no distinction between them', () => {
-    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/shouldShowIntroduction\(profileRow\?\.introduction_completed_version\)/);
   });
 });

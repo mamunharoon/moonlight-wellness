@@ -29,6 +29,16 @@ const RESUME_SURFACES = [
   ['EveningBreathing.jsx', eveningBreathingSource],
 ];
 
+// Build 16 physical-iPhone correction (F6) — the old two-action
+// "Resume Exercise" / "Resume with Music" split (and its own guest
+// correction, tested by this file's original round) is gone, replaced by
+// a single `handleResume` that decides for itself whether to restart
+// music, based on `wasMusicPlayingRef` (captured from
+// InteractiveAmbientMusic's own exposed `isPlaying()` at the moment the
+// interruption began). The guest-safety guarantees this describe block
+// originally proved for the "with Music" button - no auth callback, no
+// isGuest branch, no persistence write - all still hold for the single
+// handleResume, verified against its current real source below.
 describe('ExercisePausedPanel — no /auth navigation, no authentication callback', () => {
   it('the component itself has no navigate/SignInPromptDialog/isGuest/onSignIn reference anywhere in real code', () => {
     const codeOnly = pausedPanelSource.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -36,8 +46,8 @@ describe('ExercisePausedPanel — no /auth navigation, no authentication callbac
   });
 
   for (const [name, source] of RESUME_SURFACES) {
-    it(`${name}: handleResumeWithMusic itself has no isGuest check, no navigate('/auth') call - it is identical for every user`, () => {
-      const body = source.match(/const handleResumeWithMusic = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    it(`${name}: handleResume itself has no isGuest check, no navigate('/auth') call - it is identical for every user`, () => {
+      const body = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toBe('');
       expect(body).not.toMatch(/isGuest|navigate\('\/auth'\)/);
       expect(body).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
@@ -45,56 +55,52 @@ describe('ExercisePausedPanel — no /auth navigation, no authentication callbac
   }
 });
 
-describe('ExercisePausedPanel — Resume with Music preserves the exact paused timer/phase/movement/session state', () => {
+describe('ExercisePausedPanel — Resume preserves the exact paused timer/phase/movement/session state', () => {
   for (const [name, source] of RESUME_SURFACES) {
-    it(`${name}: handleResumeWithMusic only clears the interrupt flags and starts music - it never touches timer/phase/movement state`, () => {
-      const body = source.match(/const handleResumeWithMusic = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    it(`${name}: handleResume only clears the interrupt flags and conditionally starts music - it never touches timer/phase/movement state`, () => {
+      const body = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toMatch(/setSecondsLeft|setBreatheState|setTimeLeft|setActiveStep|setSelectedMovements|setActiveSequence/);
     });
   }
 
-  it('Breathe.jsx/MorningFlow.jsx: handleResumeWithMusic clears videoOpenedDuringExercise and manuallyPaused - the exact same two flags Resume Exercise clears, nothing more', () => {
+  it('Breathe.jsx/MorningFlow.jsx: handleResume clears videoOpenedDuringExercise and manuallyPaused - the exact same two flags the old Resume Exercise cleared, nothing more', () => {
     for (const source of [breatheSource, morningFlowSource]) {
-      const body = source.match(/const handleResumeWithMusic = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const body = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).toMatch(/setVideoOpenedDuringExercise\(false\);/);
       expect(body).toMatch(/setManuallyPaused\(false\);/);
     }
   });
 
-  it('EveningBreathing.jsx: handleResumeWithMusic clears manuallyPaused only (no guided-video concept on this screen) - same shape, narrower', () => {
-    const body = eveningBreathingSource.match(/const handleResumeWithMusic = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+  it('EveningBreathing.jsx: handleResume clears manuallyPaused only (no guided-video concept on this screen) - same shape, narrower', () => {
+    const body = eveningBreathingSource.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/setManuallyPaused\(false\);/);
   });
 });
 
-describe('ExercisePausedPanel — starts or resumes exactly one correct audio instance; "Resume without Music" (Resume Exercise) stays silent', () => {
+describe('ExercisePausedPanel — starts or resumes exactly one correct audio instance; silent when music was not playing before the interruption', () => {
   for (const [name, source] of RESUME_SURFACES) {
-    it(`${name}: InteractiveAmbientMusic is still mounted exactly once - Resume with Music can never create a second instance`, () => {
+    it(`${name}: InteractiveAmbientMusic is still mounted exactly once - handleResume can never create a second instance`, () => {
       const mountCount = (source.match(/<InteractiveAmbientMusic/g) ?? []).length;
       expect(mountCount).toBe(1);
     });
 
-    it(`${name}: handleResumeExercise (the plain "Resume Exercise" action) never calls start() or touches musicPlayerRef - it stays genuinely silent`, () => {
-      // Matches either a single-expression arrow (EveningBreathing.jsx) or
-      // a block-bodied one (Breathe.jsx/MorningFlow.jsx).
-      const body = (
-        source.match(/const handleResumeExercise = \(\) => \{[\s\S]*?\n {2}\};/) ??
-        source.match(/const handleResumeExercise = \(\) => [^\n]+;/)
-      )?.[0] ?? '';
+    it(`${name}: handleResume only calls start()/touches musicPlayerRef inside its own wasMusicPlayingRef.current guard - it never calls start() unconditionally`, () => {
+      const body = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toBe('');
-      expect(body).not.toMatch(/musicPlayerRef|start\(\)/);
+      const beforeGuard = body.slice(0, body.indexOf('if (wasMusicPlayingRef.current)'));
+      expect(beforeGuard).not.toMatch(/musicPlayerRef|start\(\)/);
     });
   }
 
-  it('start() itself (InteractiveAmbientMusic.jsx, shared by every caller) is guarded by isBusyRef for its whole async body - Resume with Music tapped rapidly, or alongside the active toggle, can never issue two overlapping start() calls', () => {
+  it('start() itself (InteractiveAmbientMusic.jsx, shared by every caller) is guarded by isBusyRef for its whole async body - handleResume tapped rapidly, or alongside the active toggle, can never issue two overlapping start() calls', () => {
     expect(playerSource).toMatch(/const start = async \(\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
   });
 });
 
 describe('ExercisePausedPanel — guest selection is session-only; authenticated persistence is unchanged', () => {
   for (const [name, source] of RESUME_SURFACES) {
-    it(`${name}: handleResumeWithMusic never calls setMusicPreference or setMusicPreferenceForUser directly - a ref-triggered start() was never, and is still not, a persistence event for any user`, () => {
-      const body = source.match(/const handleResumeWithMusic = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    it(`${name}: handleResume never calls setMusicPreference or setMusicPreferenceForUser directly - a ref-triggered start() was never, and is still not, a persistence event for any user`, () => {
+      const body = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toMatch(/setMusicPreference/);
     });
   }

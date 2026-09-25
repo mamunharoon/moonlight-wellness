@@ -8,6 +8,7 @@ import { ProgressIndicator } from '../components/ProgressIndicator';
 import { getStepLabel } from '../lib/stepLabels';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
+import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
@@ -27,6 +28,8 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -147,7 +150,6 @@ export const Breathe = () => {
   // automatically — only the deliberate "Resume Exercise" tap clears it.
   const [videoOpenedDuringExercise, setVideoOpenedDuringExercise] = useState(false);
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
-  const handlePauseExercise = () => setManuallyPaused(true);
   const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
   const {
     openVideo,
@@ -162,22 +164,34 @@ export const Breathe = () => {
   if (ProgressIndicator) { /* no-op to satisfy blind linter */ }
   if (BreathingRing && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
+  const musicPlayerRef = useRef(null);
+  // Build 16 physical-iPhone correction (F6) — captures whether music was
+  // genuinely playing at the exact moment an interruption begins (before
+  // `suspended` pauses it below), so the single Resume action can restore
+  // the same choice automatically. See ExercisePausedPanel.jsx's own doc
+  // comment for the full rationale.
+  const wasMusicPlayingRef = useRef(false);
+
+  const handlePauseExercise = () => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setManuallyPaused(true);
+  };
+
   const handleSelectVideo = (id) => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
     setVideoOpenedDuringExercise(true);
     handleSelect(id);
   };
 
-  const handleResumeExercise = () => {
+  const handleResume = () => {
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
   };
 
-  const musicPlayerRef = useRef(null);
-  const handleResumeWithMusic = () => {
-    setVideoOpenedDuringExercise(false);
-    setManuallyPaused(false);
-    musicPlayerRef.current?.start();
-  };
   const musicEligible = isInteractiveMusicEligible({
     musicVariantId: INTERACTIVE_BREATHING_MUSIC_ID,
     featureEnabled: isFeatureEnabled('backgroundMusic'),
@@ -247,17 +261,30 @@ export const Breathe = () => {
   // Double-tap protection: a ref, checked and set before anything else
   // runs - see MorningFlow.jsx's identical rationale.
   const hasBegunOnceRef = useRef(false);
+
+  // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now
+  // transitions into the shared 5-second preparation countdown instead of
+  // starting the timer/music immediately - see MorningFlow.jsx's
+  // identical block for the full rationale.
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => {
+      setSecondsLeft(activePattern.totalSeconds);
+      setBreatheState('Inhale');
+      setHasBegun(true);
+      if (musicEligible && musicPreferenceOn) {
+        musicPlayerRef.current?.start();
+      }
+    }
+  });
+
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
-    setSecondsLeft(activePattern.totalSeconds);
-    setBreatheState('Inhale');
-    setHasBegun(true);
-    // Called synchronously within this real click handler - the same
-    // proven, gesture-safe pattern "Resume with Music" already uses.
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.start();
+      musicPlayerRef.current?.preload();
     }
+    countdown.start();
   };
 
   // Only reachable once hasFinished (Continue is hidden until then, see
@@ -297,6 +324,14 @@ export const Breathe = () => {
   // gated repeat-intro) are untouched - only a genuinely active run is
   // ever stopped here. Mirrors MorningFlow.jsx's identical handler.
   const handleBackFromActive = () => {
+    // Build 16 physical-iPhone correction (F3) — Back/Cancel during the
+    // preparation countdown returns to this same pre-start screen without
+    // ever marking breathing started or begun.
+    if (countdown.isActive) {
+      countdown.cancel();
+      hasBegunOnceRef.current = false;
+      return false;
+    }
     if (!hasBegun || isRepeatGated) return;
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
@@ -309,7 +344,16 @@ export const Breathe = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10 select-none">
+    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
+    // identical block for the full rationale.
+    <div
+      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-5 select-none"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center gap-3">
         <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
@@ -319,13 +363,26 @@ export const Breathe = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      {!hasBegun ? (
+      {/* Build 16 physical-iPhone correction (F3) — shared preparation
+          countdown, shown in place of the pre-start/active content below
+          while running. Back/Cancel is handled entirely by this screen's
+          own header BackButton above (handleBackFromActive). */}
+      {countdown.isActive && (
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable, steady position."
+          onSkip={countdown.skip}
+          accent="morning"
+        />
+      )}
+
+      {!countdown.isActive && (!hasBegun ? (
         <>
           {/* Build 15 — pre-start pattern selection. Nothing below this
               point runs a timer, animation, or plays music - see
               handleBeginBreathing above for the one gesture that starts
               all three together. */}
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-1.5">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing</span>
             <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breathing Practice</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
@@ -333,18 +390,27 @@ export const Breathe = () => {
             </p>
           </div>
 
-          <div className="space-y-3" role="radiogroup" aria-label="Choose your breathing practice">
-            {BREATHING_PATTERNS.map((pattern) => (
+          {/* Build 16 physical-iPhone correction (F5) — compact 2-column
+              grid (4-4-6 | 4-7-8 / 4-4-8 | Box / Coherent full-width),
+              replacing the five full-width rows that made this screen too
+              long. Each card shows its complete name only - the selected
+              pattern's full cadence and exact duration render once, below
+              the grid, via the shared BreathingPatternDescription. */}
+          <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
+            {BREATHING_PATTERNS.map((pattern, idx) => (
               <BreathingPatternRow
                 key={pattern.id}
+                compact
                 pattern={pattern}
                 selected={selectedPatternId === pattern.id}
                 onSelect={setSelectedPatternId}
                 groupName="breathing-pattern"
                 accent="morning"
+                className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
               />
             ))}
           </div>
+          <BreathingPatternDescription pattern={activePattern} />
 
           {musicEligible && (
             <MusicPreferenceToggle
@@ -383,7 +449,7 @@ export const Breathe = () => {
             )}
             <button
               onClick={handleExitRoutine}
-              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
             >
               Exit routine
             </button>
@@ -464,7 +530,7 @@ export const Breathe = () => {
             </span>
           </div>
         </>
-      )}
+      ))}
 
       {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
           never remounted across the pre-start -> active transition - see
@@ -481,11 +547,7 @@ export const Breathe = () => {
       )}
 
       {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-        />
+        <ExercisePausedPanel onResume={handleResume} />
       )}
 
       {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (
@@ -591,7 +653,7 @@ export const Breathe = () => {
               </button>
               <button
                 onClick={handleExitRoutine}
-                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
               >
                 Exit routine
               </button>

@@ -59,6 +59,21 @@
  * EveningBreathing.jsx passes `accent="evening"`; QuietBreathing.jsx
  * (Anytime) still omits the prop and keeps rendering peach - see
  * musicPreferenceToggleSharedConsumers.test.js.
+ *
+ * Acceptance-audit correction (Decision 2) — the switch's real tappable
+ * box measured 48x28px (w-12 h-7), under the 44px minimum on its shorter
+ * axis. The visible pill itself must stay exactly that size ("do not make
+ * the visual switch disproportionately large"), so the fix moves the
+ * `w-12 h-7`/track styling onto a purely decorative, aria-hidden inner
+ * `<span>`, and grows the real interactive `<button>` around it via
+ * symmetric `py-2` padding (28 + 8 + 8 = 44px) with a matching `-my-2`
+ * negative margin - the same established technique "Exit routine"'s own
+ * acceptance-audit fix and ProgressIndicator.jsx's review chips already
+ * use, so the surrounding row's own layout height is unaffected (the
+ * negative margin cancels exactly the padding it added) even though the
+ * real hit box is now 44px tall. `aria-label={label}` already gave the
+ * switch a correct accessible name before this change and still does -
+ * unchanged.
  */
 const ACCENT_TOKENS = {
   primary: { track: 'bg-primary', knobBorder: 'border-primary', focusRing: 'focus-visible:ring-primary' },
@@ -88,15 +103,20 @@ export const MusicPreferenceToggle = ({ isOn, onToggle, label = 'Background musi
           aria-checked={isOn}
           aria-label={label}
           onClick={onToggle}
-          className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 ${tokens.focusRing} focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-            isOn ? tokens.track : 'bg-outline'
-          }`}
+          className={`shrink-0 rounded-full -my-2 py-2 focus-visible:ring-2 ${tokens.focusRing} focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span
-            className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border ${tokens.knobBorder} shadow transition-transform ${
-              isOn ? 'translate-x-5' : 'translate-x-0'
+            aria-hidden="true"
+            className={`block w-12 h-7 rounded-full transition-colors relative ${
+              isOn ? tokens.track : 'bg-outline'
             }`}
-          />
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-surface-container-lowest border ${tokens.knobBorder} shadow transition-transform ${
+                isOn ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </span>
         </button>
       </span>
     </div>

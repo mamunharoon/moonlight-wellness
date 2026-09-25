@@ -69,6 +69,124 @@ describe('createMeditationSessionController — no autoplay before Begin', () =>
   });
 });
 
+// Build 16 physical-iPhone correction (F4/F7) — preload() resolves and
+// primes the current track's signed URL ahead of begin(), so a later
+// begin() (fired at the end of the shared 5-second preparation countdown)
+// can skip the network round trip entirely and call audio.play()
+// immediately. Real-execution proof this is the actual fix for "music
+// starts late," not merely a delay masked by the countdown.
+describe('createMeditationSessionController — preload() primes audio ahead of begin(), without ever starting playback', () => {
+  it('preload() resolves the signed URL and sets audio.src, but never calls play() and never starts the timer', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.preload();
+    await flushAsync();
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(resolveUrl).toHaveBeenCalledWith('IM01');
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+    const el = createAudioElement.mock.results[0].value;
+    expect(el.src).toBe('https://signed.example/IM01');
+    expect(el.paused).toBe(true); // never played
+    expect(controller.getSnapshot().status).toBe('idle'); // timer never started
+  });
+
+  it('a later begin() reuses the preloaded element and its already-set src - it never re-resolves the URL a second time', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.preload();
+    await flushAsync();
+    controller.begin();
+    await flushAsync();
+    // preload() + begin() together still only ever resolve/create once -
+    // begin() found the already-primed element and skipped straight to
+    // play(), never fetching a second signed URL.
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+    const el = createAudioElement.mock.results[0].value;
+    expect(el.paused).toBe(false); // begin() did call play()
+    expect(controller.getSnapshot().status).toBe('running');
+  });
+
+  it('preload() is a safe no-op for No Music (null) - it never calls resolveUrl/createAudioElement', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: null });
+    controller.preload();
+    await flushAsync();
+    expect(resolveUrl).not.toHaveBeenCalled();
+    expect(createAudioElement).not.toHaveBeenCalled();
+  });
+
+  it('preload() is idempotent - calling it twice never issues a second resolveUrl/createAudioElement call', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM02' });
+    controller.preload();
+    controller.preload();
+    await flushAsync();
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+  });
+
+  it('preload() after begin() is a safe no-op - it never re-primes or interferes with an already-running session', async () => {
+    const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    controller.preload();
+    await flushAsync();
+    expect(resolveUrl).toHaveBeenCalledTimes(1);
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot().status).toBe('running');
+  });
+});
+
+// Verification-pass correction (F4 acceptance audit) — a REAL bug found
+// live via the required "Start now before preload completes" test:
+// meditationAudioController.js's preload() and start() used to share one
+// `isBusy` flag. begin() (via reconcileAudio -> audioController.start())
+// called while preload()'s own resolveUrl() was still in flight hit
+// `if (isBusy || started) return;` and silently returned WITHOUT EVER
+// PLAYING - nothing later retried it, so the session ran with no music at
+// all despite the timer/countdown transitioning completely normally.
+// Reproduced live (self-guided-meditation, real Supabase network): play()
+// call count 0, active state reached true. Fixed by giving start() its
+// own separate `startInFlight` guard (never touched by preload()) and
+// having it `await` an in-flight `preloadPromise` instead of bailing -
+// confirmed fixed live afterward: play() call count 1. This test
+// reproduces the exact race with a controllable (deferred) resolveUrl,
+// rather than relying on real network timing.
+describe('createMeditationSessionController — begin() racing an in-flight preload() still plays (the real "Start now before preload completes" fix)', () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((res) => { resolve = res; });
+    return { promise, resolve };
+  };
+
+  it('begin() called WHILE preload()\'s resolveUrl is still pending waits for it, then still calls play() exactly once - it never silently drops playback', async () => {
+    const gate = deferred();
+    const { controller, createAudioElement } = setup({ initialSoundId: 'IM01', resolveImpl: () => gate.promise });
+
+    // Kick off preload() - its resolveUrl() call is now pending on `gate`.
+    controller.preload();
+    await flushAsync();
+
+    // begin() (Start now) fires WHILE that same fetch is still in flight -
+    // this is the exact race the live "Start now before preload completes"
+    // test reproduces.
+    controller.begin();
+    await flushAsync();
+
+    // Still nothing has played yet - the gate hasn't opened.
+    expect(controller.getSnapshot().audioStarted).toBe(false);
+
+    // The in-flight preload's own fetch finally resolves.
+    gate.resolve({ url: 'https://signed.example/IM01', expiresAt: Date.now() + 300_000 });
+    await flushAsync();
+    await flushAsync();
+
+    // play() must still have been called, exactly once - not silently lost.
+    const el = createAudioElement.mock.results[0].value;
+    expect(el.paused).toBe(false);
+    expect(controller.getSnapshot().audioStarted).toBe(true);
+    expect(controller.getSnapshot().status).toBe('running');
+    expect(createAudioElement).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('createMeditationSessionController — Begin with a track starts exactly one instance', () => {
   it('Begin with IM01 selected starts exactly one IM01 request/element', async () => {
     const { controller, createAudioElement, resolveUrl } = setup({ initialSoundId: 'IM01' });

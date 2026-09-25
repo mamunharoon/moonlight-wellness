@@ -69,8 +69,12 @@ describe('BackButton.jsx — new alwaysFallback prop, additive only', () => {
 });
 
 describe('InteractiveAmbientMusic.jsx — stop() exposed via ref alongside the existing start()', () => {
-  it('useImperativeHandle now exposes exactly { start, stop }', () => {
-    expect(interactiveAmbientMusicSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop \}\)\);/);
+  // isPlaying() was added alongside start()/stop() in Build 16 (F6, the
+  // guided-session-resume-music fix) - this block still only cares about
+  // stop()'s own presence/behaviour, updated to match the current
+  // three-key handle.
+  it('useImperativeHandle now exposes { start, stop, isPlaying, preload }, including stop()', () => {
+    expect(interactiveAmbientMusicSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload \}\)\);/);
   });
 
   it('stop() itself is unchanged - a plain audioRef.current?.pause()', () => {

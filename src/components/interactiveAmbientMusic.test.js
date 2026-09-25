@@ -258,9 +258,9 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
 
 describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when a guided video opens', () => {
   for (const [name, source] of [['Breathe.jsx', breatheSource], ['MorningFlow.jsx', morningFlowSource]]) {
-    it(`${name}: selecting a guided-video row sets videoOpenedDuringExercise from the click handler itself (never an effect)`, () => {
+    it(`${name}: selecting a guided-video row sets videoOpenedDuringExercise from the click handler itself (never an effect), after capturing whether music was playing`, () => {
       expect(source).toMatch(/const \[videoOpenedDuringExercise, setVideoOpenedDuringExercise\] = useState\(false\);/);
-      expect(source).toMatch(/const handleSelectVideo = \(id\) => \{\s*\n\s*setVideoOpenedDuringExercise\(true\);\s*\n\s*handleSelect\(id\);\s*\n\s*\};/);
+      expect(source).toMatch(/const handleSelectVideo = \(id\) => \{\s*\n\s*wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;\s*\n\s*setVideoOpenedDuringExercise\(true\);\s*\n\s*handleSelect\(id\);\s*\n\s*\};/);
       // Every video row uses the wrapper, never the raw handleSelect directly.
       const rowOnClicks = source.match(/onClick=\{\(\) => handle\w+\(id\)\}/g) ?? [];
       expect(rowOnClicks.length).toBeGreaterThan(0);
@@ -278,21 +278,20 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(source).toMatch(/const \[manuallyPaused, setManuallyPaused\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
       expect(source).toMatch(/const isInterrupted = videoOpenedDuringExercise \|\| manuallyPaused;/);
       expect(source).toMatch(/if \([^)]*isInterrupted[^)]*\) return;/);
-      // handleResumeExercise itself never touches the countdown/phase state
+      // handleResume itself never touches the countdown/phase state
       // (secondsLeft/breatheState on Breathe.jsx, timeLeft/activeStep on
       // MorningFlow.jsx) - only the guard above ever does, by simply not
       // running while paused. Resuming is "let the same effect start
       // ticking again from whatever state was already there", not a reset.
-      const resumeBody = source.match(/const handleResumeExercise = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const resumeBody = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(resumeBody).not.toMatch(/setSecondsLeft|setBreatheState|setTimeLeft|setActiveStep/);
     });
 
-    it(`${name}: closing the video does not clear videoOpenedDuringExercise/manuallyPaused - only handleResumeExercise/handleResumeWithMusic do, both wired only to ExercisePausedPanel's own props`, () => {
-      expect(source).toMatch(/const handleResumeExercise = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*setManuallyPaused\(false\);\s*\n\s*\};/);
-      expect(source).toMatch(/onResumeExercise=\{handleResumeExercise\}/);
+    it(`${name}: closing the video does not clear videoOpenedDuringExercise/manuallyPaused - only handleResume does, wired only to ExercisePausedPanel's own onResume prop`, () => {
+      expect(source).toMatch(/const handleResume = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*setManuallyPaused\(false\);\s*\n\s*if \(wasMusicPlayingRef\.current\) \{/);
+      expect(source).toMatch(/onResume=\{handleResume\}/);
       // closeVideo (passed to BetaVideoModal's onClose) must never itself
-      // reference setVideoOpenedDuringExercise - only the two dedicated
-      // resume actions may.
+      // reference setVideoOpenedDuringExercise - only handleResume may.
       expect(source).not.toMatch(/onClose=\{[^}]*setVideoOpenedDuringExercise/);
     });
 
@@ -301,13 +300,13 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     // musicEntryChoice.test.js's own updated coverage): each pre-start
     // screen resolves the music preference before hasBegun is ever true,
     // so once the exercise is running there is nothing left to "await".
-    it(`${name}: the paused panel (and its two resume actions) render whenever interrupted (video or manual pause) and no video is currently open, and only once genuinely begun - no separate "awaiting music choice" gate exists here`, () => {
+    it(`${name}: the paused panel (and its single Resume action) renders whenever interrupted (video or manual pause) and no video is currently open, and only once genuinely begun - no separate "awaiting music choice" gate exists here`, () => {
       expect(source).toMatch(/\{hasBegun && !isRepeatGated && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
       expect(source).not.toMatch(/musicChoiceMade|awaitingMusicChoice/);
     });
 
-    it(`${name}: a persistent "Pause Exercise" button is reachable whenever the exercise is actually running (not interrupted, no video open, genuinely begun)`, () => {
-      expect(source).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+    it(`${name}: a persistent "Pause Exercise" button is reachable whenever the exercise is actually running (not interrupted, no video open, genuinely begun), after capturing whether music was playing`, () => {
+      expect(source).toMatch(/const handlePauseExercise = \(\) => \{\s*\n\s*wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;\s*\n\s*setManuallyPaused\(true\);\s*\n\s*\};/);
       expect(source).toMatch(/\{hasBegun && !isRepeatGated && !isInterrupted && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
       expect(source).toMatch(/Pause Exercise/);
       const musicIndex = source.indexOf('<InteractiveAmbientMusic');
@@ -345,49 +344,85 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       expect(source).toMatch(expected);
     });
 
-    it(`${name}: "Resume with Music" starts this screen's own ambient loop via the ref InteractiveAmbientMusic exposes, only from this dedicated handler - never automatically`, () => {
+    // Build 16 physical-iPhone correction (F6) — the old "Resume Exercise
+    // / Resume with Music" choice is gone. A single handleResume restarts
+    // music automatically, but ONLY if InteractiveAmbientMusic's own
+    // isPlaying() said so at the exact moment the interruption began -
+    // never unconditionally, and never via an effect.
+    it(`${name}: handleResume calls musicPlayerRef.start() only when wasMusicPlayingRef.current was true - never unconditionally, never from an effect`, () => {
       expect(source).toMatch(/const musicPlayerRef = useRef\(null\);/);
+      expect(source).toMatch(/const wasMusicPlayingRef = useRef\(false\);/);
       expect(source).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}/);
-      expect(source).toMatch(/const handleResumeWithMusic = \(\) => \{\s*\n\s*setVideoOpenedDuringExercise\(false\);\s*\n\s*setManuallyPaused\(false\);\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\};/);
-      expect(source).toMatch(/onResumeWithMusic=\{handleResumeWithMusic\}/);
+      const resumeBody = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      expect(resumeBody).toMatch(/if \(wasMusicPlayingRef\.current\) \{\s*\n\s*wasMusicPlayingRef\.current = false;\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
       // No useEffect anywhere in the file calls start() on the ref - the
-      // only call site is the click handler above.
+      // only call site is inside handleResume above.
       const effectBodies = source.match(/useEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[[^\]]*\]\);/g) ?? [];
       for (const body of effectBodies) {
         expect(body).not.toMatch(/musicPlayerRef/);
       }
     });
 
-    it(`${name}: "Resume with Music" is hidden (not merely disabled) when this screen's ambient loop isn't currently eligible - never a button that would silently do nothing`, () => {
-      expect(source).toMatch(/const musicEligible = isInteractiveMusicEligible\(\{/);
-      expect(source).toMatch(/showResumeWithMusic=\{musicEligible\}/);
+    it(`${name}: the "was playing" flag is reset to false the instant it's consumed, so a later manual-pause-resume (with no intervening video/interruption) never wrongly restarts an already-playing track`, () => {
+      const resumeBody = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const ifIndex = resumeBody.indexOf('if (wasMusicPlayingRef.current)');
+      const resetIndex = resumeBody.indexOf('wasMusicPlayingRef.current = false;');
+      const startIndex = resumeBody.indexOf('musicPlayerRef.current?.start();');
+      expect(ifIndex).toBeGreaterThan(-1);
+      expect(resetIndex).toBeGreaterThan(ifIndex);
+      expect(startIndex).toBeGreaterThan(resetIndex);
+    });
+
+    // ExercisePausedPanel no longer needs an eligibility prop at all:
+    // when InteractiveAmbientMusic is ineligible, it still exposes
+    // isPlaying() (useImperativeHandle runs before the eligible
+    // early-return) but musicEnabled can never become true without a
+    // real <audio> element, so wasMusicPlayingRef is always false and
+    // handleResume simply never calls start() - no separate "hide the
+    // button when ineligible" branch is needed anywhere.
+    it(`${name}: ExercisePausedPanel is rendered with only onResume - no eligibility prop, since an ineligible player can never make wasMusicPlayingRef true in the first place`, () => {
+      expect(source).toMatch(/<ExercisePausedPanel onResume=\{handleResume\} \/>/);
+      expect(source).not.toMatch(/showResumeWithMusic/);
     });
   }
 });
 
-describe('ExercisePausedPanel.jsx - the shared paused-for-video panel itself', () => {
+describe('ExercisePausedPanel.jsx - the shared paused-for-guided-session panel itself', () => {
   const panelSource = read('./ExercisePausedPanel.jsx');
 
   it('renders the exact required copy, never framed as an error', () => {
     expect(panelSource).toMatch(/Exercise paused/);
-    expect(panelSource).toMatch(/Your timer and background music were stopped while you viewed the guided session\./);
+    expect(panelSource).toMatch(/Your timer was stopped while you were away\./);
   });
 
-  it('Resume Exercise is always rendered; Resume with Music only when showResumeWithMusic is true', () => {
-    expect(panelSource).toMatch(/onClick=\{onResumeExercise\}[\s\S]*?Resume Exercise/);
-    expect(panelSource).toMatch(/\{showResumeWithMusic && \(/);
-    expect(panelSource).toMatch(/onClick=\{onResumeWithMusic\}[\s\S]*?Resume with Music/);
+  it('renders exactly ONE Resume button, wired to onResume - no second "with Music" button, no eligibility prop', () => {
+    expect(panelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume \}\) => \(/);
+    expect(panelSource).toMatch(/onClick=\{onResume\}[\s\S]*?<span>Resume<\/span>/);
+    expect(panelSource).not.toMatch(/onResumeExercise|onResumeWithMusic|showResumeWithMusic/);
+    const buttonTags = panelSource.match(/<button/g) ?? [];
+    expect(buttonTags.length).toBe(1);
+    // The doc comment is allowed to mention the old "Resume with Music"
+    // name historically (explaining what this replaced) - only the real
+    // rendered JSX (after the closing */ of the header comment) must
+    // never contain a second button/label for it.
+    const jsxOnly = panelSource.slice(panelSource.indexOf('*/') + 2);
+    expect(jsxOnly).not.toMatch(/Resume with Music/);
   });
 });
 
-describe('InteractiveAmbientMusic.jsx exposes start() and stop() via ref, and re-checks `suspended` after its own async gap', () => {
-  it('is wrapped in forwardRef and exposes exactly { start, stop } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
+describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying() and preload() via ref, and re-checks `suspended` after its own async gap', () => {
+  it('is wrapped in forwardRef and exposes exactly { start, stop, isPlaying, preload } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
     // Back-navigation repair (Morning canonical map) — stop() was added
     // alongside the pre-existing start() so Breathe.jsx/MorningFlow.jsx's
     // "Active [exercise] Back" handler can silence already-playing music
     // the instant the user safely stops the exercise (see
-    // backNavigationCanonicalMap.test.js).
-    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop \}\)\);/);
+    // backNavigationCanonicalMap.test.js). isPlaying() (Build 16, F6) lets
+    // the calling page capture the real live musicEnabled state at the
+    // moment an interruption begins. preload() (Build 16, F4) resolves
+    // and primes the signed URL ahead of a real start(), without ever
+    // calling .play() - see this file's own start()/preload() tests below.
+    expect(playerSource).toMatch(/const isPlaying = \(\) => musicEnabled;/);
+    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload \}\)\);/);
     const imperativeIndex = playerSource.indexOf('useImperativeHandle(ref');
     const eligibleReturnIndex = playerSource.indexOf('if (!eligible) return null;');
     expect(imperativeIndex).toBeGreaterThan(-1);
@@ -403,5 +438,95 @@ describe('InteractiveAmbientMusic.jsx exposes start() and stop() via ref, and re
     expect(awaitIndex).toBeGreaterThan(-1);
     expect(suspendedCheckIndex).toBeGreaterThan(awaitIndex);
     expect(audioSrcIndex).toBeGreaterThan(suspendedCheckIndex);
+  });
+
+  // Build 16 physical-iPhone correction (F4) — preload() mirrors
+  // meditationAudioController.js's own preload()/start() split (see that
+  // module's real-execution tests in meditationSessionController.test.js):
+  // resolves and primes `audio.src` ahead of a real start(), without ever
+  // calling .play().
+  //
+  // Verification-pass correction (F4 acceptance audit) — preload() is no
+  // longer `async () => {...}` itself; it now synchronously starts (or
+  // reuses) an internal preloadPromiseRef and returns it, so start() can
+  // `await` an in-flight preload instead of racing it - see this file's
+  // own dedicated describe block below for the real bug this fixes.
+  it('preload() resolves the signed URL and primes audio.src, loop, and volume - but never calls .play()', () => {
+    const preloadBody = playerSource.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).not.toBe('');
+    expect(preloadBody).toMatch(/if \(isPreloadedRef\.current \|\| preloadPromiseRef\.current\) return preloadPromiseRef\.current \?\? Promise\.resolve\(\);/);
+    expect(preloadBody).toMatch(/const \{ url \} = await requestBetaVideoUrl\(musicVariantId\);/);
+    expect(preloadBody).toMatch(/audio\.src = url;/);
+    expect(preloadBody).toMatch(/audio\.loop = true;/);
+    expect(preloadBody).toMatch(/isPreloadedRef\.current = true;/);
+    expect(preloadBody).not.toMatch(/\.play\(\)/);
+  });
+
+  it('preload() re-checks suspendedRef after its await too, exactly like start() - a guided video can open while preload()\'s own fetch is in flight', () => {
+    const preloadBody = playerSource.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).toMatch(/if \(suspendedRef\.current\) return;/);
+  });
+
+  it('start() skips re-resolving the signed URL when preload() already primed audio.src - the real fix for "music starts several seconds after the timer"', () => {
+    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(startBody).toMatch(/if \(!isPreloadedRef\.current \|\| !audio\.src\) \{/);
+    // isPreloadedRef is cleared right after, so a later stop()+start()
+    // (e.g. Resume) always re-resolves fresh rather than reusing a
+    // possibly-expired signed URL.
+    expect(startBody).toMatch(/isPreloadedRef\.current = false;/);
+    const skipCheckIndex = startBody.indexOf('if (!isPreloadedRef.current || !audio.src) {');
+    const clearIndex = startBody.indexOf('isPreloadedRef.current = false;');
+    const playIndex = startBody.indexOf('await audio.play();');
+    expect(clearIndex).toBeGreaterThan(skipCheckIndex);
+    expect(playIndex).toBeGreaterThan(clearIndex);
+  });
+
+  it('a failed preload() leaves isPreloadedRef false and sets no loadError - a later real start() simply falls through to its own normal resolve-and-play path as if no preload had been attempted', () => {
+    const preloadBody = playerSource.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const catchBlock = preloadBody.match(/\} catch \{[\s\S]*?\n {6}\}/)?.[0] ?? '';
+    expect(catchBlock).not.toMatch(/setLoadError/);
+  });
+});
+
+// Verification-pass correction (F4 acceptance audit) — a REAL bug found
+// live via the required "Start now before preload completes" test:
+// preload() and start() used to share one isBusyRef. Tapping Start now (a
+// fully legitimate, encouraged skip gesture per F3's own spec) while
+// preload()'s own fetch was still in flight made start() hit
+// `if (isBusyRef.current) return;` and silently return WITHOUT EVER
+// PLAYING - preload()'s later completion never retried it, so the
+// exercise ran with no music at all and nothing about it visibly wrong
+// (the countdown/timer transitioned completely normally). Reproduced live
+// (script output): `play()` call count 0, active state reached true.
+// Fixed by giving start() its own separate isBusyRef (never touched by
+// preload()) and having it `await` an in-flight preloadPromiseRef instead
+// of bailing - confirmed fixed live afterward: play() call count 1.
+describe('InteractiveAmbientMusic.jsx — start() no longer silently drops playback when it races an in-flight preload()', () => {
+  it('preload() and start() no longer share one busy flag - preload() only ever sets/reads preloadPromiseRef/isPreloadedRef, never isBusyRef', () => {
+    const preloadBody = playerSource.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).not.toMatch(/isBusyRef/);
+  });
+
+  it('start() awaits an in-flight preloadPromiseRef (succeed or fail) before proceeding, rather than bailing out because one happens to be running', () => {
+    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(startBody).toMatch(/if \(preloadPromiseRef\.current\) await preloadPromiseRef\.current;/);
+    // The await happens before start() ever touches audioRef/checks
+    // isPreloadedRef, so a completed-or-failed preload is always settled
+    // first.
+    const awaitIdx = startBody.indexOf('if (preloadPromiseRef.current) await preloadPromiseRef.current;');
+    const audioReadIdx = startBody.indexOf('const audio = audioRef.current;');
+    expect(awaitIdx).toBeGreaterThan(-1);
+    expect(audioReadIdx).toBeGreaterThan(awaitIdx);
+  });
+
+  it('start() still guards against a duplicate concurrent start() via its own isBusyRef, independent of preload', () => {
+    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(startBody).toMatch(/if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
+  });
+
+  it('handleToggle\'s own busy guard still refers to isBusyRef (start()\'s guard) - never blocked merely because an unrelated preload happens to be in flight', () => {
+    const toggleBody = playerSource.match(/const handleToggle = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(toggleBody).toMatch(/if \(isBusyRef\.current\) return;/);
+    expect(toggleBody).not.toMatch(/preloadPromiseRef/);
   });
 });

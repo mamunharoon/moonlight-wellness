@@ -648,7 +648,10 @@ describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wi
 
   it('EveningBreathing now has the same Pause Exercise / ExercisePausedPanel infrastructure as Breathe/MorningFlow (release-blocking consistency fix - it originally had none)', () => {
     expect(eveningBreathingSource).toMatch(/import \{ ExercisePausedPanel \} from '\.\.\/components\/ExercisePausedPanel';/);
-    expect(eveningBreathingSource).toMatch(/const handlePauseExercise = \(\) => setManuallyPaused\(true\);/);
+    // Build 16 physical-iPhone correction (F6) — handlePauseExercise now
+    // also captures wasMusicPlayingRef before pausing, so the single
+    // Resume action can restore the same music choice automatically.
+    expect(eveningBreathingSource).toMatch(/const handlePauseExercise = \(\) => \{\s*\n\s*wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;\s*\n\s*setManuallyPaused\(true\);\s*\n\s*\};/);
     expect(eveningBreathingSource).toMatch(/<ExercisePausedPanel/);
     expect(eveningBreathingSource).toMatch(/Pause Exercise/);
   });

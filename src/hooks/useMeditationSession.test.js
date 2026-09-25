@@ -13,11 +13,35 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./useMeditationSession.js', import.meta.url)), 'utf-8');
 
 describe('useMeditationSession — no autoplay before Begin', () => {
-  it('createMeditationSessionController is only ever constructed inside begin(), never at module/mount time', () => {
-    const outsideBegin = source.replace(/const begin = \(\) => \{[\s\S]*?\n {2}\};/, '');
-    expect(outsideBegin).not.toMatch(/createMeditationSessionController\(/);
+  // Build 16 physical-iPhone correction (F3/F4/F7) — createMeditationSession
+  // Controller is now constructed inside getOrCreateController(), a small
+  // shared helper called by BOTH preload() (fired from the countdown's own
+  // start, well before the timer/audio actually begin) and begin() itself
+  // (idempotent - reuses the same controller preload() already created,
+  // never a second one). The real invariant this guards - a controller is
+  // never created merely by mounting/rendering this hook, only by a real
+  // preload() or begin() call from an actual Begin gesture - still holds;
+  // it just has two legitimate entry points now instead of one.
+  it('createMeditationSessionController is only ever constructed inside getOrCreateController(), called only from preload() and begin()', () => {
+    const outsideHelper = source.replace(/const getOrCreateController = \(\) => \{[\s\S]*?\n {2}\};/, '');
+    expect(outsideHelper).not.toMatch(/createMeditationSessionController\(/);
+    const helperBody = source.match(/const getOrCreateController = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(helperBody).toMatch(/createMeditationSessionController\(/);
+
+    const preloadBody = source.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).toMatch(/getOrCreateController\(\)\.preload\(\);/);
     const beginBody = source.match(/const begin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(beginBody).toMatch(/createMeditationSessionController\(/);
+    expect(beginBody).toMatch(/getOrCreateController\(\);/);
+
+    // Only these two call it - no third caller anywhere in the file.
+    const callCount = (source.match(/getOrCreateController\(\)/g) ?? []).length;
+    expect(callCount).toBe(2);
+  });
+
+  it('preload() alone can never advance the timer or mark the session started - it never calls controller.begin() or sets phase', () => {
+    const preloadBody = source.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).not.toMatch(/\.begin\(\)/);
+    expect(preloadBody).not.toMatch(/setPhase/);
   });
 
   it('no effect calls begin()/start() on mount', () => {

@@ -9,6 +9,9 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getRecommendedDurationId } from '../lib/meditationDurations';
 import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationNav';
 import { useMeditationSession } from '../hooks/useMeditationSession';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
+import { BackButton } from '../components/BackButton';
 
 /*
  * WakeWise — Self-Guided Meditation (IM01/IM02 Sound Choices)
@@ -110,6 +113,17 @@ export const SelfGuidedMeditation = () => {
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [earlyEnded, setEarlyEnded] = useState(false);
 
+  // Build 16 physical-iPhone correction (F3/F4) - see MorningMeditate.jsx's
+  // identical block for the full rationale.
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => session.begin()
+  });
+  const handleBegin = () => {
+    session.preload();
+    countdown.start();
+  };
+
   // Back: ends only this meditation, returns to this screen's own setup -
   // phase falls back to 'setup' and this component's own render (below)
   // naturally shows the pre-start screen again, no navigation.
@@ -140,6 +154,39 @@ export const SelfGuidedMeditation = () => {
   const handleExploreGuided = () => {
     navigate('/library?category=meditation&from=meditation-setup');
   };
+
+  if (countdown.isActive) {
+    return (
+      <div className="h-dvh overflow-hidden">
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+          <div
+            className="min-h-full max-w-md w-full mx-auto space-y-6 pb-6"
+            style={{
+              paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+              paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
+              paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <BackButton
+                fallback={context.fallback}
+                onBeforeLeave={() => {
+                  countdown.cancel();
+                  session.cancelPreload();
+                  return false;
+                }}
+              />
+            </div>
+            <PreparationCountdown
+              secondsRemaining={countdown.secondsRemaining}
+              cue="Find a comfortable position and let your shoulders soften."
+              onSkip={countdown.skip}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (session.phase === 'active' && session.snapshot) {
     return (
@@ -276,7 +323,7 @@ export const SelfGuidedMeditation = () => {
             onSelectStyle={session.selectStyle}
             onSelectDuration={session.setDurationId}
             onSelectSound={session.selectSound}
-            onBegin={session.begin}
+            onBegin={handleBegin}
             onExploreGuided={handleExploreGuided}
           />
         </div>

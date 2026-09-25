@@ -59,18 +59,18 @@ describe('BreathingPatternRow — real consumer inventory (verified by import + 
 
 describe('BreathingPatternRow — only Breathe.jsx (Morning) passes accent="morning"', () => {
   it('Breathe.jsx\'s own call site passes accent="morning"', () => {
-    const callSite = breatheSource.match(/<BreathingPatternRow[\s\S]{0,300}\/>/)?.[0] ?? '';
+    const callSite = breatheSource.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).toMatch(/accent="morning"/);
   });
 
   it('EveningBreathing.jsx never passes accent="morning" to BreathingPatternRow - its own call keeps its existing accent="evening"', () => {
-    const callSite = eveningBreathingSource.match(/<BreathingPatternRow[\s\S]{0,300}\/>/)?.[0] ?? '';
+    const callSite = eveningBreathingSource.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
     expect(callSite).toMatch(/accent="evening"/);
   });
 
   it('QuietBreathing.jsx (Anytime) never passes an accent prop to BreathingPatternRow either - it keeps the default \'primary\' peach', () => {
-    const callSite = quietBreathingSource.match(/<BreathingPatternRow[\s\S]{0,300}\/>/)?.[0] ?? '';
+    const callSite = quietBreathingSource.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
     expect(callSite).not.toMatch(/accent=/);
   });

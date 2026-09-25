@@ -112,7 +112,7 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
   // applied to BREATHING_PATTERNS before it.
   it('the standalone picker maps the FULL shared BREATHING_PATTERNS array with no filtering - both Box and Coherent automatically appear here', () => {
     const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
-    expect(standaloneReturn).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
+    expect(standaloneReturn).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
     expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.filter\(/);
     expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.slice\(/);
   });
@@ -122,14 +122,31 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => !standalone\);/);
   });
 
-  it('Begin Breathing resets the countdown, sets hasBegun, guards against double taps, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+  // Build 16 physical-iPhone correction (F3/F4) — see breathingPreStart
+  // .test.js's identical Breathe.jsx/EveningBreathing.jsx split for the
+  // full rationale: handleBeginBreathing itself now only guards against a
+  // double tap, preloads, and starts the preparation countdown; the
+  // countdown's own onComplete callback resets the countdown/sets
+  // hasBegun/starts music.
+  it('Begin Breathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
     const body = source.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
-    expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
-    expect(body).toMatch(/setHasBegun\(true\);/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/countdown\.start\(\);/);
+    expect(body).not.toMatch(/setSecondsLeft|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
+  });
+
+  it('the countdown\'s onComplete callback resets the countdown, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+    const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).not.toBe('');
+    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
+    expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
+    expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
   it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start (or once complete) via hideToggle, never suspended (no guided-video concept on this screen)', () => {

@@ -88,7 +88,22 @@ export const Affirmation = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-10">
+    // Build 16 physical-iPhone correction (F8) - top-left Back buttons
+    // were confirmed (live) to sit flush at the exact top-left corner
+    // (x:0, y:24, no safe-area accounting at all) on this and every other
+    // full-screen journey page that renders outside <Layout> (which
+    // already handles this for every in-Layout screen - see Layout.jsx's
+    // own header/content safe-area padding). Same established pattern as
+    // ResetPassword.jsx/EveningSceneShell.jsx: adds the real device inset
+    // on top of the existing flat padding, never replacing it.
+    <div
+      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center gap-3">
         {/* Journey Embedding — Meditate is now the real preceding step
             (Breathe -> Meditate (optional) -> Affirm), so Back must return
@@ -151,7 +166,7 @@ export const Affirmation = () => {
             </button>
             <button
               onClick={handleExitRoutine}
-              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
             >
               Exit routine
             </button>

@@ -59,10 +59,19 @@ describe('Setup screen: a guest can choose any of the three sounds before Begin,
     expect(soundBlock).not.toMatch(/onSignIn/);
   });
 
-  it('begin() passes the real selected sound straight through - no guest override, no forced silence', () => {
-    const body = hookSource.match(/const begin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/initialSoundId: toControllerSoundId\(soundId\)/);
-    expect(body).not.toMatch(/isGuest/);
+  it('begin() (via getOrCreateController, its own shared controller-creation helper - see useMeditationSession.test.js) passes the real selected sound straight through - no guest override, no forced silence', () => {
+    // Build 16 physical-iPhone correction (F3/F4/F7) — the real
+    // createMeditationSessionController({ initialSoundId: ... }) call now
+    // lives in getOrCreateController(), called by both preload() and
+    // begin() - begin() itself no longer constructs the controller
+    // directly, but every real Begin still reaches this exact same
+    // pass-through with no guest branch anywhere in the chain.
+    const beginBody = hookSource.match(/const begin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(beginBody).toMatch(/getOrCreateController\(\);/);
+    expect(beginBody).not.toMatch(/isGuest/);
+    const helperBody = hookSource.match(/const getOrCreateController = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(helperBody).toMatch(/initialSoundId: toControllerSoundId\(soundId\)/);
+    expect(helperBody).not.toMatch(/isGuest/);
   });
 });
 

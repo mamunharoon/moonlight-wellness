@@ -61,10 +61,13 @@ const DEFAULT_VOLUME = 0.35;
 export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false, hideToggle = false }, ref) => {
   const { isGuest } = useAuth();
   const audioRef = useRef(null);
-  // Duplicate-playback guard: ignored while a play()/pause() cycle
-  // (including its network fetch) is already in flight, so a remount
-  // race or repeated rapid taps can never issue two overlapping
-  // requests/play() calls against the same element.
+  // Duplicate-playback guard: ignored while start()'s own play()/pause()
+  // cycle (including its network fetch) is already in flight, so a
+  // remount race or repeated rapid taps can never issue two overlapping
+  // requests/play() calls against the same element. Distinct from
+  // preloadPromiseRef below (an in-flight preload() is not "busy" in the
+  // sense that would block a real start() - see that ref's own doc
+  // comment for the real bug this split fixes).
   const isBusyRef = useRef(false);
   // Mirrors the `suspended` prop for start()'s own async gap below (a
   // plain render-time assignment, not an effect — refs are exempt from
@@ -133,22 +136,81 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     audioRef.current?.pause();
   };
 
+  // Build 16 physical-iPhone correction (F4) — resolves and primes the
+  // signed URL ahead of a real start(), without ever calling .play(). See
+  // meditationAudioController.js's own preload()/start() split for the
+  // identical rationale ("music starts late" was a fetch-on-Begin race,
+  // not a StrictMode/duplicate-instance bug) - this is the same fix for
+  // Stretch/Breathing's own music path.
+  //
+  // Verification-pass correction (F4 acceptance audit) — preload() and
+  // start() used to share isBusyRef. Found live via the required "Start
+  // now before preload completes" test (same defect, same fix, as
+  // meditationAudioController.js's own identical correction - see that
+  // module's top-of-file doc comment for the full reproduction): tapping
+  // Resume/Begin's start() while preload()'s own fetch was still in
+  // flight hit `if (isBusyRef.current) return;` and silently returned
+  // WITHOUT EVER PLAYING, with nothing later retrying it. preloadPromiseRef
+  // now tracks only the in-flight preload; start() `await`s it (succeed or
+  // fail) instead of bailing. isBusyRef is start()'s own separate
+  // duplicate-call guard now, never set by preload().
+  const isPreloadedRef = useRef(false);
+  const preloadPromiseRef = useRef(null);
+  const preload = () => {
+    if (isPreloadedRef.current || preloadPromiseRef.current) return preloadPromiseRef.current ?? Promise.resolve();
+    preloadPromiseRef.current = (async () => {
+      try {
+        const { url } = await requestBetaVideoUrl(musicVariantId);
+        if (suspendedRef.current) return;
+        const audio = audioRef.current;
+        if (!audio) return;
+        audio.src = url;
+        audio.loop = true;
+        audio.volume = DEFAULT_VOLUME;
+        isPreloadedRef.current = true;
+      } catch {
+        // Preload is a pure head start, not a user-visible action - a
+        // failed preload leaves isPreloadedRef false, so a later real
+        // start() below simply falls through to its own normal
+        // resolve-and-play path (and its own loadError handling) as if no
+        // preload had ever been attempted.
+      } finally {
+        preloadPromiseRef.current = null;
+      }
+    })();
+    return preloadPromiseRef.current;
+  };
+
   const start = async () => {
     if (isBusyRef.current) return;
     isBusyRef.current = true;
     setLoadError(false);
     try {
-      const { url } = await requestBetaVideoUrl(musicVariantId);
-      // Re-check here, not just at the top of start() - a guided video
-      // can open while this fetch is in flight. Bail before ever touching
-      // the element so nothing plays under/after the video (see
-      // suspendedRef's own doc comment above).
-      if (suspendedRef.current) return;
+      // Verification-pass correction (F4 acceptance audit, see this
+      // function's own top-of-file doc comment) — wait out an in-flight
+      // preload() first, rather than bailing out just because one happens
+      // to be running.
+      if (preloadPromiseRef.current) await preloadPromiseRef.current;
       const audio = audioRef.current;
       if (!audio) return;
-      audio.src = url;
-      audio.loop = true;
-      audio.volume = DEFAULT_VOLUME;
+      // Skip re-resolving the signed URL if preload() already primed this
+      // element - the whole point of preload() is to let this play()
+      // happen immediately instead of waiting on a fresh network round
+      // trip. isPreloadedRef is cleared right after so a later stop()+
+      // start() (e.g. Resume) always re-resolves fresh rather than
+      // silently reusing a possibly-expired signed URL.
+      if (!isPreloadedRef.current || !audio.src) {
+        const { url } = await requestBetaVideoUrl(musicVariantId);
+        // Re-check here, not just at the top of start() - a guided video
+        // can open while this fetch is in flight. Bail before ever
+        // touching the element so nothing plays under/after the video
+        // (see suspendedRef's own doc comment above).
+        if (suspendedRef.current) return;
+        audio.src = url;
+        audio.loop = true;
+        audio.volume = DEFAULT_VOLUME;
+      }
+      isPreloadedRef.current = false;
       // Called synchronously within handleToggle's own click handler (a
       // real user gesture) via this same call chain — never from an
       // effect, never on mount. A successful play() fires the element's
@@ -188,20 +250,32 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     }
   };
 
-  // "Resume with Music" (Breathe.jsx/MorningFlow.jsx's paused-for-video
-  // panel) calls this directly, bypassing handleToggle - by the time that
-  // button exists at all, the video is already closed (suspended is
-  // already false), and the button tap itself is the required deliberate
-  // gesture, exactly like a direct toggle tap. Called unconditionally
-  // (not gated on eligible/hooks-order below) since useImperativeHandle
-  // must run on every render regardless of `eligible`.
+  // Build 16 physical-iPhone correction (F6) — the single "Resume" action
+  // (Breathe.jsx/EveningBreathing.jsx/MorningFlow.jsx's paused-for-video
+  // panel) needs to know, at the moment a guided video is about to open,
+  // whether this instance was genuinely playing right then - not the
+  // eligibility/preference state, the actual live audio state - so it can
+  // restart the SAME choice on resume without asking the user to pick
+  // again. Exposed as a function (not a plain value) so callers always
+  // read the current musicEnabled from this render's own closure, not a
+  // value captured once when the ref was first created.
+  const isPlaying = () => musicEnabled;
+
+  // "Resume" (see isPlaying above) calls start() directly, bypassing
+  // handleToggle - by the time that button exists at all, the video is
+  // already closed (suspended is already false), and the button tap
+  // itself is the required deliberate gesture, exactly like a direct
+  // toggle tap. Called unconditionally (not gated on eligible/hooks-order
+  // below) since useImperativeHandle must run on every render regardless
+  // of `eligible`.
   //
   // Back-navigation repair (Morning canonical map) — `stop` is also now
-  // exposed so Breathe.jsx/MorningFlow.jsx's "Active [exercise] Back"
-  // handler can silence any already-playing music the instant the user
-  // safely stops the exercise, without waiting for the `suspended` prop
-  // (which only reacts to an open guided video/manual pause, not this).
-  useImperativeHandle(ref, () => ({ start, stop }));
+  // exposed so Breathe.jsx/EveningBreathing.jsx/MorningFlow.jsx's "Active
+  // [exercise] Back" handler can silence any already-playing music the
+  // instant the user safely stops the exercise, without waiting for the
+  // `suspended` prop (which only reacts to an open guided video/manual
+  // pause, not this).
+  useImperativeHandle(ref, () => ({ start, stop, isPlaying, preload }));
 
   if (!eligible) return null;
 

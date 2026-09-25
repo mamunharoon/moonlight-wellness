@@ -39,13 +39,20 @@ describe('Breathing audio is destroyed before Meditation audio begins', () => {
 describe('At most one meditation audio instance plays at a time', () => {
   it('meditationSessionController.js (reused verbatim, zero changes) already guarantees this via its Map-keyed audioControllers, one per track id - see that module\'s own real-execution tests', () => {
     expect(hookSource).toMatch(/import \{ createMeditationSessionController \} from '\.\.\/lib\/meditationSessionController';/);
-    // The hook itself never constructs a second controller instance - one
-    // ref, assigned a real controller exactly once per Begin (guarded by
-    // beganRef); its only other assignment resets it to null on cleanup.
-    const controllerAssignments = hookSource.match(/controllerRef\.current = controller;/g) ?? [];
+    // Build 16 physical-iPhone correction (F3/F4/F7) — the hook itself
+    // still never constructs a second controller INSTANCE: the one real
+    // assignment now lives in getOrCreateController() (guarded by its own
+    // `if (!controllerRef.current)` check), called from both preload()
+    // and begin() - either can be first, but only one of them ever
+    // actually creates the instance for a given visit. Two null-reset
+    // sites now exist (cleanupSession, unchanged; and the new
+    // cancelPreload(), which destroys a preloaded-but-never-begun
+    // controller on Back/Cancel during the countdown) - both are
+    // deliberate, not a duplication of the same concern.
+    const controllerAssignments = hookSource.match(/controllerRef\.current = createMeditationSessionController\(/g) ?? [];
     expect(controllerAssignments.length).toBe(1);
     const nullResets = hookSource.match(/controllerRef\.current = null;/g) ?? [];
-    expect(nullResets.length).toBe(1);
+    expect(nullResets.length).toBe(2);
   });
 });
 

@@ -68,24 +68,30 @@ describe('Shared components this phase touched keep Morning/Anytime\'s own defau
   });
 });
 
-describe('Prepare for Rest — all 10 real SL01-SL10 sleep experiences still present, file untouched by this phase', () => {
+describe('Prepare for Rest — all 10 real SL01-SL10 sleep experiences still present', () => {
   const source = read('./PrepareForRest.jsx');
 
-  it('SL01 is still the featured sleep sound', () => {
-    expect(source).toMatch(/\{ id: 'SL01', kind: 'Sleep sound', blurb: 'Settle into the steady rhythm of gentle rain\.' \}/);
+  // Build 16 physical-iPhone correction (F10) legitimately restructured
+  // this file's bedtime-media data (SLEEP_SOUNDS/GUIDED_VIDEOS replace the
+  // former FEATURED_GUIDANCE/MORE_SLEEP_SOUNDS split - see
+  // prepareForRest.test.js's own dedicated F10 coverage for the full
+  // before/after). This block still guards the one thing it was written
+  // to guard: no real sleep sound was ever dropped.
+  it('SL01 is still a real, present sleep sound', () => {
+    expect(source).toMatch(/\{ id: 'SL01', blurb: 'Settle into the steady rhythm of gentle rain\.' \}/);
   });
 
-  it('SL02 through SL10 (all 9 remaining real sleep sounds) are still listed in MORE_SLEEP_SOUNDS, none dropped to match Stitch\'s abbreviated mockup', () => {
+  it('SL02 through SL10 (all 9 remaining real sleep sounds) are still listed in SLEEP_SOUNDS, none dropped to match Stitch\'s abbreviated mockup', () => {
     for (let n = 2; n <= 10; n++) {
       const id = `SL${String(n).padStart(2, '0')}`;
       expect(source).toMatch(new RegExp(`\\{ id: '${id}',`));
     }
-    const moreSoundsBlock = source.match(/const MORE_SLEEP_SOUNDS = \[([\s\S]*?)\];/)?.[1] ?? '';
-    const idCount = (moreSoundsBlock.match(/id: 'SL\d+'/g) ?? []).length;
-    expect(idCount).toBe(9); // SL02-SL10
+    const soundsBlock = source.match(/const SLEEP_SOUNDS = \[([\s\S]*?)\];/)?.[1] ?? '';
+    const idCount = (soundsBlock.match(/id: 'SL\d+'/g) ?? []).length;
+    expect(idCount).toBe(10); // SL01-SL10, all in one flat list now
   });
 
-  it('the 4 real checklist items and the "More bedtime options" disclosure toggle are untouched', () => {
+  it('the 4 real checklist items are untouched', () => {
     expect(source).toMatch(/title: 'Put your phone down soon\.'/);
     expect(source).toMatch(/title: 'Have a little water\.'/);
     expect(source).toMatch(/title: 'Dim the room\.'/);

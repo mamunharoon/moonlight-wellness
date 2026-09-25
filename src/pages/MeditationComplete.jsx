@@ -64,7 +64,16 @@ export const MeditationComplete = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10">
+    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
+    // identical block for the full rationale.
+    <div
+      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-10"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center gap-3">
         <BackButton fallback="/meditate" />
       </div>

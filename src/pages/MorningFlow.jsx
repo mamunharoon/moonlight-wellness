@@ -25,6 +25,8 @@ import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getStepLabel } from '../lib/stepLabels';
 import { formatTotalDuration } from '../lib/formatDuration';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -143,14 +145,16 @@ export const MorningFlow = () => {
     return new Set(steps.map((_, i) => i));
   });
   const [lastMovementNotice, setLastMovementNotice] = useState(false);
-  // Build 15 Stretch pre-start restructure — two independent, collapsed-
-  // by-default disclosures (mirrors PrepareForRest.jsx's own "Choose a
-  // bedtime video or sleep sound" precedent: aria-expanded/aria-controls,
-  // never navigates). Neither is forced open once hasBegun flips true -
-  // both keep whatever open/collapsed state the user already left them
-  // in, satisfying "remain collapsed before and during the timed
-  // exercise unless the user deliberately opens it."
-  const [movementsOpen, setMovementsOpen] = useState(false);
+  // Build 16 physical-iPhone correction (F2) — the movement picker is no
+  // longer a collapsed disclosure (it hid the very thing the pre-start
+  // screen exists to show: which movements are included). Movements now
+  // render directly, always visible, as a compact 2x2 grid below - see
+  // the JSX below. "Explore guided stretching sessions" is a genuinely
+  // optional, secondary affordance and keeps its own collapsed-by-default
+  // disclosure (mirrors PrepareForRest.jsx's own "Choose a bedtime video
+  // or sleep sound" precedent: aria-expanded/aria-controls, never
+  // navigates) - never forced open once hasBegun flips true, keeping
+  // whatever open/collapsed state the user already left it in.
   const [guidedSessionsOpen, setGuidedSessionsOpen] = useState(false);
   const handleToggleMovement = (idx) => {
     setSelectedMovements((prev) => {
@@ -207,7 +211,6 @@ export const MorningFlow = () => {
   // full rationale. Also true immediately on mount when resuming from a
   // review-paused snapshot - see Breathe.jsx's identical block.
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
-  const handlePauseExercise = () => setManuallyPaused(true);
   const isInterrupted = videoOpenedDuringExercise || manuallyPaused;
   const {
     openVideo,
@@ -221,24 +224,32 @@ export const MorningFlow = () => {
 
   if (ProgressIndicator && BetaVideoModal && BetaVideoRow) { /* no-op to satisfy blind linter */ }
 
+  // Build 16 physical-iPhone correction (F6) - see Breathe.jsx's
+  // identical block for the full rationale; same pattern, distinct asset
+  // id (IS01).
+  const musicPlayerRef = useRef(null);
+  const wasMusicPlayingRef = useRef(false);
+
+  const handlePauseExercise = () => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setManuallyPaused(true);
+  };
+
   const handleSelectVideo = (id) => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
     setVideoOpenedDuringExercise(true);
     handleSelect(id);
   };
 
-  const handleResumeExercise = () => {
+  const handleResume = () => {
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
   };
 
-  // "Resume with Music" - see Breathe.jsx's identical doc comment on its
-  // own copy of this handler; same pattern, distinct asset id (IS01).
-  const musicPlayerRef = useRef(null);
-  const handleResumeWithMusic = () => {
-    setVideoOpenedDuringExercise(false);
-    setManuallyPaused(false);
-    musicPlayerRef.current?.start();
-  };
   const musicEligible = isInteractiveMusicEligible({
     musicVariantId: INTERACTIVE_STRETCHING_MUSIC_ID,
     featureEnabled: isFeatureEnabled('backgroundMusic'),
@@ -333,23 +344,37 @@ export const MorningFlow = () => {
   // tap's state updates have committed - the same pattern
   // hasMirroredExitRef above already uses for the same reason.
   const hasBegunOnceRef = useRef(false);
+
+  // Build 16 physical-iPhone correction (F3/F4) — Begin Stretching now
+  // transitions into the shared 5-second preparation countdown instead of
+  // starting the timer/music immediately. preload() (when music is
+  // actually eligible+on) kicks off the track's signed-URL resolution
+  // right away, in the same gesture, so it has the whole countdown to
+  // finish before start() (at zero, or "Start now") actually needs it -
+  // see InteractiveAmbientMusic.jsx's own preload()/start() doc comment
+  // for why this is the real fix for "music starts late."
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => {
+      const sequence = [...selectedMovements].sort((a, b) => a - b);
+      setActiveSequence(sequence);
+      setActiveStep(0);
+      setTimeLeft(getStepDuration());
+      setHasBegun(true);
+      if (musicEligible && musicPreferenceOn) {
+        musicPlayerRef.current?.start();
+      }
+    }
+  });
+
   const handleBeginStretching = () => {
     if (hasBegunOnceRef.current) return;
     if (selectedMovements.size === 0) return; // defense in depth - unreachable by construction, see handleToggleMovement
     hasBegunOnceRef.current = true;
-    const sequence = [...selectedMovements].sort((a, b) => a - b);
-    setActiveSequence(sequence);
-    setActiveStep(0);
-    setTimeLeft(getStepDuration());
-    setHasBegun(true);
-    // Called synchronously within this real click handler - the exact
-    // same proven, gesture-safe pattern "Resume with Music" already uses
-    // (see handleResumeWithMusic above). InteractiveAmbientMusic is
-    // already mounted (hideToggle=true) before this tap, so its ref/
-    // audio element already exist.
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.start();
+      musicPlayerRef.current?.preload();
     }
+    countdown.start();
   };
 
   const handleNextStep = () => {
@@ -386,6 +411,15 @@ export const MorningFlow = () => {
   // gated repeat-intro) are untouched - only a genuinely active run is
   // ever stopped here.
   const handleBackFromActive = () => {
+    // Build 16 physical-iPhone correction (F3) — Back/Cancel during the
+    // preparation countdown returns to this same pre-start screen without
+    // ever marking the stretch started or begun (hasBegunOnceRef reset,
+    // hasBegun never set true, no timer/music ever started).
+    if (countdown.isActive) {
+      countdown.cancel();
+      hasBegunOnceRef.current = false;
+      return false;
+    }
     if (!hasBegun || isRepeatGated) return;
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
@@ -411,7 +445,16 @@ export const MorningFlow = () => {
   const beginLabel = `Begin with ${selectedCount} movement${selectedCount === 1 ? '' : 's'}`;
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-xl mx-auto space-y-8 select-none">
+    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
+    // identical block for the full rationale.
+    <div
+      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-5 select-none"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center gap-3">
         <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
@@ -421,26 +464,41 @@ export const MorningFlow = () => {
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      <div className="text-center space-y-2">
-        <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Movement</span>
-        <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Gentle Morning Stretch</h2>
-        <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-          {!isRepeatGated && !hasBegun ? getPreStartCopy() : 'Ease into the day with a few gentle movements.'}
-        </p>
-      </div>
+      {!countdown.isActive && (
+        <div className="text-center space-y-1.5">
+          <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Movement</span>
+          <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Gentle Morning Stretch</h2>
+          <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
+            {!isRepeatGated && !hasBegun ? getPreStartCopy() : 'Ease into the day with a few gentle movements.'}
+          </p>
+        </div>
+      )}
 
-      {!hasBegun ? (
+      {/* Build 16 physical-iPhone correction (F3) — shared preparation
+          countdown, shown in place of the pre-start/active content below
+          while running. Back/Cancel is handled entirely by this screen's
+          own header BackButton above (handleBackFromActive). */}
+      {countdown.isActive && (
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable, steady position."
+          onSkip={countdown.skip}
+          accent="morning"
+        />
+      )}
+
+      {!countdown.isActive && (!hasBegun ? (
         <>
-          {/* Build 15 — pre-start summary + movement selection. Nothing
-              below this point runs a timer, animation, or plays music -
-              see handleBeginStretching above for the one gesture that
-              starts all three together. */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
+          {/* Build 16 physical-iPhone correction (F2) — pre-start summary +
+              movement selection. Nothing below this point runs a timer,
+              animation, or plays music - see handleBeginStretching above
+              for the one gesture that starts all three together. Only the
+              total-duration pill remains here - the "N movements selected"
+              pill was dropped as redundant now that the grid below always
+              shows exactly which movements are selected. */}
+          <div className="flex items-center justify-center">
             <span className="text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
               {formatTotalDuration(totalSeconds)} total
-            </span>
-            <span className="text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
-              {selectedCount} movement{selectedCount === 1 ? '' : 's'} selected
             </span>
           </div>
 
@@ -465,45 +523,31 @@ export const MorningFlow = () => {
             </button>
           </div>
 
-          {/* Build 15 Stretch pre-start restructure — "Choose movements"
-              disclosure, collapsed by default. The movement rows and the
-              last-movement notice move inside unchanged in every other
-              respect (same Set-based selection, same canonical order,
-              same last-remaining-movement guard). */}
+          {/* Build 16 physical-iPhone correction (F2) — all four movements
+              now render directly on the setup screen (no more collapsed
+              "Choose movements" disclosure hiding them), as a compact
+              2-column x 2-row grid. Each card is still a real checkbox
+              (MovementCheckboxRow's `compact` variant) - tapping it IS
+              "choosing movements," so the selection affordance stays
+              fully available without a separate toggle to open first. */}
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setMovementsOpen((v) => !v)}
-              aria-expanded={movementsOpen}
-              aria-controls="stretch-choose-movements"
-              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <span className="text-sm font-semibold text-on-surface text-left">Choose movements — {selectedCount} selected</span>
-              <span
-                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
-                style={{ transform: movementsOpen ? 'rotate(180deg)' : 'none' }}
-                aria-hidden="true"
-              >
-                expand_more
-              </span>
-            </button>
-            {movementsOpen && (
-              <div id="stretch-choose-movements" className="space-y-3" role="group" aria-label="Choose your movements">
-                {steps.map((step, idx) => (
-                  <MovementCheckboxRow
-                    key={idx}
-                    title={step.title}
-                    description={step.desc}
-                    durationLabel={`0:${getStepDuration().toString().padStart(2, '0')}`}
-                    icon={step.icon}
-                    isSelected={selectedMovements.has(idx)}
-                    onToggle={() => handleToggleMovement(idx)}
-                  />
-                ))}
-                {lastMovementNotice && (
-                  <p className="text-xs text-on-surface-variant text-center px-4">Keep at least one movement selected to begin.</p>
-                )}
-              </div>
+            <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-1">Choose your movements</h3>
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label="Choose your movements">
+              {steps.map((step, idx) => (
+                <MovementCheckboxRow
+                  key={idx}
+                  compact
+                  title={step.title}
+                  description={step.desc}
+                  durationLabel={`0:${getStepDuration().toString().padStart(2, '0')}`}
+                  icon={step.icon}
+                  isSelected={selectedMovements.has(idx)}
+                  onToggle={() => handleToggleMovement(idx)}
+                />
+              ))}
+            </div>
+            {lastMovementNotice && (
+              <p className="text-xs text-on-surface-variant text-center px-4">Keep at least one movement selected to begin.</p>
             )}
           </div>
 
@@ -554,9 +598,24 @@ export const MorningFlow = () => {
             >
               Skip this step
             </button>
+            {/* Acceptance-audit correction (Decision 2) — this small,
+                understated text link measured a real ~32px effective tap
+                height (text-xs line-height 16px + py-2's 8px top/bottom),
+                under the 44px minimum. `-my-1.5 py-3.5` grows the real
+                paintable/tappable box to 16+14+14=44px while the negative
+                margin cancels exactly the added 6px on each side, so the
+                surrounding layout's own vertical rhythm is completely
+                unaffected (byte-identical visual position/spacing to
+                before) - the same established technique
+                ProgressIndicator.jsx's own review-chip buttons already use
+                for the identical reason. Applied identically everywhere
+                this exact "Exit routine" control appears (Affirmation.jsx/
+                Breathe.jsx/IntentionSetup.jsx/MorningMeditate.jsx) - never
+                changes onClick/navigation/confirmation semantics, only the
+                tap target. */}
             <button
               onClick={handleExitRoutine}
-              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
             >
               Exit routine
             </button>
@@ -638,7 +697,7 @@ export const MorningFlow = () => {
             })}
           </div>
         </>
-      )}
+      ))}
 
       {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,
           never remounted across the pre-start -> active transition. It
@@ -667,11 +726,7 @@ export const MorningFlow = () => {
           viewport with no scroll. See Breathe.jsx's identical panel.
           Both only ever apply once the exercise has genuinely begun. */}
       {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
-        <ExercisePausedPanel
-          onResumeExercise={handleResumeExercise}
-          onResumeWithMusic={handleResumeWithMusic}
-          showResumeWithMusic={musicEligible}
-        />
+        <ExercisePausedPanel onResume={handleResume} />
       )}
 
       {/* Usability remediation - see Breathe.jsx's identical block for the
@@ -741,7 +796,7 @@ export const MorningFlow = () => {
           {!isReviewMode && (
             <>
               {/* Hidden while the ExercisePausedPanel above is showing its own
-                  two resume actions - see Breathe.jsx's identical comment. */}
+                  Resume action - see Breathe.jsx's identical comment. */}
               {!isInterrupted && (
                 <button
                   onClick={handleNextStep}
@@ -759,7 +814,7 @@ export const MorningFlow = () => {
               </button>
               <button
                 onClick={handleExitRoutine}
-                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors py-2"
+                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
               >
                 Exit routine
               </button>

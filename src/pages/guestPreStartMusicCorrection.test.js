@@ -95,12 +95,28 @@ describe('2 & 3. Guest choice is session-only; authenticated choice still persis
 });
 
 describe('4 & 5. Off -> Begin creates no audio instance; On -> Begin creates exactly one', () => {
+  // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
+  // into the shared 5-second preparation countdown before anything
+  // starts. The Begin handler itself only preloads (if eligible+
+  // preferred) and starts the countdown; the actual start() call - still
+  // gated by the exact same musicEligible && musicPreferenceOn condition,
+  // guest status still never excluding it - now lives in the countdown's
+  // own onComplete callback, fired at zero or "Start now".
   for (const { name, source } of SURFACES) {
-    it(`${name}: the Begin handler's own start() call is gated ONLY on musicEligible && musicPreferenceOn - guest status no longer excludes it`, () => {
+    it(`${name}: the Begin handler itself only preloads and starts the countdown - it never calls start() directly`, () => {
       const body = source.match(/const handleBegin\w* = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toBe('');
-      expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+      expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.preload\(\);\s*\n\s*\}/);
+      expect(body).toMatch(/countdown\.start\(\);/);
+      expect(body).not.toMatch(/musicPlayerRef\.current\?\.start\(\)/);
       expect(body).not.toMatch(/!isGuest/);
+    });
+
+    it(`${name}: the countdown's own onComplete callback calls start() gated ONLY on musicEligible && musicPreferenceOn - guest status no longer excludes it`, () => {
+      const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+      expect(countdownBlock).not.toBe('');
+      expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+      expect(countdownBlock).not.toMatch(/!isGuest/);
     });
 
     it(`${name}: InteractiveAmbientMusic is still mounted exactly once (never two mount points across the pre-start/active transition) - a guest starting music can never create a duplicate instance`, () => {
@@ -113,9 +129,12 @@ describe('4 & 5. Off -> Begin creates no audio instance; On -> Begin creates exa
     });
   }
 
-  it('QuietBreathing.jsx (standalone) Begin handler: same ungated condition', () => {
+  it('QuietBreathing.jsx (standalone) Begin handler: same ungated condition (now preload + countdown.start(), the actual start() living in the countdown\'s onComplete)', () => {
     const body = quietBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.preload\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/countdown\.start\(\);/);
+    const countdownBlock = quietBreathingSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
     expect(body).not.toMatch(/!isGuest/);
   });
 });

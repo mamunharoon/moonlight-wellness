@@ -98,7 +98,7 @@ describe('Onboarding.jsx - no persisted partial-onboarding step state exists to 
 
 describe('Existing/fresh-signup users are never forced through onboarding', () => {
   it('Auth.jsx sends both sign-in and sign-up through redirectAfterAuth (Home, or the new first-login Introduction gate), never to the legacy /onboarding wizard', () => {
-    expect(authSource).toMatch(/const redirectAfterAuth = async \(authUser\) => \{/);
+    expect(authSource).toMatch(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{/);
     expect(authSource).not.toMatch(/navigate\('\/onboarding'\)/);
     const signUpBody = authSource.match(/const handleSignUp = async \(e\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(signUpBody).toMatch(/await redirectAfterAuth\(data\.user\);/);

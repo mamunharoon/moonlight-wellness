@@ -68,7 +68,16 @@ export const SessionComplete = () => {
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 max-w-md mx-auto space-y-10 select-none">
+    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
+    // identical block for the full rationale.
+    <div
+      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-10 select-none"
+      style={{
+        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+      }}
+    >
       <div className="flex items-center justify-between gap-3">
         {/* Back-navigation repair (Morning canonical map) — Morning is
             finished; there is no "leave this routine" concept left, so

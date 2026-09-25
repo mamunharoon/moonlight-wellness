@@ -135,16 +135,24 @@ export const Gratitude = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
+      {/* Build 16 physical-iPhone correction (F9) — the per-page "Step 3 of
+          7" span that used to render here is gone: ProgressIndicator's own
+          mobile (sm:hidden) compact block already renders "Gratitude ·
+          Step 3 of 7" as part of the same row - this was a literal
+          duplicate label stacked as an extra row, contributing to "top
+          area taller than needed" with no information the indicator
+          didn't already give. */}
       <ProgressIndicator activeStep="gratitude" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      {/* Journey Embedding (correction) — total is now 7, not 6. */}
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 3 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
       <div className="flex-1 flex flex-col justify-center">
-        <div className="glass-panel rounded-3xl p-6">
+        {/* Build 16 physical-iPhone correction (F9, then Decision 3
+            acceptance correction) — see Reflection.jsx's identical trim for
+            the full rationale. */}
+        <div className="glass-panel rounded-3xl p-4">
           {responses !== null && (
             <PromptStepper
               prompts={GRATITUDE_PROMPTS}

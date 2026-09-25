@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
+import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
 import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
@@ -18,6 +19,8 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
+import { PreparationCountdown } from '../components/PreparationCountdown';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -146,18 +149,37 @@ export const QuietBreathing = ({ standalone = false }) => {
   };
   // Double-tap protection - see Breathe.jsx's identical rationale.
   const hasBegunOnceRef = useRef(false);
+
+  // Build 16 physical-iPhone correction (F3/F4) — standalone mode's own
+  // Begin Breathing now transitions into the shared 5-second preparation
+  // countdown instead of starting the timer/music immediately - see
+  // MorningFlow.jsx's identical block for the full rationale. Support's
+  // own embedded (`!standalone`) usage is unaffected: it has no Begin
+  // gesture at all (MusicEntryChoice is its own, deliberately unchanged
+  // legacy gate - see this file's own top doc comment), so this hook is
+  // simply never started from that branch.
+  const countdown = usePreparationCountdown({
+    seconds: 5,
+    onComplete: () => {
+      setSecondsLeft(activePattern.totalSeconds);
+      setBreatheState('Inhale');
+      setHasBegun(true);
+      if (musicEligible && musicPreferenceOn) {
+        musicPlayerRef.current?.start();
+      }
+    }
+  });
+
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
-    setSecondsLeft(activePattern.totalSeconds);
-    setBreatheState('Inhale');
-    setHasBegun(true);
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.start();
+      musicPlayerRef.current?.preload();
     }
+    countdown.start();
   };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BreathingPatternDescription && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
 
   // Early-end result state - declared here (ahead of `canRun`, which reads
   // it) so the countdown effect below can stop the instant an early end is
@@ -252,6 +274,15 @@ export const QuietBreathing = ({ standalone = false }) => {
   // to Home) - matching "Back from Breathe setup returns Home" and
   // "Back must not jump directly from active breathing to Home."
   const handleBackFromActive = () => {
+    // Build 16 physical-iPhone correction (F3) — Back/Cancel during the
+    // preparation countdown returns to this same pre-start screen without
+    // ever marking breathing started or begun, no confirmation needed
+    // (nothing has started yet).
+    if (countdown.isActive) {
+      countdown.cancel();
+      hasBegunOnceRef.current = false;
+      return false;
+    }
     if (!hasBegun || isComplete || earlyEnded) return;
     setEndConfirmSource('back');
     setEndConfirmOpen(true);
@@ -299,6 +330,15 @@ export const QuietBreathing = ({ standalone = false }) => {
               </button>
             </div>
           </div>
+        ) : countdown.isActive ? (
+          // Build 16 physical-iPhone correction (F3) — shared preparation
+          // countdown. Back/Cancel is handled entirely by this screen's
+          // own EveningSceneShell Back (handleBackFromActive, above).
+          <PreparationCountdown
+            secondsRemaining={countdown.secondsRemaining}
+            cue="Find a comfortable, steady position."
+            onSkip={countdown.skip}
+          />
         ) : !hasBegun ? (
           <>
             <div className="text-center space-y-2">
@@ -309,17 +349,26 @@ export const QuietBreathing = ({ standalone = false }) => {
               </p>
             </div>
 
-            <div className="space-y-3" role="radiogroup" aria-label="Choose your breathing practice">
-              {BREATHING_PATTERNS.map((pattern) => (
+            {/* Build 16 physical-iPhone correction (F5) — compact
+                2-column grid, replacing the five full-width rows. Each
+                card shows its complete name only - the selected
+                pattern's full cadence and exact duration render once,
+                below the grid, via the shared
+                BreathingPatternDescription. */}
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern, idx) => (
                 <BreathingPatternRow
                   key={pattern.id}
+                  compact
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={setSelectedPatternId}
                   groupName="breathing-pattern"
+                  className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
                 />
               ))}
             </div>
+            <BreathingPatternDescription pattern={activePattern} />
 
             {musicEligible && (
               <MusicPreferenceToggle

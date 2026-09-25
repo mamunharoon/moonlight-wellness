@@ -34,8 +34,8 @@ describe('Breathe.jsx — pre-start pattern-selection view', () => {
   });
 
   it('all 5 real breathing patterns are still rendered via BreathingPatternRow with accent="morning" (shared-component safety proven separately)', () => {
-    expect(source).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
-    const callSite = source.match(/<BreathingPatternRow[\s\S]{0,300}\/>/)?.[0] ?? '';
+    expect(source).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
+    const callSite = source.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).toMatch(/accent="morning"/);
   });
 });

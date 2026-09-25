@@ -145,82 +145,84 @@ describe('Dynamic pre-start copy and Begin label - real execution', () => {
   });
 });
 
-// Release-quality Morning Stretch (Build 15) — compact pre-start order:
-// Back/Progress -> heading -> summary -> music -> Begin -> Choose
-// movements disclosure -> Explore guided stretching sessions disclosure
-// -> Skip -> Exit routine. Verified by comparing each landmark's own
-// index() in the pre-start branch's source text, in the approved order.
+// Build 16 physical-iPhone correction (F2) — compact pre-start order:
+// Back/Progress -> heading -> summary -> music -> Begin -> always-visible
+// movements grid -> Explore guided stretching sessions disclosure -> Skip
+// -> Exit routine. Verified by comparing each landmark's own index() in
+// the pre-start branch's source text, in the approved order.
 describe('Compact Stretch pre-start order', () => {
-  const preStartBranch = source.slice(source.indexOf('{!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+  const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
 
-  it('landmarks appear in the exact approved order: summary -> music -> Begin -> Choose movements -> guided sessions -> Skip -> Exit', () => {
+  it('landmarks appear in the exact approved order: summary -> music -> Begin -> movements grid -> guided sessions -> Skip -> Exit', () => {
     const iSummary = preStartBranch.indexOf('total');
     const iMusic = preStartBranch.indexOf('<MusicPreferenceToggle');
     const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
-    const iChooseMovements = preStartBranch.indexOf('Choose movements —');
+    const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
     const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
 
-    for (const idx of [iSummary, iMusic, iBegin, iChooseMovements, iGuidedSessions, iSkip, iExit]) {
+    for (const idx of [iSummary, iMusic, iBegin, iMovementsGrid, iGuidedSessions, iSkip, iExit]) {
       expect(idx).toBeGreaterThanOrEqual(0);
     }
     expect(iSummary).toBeLessThan(iMusic);
     expect(iMusic).toBeLessThan(iBegin);
-    expect(iBegin).toBeLessThan(iChooseMovements);
-    expect(iChooseMovements).toBeLessThan(iGuidedSessions);
+    expect(iBegin).toBeLessThan(iMovementsGrid);
+    expect(iMovementsGrid).toBeLessThan(iGuidedSessions);
     expect(iGuidedSessions).toBeLessThan(iSkip);
     expect(iSkip).toBeLessThan(iExit);
   });
 
-  it('Begin appears before both disclosures, and both disclosures appear before Skip/Exit', () => {
+  it('Begin appears before the movements grid and the guided-sessions disclosure, and both appear before Skip/Exit', () => {
     const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
-    const iChooseMovements = preStartBranch.indexOf('Choose movements —');
+    const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
     const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
     const iSkip = preStartBranch.indexOf('Skip this step');
-    expect(iBegin).toBeLessThan(iChooseMovements);
+    expect(iBegin).toBeLessThan(iMovementsGrid);
     expect(iBegin).toBeLessThan(iGuidedSessions);
-    expect(iChooseMovements).toBeLessThan(iSkip);
+    expect(iMovementsGrid).toBeLessThan(iSkip);
     expect(iGuidedSessions).toBeLessThan(iSkip);
   });
 });
 
-// Release-quality Morning Stretch (Build 15) — "Choose movements" and
-// "Explore guided stretching sessions" disclosures: collapsed by
-// default, real conditional rendering (never merely visually hidden),
-// never forced open by Begin, correct aria-expanded/aria-controls,
-// never navigate.
+// Build 16 physical-iPhone correction (F2) — the movements grid is now
+// ALWAYS visible pre-start (no more collapsed disclosure hiding it, per
+// F2's "display all four selected movements directly on the setup
+// screen"). "Explore guided stretching sessions" keeps its own collapsed-
+// by-default disclosure: real conditional rendering (never merely
+// visually hidden), never forced open by Begin, correct aria-expanded/
+// aria-controls, never navigates.
 describe('Stretch pre-start disclosures - collapse/expand behaviour', () => {
-  it('both disclosures default to collapsed (useState(false))', () => {
-    expect(source).toMatch(/const \[movementsOpen, setMovementsOpen\] = useState\(false\);/);
+  it('the movements grid always renders unconditionally pre-start - no movementsOpen state exists any more', () => {
+    expect(source).not.toMatch(/movementsOpen/);
+    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+    expect(preStartBranch).toMatch(/role="group" aria-label="Choose your movements"/);
+    expect(preStartBranch).not.toMatch(/aria-expanded=\{.*movements/);
+  });
+
+  it('the guided-sessions disclosure defaults to collapsed (useState(false))', () => {
     expect(source).toMatch(/const \[guidedSessionsOpen, setGuidedSessionsOpen\] = useState\(false\);/);
   });
 
-  it('movement rows and the guided-session rows are genuinely conditionally rendered (unmounted when collapsed), never just visually hidden', () => {
-    expect(source).toMatch(/\{movementsOpen && \(\s*\n\s*<div id="stretch-choose-movements"/);
+  it('the guided-session rows are genuinely conditionally rendered (unmounted when collapsed), never just visually hidden', () => {
     expect(source).toMatch(/\{guidedSessionsOpen && \(\s*\n\s*<div id="stretch-guided-sessions"/);
     expect(source).toMatch(/\{guidedSessionsOpen && \(\s*\n\s*<div id="stretch-guided-sessions-active"/);
   });
 
-  it('handleBeginStretching never touches movementsOpen/guidedSessionsOpen - Begin never forces a disclosure open (or closed)', () => {
+  it('handleBeginStretching never touches guidedSessionsOpen - Begin never forces the disclosure open (or closed)', () => {
     const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).not.toMatch(/setMovementsOpen|setGuidedSessionsOpen/);
+    expect(body).not.toMatch(/setGuidedSessionsOpen/);
   });
 
-  it('both disclosure triggers are real toggle buttons with correct aria-expanded/aria-controls, never a link/navigation', () => {
-    expect(source).toMatch(/onClick=\{\(\) => setMovementsOpen\(\(v\) => !v\)\}\s*\n\s*aria-expanded=\{movementsOpen\}\s*\n\s*aria-controls="stretch-choose-movements"/);
+  it('the guided-sessions disclosure trigger is a real toggle button with correct aria-expanded/aria-controls, never a link/navigation', () => {
     expect(source).toMatch(/onClick=\{\(\) => setGuidedSessionsOpen\(\(v\) => !v\)\}\s*\n\s*aria-expanded=\{guidedSessionsOpen\}\s*\n\s*aria-controls="stretch-guided-sessions"/);
-    expect(source).not.toMatch(/onClick=\{\(\) => setMovementsOpen[\s\S]{0,80}navigate\(/);
+    expect(source).not.toMatch(/onClick=\{\(\) => setGuidedSessionsOpen[\s\S]{0,80}navigate\(/);
   });
 
   it('the guided-sessions disclosure header count comes from STRETCHING_SESSION_VIDEOS.length, never a hand-typed "5"', () => {
     const matches = source.match(/Explore guided stretching sessions — \{STRETCHING_SESSION_VIDEOS\.length\} available/g) ?? [];
     // Appears twice: once in the pre-start branch, once in the active-state block.
     expect(matches.length).toBe(2);
-  });
-
-  it('the Choose-movements disclosure header count comes from the live selectedCount, never a hand-typed number', () => {
-    expect(source).toMatch(/Choose movements — \{selectedCount\} selected/);
   });
 
   it('the guided-sessions disclosure remains reachable both pre-start and once hasBegun is true, sharing one state variable (opening it pre-start survives tapping Begin)', () => {
@@ -253,7 +255,12 @@ describe('Item 3 - total duration and selected count are calculated, never hard-
     expect(source).toMatch(/const selectedCount = selectedMovements\.size;/);
     expect(source).toMatch(/const totalSeconds = selectedCount \* getStepDuration\(\);/);
     expect(source).toMatch(/\{formatTotalDuration\(totalSeconds\)\} total/);
-    expect(source).toMatch(/\{selectedCount\} movement\{selectedCount === 1 \? '' : 's'\} selected/);
+    // Build 16 physical-iPhone correction (F2): the separate "{selectedCount}
+    // movements selected" pill was removed as redundant - the always-visible
+    // movements grid itself now shows exactly which/how many are selected.
+    expect(source).not.toMatch(/\{selectedCount\} movement\{selectedCount === 1 \? '' : 's'\} selected/);
+    // beginLabel is the one remaining place selectedCount is shown in prose.
+    expect(source).toMatch(/const beginLabel = `Begin with \$\{selectedCount\} movement\$\{selectedCount === 1 \? '' : 's'\}`;/);
   });
 
   it('getStepDuration reads the real global routineDuration setting (standard=20s, extended=40s) - never a hard-coded "Quick" concept the app doesn\'t have', () => {
@@ -266,7 +273,10 @@ describe('Item 3 - total duration and selected count are calculated, never hard-
 describe('Items 4/5/6 - timer, animation and music never start on mount', () => {
   it('the pre-start branch is gated on !hasBegun, and hasBegun defaults to false (true only when genuinely resuming a TRUSTED paused snapshot)', () => {
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
-    expect(source).toMatch(/\{!hasBegun \? \(/);
+    // Build 16 physical-iPhone correction (F3) — wrapped in an additional
+    // `{!countdown.isActive && (` guard (a third, sibling state), never
+    // changing the underlying !hasBegun gate this test guards.
+    expect(source).toMatch(/\{!countdown\.isActive && \(!hasBegun \? \(/);
   });
 
   it('the countdown effect refuses to run at all while !hasBegun (or with no locked activeSequence yet)', () => {
@@ -274,7 +284,7 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
   });
 
   it('the active movement list (the only place a "current" highlighted movement/animation-style state renders) is entirely inside the hasBegun branch - never rendered pre-start', () => {
-    const preStartBranch = source.slice(source.indexOf('{!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
     expect(preStartBranch).not.toMatch(/Stretching Progress/);
   });
 
@@ -299,29 +309,44 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
 });
 
 // 7, 8, 9, 10. Begin starts everything together, gated on eligibility/preference/guest, double-tap safe.
+//
+// Build 16 physical-iPhone correction (F3/F4) — Begin Stretching now
+// transitions into the shared 5-second preparation countdown instead of
+// starting the timer/animation/music immediately: handleBeginStretching
+// itself only guards against a double tap, preloads the music (if
+// eligible+preferred), and starts the countdown; the countdown's own
+// onComplete callback (fired at zero, or "Start now") is what actually
+// locks the sequence/resets activeStep+timeLeft/sets hasBegun/starts
+// music - see MorningMeditate.jsx's identical split for the full
+// rationale.
 describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music together, exactly once', () => {
-  it('locks the selected sequence, resets activeStep/timeLeft, and sets hasBegun - all inside one handler', () => {
-    const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/const sequence = \[\.\.\.selectedMovements\]\.sort\(\(a, b\) => a - b\);/);
-    expect(body).toMatch(/setActiveSequence\(sequence\);/);
-    expect(body).toMatch(/setActiveStep\(0\);/);
-    expect(body).toMatch(/setTimeLeft\(getStepDuration\(\)\);/);
-    expect(body).toMatch(/setHasBegun\(true\);/);
-  });
-
-  it('starts music only if eligible and preferred (Build 18: guest no longer excluded - IS01 is server-allowlisted) - disabled preference stays genuinely silent', () => {
-    const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
-    expect(body).not.toMatch(/!isGuest/);
-  });
-
-  it('double-tap protection uses a ref (not state) checked and set before anything else runs', () => {
-    expect(source).toMatch(/const hasBegunOnceRef = useRef\(false\);/);
+  it('handleBeginStretching guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
     const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
+    expect(body).toMatch(/if \(selectedMovements\.size === 0\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
-    // The guard is the very first statement, before any state mutation.
-    expect(body.indexOf('if (hasBegunOnceRef.current) return;')).toBeLessThan(body.indexOf('setActiveSequence'));
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/countdown\.start\(\);/);
+    expect(body).not.toMatch(/setActiveSequence|setActiveStep|setTimeLeft|setHasBegun/);
+    // The double-tap guard is the very first statement, before anything else.
+    expect(body.indexOf('if (hasBegunOnceRef.current) return;')).toBeLessThan(body.indexOf('hasBegunOnceRef.current = true;'));
+  });
+
+  it('the countdown\'s onComplete callback locks the selected sequence, resets activeStep/timeLeft, and sets hasBegun - all inside one callback', () => {
+    const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).not.toBe('');
+    expect(countdownBlock).toMatch(/const sequence = \[\.\.\.selectedMovements\]\.sort\(\(a, b\) => a - b\);/);
+    expect(countdownBlock).toMatch(/setActiveSequence\(sequence\);/);
+    expect(countdownBlock).toMatch(/setActiveStep\(0\);/);
+    expect(countdownBlock).toMatch(/setTimeLeft\(getStepDuration\(\)\);/);
+    expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
+  });
+
+  it('the countdown\'s onComplete callback starts music only if eligible and preferred (Build 18: guest no longer excluded - IS01 is server-allowlisted) - disabled preference stays genuinely silent', () => {
+    const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
   it('Begin is disabled (defense in depth) when selection is empty, even though deselecting the last movement is already rejected elsewhere', () => {
@@ -373,8 +398,12 @@ describe('Movement multi-selection semantics', () => {
   });
 
   it('canonical order is preserved regardless of selection order - the active run is built by sorting the selected indices ascending, never by toggle order', () => {
-    const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/\[\.\.\.selectedMovements\]\.sort\(\(a, b\) => a - b\)/);
+    // Build 16 physical-iPhone correction (F3) — this now lives in the
+    // countdown's own onComplete callback (fired at zero/"Start now"),
+    // not directly in handleBeginStretching - see that describe block's
+    // own coverage above.
+    const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(countdownBlock).toMatch(/\[\.\.\.selectedMovements\]\.sort\(\(a, b\) => a - b\)/);
   });
 
   it('the active run renders only the included movements (orderedActiveSteps), built from the locked activeSequence - excluded movements never appear during the run', () => {

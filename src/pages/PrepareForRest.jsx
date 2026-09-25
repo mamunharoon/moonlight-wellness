@@ -5,6 +5,7 @@ import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { PrepareToggleRow } from '../components/evening/PrepareToggleRow';
+import { BedtimeMediaChooser } from '../components/evening/BedtimeMediaChooser';
 import { getBetaVideoById } from '../lib/betaVideoManifest';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
@@ -56,32 +57,30 @@ import { getStepLabel } from '../lib/stepLabels';
  * one real completion event it guards) twice before the resulting
  * navigate() unmounts this page.
  *
- * FEATURED GUIDANCE (round 2 correction): exactly one guided video (E05,
- * "Night-time Calm" - the strongest, most literally sleep/night-specific
- * real video) and one real Sleep Sound (SL01, "Rain" - this library's own
- * first/flagship item) are shown immediately, expanded by default, each
- * explicitly labelled by content type ("Guided video"/"Sleep sound") so
- * a user understands what's on offer without an extra tap. "More bedtime
- * options" (E20/E27/E30 plus the remaining SL02-08) is its own, separately
- * collapsed disclosure directly below the featured pair - Build 15
- * Evening UX correction moved it ABOVE Ready for Sleep (previously
- * below), so a user who wants to keep browsing sees the full library
- * before the exit action, not after it. Neither featured id is
- * duplicated inside More options.
+ * BEDTIME MEDIA (Build 16 physical-iPhone correction, F10) — previously
+ * one "featured" video/sound pair rendered expanded by default in-page,
+ * with the rest of the real 4-video/10-sound catalogue hidden behind a
+ * second "More bedtime options" disclosure directly below it - found
+ * live: expanding it made this screen substantially longer, pushing the
+ * preparation checklist and Ready for Sleep off-screen together with the
+ * whole catalogue on one page. Both lists below are now the SAME two
+ * flat, complete catalogues (every real id, every original blurb,
+ * verbatim - nothing removed, nothing newly added), but consumed
+ * differently: this screen itself shows only a compact chooser control
+ * (or, once something is chosen, a compact one-row summary) - the full
+ * lists only ever render inside the separate BedtimeMediaChooser overlay
+ * (see that component's own doc comment), which owns its own independent
+ * scroll.
  */
-const FEATURED_GUIDANCE = [
-  { id: 'E05', kind: 'Guided video', blurb: 'A short guided video to ease toward sleep.' },
-  { id: 'SL01', kind: 'Sleep sound', blurb: 'Settle into the steady rhythm of gentle rain.' }
-];
-
-const MORE_GUIDANCE = [
+const GUIDED_VIDEOS = [
+  { id: 'E05', blurb: 'A short guided video to ease toward sleep.' },
   { id: 'E30', blurb: 'A guided video to ease you into peaceful sleep.' },
   { id: 'E20', blurb: 'A guided video to quiet a busy mind before rest.' },
   { id: 'E27', blurb: 'A guided video for deep physical relaxation.' }
 ];
 
-// SL01 is featured above - not repeated here.
-const MORE_SLEEP_SOUNDS = [
+const SLEEP_SOUNDS = [
+  { id: 'SL01', blurb: 'Settle into the steady rhythm of gentle rain.' },
   { id: 'SL02', blurb: 'Rest with slow waves meeting a quiet shore.' },
   { id: 'SL03', blurb: 'Unwind among soft woodland sounds.' },
   { id: 'SL04', blurb: 'Relax beside the warmth of a gently crackling fire.' },
@@ -102,7 +101,7 @@ const PREP_ITEMS = [
   { id: 'finish', icon: 'nights_stay', title: 'Let the day finish.', support: 'Everything else can wait until tomorrow.' }
 ];
 
-const buildGuidanceItem = ({ id, blurb, kind }) => {
+const buildGuidanceItem = ({ id, blurb }) => {
   const entry = getBetaVideoById(id);
   if (!entry) return null;
   const cachedMinutes = getCachedDurationMinutes(id);
@@ -110,7 +109,7 @@ const buildGuidanceItem = ({ id, blurb, kind }) => {
   // duration—never fabricate it" - BetaVideoRow already renders no badge
   // at all when `duration` is falsy.
   const duration = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : undefined);
-  return { id, entry, blurb, duration, kind };
+  return { id, entry, blurb, duration };
 };
 
 export const PrepareForRest = () => {
@@ -132,10 +131,17 @@ export const PrepareForRest = () => {
   } = useProtectedVideo();
 
   const [selectedPrep, setSelectedPrep] = useState(() => new Set());
-  // Expanded by default (round 2 correction) - discoverability, not a
-  // hidden extra tap, is the whole point of this fix.
-  const [guidanceOpen, setGuidanceOpen] = useState(true);
-  const [moreGuidanceOpen, setMoreGuidanceOpen] = useState(false);
+  // Build 16 physical-iPhone correction (F10) — the chosen bedtime item
+  // (if any) and whether the full-catalogue chooser overlay is open.
+  // Plain local state, same genuine, disclosed scope decision as
+  // `selectedPrep` above (see this file's own CHECKLIST STATE doc
+  // comment): no Supabase call, no localStorage, no new persistence
+  // layer. Survives re-renders and toggling other controls within this
+  // same mounted visit; does not survive a full Back-then-forward round
+  // trip (a fresh mount has no prior state to begin with), exactly like
+  // the preparation checklist.
+  const [selectedBedtimeId, setSelectedBedtimeId] = useState(null);
+  const [chooserOpen, setChooserOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
 
   const togglePrep = (id) => {
@@ -156,9 +162,21 @@ export const PrepareForRest = () => {
     navigate('/evening-complete');
   };
 
-  const featuredItems = FEATURED_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
-  const moreGuidanceItems = MORE_GUIDANCE.map(buildGuidanceItem).filter(Boolean);
-  const moreSleepSoundItems = MORE_SLEEP_SOUNDS.map(buildGuidanceItem).filter(Boolean);
+  const guidedVideoItems = GUIDED_VIDEOS.map(buildGuidanceItem).filter(Boolean);
+  const sleepSoundItems = SLEEP_SOUNDS.map(buildGuidanceItem).filter(Boolean);
+
+  // Build 16 physical-iPhone correction (F10) — the chooser overlay only
+  // ever SELECTS (never plays); this compact summary card is what
+  // actually plays a selection, via the same handleSelect(id) every
+  // BetaVideoRow tap in this app already uses.
+  const handleChooseBedtimeMedia = (id) => {
+    setSelectedBedtimeId(id);
+    setChooserOpen(false);
+  };
+  const selectedBedtimeItem = selectedBedtimeId
+    ? [...guidedVideoItems, ...sleepSoundItems].find((item) => item.id === selectedBedtimeId) ?? null
+    : null;
+  const selectedBedtimeIsSound = selectedBedtimeId ? sleepSoundItems.some((item) => item.id === selectedBedtimeId) : false;
 
   // Duplicate-return-action fix, found live: the ReviewModeBanner below
   // already renders its own "Return to X" whenever isReviewMode is true -
@@ -178,25 +196,38 @@ export const PrepareForRest = () => {
   // Journey Embedding — Meditation is now the real preceding step
   // (Breathing -> Meditate (optional) -> Prepare for Rest), so Back must
   // return there, not skip over it straight to Evening Breathing.
+  //
+  // Build 16 physical-iPhone correction (F10) — BedtimeMediaChooser
+  // renders as a genuine SIBLING of EveningSceneShell (outside its
+  // children), not nested inside it - see that component's own doc
+  // comment for the real, live-reproduced z-index stacking-context bug
+  // this avoids (its own Close button was silently unclickable, blocked
+  // by the shell's own nav row one stacking context up).
   return (
+    <>
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-meditate" showExit>
+      {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
+          identical fix for the full rationale (ProgressIndicator's own
+          mobile compact block already shows "Step 6 of 7"). */}
       <ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down" onReviewStep={requestReview} />
-      {/* Journey Embedding (correction) — Meditate is now a counted step
-          (5) immediately before this one, so Prepare for Rest is Step 6 of
-          7, not 5 of 6. */}
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Step 6 of 7</span>
 
       {isReviewMode && currentStep && (
         <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
       )}
 
-      <div className="flex-1 flex flex-col justify-center space-y-6">
+      {/* Decision 3 acceptance correction — space-y-6 -> space-y-5 on this
+          outer stack, and space-y-3 -> space-y-2 on the checklist below:
+          two further modest gap trims (combined with PrepareToggleRow.jsx's
+          own py-4 -> py-3) to give Ready for Sleep a comfortable, non-
+          fragile margin within the 390x844/393x852 viewport rather than a
+          borderline few-pixel fit. */}
+      <div className="flex-1 flex flex-col justify-center space-y-5">
         <div className="text-center space-y-1">
           <h1 className="font-serif italic text-3xl text-on-surface">Prepare for Rest</h1>
           <p className="text-xs text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {PREP_ITEMS.map((item) => (
             <PrepareToggleRow
               key={item.id}
@@ -209,88 +240,44 @@ export const PrepareForRest = () => {
           ))}
         </div>
 
-        {featuredItems.length > 0 && (
-          <div className="space-y-3">
-            {/* Evening selectable-control visual refinement (Build 15):
-                same deep surface-container background as the toggle rows
-                above, but a neutral white/15 border (not periwinkle) -
-                this disclosure must stay recognisably different from the
-                switches, not just visually coordinated with them. */}
-            <button
-              type="button"
-              onClick={() => setGuidanceOpen((v) => !v)}
-              aria-expanded={guidanceOpen}
-              aria-controls="prepare-for-rest-guidance"
-              className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <span className="text-sm font-semibold text-on-surface text-left">Choose a bedtime video or sleep sound</span>
-              <span
-                className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
-                style={{ transform: guidanceOpen ? 'rotate(180deg)' : 'none' }}
-                aria-hidden="true"
-              >
-                expand_more
-              </span>
-            </button>
-            {guidanceOpen && (
-              <div id="prepare-for-rest-guidance" className="space-y-3">
-                <p className="text-xs text-on-surface-variant px-1">Optional — play something calming, or continue when you're ready.</p>
-                {featuredItems.map(({ id, entry, blurb, duration, kind }) => (
-                  <div key={id} className="space-y-1">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">{kind}</span>
-                    <BetaVideoRow title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Build 15 Evening UX correction — "More bedtime options" moved
-            above "Ready for Sleep" (was previously below it), so a user
-            browsing the full bedtime content library sees Ready for Sleep
-            only after they've seen everything on offer, not before it.
-            The disclosure itself is unchanged: still collapsed by
-            default, still a plain aria-expanded/aria-controls button that
-            never navigates on its own — only repositioned. */}
-        {(moreGuidanceItems.length > 0 || moreSleepSoundItems.length > 0) && (
+        {/* Build 16 physical-iPhone correction (F10) — one compact control
+            replaces the old always-here, always-expanded catalogue: a
+            single chooser button when nothing is selected yet, or a
+            one-row summary (tap to play, via the same established
+            BetaVideoRow tap-to-play behaviour every other guidance row in
+            this app already uses) plus a small "Change selection" control
+            once something is. Browsing the full 4-video/10-sound
+            catalogue itself only ever happens in the separate
+            BedtimeMediaChooser overlay below - never on this screen. */}
+        {selectedBedtimeItem ? (
           <div className="space-y-2">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">
+              {selectedBedtimeIsSound ? 'Sleep sound' : 'Guided video'} selected
+            </span>
+            <BetaVideoRow
+              title={selectedBedtimeItem.entry.title}
+              description={selectedBedtimeItem.blurb}
+              duration={selectedBedtimeItem.duration}
+              onClick={() => handleSelect(selectedBedtimeId)}
+            />
             <button
               type="button"
-              onClick={() => setMoreGuidanceOpen((v) => !v)}
-              aria-expanded={moreGuidanceOpen}
-              aria-controls="prepare-for-rest-more-guidance"
+              onClick={() => setChooserOpen(true)}
               className="text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors px-1 min-h-[44px] flex items-center gap-1"
             >
-              <span
-                className="material-symbols-outlined text-sm transition-transform"
-                style={{ transform: moreGuidanceOpen ? 'rotate(180deg)' : 'none' }}
-                aria-hidden="true"
-              >
-                expand_more
-              </span>
-              <span>More bedtime options</span>
+              Change selection
             </button>
-            {moreGuidanceOpen && (
-              <div id="prepare-for-rest-more-guidance" className="space-y-4">
-                {moreGuidanceItems.length > 0 && (
-                  <div className="space-y-2">
-                    {moreGuidanceItems.map(({ id, entry, blurb, duration }) => (
-                      <BetaVideoRow key={id} title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
-                    ))}
-                  </div>
-                )}
-                {moreSleepSoundItems.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Sleep Sounds</h3>
-                    {moreSleepSoundItems.map(({ id, entry, blurb, duration }) => (
-                      <BetaVideoRow key={id} title={entry.title} description={blurb} duration={duration} onClick={() => handleSelect(id)} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setChooserOpen(true)}
+            aria-haspopup="dialog"
+            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="text-sm font-semibold text-on-surface text-left">Choose a bedtime video or sleep sound</span>
+            <span className="material-symbols-outlined text-on-surface-variant shrink-0" aria-hidden="true">chevron_right</span>
+          </button>
         )}
 
         {primaryAction}
@@ -298,7 +285,7 @@ export const PrepareForRest = () => {
 
       {/* Closing this leaves the user right here on Prepare for Rest —
           already "Evening Wind-down", no navigation needed for a return
-          path - checklist selections (plain component state) are
+          path - checklist/bedtime selections (plain component state) are
           completely unaffected, since the modal is only ever layered on
           top of this same mounted page. */}
       {openVideo && (
@@ -311,5 +298,14 @@ export const PrepareForRest = () => {
         onDismiss={dismissPrompt}
       />
     </EveningSceneShell>
+    {chooserOpen && (
+      <BedtimeMediaChooser
+        videos={guidedVideoItems}
+        sounds={sleepSoundItems}
+        onSelect={handleChooseBedtimeMedia}
+        onClose={() => setChooserOpen(false)}
+      />
+    )}
+    </>
   );
 };

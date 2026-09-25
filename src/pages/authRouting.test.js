@@ -24,19 +24,19 @@ const routineDetailSource = read('./RoutineDetail.jsx');
 
 describe('Auth.jsx redirectAfterAuth — ordinary sign-in goes Home, never Profile', () => {
   it('falls back to navigate(\'/\') when nothing is pending - the exact fixed line', () => {
-    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/navigate\('\/'\);\s*\n {2}\};$/);
     expect(body).not.toMatch(/navigate\('\/profile'\)/);
   });
 
   it('an explicit pending destination with no id navigates straight to its returnPath (protected-routine flow)', () => {
-    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(!pending\.id\) \{\s*\n\s*navigate\(pending\.returnPath\);\s*\n\s*return;\s*\n\s*\}/);
   });
 
   it('an explicit pending destination WITH an id (protected-media flow) navigates to returnPath with ?openId= attached', () => {
-    const body = authSource.match(/const redirectAfterAuth = async \(authUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const body = authSource.match(/const redirectAfterAuth = async \(authUser, \{ isSignIn = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/navigate\(`\$\{pending\.returnPath\}\$\{separator\}openId=\$\{encodeURIComponent\(pending\.id\)\}`\);/);
   });
 
@@ -46,8 +46,19 @@ describe('Auth.jsx redirectAfterAuth — ordinary sign-in goes Home, never Profi
   });
 
   it('both handleSignIn and handleSignUp await redirectAfterAuth on success, passing the freshly-returned auth user - one routing decision, not two, never a stale context read', () => {
-    const occurrences = authSource.match(/await redirectAfterAuth\((signInData\?\.user|data\.user)\);/g) ?? [];
+    expect(authSource).toMatch(/await redirectAfterAuth\(signInData\?\.user, \{ isSignIn: true \}\);/);
+    expect(authSource).toMatch(/await redirectAfterAuth\(data\.user\);/);
+    const occurrences = authSource.match(/await redirectAfterAuth\(/g) ?? [];
     expect(occurrences.length).toBe(2);
+  });
+
+  // Build 16 physical-iPhone correction (F1) — only handleSignIn's call
+  // site marks isSignIn:true. handleSignUp's own call deliberately never
+  // does, since the new Welcome-back branch below must never reach a
+  // brand-new signup - see the isSignIn doc comment on redirectAfterAuth
+  // itself for the full rationale.
+  it('only handleSignIn passes isSignIn:true - handleSignUp never does', () => {
+    expect(authSource).not.toMatch(/await redirectAfterAuth\(data\.user, \{ isSignIn: true \}\);/);
   });
 
   it('"Continue as guest" never sets a pending destination - only marks guest entry chosen and navigates directly', () => {

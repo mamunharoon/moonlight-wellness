@@ -159,7 +159,19 @@ export const Auth = () => {
   // persistAndContinue itself calls) - this redirect only ever decides
   // WHERE to send the user, never what to do once they arrive, so there
   // is exactly one place in the whole app that starts Morning/Evening.
-  const redirectAfterAuth = async (authUser) => {
+  // Build 16 physical-iPhone correction (F1) — `isSignIn` distinguishes
+  // "this call originates from a real, explicit sign-in submission" from
+  // handleSignUp's own call below (which never passes it, default false).
+  // This is deliberately a call-site flag, not an auth-event-type check:
+  // postAuthRedirectGuard.js's own doc comment already established that
+  // Supabase's `onAuthStateChange` SIGNED_IN event fires for BOTH an
+  // explicit sign-in AND ordinary session restoration on page load, so it
+  // cannot safely distinguish the two - only this function's own callers
+  // can. AuthContext.jsx's session-restore listener never calls
+  // redirectAfterAuth at all (it only sets state), so an app reopen,
+  // refresh, or foreground resume can never reach the new branch below
+  // regardless of this flag.
+  const redirectAfterAuth = async (authUser, { isSignIn = false } = {}) => {
     // Redirect-order defect fix — marked synchronously, before anything
     // else below (including the first await), so OnboardingGate's own
     // passive introduction-version check (which reacts to AuthContext's
@@ -218,6 +230,24 @@ export const Auth = () => {
         navigate(`/introduction?auto=1${existingParam}`, { replace: true });
         return;
       }
+
+      // Build 16 physical-iPhone correction (F1) — a returning user
+      // already caught up to CURRENT_INTRODUCTION_VERSION (the branch
+      // above is false) previously fell straight through to Home on
+      // every sign-in, with no acknowledgement at all. Reuses the exact
+      // same route/screen as the branch above - Introduction.jsx's own
+      // `isExisting` flag already renders "Welcome back, {name}" for
+      // `existing=1` - just reached via a different originating
+      // condition, and only when this call is a genuine explicit sign-in
+      // (never handleSignUp, which never passes isSignIn). Runs at most
+      // once per explicit sign-in submission (this function's own
+      // call-site contract), so it can never repeat on an ordinary app
+      // reopen/refresh/session-restore/foreground-resume - none of those
+      // ever call redirectAfterAuth in the first place.
+      if (isSignIn) {
+        navigate('/introduction?auto=1&existing=1', { replace: true });
+        return;
+      }
     }
 
     navigate('/');
@@ -259,7 +289,7 @@ export const Auth = () => {
     // disabled/showing "Signing in..." for the brief extra moment the
     // introduction-version check takes, rather than flashing back to an
     // idle, re-enabled Auth form right before navigating away.
-    await redirectAfterAuth(signInData?.user);
+    await redirectAfterAuth(signInData?.user, { isSignIn: true });
   };
 
   const handleSignUp = async (e) => {
