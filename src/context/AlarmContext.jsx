@@ -15,6 +15,8 @@ import {
 import { now as devNow } from '../lib/devClock';
 import { sanitizeIntentions } from '../lib/intentionSelection';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
+import { buildAlarmOccurrenceKey, getHandledAlarmOccurrence, markAlarmOccurrenceHandled, clearHandledAlarmOccurrence } from '../lib/alarmOccurrence';
+import { ALARM_CHIME_URL, ALARM_CHIME_TITLE } from '../lib/alarmSound';
 
 const AlarmContext = createContext();
 
@@ -95,7 +97,7 @@ const getInitialIntentions = () =>
   readStoredIntentions() || migrateLegacyIntention() || DEFAULT_INTENTIONS;
 
 export const AlarmProvider = ({ children }) => {
-  const { playTrack } = useAudio();
+  const { playTrack, stopTrack } = useAudio();
   const { user, loading: authLoading, isGuest, migrationRevision } = useAuth();
   // Stage 3C Group 3B2: a new, standalone line — does not modify the
   // protected useAuth() destructure above. See the Background Clock
@@ -181,7 +183,15 @@ export const AlarmProvider = ({ children }) => {
   // just above (it fires on every journeyStep change) — no separate
   // localStorage call needed.
   useEffect(() => {
-    return onSignOutBroadcast(() => setJourneyStep(''));
+    return onSignOutBroadcast(() => {
+      setJourneyStep('');
+      // Same-minute re-trigger defect fix — hygiene sweep, not load-
+      // bearing for correctness (the stored key already embeds identity,
+      // so a stale entry from the outgoing identity could never match a
+      // different incoming identity's own computed key anyway) - see
+      // alarmOccurrence.js's own doc comment.
+      clearHandledAlarmOccurrence();
+    });
   }, []);
 
   // Tracks the userId that `alarmTime`/`bedTime` currently reflect. On the
@@ -431,14 +441,39 @@ export const AlarmProvider = ({ children }) => {
       if (lastFiredKeyRef.current === firedKey) return;
 
       if (currentTimeString === alarmTime) {
+        // Same-minute re-trigger defect fix — lastFiredKeyRef alone only
+        // protects the current live session; it resets to null on any
+        // reload/remount. This second, PERSISTED check catches the exact
+        // case that leaves open: the user already explicitly resolved
+        // this occurrence (Begin/Remind/Skip - see dismissAlarm/snooze
+        // below) before a reload/manual URL navigation happened to land
+        // within the same due-minute. Never true merely because the
+        // alarm started ringing - only an explicit resolution writes this
+        // marker - so a genuinely UNRESOLVED, still-ringing alarm is
+        // still expected to reappear after a reload within the same
+        // minute (the established, unchanged product decision - see
+        // alarmOccurrence.js's own doc comment for the full reasoning).
+        const occurrenceKey = buildAlarmOccurrenceKey({ identity: userId || 'guest', dateKey: zoned.dateKey, alarmTime });
+        if (getHandledAlarmOccurrence() === occurrenceKey) {
+          lastFiredKeyRef.current = firedKey;
+          return;
+        }
+
         lastFiredKeyRef.current = firedKey;
         setIsRinging(true);
         setJourneyStep('alarm');
-        playTrack({
-          title: 'Morning Rise Alarm',
-          url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-          image: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=150'
-        });
+        // Bundled, first-party WakeWise chime (docs/wakewise-alarm-sound-
+        // provenance.md) - served from 'self', no CSP allowance needed, no
+        // external request. Replaces the previous unlicensed third-party
+        // SoundHelix placeholder. No `image` field - the previous
+        // Unsplash decorative image was itself unlicensed AND separately
+        // CSP-blocked (img-src); AlarmActive.jsx already has its own
+        // purpose-built visual design and icon, so this is intentionally
+        // omitted rather than replaced. loop: true - a real alarm must
+        // keep ringing until the user explicitly resolves it via Begin/
+        // Remind/Skip, not stop after one ~8s clip; every resolution path
+        // (dismissAlarm/snooze, below) calls stopTrack() to end the loop.
+        playTrack({ title: ALARM_CHIME_TITLE, url: ALARM_CHIME_URL }, { loop: true });
 
         // Close Remaining Daily-Journey Limitations: the alarm/reminder
         // firing must only ever display AlarmActive - it must never create
@@ -453,14 +488,32 @@ export const AlarmProvider = ({ children }) => {
 
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
-  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, effectiveTimezone]);
+    // userId added (same-minute re-trigger defect fix) — checkTime now
+    // reads it to build the occurrence key; without it in the dependency
+    // list, a sign-in/sign-out that doesn't also change one of the other
+    // deps in the same render could leave this closure using a stale
+    // identity for the occurrence check.
+  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, effectiveTimezone, userId]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
   // not be persisted (local or cloud).
   const snooze = () => {
+    // Same-minute re-trigger defect fix — mark the OLD (currently-due)
+    // occurrence explicitly handled before shifting alarmTime, computed
+    // fresh from the current effectiveTimezone/alarmTime (not from
+    // lastFiredKeyRef, which only tracks the fired MINUTE, never the
+    // identity-scoped occurrence). The new, +5-minute alarmTime set below
+    // produces a genuinely different, never-yet-marked occurrence key on
+    // its own - no separate "make the snoozed occurrence eligible" step
+    // is needed; see alarmOccurrence.js's own doc comment.
+    const zoned = getZonedParts(effectiveTimezone, devNow());
+    markAlarmOccurrenceHandled(buildAlarmOccurrenceKey({ identity: userId || 'guest', dateKey: zoned.dateKey, alarmTime }));
     setIsRinging(false);
     setJourneyStep('');
+    // Stops the looping ring immediately - it must not keep sounding
+    // through the snooze interval until the new, later time fires.
+    stopTrack();
 
     // Close Remaining Daily-Journey Limitations: the alarm/reminder no
     // longer starts a session on fire, so there is nothing to interrupt
@@ -484,8 +537,22 @@ export const AlarmProvider = ({ children }) => {
     setAlarmTime(newAlarmString);
   };
 
+  // Same-minute re-trigger defect fix — the shared resolution path for
+  // both Begin Your Morning and Skip This Morning (AlarmActive.jsx calls
+  // this from both handlers): marks the current occurrence explicitly
+  // handled, exactly like snooze() above, before clearing isRinging. This
+  // is what makes Skip - which otherwise starts no session and never
+  // touches alarmTime - immune to the same reload race Begin already
+  // happened to be protected from by its own session start.
   const dismissAlarm = () => {
+    const zoned = getZonedParts(effectiveTimezone, devNow());
+    markAlarmOccurrenceHandled(buildAlarmOccurrenceKey({ identity: userId || 'guest', dateKey: zoned.dateKey, alarmTime }));
     setIsRinging(false);
+    // Shared by Begin Your Morning and Skip This Morning - both must stop
+    // the looping ring immediately, not leave it sounding (and stuck as
+    // Layout.jsx's global persistent-audio mini-player) into the Morning
+    // routine or after skipping.
+    stopTrack();
   };
 
   // Explicit save for registered users only - a true upsert on the
@@ -524,6 +591,23 @@ export const AlarmProvider = ({ children }) => {
   // wake/bed-only call sites can't accidentally clear an already-
   // confirmed timezone.
   const updateRhythm = (newAlarm, newBed, newTimezone) => {
+    // Same-minute re-trigger defect fix, edited-alarm gap: the
+    // handled-occurrence key is (identity, today's dateKey, alarmTime) -
+    // editing the alarm to a different time and then back to an
+    // already-resolved time LATER THE SAME DAY reproduces that exact same
+    // key, so without this it would stay wrongly suppressed even though
+    // the user just made a fresh, explicit choice to set the alarm for
+    // that time today. Only a genuine time change clears it - a
+    // timezone-only call (TimezoneSettings.jsx passes the SAME alarmTime
+    // back unchanged) must not void an already-resolved occurrence for
+    // today, per the established product decision that a TZ change alone
+    // doesn't reopen a handled alarm. See alarmOccurrence.js's own doc
+    // comment for why superseding is otherwise "free" (a genuinely new
+    // time already produces a genuinely new key on its own) - this is the
+    // one case where the OLD key can recur, so it needs an explicit clear.
+    if (newAlarm !== alarmTime) {
+      clearHandledAlarmOccurrence();
+    }
     setAlarmTime(newAlarm);
     setBedTime(newBed);
     const resolvedTimezone = newTimezone !== undefined ? newTimezone : timezone;

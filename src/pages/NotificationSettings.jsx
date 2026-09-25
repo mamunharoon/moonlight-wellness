@@ -1,9 +1,14 @@
 /* eslint-disable no-unused-vars */
+import { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '../context/NotificationContext';
 import { useMorningReminder } from '../context/MorningReminderContext';
+import { useAudio } from '../context/AudioContext';
+import { useAlarm } from '../context/AlarmContext';
 import { CATEGORY_GROUPS, FREQUENCY_OPTIONS } from '../lib/notificationPreferences';
 import { showTestNotification } from '../lib/notificationService';
 import { MORNING_REMINDER_WEEKDAY_DISPLAY_ORDER, MORNING_REMINDER_WEEKDAY_LABELS } from '../lib/nativeMorningReminder';
+import { ALARM_CHIME_URL, ALARM_CHIME_TITLE } from '../lib/alarmSound';
+import { isNativePlatform } from '../lib/platform';
 import { BackButton } from '../components/BackButton';
 
 /*
@@ -214,6 +219,125 @@ const MorningReminderSection = () => {
   );
 };
 
+const ALARM_SOUND_PREVIEW_MS = 3000;
+
+// "Test alarm sound" — lets a user confirm, from a genuine tap, that
+// WakeWise's bundled foreground alarm chime (see
+// docs/wakewise-alarm-sound-provenance.md) actually plays on this
+// device/browser, without touching the alarm schedule, wake time, or
+// Morning progress in any way. Deliberately its own section, not nested
+// inside MorningReminderSection above (which renders nothing on web -
+// `if (!supported) return null` - since it's specifically about native
+// scheduling; this foreground chime is the same in-page mechanism on
+// both web and native).
+//
+// previewActiveRef (not just previewState) is the real ownership flag:
+// it's checked before ever calling stopTrack() so this component only
+// ever stops audio IT started - never an unrelated track already playing
+// elsewhere in the app (e.g. background meditation music) just because
+// the user happened to navigate through this screen.
+const AlarmSoundSection = () => {
+  const { playTrack, stopTrack, playbackError } = useAudio();
+  const { isRinging } = useAlarm();
+  const native = isNativePlatform();
+  const [previewState, setPreviewState] = useState('idle'); // idle | playing | success | error
+  const previewActiveRef = useRef(false);
+  const previewTimeoutRef = useRef(null);
+
+  const endPreview = (nextState) => {
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    if (previewActiveRef.current) {
+      previewActiveRef.current = false;
+      stopTrack();
+    }
+    setPreviewState(nextState);
+  };
+
+  const handleTestAlarmSound = () => {
+    if (previewActiveRef.current) {
+      // Tapping again while a preview is playing is the compact "stop
+      // early" control - same single button, no separate Stop icon.
+      endPreview('idle');
+      return;
+    }
+    previewActiveRef.current = true;
+    setPreviewState('playing');
+    const playPromise = playTrack({ title: `${ALARM_CHIME_TITLE} Preview`, url: ALARM_CHIME_URL });
+    Promise.resolve(playPromise)
+      .then(() => {
+        if (!previewActiveRef.current) return; // stopped/unmounted already
+        if (isRinging) {
+          // A real alarm started ringing while the preview was starting -
+          // leave it playing rather than have the preview's own auto-stop
+          // cut a genuine alarm short. The preview simply hands off.
+          previewActiveRef.current = false;
+          return;
+        }
+        previewTimeoutRef.current = setTimeout(() => {
+          if (!previewActiveRef.current || isRinging) return;
+          endPreview('success');
+        }, ALARM_SOUND_PREVIEW_MS);
+      })
+      .catch(() => {
+        if (!previewActiveRef.current) return;
+        previewActiveRef.current = false;
+        setPreviewState('error');
+      });
+  };
+
+  // Stop on navigation/unmount - but only a preview this component
+  // itself started (see previewActiveRef's own comment above).
+  useEffect(
+    () => () => {
+      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+      if (previewActiveRef.current) {
+        previewActiveRef.current = false;
+        stopTrack();
+      }
+    },
+    [stopTrack]
+  );
+
+  const isPreviewing = previewState === 'playing';
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Alarm sound</h3>
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+        <div className="p-4 space-y-2">
+          <p className="text-xs text-on-surface-variant">
+            Preview the sound WakeWise plays when your alarm goes off.
+          </p>
+          <button
+            type="button"
+            onClick={handleTestAlarmSound}
+            aria-label={isPreviewing ? 'Stop alarm sound preview' : 'Test alarm sound'}
+            className="min-h-[44px] min-w-[44px] inline-flex items-center text-xs font-bold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent rounded active:scale-95 transition-transform"
+          >
+            {isPreviewing ? 'Stop preview' : 'Test alarm sound'}
+          </button>
+          {!native && (
+            <p className="text-[11px] text-on-surface-variant">
+              Keep WakeWise open and allow site sound for browser alarms.
+            </p>
+          )}
+          <p role="status" aria-live="polite" className="text-[11px] min-h-[14px] font-semibold text-on-surface-variant">
+            {previewState === 'playing' && 'Playing preview…'}
+            {previewState === 'success' && 'Alarm sound played successfully.'}
+            {previewState === 'error' &&
+              (playbackError
+                ? `Couldn't play the alarm sound (${playbackError.name}). Check that site sound is allowed for WakeWise and try again.`
+                : "Couldn't play the alarm sound. Check that site sound is allowed for WakeWise and try again.")}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export const NotificationSettings = () => {
   const {
     preferences,
@@ -233,7 +357,7 @@ export const NotificationSettings = () => {
     const currentPermission = permission === 'default' ? await requestPermission() : permission;
     if (currentPermission === 'granted') showTestNotification();
   };
-  if (Toggle && CategoryRow && MorningReminderSection && WeekdayPicker) { /* no-op to satisfy blind linter */ }
+  if (Toggle && CategoryRow && MorningReminderSection && WeekdayPicker && AlarmSoundSection) { /* no-op to satisfy blind linter */ }
 
   return (
     <div className="space-y-6">
@@ -291,6 +415,7 @@ export const NotificationSettings = () => {
       </section>
 
       <MorningReminderSection />
+      <AlarmSoundSection />
 
       {preferences.enabled && (
         <>

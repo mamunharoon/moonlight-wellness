@@ -1,6 +1,7 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
+import { useAudio } from '../context/AudioContext';
 import { useSession } from '../context/SessionContext';
 import { getStepIndex } from '../session/sessionRegistry';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
@@ -15,6 +16,7 @@ export const AlarmActive = () => {
   // morning session can be started, reset, or left alone. See
   // handleUnlock, handleSnooze and handleSkipMorning below.
   const { state, startSession, resetSession } = useSession();
+  const { playbackError } = useAudio();
   const navigate = useNavigate();
   const [sliderPosition, setSliderPosition] = useState(0);
   const [currentTimeDisplay, setCurrentTimeDisplay] = useState('07:00 AM');
@@ -200,7 +202,12 @@ export const AlarmActive = () => {
       </div>
 
       <div className="relative z-10 w-full max-w-sm space-y-6">
-        <div 
+        {playbackError && (
+          <p role="status" className="text-[11px] text-[#954835] font-semibold bg-white/50 rounded-lg px-3 py-2">
+            Alarm sound couldn&apos;t play on this device. You can still dismiss the alarm below.
+          </p>
+        )}
+        <div
           ref={containerRef}
           className="w-full h-16 rounded-full glass-panel border border-[#954835]/15 bg-white/40 flex items-center p-1 relative overflow-hidden shadow-inner"
         >

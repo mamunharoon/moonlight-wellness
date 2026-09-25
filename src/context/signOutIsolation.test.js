@@ -72,7 +72,17 @@ describe('SessionContext resets the live Session Engine session on sign-out', ()
 describe('AlarmContext clears the legacy journeyStep tracker on sign-out', () => {
   it('resets journeyStep to empty when the sign-out broadcast fires', () => {
     expect(alarmContextSource).toMatch(/import \{ onSignOutBroadcast \} from '\.\.\/lib\/signOutCleanup';/);
-    expect(alarmContextSource).toMatch(/onSignOutBroadcast\(\(\) => setJourneyStep\(''\)\);/);
+    const signOutBlock = alarmContextSource.match(/onSignOutBroadcast\(\(\) => \{[\s\S]*?\n {4}\}\);/)?.[0] ?? '';
+    expect(signOutBlock).toMatch(/setJourneyStep\(''\);/);
+  });
+
+  // Same-minute re-trigger defect fix — the same sign-out broadcast also
+  // sweeps the persisted handled-occurrence marker (alarmOccurrence.js),
+  // so a stale marker never lingers under a signed-out session. See
+  // alarmOccurrenceLifecycle.test.js for the dedicated coverage.
+  it('also clears the handled-occurrence marker when the sign-out broadcast fires', () => {
+    const signOutBlock = alarmContextSource.match(/onSignOutBroadcast\(\(\) => \{[\s\S]*?\n {4}\}\);/)?.[0] ?? '';
+    expect(signOutBlock).toMatch(/clearHandledAlarmOccurrence\(\);/);
   });
 });
 
