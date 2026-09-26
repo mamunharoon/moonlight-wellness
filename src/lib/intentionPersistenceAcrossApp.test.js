@@ -62,8 +62,8 @@ describe('SessionComplete.jsx - "Your Morning Intention(s)" card shows every sel
 });
 
 describe('Affirmation.jsx - shows the mapped affirmation for each selected intention, Primary then Supporting order', () => {
-  it('maps every intention (in its existing, already-ordered array order) through the same fixed getAffirmationForIntention lookup - never re-sorted, never dynamically generated', () => {
-    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention\)\s*\n\s*\}\)\);/);
+  it('maps every intention (in its existing, already-ordered array order) through the same getAffirmationForIntention lookup - never re-sorted, never dynamically generated from the intention text itself (WakeWise Phase 2, B6: now also rotates by the caller\'s own local "today", see intentionAffirmations.test.js)', () => {
+    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
   });
 
   it('renders one affirmation block per selected intention, labelling Primary/Supporting only when there are two', () => {

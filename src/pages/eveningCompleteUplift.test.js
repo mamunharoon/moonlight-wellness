@@ -25,8 +25,8 @@ describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
     expect(source).toMatch(/<span className="block text-\[10px\] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7<\/span>/);
   });
 
-  it('the heading is still the exact original Newsreader italic copy, untouched', () => {
-    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">Your Evening Wind-Down is complete<\/h1>/);
+  it('the heading still uses the exact original Newsreader italic styling; the text itself now rotates via outcomeMessages.js (WakeWise Phase 2, B6 - see eveningCompleteOutcomeMessages.test.js)', () => {
+    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\{headline\}<\/h1>/);
   });
 });
 

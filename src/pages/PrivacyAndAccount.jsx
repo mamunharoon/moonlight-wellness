@@ -91,13 +91,16 @@ export const PrivacyAndAccount = () => {
         )}
       </div>
 
+      {/* WakeWise Phase 2 (B7, dialog severity audit) — Sign out is
+          reversible and must never visually resemble Delete Account's own
+          heavy, genuinely irreversible flow. Neutral (no destructive/
+          mildDestructive prop). */}
       <ConfirmDialog
         open={activeDialog === 'sign-out'}
         title="Sign out?"
         message="You can always sign back in later."
         confirmLabel="Sign out"
         cancelLabel="Cancel"
-        destructive
         onConfirm={handleSignOut}
         onDismiss={() => setActiveDialog(null)}
       />

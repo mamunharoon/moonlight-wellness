@@ -387,8 +387,8 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     // real <audio> element, so wasMusicPlayingRef is always false and
     // handleResume simply never calls start() - no separate "hide the
     // button when ineligible" branch is needed anywhere.
-    it(`${name}: ExercisePausedPanel is rendered with only onResume - no eligibility prop, since an ineligible player can never make wasMusicPlayingRef true in the first place`, () => {
-      expect(source).toMatch(/<ExercisePausedPanel onResume=\{handleResume\} \/>/);
+    it(`${name}: ExercisePausedPanel is rendered with onResume and journeyTone="morning" (WakeWise Phase 2, B4) - no eligibility prop, since an ineligible player can never make wasMusicPlayingRef true in the first place`, () => {
+      expect(source).toMatch(/<ExercisePausedPanel onResume=\{handleResume\} journeyTone="morning" \/>/);
       expect(source).not.toMatch(/showResumeWithMusic/);
     });
   }
@@ -397,13 +397,14 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
 describe('ExercisePausedPanel.jsx - the shared paused-for-guided-session panel itself', () => {
   const panelSource = read('./ExercisePausedPanel.jsx');
 
-  it('renders the exact required copy, never framed as an error', () => {
-    expect(panelSource).toMatch(/Exercise paused/);
-    expect(panelSource).toMatch(/Your timer was stopped while you were away\./);
+  it('WakeWise Phase 2 (B4) — copy now comes from the shared outcomeMessages.js model (OUTCOME.INTERRUPTED), never framed as an error, journeyTone additive/optional (default \'anytime\')', () => {
+    expect(panelSource).toMatch(/import \{ OUTCOME, getOutcomeMessage \} from '\.\.\/lib\/outcomeMessages';/);
+    expect(panelSource).toMatch(/const \{ headline, body \} = getOutcomeMessage\(OUTCOME\.INTERRUPTED, journeyTone\);/);
+    expect(panelSource).toMatch(/journeyTone = 'anytime'/);
   });
 
   it('renders exactly ONE Resume button, wired to onResume - no second "with Music" button, no eligibility prop', () => {
-    expect(panelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume \}\) => \(/);
+    expect(panelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume, journeyTone = 'anytime' \}\) => \{/);
     expect(panelSource).toMatch(/onClick=\{onResume\}[\s\S]*?<span>Resume<\/span>/);
     expect(panelSource).not.toMatch(/onResumeExercise|onResumeWithMusic|showResumeWithMusic/);
     const buttonTags = panelSource.match(/<button/g) ?? [];

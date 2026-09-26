@@ -5,6 +5,8 @@ import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { getAffirmationForIntention } from '../lib/intentionAffirmations';
 import { roleForIndex } from '../lib/intentionSelection';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 import { BackButton } from '../components/BackButton';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
@@ -47,7 +49,7 @@ import { JourneyGlow } from '../components/JourneyGlow';
  */
 export const Affirmation = () => {
   const navigate = useNavigate();
-  const { setJourneyStep, intentions } = useAlarm();
+  const { setJourneyStep, intentions, effectiveTimezone } = useAlarm();
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - no timer, no input on this
   // screen, so leaving it never needs a confirmation; it always reflects
@@ -64,9 +66,14 @@ export const Affirmation = () => {
   // in-order", never a re-sort. A custom (non-preset) intention maps to
   // the same fixed neutral DEFAULT_AFFIRMATION getAffirmationForIntention
   // already returns for one - never a dynamically generated claim.
+  // WakeWise Phase 2 (B6) — each intention's own affirmation now rotates
+  // through 5 curated variants keyed to the user's own local calendar day
+  // (see intentionAffirmations.js's own doc comment) instead of one fixed
+  // line - stable all day, never re-rolled on rerender/reopen.
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const affirmations = intentions.map((intention) => ({
     intention,
-    affirmation: getAffirmationForIntention(intention)
+    affirmation: getAffirmationForIntention(intention, today)
   }));
 
   // Mirror only when the engine is genuinely playing at the 'affirmation'

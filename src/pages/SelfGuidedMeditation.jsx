@@ -289,16 +289,19 @@ export const SelfGuidedMeditation = () => {
             cancelLabel: 'Keep Meditating'
           }}
         />
-        {/* Severity matches MorningMeditate.jsx's own whole-routine exit
-            dialog (destructive, strong) - this is the equivalent
-            whole-feature exit for standalone, not a mere pause. */}
+        {/* WakeWise Phase 2 (B7, dialog severity audit) — was `destructive`,
+            matching MorningMeditate.jsx's own whole-routine exit dialog
+            for consistency; both are now `mildDestructive` for the same
+            reason: this is a plain "exit an active session" action
+            (nothing saved is erased), not this app's "erases meaningful
+            progress" tier. */}
         <ConfirmDialog
           open={exitConfirmOpen}
           title="Leave meditation?"
           message="Your current meditation will end."
           confirmLabel="End and Leave"
           cancelLabel="Continue Meditation"
-          destructive
+          mildDestructive
           onConfirm={performClose}
           onDismiss={() => setExitConfirmOpen(false)}
         />

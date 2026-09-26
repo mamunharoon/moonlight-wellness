@@ -110,6 +110,17 @@ export const Meditate = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // WakeWise Phase 2 (B4) — root cause: handleVideoClose used to navigate
+  // to /meditation-complete unconditionally, with no natural-end check at
+  // all (unlike AnytimeReset.jsx's own onEnded-driven isComplete, or
+  // QuietBreathing.jsx's earlyEnded) - so closing a guided video early was
+  // indistinguishable from actually finishing it, and MeditationComplete.jsx
+  // would show "Meditation complete" (and record the daily completion
+  // flag) either way. True only once the real native `ended` event fires
+  // (BetaVideoModal's onEnded callback, below) - reset whenever a new
+  // video opens so a prior session's natural end can never leak into a
+  // fresh one.
+  const [videoEndedNaturally, setVideoEndedNaturally] = useState(false);
 
   // Strips the now-consumed params so they can't re-trigger on a later
   // re-render or a browser back/forward — touches only router state.
@@ -183,6 +194,7 @@ export const Meditate = () => {
       setSignInPromptOpen(true);
       return;
     }
+    setVideoEndedNaturally(false);
     verifyAndOpenVideo(current.id);
   };
 
@@ -225,12 +237,20 @@ export const Meditate = () => {
 
   const handleVideoClose = () => {
     const entry = getCatalogEntryById(openVideoId);
+    // WakeWise Phase 2 (B4) — carries the real natural-end/early-close
+    // distinction through to MeditationComplete.jsx, which now uses it to
+    // show an honest ended_early acknowledgement (never claiming
+    // completion, never writing the daily completion flag) instead of
+    // unconditionally treating every close as "Meditation complete".
+    const endedEarly = !videoEndedNaturally;
     setOpenVideoId(null);
+    setVideoEndedNaturally(false);
     navigate('/meditation-complete', {
       state: {
         id: entry.id,
         title: entry.title,
-        durationSeconds: entry.meditation?.durationSeconds ?? null
+        durationSeconds: entry.meditation?.durationSeconds ?? null,
+        endedEarly
       }
     });
   };
@@ -366,7 +386,7 @@ export const Meditate = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} />
+        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setVideoEndedNaturally(true)} />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

@@ -50,6 +50,11 @@ describe('SelectionChip.jsx — Anytime Reset Visual Uplift: accent is additive,
     expect(source).toMatch(/anytime: \{\s*\n\s*selected: 'bg-tertiary-tint\/20 border-tertiary shadow-md shadow-tertiary-tint\/20',\s*\n\s*badge: 'bg-tertiary text-on-tertiary',\s*\n\s*check: 'text-tertiary',\s*\n\s*icon: 'text-tertiary',\s*\n\s*label: 'text-tertiary font-bold'\s*\n\s*\}/);
   });
 
+  // WakeWise Phase 2 (guided intention ladder).
+  it('the morning accent swaps selected fill/border/check/icon/label to the already-approved morning-accent gold tokens, only ever reached when a caller explicitly passes accent="morning"', () => {
+    expect(source).toMatch(/morning: \{\s*\n\s*selected: 'bg-morning-accent\/15 border-morning-accent shadow-md shadow-morning-accent\/10',\s*\n\s*badge: 'bg-morning-accent text-on-morning-accent',\s*\n\s*check: 'text-morning-accent',\s*\n\s*icon: 'text-morning-accent',\s*\n\s*label: 'text-morning-accent font-bold'\s*\n\s*\}/);
+  });
+
   it('the unselected state is not part of the accent map at all - it stays the exact same glass-panel/on-surface-variant classes for every accent', () => {
     expect(source).toMatch(/: 'glass-panel border-white\/5 text-on-surface-variant hover:bg-white\/10'/);
     expect(source).not.toMatch(/CHIP_ACCENT\.[a-z]+\.unselected/);

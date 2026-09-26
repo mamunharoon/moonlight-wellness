@@ -57,6 +57,18 @@
  * whether to open SignInPromptDialog. `startLabel` already lets the
  * caller swap the button's own text (e.g. "Sign in to start"), so the
  * button itself needs no locked-specific branching here.
+ *
+ * `expanded`/`controlsId` (WakeWise Phase 2, B5 — additive, optional,
+ * both `undefined` by default): Meditate.jsx's own caller passes neither
+ * and is completely unaffected (React omits an `undefined` aria-* attribute
+ * from the DOM entirely, so its "Choose another" stays a plain button with
+ * no aria-expanded at all, exactly as before). AnytimeReset.jsx's own
+ * "Choose another" is now a real progressive-disclosure toggle (its own
+ * onChooseAnother no longer cycles - it opens/closes a list of real
+ * alternatives this component doesn't render itself), so it passes both
+ * for a standard, accessible disclosure-button contract - the same
+ * aria-expanded/aria-controls pattern Grounding.jsx's own "Need more
+ * support?" disclosure already established (WakeWise Phase 1).
  */
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
 
@@ -83,7 +95,9 @@ export const RecommendationCard = ({
   showChooseAnother,
   chooseAnotherLabel,
   accent = 'primary',
-  locked = false
+  locked = false,
+  expanded,
+  controlsId
 }) => (
   <div
     className={`glass-panel rounded-3xl p-5 space-y-3 border-white/10 ${CARD_ACCENT_CLASS[accent] ?? ''}`}
@@ -121,6 +135,8 @@ export const RecommendationCard = ({
       <button
         type="button"
         onClick={onChooseAnother}
+        aria-expanded={expanded}
+        aria-controls={controlsId}
         className="w-full min-h-[44px] glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         {chooseAnotherLabel}

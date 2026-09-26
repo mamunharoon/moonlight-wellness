@@ -4,10 +4,15 @@ import {
   addCustomIntention,
   sanitizeIntentions,
   roleForIndex,
+  setPrimaryIntention,
+  setSupportingIntention,
+  clearSupportingIntention,
   MAX_INTENTIONS,
+  MAX_CUSTOM_INTENTION_LENGTH,
   LIMIT_MESSAGE,
   CUSTOM_LIMIT_MESSAGE,
-  DUPLICATE_INTENTION_MESSAGE
+  DUPLICATE_INTENTION_MESSAGE,
+  TOO_LONG_INTENTION_MESSAGE
 } from './intentionSelection';
 
 describe('toggleIntention - selection limits, ordering, promotion, custom intention', () => {
@@ -178,6 +183,125 @@ describe('addCustomIntention - ADD-ONLY custom-intention defect fix (ChangeInten
     expect(CUSTOM_LIMIT_MESSAGE).toBe('You can choose up to two intentions. Remove one before adding your own.');
     expect(DUPLICATE_INTENTION_MESSAGE).toBe('That intention is already selected.');
     expect(CUSTOM_LIMIT_MESSAGE).not.toBe(LIMIT_MESSAGE);
+  });
+
+  // WakeWise Phase 2 (B3.6) — excessively long custom entries.
+  it('an excessively long value is rejected as too-long, checked only after duplicate/limit so every existing short-string scenario above is unaffected', () => {
+    const tooLong = 'x'.repeat(MAX_CUSTOM_INTENTION_LENGTH + 1);
+    const { intentions, status } = addCustomIntention([], tooLong);
+    expect(status).toBe('too-long');
+    expect(intentions).toEqual([]);
+  });
+
+  it('a value at exactly the length limit is still accepted', () => {
+    const exact = 'x'.repeat(MAX_CUSTOM_INTENTION_LENGTH);
+    const { intentions, status } = addCustomIntention([], exact);
+    expect(status).toBe('added');
+    expect(intentions).toEqual([exact]);
+  });
+
+  it('length is measured on the TRIMMED value, so leading/trailing whitespace never wrongly triggers too-long', () => {
+    const padded = `  ${'x'.repeat(MAX_CUSTOM_INTENTION_LENGTH)}  `;
+    const { status } = addCustomIntention([], padded);
+    expect(status).toBe('added');
+  });
+
+  it('TOO_LONG_INTENTION_MESSAGE is real, non-empty copy distinct from every other message', () => {
+    expect(typeof TOO_LONG_INTENTION_MESSAGE).toBe('string');
+    expect(TOO_LONG_INTENTION_MESSAGE.length).toBeGreaterThan(0);
+    expect(TOO_LONG_INTENTION_MESSAGE).not.toBe(LIMIT_MESSAGE);
+    expect(TOO_LONG_INTENTION_MESSAGE).not.toBe(CUSTOM_LIMIT_MESSAGE);
+    expect(TOO_LONG_INTENTION_MESSAGE).not.toBe(DUPLICATE_INTENTION_MESSAGE);
+  });
+});
+
+// WakeWise Phase 2 (B1) — guided intention ladder primitives.
+describe('setPrimaryIntention - Stage 1, exactly one primary', () => {
+  it('sets a primary from empty', () => {
+    expect(setPrimaryIntention([], 'Stay calm')).toEqual(['Stay calm']);
+  });
+
+  it('replaces an existing primary with no supporting present', () => {
+    expect(setPrimaryIntention(['Stay calm'], 'Be patient')).toEqual(['Be patient']);
+  });
+
+  it('replaces the primary while preserving a distinct existing supporting intention', () => {
+    expect(setPrimaryIntention(['Stay calm', 'Be grateful'], 'Be patient')).toEqual(['Be patient', 'Be grateful']);
+  });
+
+  it('drops the existing supporting intention if the new primary equals it (case-insensitively) - a supporting intention can never equal its own primary', () => {
+    expect(setPrimaryIntention(['Stay calm', 'Be grateful'], 'be grateful')).toEqual(['be grateful']);
+  });
+
+  it('a blank/whitespace-only value is a no-op, returning the same reference', () => {
+    const current = ['Stay calm'];
+    expect(setPrimaryIntention(current, '   ')).toBe(current);
+  });
+
+  it('stores a custom primary trimmed, casing/spacing preserved verbatim', () => {
+    expect(setPrimaryIntention([], '  My Own Focus  ')).toEqual(['My Own Focus']);
+  });
+
+  it('never mutates the input array', () => {
+    const current = Object.freeze(['Stay calm', 'Be grateful']);
+    expect(() => setPrimaryIntention(current, 'Be patient')).not.toThrow();
+    expect(current).toEqual(['Stay calm', 'Be grateful']);
+  });
+});
+
+describe('setSupportingIntention - Stage 2, optional and must differ from the primary', () => {
+  it('adds a supporting intention alongside an existing primary', () => {
+    expect(setSupportingIntention(['Stay calm'], 'Be grateful')).toEqual(['Stay calm', 'Be grateful']);
+  });
+
+  it('replaces an existing supporting intention, primary untouched', () => {
+    expect(setSupportingIntention(['Stay calm', 'Be grateful'], 'Be patient')).toEqual(['Stay calm', 'Be patient']);
+  });
+
+  it('returns unchanged when there is no primary yet - never invents one', () => {
+    expect(setSupportingIntention([], 'Be grateful')).toEqual([]);
+  });
+
+  it('returns unchanged (defensive) when the value equals the primary, case-insensitively', () => {
+    const current = ['Stay calm'];
+    expect(setSupportingIntention(current, 'stay calm')).toBe(current);
+  });
+
+  it('a blank/whitespace-only value is a no-op', () => {
+    const current = ['Stay calm'];
+    expect(setSupportingIntention(current, '')).toBe(current);
+  });
+
+  it('stores a custom supporting intention trimmed, casing/spacing preserved verbatim', () => {
+    expect(setSupportingIntention(['Stay calm'], '  My Own Support  ')).toEqual(['Stay calm', 'My Own Support']);
+  });
+
+  it('never mutates the input array', () => {
+    const current = Object.freeze(['Stay calm']);
+    expect(() => setSupportingIntention(current, 'Be grateful')).not.toThrow();
+    expect(current).toEqual(['Stay calm']);
+  });
+});
+
+describe('clearSupportingIntention - "No thanks, one is enough"', () => {
+  it('drops the supporting intention, keeping the primary', () => {
+    expect(clearSupportingIntention(['Stay calm', 'Be grateful'])).toEqual(['Stay calm']);
+  });
+
+  it('is a safe no-op when there is no supporting intention yet', () => {
+    const current = ['Stay calm'];
+    expect(clearSupportingIntention(current)).toBe(current);
+  });
+
+  it('is a safe no-op on an empty selection', () => {
+    const current = [];
+    expect(clearSupportingIntention(current)).toBe(current);
+  });
+
+  it('never mutates the input array', () => {
+    const current = Object.freeze(['Stay calm', 'Be grateful']);
+    expect(() => clearSupportingIntention(current)).not.toThrow();
+    expect(current).toEqual(['Stay calm', 'Be grateful']);
   });
 });
 

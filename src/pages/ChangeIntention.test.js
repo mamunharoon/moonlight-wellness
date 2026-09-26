@@ -8,10 +8,13 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./ChangeIntention.jsx', import.meta.url)), 'utf-8');
 
 describe('ChangeIntention.jsx — reuses existing business logic, never a parallel implementation', () => {
-  it('imports the exact same selection/persistence helpers IntentionSetup.jsx uses, plus the custom-intention defect fix\'s add-only helper and messages', () => {
-    expect(source).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
+  it('imports the exact same selection/persistence helpers IntentionSetup.jsx uses, plus the custom-intention defect fix\'s add-only helper and messages (WakeWise Phase 2 B3.6 adds the shared length cap/message)', () => {
+    expect(source).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE,\s*\n\s*MAX_CUSTOM_INTENTION_LENGTH,\s*\n\s*TOO_LONG_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
     expect(source).toMatch(/import \{ saveIntentionsToCloud \} from '\.\.\/lib\/intentionPersistence';/);
     expect(source).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
+    // WakeWise Phase 2 (B2) — decorative icon per preset, same shared map
+    // IntentionSetup.jsx's own ladder uses.
+    expect(source).toMatch(/import \{ getIntentionIcon \} from '\.\.\/lib\/intentionIcons';/);
   });
 
   it('never imports or references the Session Engine or routine start/resume/reset', () => {
@@ -64,9 +67,9 @@ describe('ChangeIntention.jsx — guest guard (direct URL/refresh safety, second
 });
 
 describe('ChangeIntention.jsx — existing WakeWise choices as large tap cards, Primary/Supporting clearly distinguished', () => {
-  it('renders all six shared presets via the shared SelectionChip component in "large" mode, two columns', () => {
+  it('renders all six shared presets via the shared SelectionChip component in "large" mode, two columns, each with its own decorative icon (WakeWise Phase 2, B2)', () => {
     expect(source).toMatch(/\{INTENTION_PRESETS\.map\(\(preset\) => \{/);
-    expect(source).toMatch(/<SelectionChip\s*\n\s*key=\{preset\}\s*\n\s*large\s*\n\s*label=\{preset\}\s*\n\s*selected=\{isSelected\}\s*\n\s*roleLabel=\{roleForIndex\(selectedIndex\)\}\s*\n\s*onClick=\{\(\) => applySelection\(preset\)\}/);
+    expect(source).toMatch(/<SelectionChip\s*\n\s*key=\{preset\}\s*\n\s*large\s*\n\s*icon=\{getIntentionIcon\(preset\)\}\s*\n\s*label=\{preset\}\s*\n\s*selected=\{isSelected\}\s*\n\s*roleLabel=\{roleForIndex\(selectedIndex\)\}\s*\n\s*onClick=\{\(\) => applySelection\(preset\)\}/);
     expect(source).toMatch(/className="grid grid-cols-2 gap-3"/);
   });
 
@@ -104,11 +107,17 @@ describe('ChangeIntention.jsx — optional collapsed "Add your own"; typing is n
     expect(body).not.toMatch(/applySelection/);
   });
 
-  it('blank is a silent no-op; duplicate and limit-reached each show their own message and are handled as distinct statuses', () => {
+  it('blank is a silent no-op; duplicate, limit-reached and too-long each show their own message and are handled as distinct statuses', () => {
     const body = source.match(/const handleAddCustom = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(status === 'blank'\) return;/);
     expect(body).toMatch(/if \(status === 'duplicate'\) \{\s*\n\s*setLimitMessage\(DUPLICATE_INTENTION_MESSAGE\);/);
     expect(body).toMatch(/if \(status === 'limit-reached'\) \{\s*\n\s*setLimitMessage\(CUSTOM_LIMIT_MESSAGE\);/);
+    // WakeWise Phase 2 (B3.6).
+    expect(body).toMatch(/if \(status === 'too-long'\) \{\s*\n\s*setLimitMessage\(TOO_LONG_INTENTION_MESSAGE\);/);
+  });
+
+  it('the custom input carries a matching maxLength, defense in depth alongside the pure-function check', () => {
+    expect(source).toMatch(/maxLength=\{MAX_CUSTOM_INTENTION_LENGTH\}/);
   });
 
   it('customIntention (the typed text) is cleared ONLY on a genuine add - every rejection (duplicate/limit-reached) preserves it, since the user might want to edit or copy it rather than watch it vanish', () => {

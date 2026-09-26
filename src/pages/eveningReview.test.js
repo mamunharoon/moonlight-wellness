@@ -45,9 +45,8 @@ describe('Completed Evening actions - authenticated vs guest (items 1-4)', () =>
     expect(eveningCompleteSource).toMatch(/Return Home/);
   });
 
-  it('approved heading and supporting copy, no medical/physiological/guaranteed-sleep claim', () => {
-    expect(eveningCompleteSource).toMatch(/Your Evening Wind-Down is complete/);
-    expect(eveningCompleteSource).toMatch(/You've taken time to reflect, appreciate the day and prepare for rest\./);
+  it('approved heading/supporting copy now rotates via the shared outcomeMessages.js model (WakeWise Phase 2, B6), no medical/physiological/guaranteed-sleep claim anywhere in that set', () => {
+    expect(eveningCompleteSource).toMatch(/const \{ headline, body \} = getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.EVENING, today\);/);
     expect(eveningCompleteSource).not.toMatch(/nervous system|melatonin|guarantee|cure|treat(s|ment)?\b/i);
   });
 

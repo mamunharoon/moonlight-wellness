@@ -29,22 +29,37 @@
  * any, reaches the exact same InteractiveAmbientMusic.start() as the
  * pre-start Begin gesture and the active-view toggle - all real,
  * guest-allowed calls (IB01/IS01 are server-allowlisted for guests).
+ *
+ * WakeWise Phase 2 (B4) — this IS the app's one existing "interrupted"
+ * resume screen for a timed exercise (Session Engine's own
+ * SESSION_STATUS.INTERRUPTED has no dedicated resume-choice UI anywhere
+ * else - see outcomeMessages.js's own top comment). Reused as-is rather
+ * than building a new screen: still exactly one Resume action, no new
+ * choices added. `journeyTone` (additive, default 'anytime' - matches
+ * this component's own most-neutral existing tone) selects the honest,
+ * context-appropriate copy from the shared outcomeMessages.js model
+ * instead of one fixed "Exercise paused" string.
  */
-export const ExercisePausedPanel = ({ onResume }) => (
-  <div className="glass-panel rounded-2xl p-5 text-center space-y-3 border border-white/10">
-    <h3 className="text-sm font-bold text-on-surface">Exercise paused</h3>
-    <p className="text-xs text-on-surface-variant leading-relaxed">
-      Your timer was stopped while you were away.
-    </p>
-    <div className="space-y-2 pt-1">
-      <button
-        type="button"
-        onClick={onResume}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
-      >
-        <span className="material-symbols-outlined text-sm">play_arrow</span>
-        <span>Resume</span>
-      </button>
+import { OUTCOME, getOutcomeMessage } from '../lib/outcomeMessages';
+
+export const ExercisePausedPanel = ({ onResume, journeyTone = 'anytime' }) => {
+  const { headline, body } = getOutcomeMessage(OUTCOME.INTERRUPTED, journeyTone);
+  return (
+    <div className="glass-panel rounded-2xl p-5 text-center space-y-3 border border-white/10">
+      <h3 className="text-sm font-bold text-on-surface">{headline}</h3>
+      <p className="text-xs text-on-surface-variant leading-relaxed">
+        {body}
+      </p>
+      <div className="space-y-2 pt-1">
+        <button
+          type="button"
+          onClick={onResume}
+          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+        >
+          <span className="material-symbols-outlined text-sm">play_arrow</span>
+          <span>Resume</span>
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};

@@ -86,13 +86,13 @@ describe('AlarmContext resets intentions/rhythm synchronously (useLayoutEffect) 
 
 describe('Derived affirmations have no independent storage - fixing intentions isolation automatically fixes affirmation isolation', () => {
   it('Affirmation.jsx derives every affirmation from the live intentions context value only, never localStorage/sessionStorage', () => {
-    expect(affirmationSource).toMatch(/const \{ setJourneyStep, intentions \} = useAlarm\(\);/);
+    expect(affirmationSource).toMatch(/const \{ setJourneyStep, intentions, effectiveTimezone \} = useAlarm\(\);/);
     expect(affirmationSource).not.toMatch(/localStorage/);
     expect(affirmationSource).not.toMatch(/sessionStorage/);
   });
 
   it('the affirmation lookup is a pure fixed table, never built from another user\'s or a guest\'s stored text', () => {
-    expect(affirmationSource).toMatch(/affirmation: getAffirmationForIntention\(intention\)/);
+    expect(affirmationSource).toMatch(/affirmation: getAffirmationForIntention\(intention, today\)/);
   });
 });
 

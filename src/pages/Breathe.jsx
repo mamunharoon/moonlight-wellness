@@ -564,7 +564,7 @@ export const Breathe = () => {
       )}
 
       {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
-        <ExercisePausedPanel onResume={handleResume} />
+        <ExercisePausedPanel onResume={handleResume} journeyTone="morning" />
       )}
 
       {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (

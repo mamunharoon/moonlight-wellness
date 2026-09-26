@@ -42,7 +42,7 @@ describe('INTENTION_PRESETS - the single shared preset list', () => {
   });
 });
 
-describe('IntentionSetup.jsx — Morning routine\'s own Step 1, a distinct Session-Engine-coupled screen (chip-tap path untouched by the Change Intention remediation; its own custom-input path has its own dedicated fix, see IntentionSetup.customIntentionFix.test.js)', () => {
+describe('IntentionSetup.jsx — Morning routine\'s own Step 1, now a guided two-stage ladder (WakeWise Phase 2, B1) - see IntentionSetup.ladder.test.js for the full stage-by-stage contract', () => {
   it('imports INTENTION_PRESETS instead of a local hardcoded array', () => {
     expect(intentionSetupSource).toMatch(/import \{ INTENTION_PRESETS \} from '\.\.\/lib\/intentionAffirmations';/);
     expect(intentionSetupSource).toMatch(/const presets = INTENTION_PRESETS;/);
@@ -54,34 +54,34 @@ describe('IntentionSetup.jsx — Morning routine\'s own Step 1, a distinct Sessi
     expect(intentionSetupSource).not.toMatch(/from\('user_intentions'\)\s*\n\s*\.upsert/);
   });
 
-  it('imports the shared intentionSelection helpers - toggleIntention (chip-tap), addCustomIntention (custom-input fix), roleForIndex and both message constants', () => {
-    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
+  it('imports the shared intentionSelection ladder primitives (setPrimaryIntention/setSupportingIntention/clearSupportingIntention) and message constants - never the old flat toggleIntention/addCustomIntention path', () => {
+    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*setPrimaryIntention,\s*\n\s*setSupportingIntention,\s*\n\s*clearSupportingIntention,\s*\n\s*MAX_CUSTOM_INTENTION_LENGTH,\s*\n\s*DUPLICATE_INTENTION_MESSAGE,\s*\n\s*TOO_LONG_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
+    expect(intentionSetupSource).not.toMatch(/toggleIntention|addCustomIntention/);
   });
 
-  it('the instruction copy asks for one or two intentions, never "exactly one"', () => {
-    expect(intentionSetupSource).toMatch(/Choose one or two qualities you want to carry into today\./);
-    expect(intentionSetupSource).not.toMatch(/Choose one primary intention/);
+  it('the ladder never asks for "one or two qualities" (the ambiguous interaction this replaces) - Stage 1 asks for exactly one primary, Stage 2 explicitly offers an optional supporting one', () => {
+    expect(intentionSetupSource).not.toMatch(/Choose one or two qualities/);
+    expect(intentionSetupSource).toMatch(/Choose one intention to guide your day\./);
+    expect(intentionSetupSource).toMatch(/Choose one, or continue with your main intention\./);
   });
 
-  it('Continue is disabled whenever nothing is selected - Skip is not (it deliberately still lets the user move on); F1: Continue passes confirmed=true, Skip passes confirmed=false', () => {
-    const continueButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{\(\) => handleComplete\(true\)\}\s*\n\s*disabled=\{isSaving \|\| intentions\.length === 0\}[\s\S]*?<\/button>/);
-    expect(continueButton).not.toBeNull();
-    expect(continueButton[0]).toMatch(/Continue/);
+  it('the final CTA reads "Set My Intention" (Stage 3/Summary only) - Skip remains available at Stage 1/2 as the same pre-existing escape hatch', () => {
+    expect(intentionSetupSource).toMatch(/<span>\{isSaving \? 'Saving\.\.\.' : 'Set My Intention'\}<\/span>/);
     const skipButton = intentionSetupSource.match(/<button\s*\n\s*onClick=\{\(\) => handleComplete\(false\)\}\s*\n\s*disabled=\{isSaving\}[\s\S]*?Skip this step/);
     expect(skipButton).not.toBeNull();
   });
 
-  it('shows the "up to two" limit message when toggleIntention reports limitReached, and self-clears it', () => {
-    expect(intentionSetupSource).toMatch(/setLimitMessage\(LIMIT_MESSAGE\);\s*\n\s*setTimeout\(\(\) => setLimitMessage\(''\), 2500\);/);
+  it('shows TOO_LONG_INTENTION_MESSAGE and DUPLICATE_INTENTION_MESSAGE (never the old LIMIT_MESSAGE, which no longer applies to a two-stage exactly-one-then-optional-one flow)', () => {
+    expect(intentionSetupSource).toMatch(/showLimitMessage\(TOO_LONG_INTENTION_MESSAGE\);/);
+    expect(intentionSetupSource).toMatch(/showLimitMessage\(DUPLICATE_INTENTION_MESSAGE\);/);
     expect(intentionSetupSource).toMatch(/\{limitMessage && \(/);
   });
 
-  it('shows a small Primary/Supporting role label on a selected preset, derived purely from its index', () => {
-    expect(intentionSetupSource).toMatch(/const role = roleForIndex\(selectedIndex\);/);
-  });
-
-  it('the selected-summary chips let a CUSTOM intention be deselected too (not just presets), via the same applySelection path', () => {
-    expect(intentionSetupSource).toMatch(/onClick=\{\(\) => applySelection\(item\)\}/);
+  it('the Summary stage labels each intention by role in plain text (Primary/Supporting), not via a floating badge on a selection grid', () => {
+    const summaryBlock = intentionSetupSource.match(/<div className="glass-panel rounded-2xl p-6[\s\S]*?\n {8}<\/div>\s*\n {6}\)\}/)?.[0] ?? '';
+    expect(summaryBlock).toMatch(/>Primary</);
+    expect(summaryBlock).toMatch(/>Supporting</);
+    expect(summaryBlock).toMatch(/supported by/);
   });
 });
 
@@ -211,8 +211,8 @@ describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-co
     expect(intentionSetupSource).toMatch(/const \{ userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep \} = useAlarm\(\);/);
   });
 
-  it('shows the suggested-starting-point hint only while unconfirmed, never claiming a previous saved choice', () => {
-    expect(intentionSetupSource).toMatch(/\{!intentionsConfirmed && \(/);
+  it('shows the suggested-starting-point hint only at Stage 1 while unconfirmed, never claiming a previous saved choice (Stage 2/Summary already show a real, deliberately-made primary)', () => {
+    expect(intentionSetupSource).toMatch(/\{stage === 'primary' && !intentionsConfirmed && \(/);
     expect(intentionSetupSource).toMatch(/Suggested starting points — keep, remove or add your own\./);
   });
 

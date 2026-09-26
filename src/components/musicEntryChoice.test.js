@@ -72,7 +72,7 @@ describe('MusicEntryChoice.jsx - the shared entry-choice card itself', () => {
 // still has no auth-adjacent prop of any kind.
 describe('ExercisePausedPanel.jsx - no isGuest/onSignIn prop, single Resume action', () => {
   it('the component signature is exactly ({ onResume }) - no isGuest, no onSignIn, no eligibility prop', () => {
-    expect(pausedPanelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume \}\) => \(/);
+    expect(pausedPanelSource).toMatch(/export const ExercisePausedPanel = \(\{ onResume, journeyTone = 'anytime' \}\) => \{/);
   });
 
   it('the single Resume button is wired directly to onResume - never a Sign In substitute', () => {

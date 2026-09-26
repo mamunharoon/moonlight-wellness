@@ -39,8 +39,9 @@ describe('MeditationComplete.jsx writes Meditation completion to the CURRENT ide
     expect(meditationCompleteSource).not.toMatch(/const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';/);
   });
 
-  it('both Return to Today and Choose another meditation write to the scoped key', () => {
-    const occurrences = meditationCompleteSource.match(/localStorage\.setItem\(getMeditationCompletionKey\(userId\), getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey\);/g) ?? [];
+  it('both Return to Today and Choose another meditation write to the scoped key, using the once-resolved local "today" - WakeWise Phase 2 (B4) gates both behind !endedEarly, since an early exit must not record completion', () => {
+    expect(meditationCompleteSource).toMatch(/const today = getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
+    const occurrences = meditationCompleteSource.match(/if \(!endedEarly\) localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/g) ?? [];
     expect(occurrences.length).toBe(2);
   });
 });

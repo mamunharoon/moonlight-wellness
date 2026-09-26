@@ -202,14 +202,14 @@ describe('MorningMeditate.jsx — active screen: Back/End Meditation and Close/X
     expect(dialogBlock).not.toMatch(/session\./);
   });
 
-  it('the exit dialog reuses BackButton.jsx\'s own canonical "Leave this routine?" copy and severity verbatim - no new wording invented for this one screen', () => {
+  it('the exit dialog reuses BackButton.jsx\'s own canonical "Leave this routine?" copy - no new wording invented for this one screen, and (WakeWise Phase 2 B7) uses the mild severity since progress is only paused, never erased', () => {
     const dialogBlock = source.match(/<ConfirmDialog\s*\n\s*open=\{exitConfirmOpen\}[\s\S]*?\/>/)?.[0] ?? '';
     expect(dialogBlock).toMatch(/title="Leave this routine\?"/);
     expect(dialogBlock).toMatch(/message="Your current progress may be paused\."/);
     expect(dialogBlock).toMatch(/confirmLabel="Leave routine"/);
     expect(dialogBlock).toMatch(/cancelLabel="Stay"/);
-    expect(dialogBlock).toMatch(/destructive/);
-    expect(dialogBlock).not.toMatch(/mildDestructive/);
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
   });
 });
 

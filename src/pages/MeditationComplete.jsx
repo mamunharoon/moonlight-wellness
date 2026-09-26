@@ -6,6 +6,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { BackButton } from '../components/BackButton';
 import { getMeditationCompletionKey } from '../lib/dailyCompletion';
+import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
 
 const CHECK_IN_OPTIONS = [
   { id: 'calmer', label: 'Calmer' },
@@ -40,6 +41,20 @@ const formatDuration = (seconds) => {
  * to introduce a database migration unless durable cross-device history
  * is genuinely required — it isn't, for a same-device "did I meditate
  * today" indicator.
+ *
+ * WakeWise Phase 2 (B4) — root cause fixed: Meditate.jsx's handleVideoClose
+ * used to route here unconditionally, with no natural-end check at all, so
+ * closing a guided video early was indistinguishable from genuinely
+ * finishing it - this screen would show "Meditation complete" AND write
+ * the daily completion flag either way. `session.endedEarly` (real,
+ * Meditate.jsx's own onEnded-driven distinction - see that file's own doc
+ * comment) now gates both: the headline/body (via the shared
+ * outcomeMessages.js model, 'anytime' tone) and whether Return Home/Choose
+ * another actually record today's completion. A direct/refreshed visit
+ * with no session state at all (`session` null) has no way to know either
+ * way, so it keeps the prior, pre-Phase-2 completed-style presentation
+ * exactly as before - the defect only ever existed for a genuine
+ * early-closed session, which now always carries real state.
  */
 export const MeditationComplete = () => {
   const navigate = useNavigate();
@@ -49,17 +64,24 @@ export const MeditationComplete = () => {
 
   const session = location.state || null;
   const durationLabel = session ? formatDuration(session.durationSeconds) : null;
+  const endedEarly = Boolean(session?.endedEarly);
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const { headline, body: outcomeBody } = endedEarly
+    ? getOutcomeMessage(OUTCOME.ENDED_EARLY, JOURNEY.ANYTIME, today)
+    : getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.ANYTIME, today);
 
   // User-scoped daily completion audit — writes to the CURRENT identity's
   // own key (see dailyCompletion.js's own doc comment), so this
-  // completion is never later read back as a different user's.
+  // completion is never later read back as a different user's. Never
+  // written for a genuine early exit (B4) - an ended_early outcome must
+  // not record completion.
   const handleReturnHome = () => {
-    localStorage.setItem(getMeditationCompletionKey(userId), getZonedParts(effectiveTimezone, devNow()).dateKey);
+    if (!endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
     navigate('/');
   };
 
   const handleChooseAnother = () => {
-    localStorage.setItem(getMeditationCompletionKey(userId), getZonedParts(effectiveTimezone, devNow()).dateKey);
+    if (!endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
     navigate('/meditate');
   };
 
@@ -81,16 +103,15 @@ export const MeditationComplete = () => {
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
         <div className="space-y-4">
           <span className="material-symbols-outlined text-primary text-4xl">self_improvement</span>
-          <h1 className="font-serif italic text-3xl text-on-surface">Meditation complete</h1>
-          {session ? (
+          <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
+          <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{outcomeBody}</p>
+          {session && (
             <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
               <p className="text-xs text-primary font-bold uppercase tracking-wider">{session.title}</p>
               {durationLabel && (
                 <p className="text-xs text-on-surface-variant">Session length: {durationLabel}</p>
               )}
             </div>
-          ) : (
-            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">Nice work taking that moment for yourself.</p>
           )}
         </div>
 

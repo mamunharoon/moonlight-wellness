@@ -85,8 +85,8 @@ describe('Affirmation.jsx — sparkle icon uses morning-accent gold, matching th
 });
 
 describe('Affirmation.jsx — real dynamic, intention-matched affirmation logic is completely untouched', () => {
-  it('affirmations are still derived per-intention via the real getAffirmationForIntention function, in Primary-then-Supporting order - never a hardcoded sample quote', () => {
-    expect(source).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention\)\s*\n\s*\}\)\);/);
+  it('affirmations are still derived per-intention via the real getAffirmationForIntention function, in Primary-then-Supporting order - never a hardcoded sample quote (WakeWise Phase 2, B6: now also rotates by the caller\'s own local "today")', () => {
+    expect(source).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
   });
 
   it('the real supporting copy above the card is unchanged', () => {

@@ -85,15 +85,22 @@ describe('AnytimeReset.jsx — required navigation controls and Back semantics',
     expect(changeTimeBody).toMatch(/setIsComplete\(false\);/);
   });
 
-  it('Choose another only renders when more than one item is available (Phase B: passed as RecommendationCard\'s showChooseAnother prop), and advances without ever resetting need/duration', () => {
-    expect(source).toMatch(/showChooseAnother=\{items\.length > 1\}/);
-    const body = source.match(/const handleChooseAnother = \(\) => [\s\S]*?;/)?.[0] ?? '';
-    expect(body).toMatch(/setOptionIndex\(\(i\) => i \+ 1\)/);
+  it('WakeWise Phase 2 (B5) — "Choose another" now always renders (a real progressive-disclosure toggle, not gated on items.length), and toggling it never resets need/duration', () => {
+    expect(source).toMatch(/showChooseAnother\n/);
+    const body = source.match(/const handleToggleAlternatives = \(\) => [\s\S]*?;/)?.[0] ?? '';
+    expect(body).toMatch(/setAlternativesOpen\(\(open\) => !open\)/);
     expect(body).not.toMatch(/setNeedId|setDurationId/);
   });
 
-  it('closing the video (handleVideoClose) only clears openVideoId - it stays on the recommendation step, never exits the journey', () => {
-    const body = source.match(/const handleVideoClose = \(\) => [\s\S]*?;/)?.[0] ?? '';
+  it('choosing a specific real alternative directly (handleSelectAlternativeItem) sets optionIndex to that exact item, closes the disclosure, and never resets need/duration', () => {
+    const body = source.match(/const handleSelectAlternativeItem = \(index\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/setOptionIndex\(index\);/);
+    expect(body).toMatch(/setAlternativesOpen\(false\);/);
+    expect(body).not.toMatch(/setNeedId|setDurationId/);
+  });
+
+  it('closing the video (handleVideoClose) only clears openVideoId (plus, since WakeWise Phase 2 B4, raising the honest justEndedEarly acknowledgement) - it stays on the recommendation step, never exits the journey', () => {
+    const body = source.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/setOpenVideoId\(null\)/);
     expect(body).not.toMatch(/navigate\(/);
   });
@@ -334,9 +341,11 @@ describe('AnytimeReset.jsx — F3 guest-gate disclosure', () => {
     expect(signInBody).toMatch(/setPendingContent\(\{ id: current\.id, returnPath: returnPath\(\) \}\);/);
   });
 
-  it('"Choose another" is never relabeled or gated by this fix - it never required authentication in the first place (handleChooseAnother only cycles optionIndex, no auth check)', () => {
-    const body = source.match(/const handleChooseAnother = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).not.toMatch(/isGuest|SignIn|auth/i);
-    expect(source).toMatch(/chooseAnotherLabel="Choose another"/);
+  it('"Choose another" is never gated by this fix - it never required authentication in the first place (handleToggleAlternatives/handleSelectAlternativeItem only ever touch the disclosure/optionIndex, no auth check). WakeWise Phase 2 (B5) does now relabel it to "Hide alternatives" once expanded, by design.', () => {
+    const toggleBody = source.match(/const handleToggleAlternatives = \(\) => [\s\S]*?;/)?.[0] ?? '';
+    const selectBody = source.match(/const handleSelectAlternativeItem = \(index\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(toggleBody).not.toMatch(/isGuest|SignIn|auth/i);
+    expect(selectBody).not.toMatch(/isGuest|SignIn|auth/i);
+    expect(source).toMatch(/chooseAnotherLabel=\{alternativesOpen \? 'Hide alternatives' : 'Choose another'\}/);
   });
 });

@@ -303,13 +303,17 @@ export const Settings = () => {
         </div>
       </section>
 
+      {/* WakeWise Phase 2 (B7, dialog severity audit) — Sign out is
+          reversible (sign back in any time, nothing is deleted or lost)
+          and must never visually resemble Delete Account's own heavy,
+          multi-step, genuinely irreversible flow. Neutral (no destructive/
+          mildDestructive prop) - the plain default ConfirmDialog styling. */}
       <ConfirmDialog
         open={activeDialog === 'sign-out'}
         title="Sign out?"
         message="You can always sign back in later."
         confirmLabel="Sign out"
         cancelLabel="Cancel"
-        destructive
         onConfirm={handleSignOut}
         onDismiss={() => setActiveDialog(null)}
       />

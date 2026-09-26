@@ -105,22 +105,82 @@ describe('Home.jsx dialogCopy() - correct severity reaches the correct dialog ki
   });
 });
 
-describe('The other 7 real ConfirmDialog consumers keep strong destructive, untouched by this change', () => {
-  const consumers = [
-    '../pages/AccountManagement.jsx',
-    '../components/BackButton.jsx',
-    '../pages/EditEveningResponses.jsx',
-    '../pages/Profile.jsx',
-    '../pages/PrivacyAndAccount.jsx',
-    '../pages/EveningComplete.jsx',
-    '../pages/Settings.jsx'
-  ];
+// WakeWise Phase 2 (B7) — full dialog-severity audit. Aligns every real
+// ConfirmDialog consumer's visual severity with its actual consequence:
+// neutral for Sign out and cancel/close-without-data-loss; mild for
+// exiting an active (resumable, nothing-erased) session or discarding a
+// recoverable draft; strong destructive reserved for genuinely erasing
+// saved data (Redo Tonight's Wind-Down). No action's actual behaviour
+// changed - only which of ConfirmDialog's existing severity props each
+// consumer passes. `stripComments` mirrors this codebase's own
+// established convention (see e.g. index.css.test.js) so a doc comment
+// that merely DISCUSSES a prop name in prose (as several of these fixes'
+// own comments now do) can never be mistaken for the prop actually being
+// passed.
+const stripComments = (source) => source.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-  for (const path of consumers) {
-    it(`${path} still passes destructive with no mildDestructive prop`, () => {
-      const source = read(path);
-      expect(source).toMatch(/destructive/);
-      expect(source).not.toMatch(/mildDestructive/);
+describe('WakeWise Phase 2 (B7) — Sign out is neutral (no destructive/mildDestructive), never resembling Delete Account', () => {
+  const signOutConsumers = ['../pages/Settings.jsx', '../pages/Profile.jsx', '../pages/PrivacyAndAccount.jsx', '../pages/AccountManagement.jsx'];
+
+  for (const path of signOutConsumers) {
+    it(`${path} — its "Sign out?" ConfirmDialog passes neither destructive nor mildDestructive`, () => {
+      const code = stripComments(read(path));
+      const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?title="Sign out\?"[\s\S]*?\/>/)?.[0] ?? '';
+      expect(dialogBlock).not.toBe('');
+      expect(dialogBlock).not.toMatch(/destructive/);
     });
   }
+
+  it('DeleteAccount.jsx is untouched by this pass - it never used ConfirmDialog at all (its own bespoke password + typed-phrase hierarchy is the correct, deliberately heavier flow for the single most destructive action in the app)', () => {
+    const deleteAccountSource = read('../pages/DeleteAccount.jsx');
+    expect(deleteAccountSource).not.toMatch(/import \{ ConfirmDialog \}/);
+  });
+});
+
+describe('WakeWise Phase 2 (B7) — "exit an active session" (interruptSession, resumable, nothing erased) is mildDestructive, not strong destructive', () => {
+  it('BackButton.jsx\'s shared default "Leave this routine?" confirmation - corrects every one of its own callers (Breathe.jsx, Affirmation.jsx, IntentionSetup.jsx, MorningFlow.jsx, etc.) at once', () => {
+    const code = stripComments(read('../components/BackButton.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
+  });
+
+  it('MorningMeditate.jsx\'s own local "Leave this routine?" (Close/X while active)', () => {
+    const code = stripComments(read('../pages/MorningMeditate.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?title="Leave this routine\?"[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
+  });
+
+  it('SelfGuidedMeditation.jsx\'s "Leave meditation?" (was destructive, now aligned with MorningMeditate.jsx\'s own equivalent)', () => {
+    const code = stripComments(read('../pages/SelfGuidedMeditation.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?title="Leave meditation\?"[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
+  });
+
+  it('ExitEveningButton.jsx\'s "Leave Evening Wind-Down?" - previously had NO severity styling at all', () => {
+    const code = stripComments(read('../components/evening/ExitEveningButton.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
+  });
+});
+
+describe('WakeWise Phase 2 (B7) — "discard a temporary draft where recovery remains possible" is mildDestructive, not strong destructive', () => {
+  it('EditEveningResponses.jsx\'s "Discard your changes?" - only the unsaved edit draft is discarded, the original saved responses are untouched and still recoverable', () => {
+    const code = stripComments(read('../pages/EditEveningResponses.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?title="Discard your changes\?"[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/mildDestructive/);
+    expect(dialogBlock).not.toMatch(/\bdestructive\b/);
+  });
+});
+
+describe('WakeWise Phase 2 (B7) — genuinely erasing saved data stays strong destructive, unchanged', () => {
+  it('EveningComplete.jsx\'s "Redo tonight\'s Wind-Down?" (permanently deletes saved Reflection/Gratitude responses) is untouched by this pass', () => {
+    const code = stripComments(read('../pages/EveningComplete.jsx'));
+    const dialogBlock = code.match(/<ConfirmDialog[\s\S]*?title="Redo tonight's Wind-Down\?"[\s\S]*?\/>/)?.[0] ?? '';
+    expect(dialogBlock).toMatch(/\bdestructive\b/);
+    expect(dialogBlock).not.toMatch(/mildDestructive/);
+  });
 });

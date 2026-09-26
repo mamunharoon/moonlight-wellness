@@ -84,7 +84,7 @@ describe('Audit of the remaining shared journey components (used by both Anytime
   });
 
   it('the "Choose another"/"Choose Another" button carries an explicit min-h-[44px] alongside its existing py-3 padding', () => {
-    const body = recommendationCardSource.match(/onClick=\{onChooseAnother\}[\s\S]{0,100}/)?.[0] ?? '';
+    const body = recommendationCardSource.match(/onClick=\{onChooseAnother\}[\s\S]{0,200}/)?.[0] ?? '';
     expect(body).toMatch(/min-h-\[44px\]/);
   });
 });

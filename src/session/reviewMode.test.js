@@ -583,9 +583,9 @@ describe('Reflection/Gratitude - review-mode Continue never advances the session
 });
 
 describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intentions with no extra gating (same mechanism as Home\'s Change Intention)', () => {
-  it('applySelection (chip-tap, used by handleSelectPreset and the summary-chip removal buttons) updates the live intentions unconditionally via the shared toggleIntention helper - no Session Engine call gated behind isReviewMode. handleAddCustom now uses its own ADD-only addCustomIntention path - see IntentionSetup.customIntentionFix.test.js - but mirrors this same review-mode save.', () => {
-    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*toggleIntention,\s*\n\s*addCustomIntention,\s*\n\s*roleForIndex,\s*\n\s*LIMIT_MESSAGE,\s*\n\s*CUSTOM_LIMIT_MESSAGE,\s*\n\s*DUPLICATE_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
-    expect(intentionSetupSource).toMatch(/const \{ intentions: next, limitReached \} = toggleIntention\(intentions, value\);/);
+  it('WakeWise Phase 2 (B1) — the guided ladder\'s stage handlers (handleSelectPrimary/handleSelectSupporting/handleAddCustom, see IntentionSetup.customIntentionFix.test.js) all route through one shared `commit` that updates the live intentions unconditionally - no Session Engine call gated behind isReviewMode.', () => {
+    expect(intentionSetupSource).toMatch(/import \{\s*\n\s*setPrimaryIntention,\s*\n\s*setSupportingIntention,\s*\n\s*clearSupportingIntention,\s*\n\s*MAX_CUSTOM_INTENTION_LENGTH,\s*\n\s*DUPLICATE_INTENTION_MESSAGE,\s*\n\s*TOO_LONG_INTENTION_MESSAGE\s*\n\s*\} from '\.\.\/lib\/intentionSelection';/);
+    expect(intentionSetupSource).toMatch(/const commit = \(next\) => \{\s*\n\s*setIntentions\(next\);/);
     // setIntentions( is asserted absent inside the isReviewMode block
     // specifically (a second, redundant array-state write would be the
     // real bug this originally guarded against) - setIntentionsConfirmed(
@@ -675,7 +675,7 @@ describe('Breathe/MorningFlow/EveningBreathing - pause-and-resume-exact-state wi
 
 describe('Affirmation.jsx - always reflects the CURRENT live intentions, including ones changed via review', () => {
   it('reads intentions fresh at render time - no snapshot/cache that could go stale after a reviewed intention change', () => {
-    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention\)\s*\n\s*\}\)\);/);
+    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
   });
 });
 

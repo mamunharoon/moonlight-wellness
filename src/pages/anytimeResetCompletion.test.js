@@ -39,15 +39,16 @@ describe('BetaVideoModal.jsx — new onEnded callback, additive', () => {
 });
 
 describe('AnytimeReset.jsx — isComplete is set only by genuine natural end, never by closing', () => {
-  it('BetaVideoModal is passed onEnded={() => setIsComplete(true)}, and handleVideoClose (early/manual close) never references isComplete at all', () => {
+  it('BetaVideoModal is passed onEnded={() => setIsComplete(true)}, and handleVideoClose (early/manual close) never itself SETS isComplete - it only reads it (WakeWise Phase 2, B4: to raise the honest justEndedEarly acknowledgement when NOT already complete)', () => {
     expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setIsComplete\(true\)\} \/>/);
-    const closeBody = source.match(/const handleVideoClose = \(\) => [\s\S]*?;/)?.[0] ?? '';
-    expect(closeBody).not.toMatch(/isComplete/);
+    const closeBody = source.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(closeBody).not.toMatch(/setIsComplete/);
+    expect(closeBody).toMatch(/if \(!isComplete\) setJustEndedEarly\(true\);/);
   });
 
-  it('isComplete starts false and is reset to false by every action that changes the recommendation (need, duration, chosen alternative, change-need, change-time)', () => {
+  it('isComplete starts false and is reset to false by every action that changes the recommendation (need, duration, chosen alternative, change-need, change-time) - WakeWise Phase 2 (B5) renamed the old handleChooseAnother (a blind cycle) to handleToggleAlternatives/handleSelectAlternativeItem (a real progressive-disclosure toggle + direct selection, see anytimeResetEarlyExitAcknowledgement.test.js), both of which also reset isComplete', () => {
     expect(source).toMatch(/const \[isComplete, setIsComplete\] = useState\(false\);/);
-    for (const handler of ['handleSelectNeed', 'handleSelectDuration', 'handleChangeTime', 'handleChangeNeed', 'handleChooseAnother']) {
+    for (const handler of ['handleSelectNeed', 'handleSelectDuration', 'handleChangeTime', 'handleChangeNeed', 'handleSelectAlternativeItem']) {
       const body = source.match(new RegExp(`const ${handler} = \\([^)]*\\) => \\{[\\s\\S]*?\\n {2}\\};`))?.[0] ?? '';
       expect(body).toMatch(/setIsComplete\(false\);/);
     }
@@ -57,9 +58,9 @@ describe('AnytimeReset.jsx — isComplete is set only by genuine natural end, ne
 describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required copy and actions', () => {
   const recommendStep = source.slice(source.indexOf("step === 'recommend' &&"));
 
-  it('the heading/subtext switch to the exact required copy when isComplete', () => {
-    expect(recommendStep).toMatch(/\{isComplete \? 'Reset complete' : 'Recommended for you'\}/);
-    expect(recommendStep).toMatch(/Take a moment to notice how you feel\./);
+  it('the heading/subtext now rotate via the shared outcomeMessages.js model when isComplete (WakeWise Phase 2, B6 - "Reset complete"/"Take a moment to notice how you feel." is preserved as that set\'s first variant, see outcomeMessages.test.js) - "Recommended for you" is the one fixed string for the ordinary, non-outcome state', () => {
+    expect(recommendStep).toMatch(/\{outcomeMessage \? outcomeMessage\.headline : 'Recommended for you'\}/);
+    expect(source).toMatch(/const outcomeMessage = isComplete\s*\n\s*\? getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.ANYTIME, today\)\s*\n\s*: justEndedEarly\s*\n\s*\? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\)\s*\n\s*: null;/);
   });
 
   // WakeWise DEV — Anytime completion correction: exactly two actions

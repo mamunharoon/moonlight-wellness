@@ -752,7 +752,7 @@ export const MorningFlow = () => {
           viewport with no scroll. See Breathe.jsx's identical panel.
           Both only ever apply once the exercise has genuinely begun. */}
       {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
-        <ExercisePausedPanel onResume={handleResume} />
+        <ExercisePausedPanel onResume={handleResume} journeyTone="morning" />
       )}
 
       {/* Usability remediation - see Breathe.jsx's identical block for the

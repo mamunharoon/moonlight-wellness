@@ -12,6 +12,7 @@ import { roleForIndex } from '../lib/intentionSelection';
 import { getMorningCompletionKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
@@ -69,6 +70,17 @@ export const SessionComplete = () => {
 
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
+  // WakeWise Phase 2 (B6) — this screen is reached ONLY on a genuine
+  // natural completion (the mount effect above gates completeSession() on
+  // state.status==='playing'; a direct/refreshed visit or a mismatched
+  // step still renders this same static screen, unaffected). The
+  // headline/body now rotate through 5 curated, uplifting variants keyed
+  // to the user's own local calendar day (same dayIndexFromDateKey
+  // technique greeting.js already uses) instead of one fixed string -
+  // stable all day, never re-rolled on rerender/reopen.
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const { headline, body } = getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.MORNING, today);
+
   return (
     // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
     // identical block for the full rationale.
@@ -116,9 +128,9 @@ export const SessionComplete = () => {
 
       {/* Text Success Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">You started today with intention.</h2>
+        <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{headline}</h2>
         <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          Your direction is set. Take this feeling with you into the day.
+          {body}
         </p>
       </div>
 

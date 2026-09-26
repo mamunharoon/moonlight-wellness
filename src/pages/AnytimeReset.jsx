@@ -2,10 +2,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useAlarm } from '../context/AlarmContext';
 import { supabase } from '../lib/supabaseClient';
 import { ANYTIME_RESET_DURATIONS, ANYTIME_RESET_NEEDS, getCatalogEntryById } from '../lib/mediaCatalog';
 import { recommendAnytimeReset } from '../lib/anytimeResetRecommendations';
 import { setPendingContent } from '../lib/pendingContent';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
+import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
@@ -74,6 +78,8 @@ const QUICK_RESET_ALTERNATIVES = [
 export const AnytimeReset = () => {
   const navigate = useNavigate();
   const { isGuest, loading: authLoading } = useAuth();
+  const { effectiveTimezone } = useAlarm();
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const [searchParams, setSearchParams] = useSearchParams();
   // Guest/auth wrong-modal fix (Build 15 remediation): a signed-in-looking
   // client can still hold a STALE local session - e.g. its access token
@@ -135,6 +141,25 @@ export const AnytimeReset = () => {
   // Reset to false by every action that changes what's being recommended
   // (a fresh recommendation should never inherit a stale completion state).
   const [isComplete, setIsComplete] = useState(false);
+  // WakeWise Phase 2 (B4) — root cause: handleVideoClose deliberately never
+  // touched isComplete on an early close (correct - it must never claim
+  // completion), but that also meant NO acknowledgement of any kind was
+  // ever shown for stopping early; the screen just silently fell back to
+  // the ordinary "Recommended for you" state as if nothing had happened.
+  // This is the honest, non-blocking middle ground: a transient flag,
+  // cleared by the exact same actions that already clear isComplete
+  // (a fresh recommendation should never inherit a stale acknowledgement
+  // any more than it should inherit a stale completion).
+  const [justEndedEarly, setJustEndedEarly] = useState(false);
+  // WakeWise Phase 2 (B5) — progressive disclosure: the recommended
+  // practice + Start stays visually primary; every real alternative (the
+  // recommendation engine's own other matching items, AND the three
+  // existing quick-reset practices) is collapsed behind this one toggle
+  // by default, rather than always-visible competing with the
+  // recommendation. Independent of items.length - always available, so
+  // Breathe/Meditate/Instant Calm (item 7) stay reachable even when the
+  // recommendation engine returns only a single match.
+  const [alternativesOpen, setAlternativesOpen] = useState(false);
 
   // Strips consumed restore params immediately so they can never
   // re-trigger on a later re-render, browser back/forward, or a reload
@@ -157,11 +182,21 @@ export const AnytimeReset = () => {
   const items = recommendation?.items || [];
   const current = items.length > 0 ? items[optionIndex % items.length] : null;
   const openVideo = openVideoId ? getCatalogEntryById(openVideoId) : null;
+  // WakeWise Phase 2 (B4/B6) — computed once per render rather than twice
+  // (once for the headline, once for the body) - getOutcomeMessage is
+  // pure/cheap either way, this is purely to avoid the redundant call.
+  const outcomeMessage = isComplete
+    ? getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.ANYTIME, today)
+    : justEndedEarly
+      ? getOutcomeMessage(OUTCOME.ENDED_EARLY, JOURNEY.ANYTIME, today)
+      : null;
 
   const handleSelectNeed = (id) => {
     setNeedId(id);
     setStep('duration');
     setIsComplete(false);
+    setJustEndedEarly(false);
+    setAlternativesOpen(false);
   };
 
   const handleSelectDuration = (id) => {
@@ -169,6 +204,8 @@ export const AnytimeReset = () => {
     setOptionIndex(0);
     setStep('recommend');
     setIsComplete(false);
+    setJustEndedEarly(false);
+    setAlternativesOpen(false);
   };
 
   // Required Back semantics: recommendation -> duration -> need -> Home.
@@ -180,18 +217,35 @@ export const AnytimeReset = () => {
   const handleChangeTime = () => {
     setStep('duration');
     setIsComplete(false);
+    setJustEndedEarly(false);
+    setAlternativesOpen(false);
   };
   const handleChangeNeed = () => {
     setStep('need');
     setIsComplete(false);
+    setJustEndedEarly(false);
+    setAlternativesOpen(false);
   };
-  // Never immediately repeats the item just shown while alternatives
-  // exist - a plain increment only wraps back to the first item after
-  // cycling through every other one, exactly like Meditate.jsx's own
-  // handleChooseAnother.
-  const handleChooseAnother = () => {
-    setOptionIndex((i) => i + 1);
+
+  // WakeWise Phase 2 (B5) — root cause: "Choose another" used to silently
+  // cycle optionIndex forward with no visible list at all, so a user
+  // could only ever discover alternatives by repeatedly tapping and
+  // hoping. It's now a real progressive-disclosure toggle: collapsed by
+  // default (matches the recommended practice + Start staying visually
+  // primary), and expanding it reveals the genuine other matching items
+  // (if any) plus the three existing quick-reset practices below -
+  // nothing invented, nothing hidden that used to be reachable.
+  const handleToggleAlternatives = () => setAlternativesOpen((open) => !open);
+
+  // Selecting a SPECIFIC other item from the revealed list - a real,
+  // direct choice (never a blind cycle). needId/durationId are completely
+  // untouched, so the recommendation criteria survive this exactly like
+  // every other alternative-selection path already does.
+  const handleSelectAlternativeItem = (index) => {
+    setOptionIndex(index);
+    setAlternativesOpen(false);
     setIsComplete(false);
+    setJustEndedEarly(false);
   };
 
   const returnPath = () => `/anytime-reset?need=${needId}&duration=${durationId}`;
@@ -237,6 +291,7 @@ export const AnytimeReset = () => {
       setSignInPromptOpen(true);
       return;
     }
+    setJustEndedEarly(false);
     verifyAndOpenVideo(current.id);
   };
 
@@ -286,7 +341,18 @@ export const AnytimeReset = () => {
   // closing (see BetaVideoModal's own onEnded callback below), so an
   // early close here always falls through to the ordinary "Recommended
   // for you" state, never the completion state.
-  const handleVideoClose = () => setOpenVideoId(null);
+  //
+  // WakeWise Phase 2 (B4) — an early close (isComplete still false at the
+  // moment this fires - onEnded, not this handler, is what ever sets it
+  // true) now also raises justEndedEarly, so the ordinary "Recommended for
+  // you" state it falls through to shows a brief, honest "A short pause
+  // still matters" acknowledgement instead of silently pretending nothing
+  // happened. A genuine natural end (isComplete already true) never
+  // touches this flag either way.
+  const handleVideoClose = () => {
+    if (!isComplete) setJustEndedEarly(true);
+    setOpenVideoId(null);
+  };
 
   const handleClose = () => navigate('/');
 
@@ -403,12 +469,22 @@ export const AnytimeReset = () => {
       {step === 'recommend' && (
         <div className="space-y-6">
           <div className="space-y-1">
+            {/* WakeWise Phase 2 (B4/B6) — three real, distinct states: a
+                genuine natural completion (isComplete, rotating headline/
+                body via outcomeMessages.js), a real acknowledgement of
+                stopping early (justEndedEarly - the actual defect this
+                phase fixes: closing early used to silently fall through to
+                the ordinary state below with no acknowledgement at all),
+                and the ordinary pre-completion recommendation view.
+                Neither of the first two is ever shown at the same time as
+                the other (handleVideoClose/handleBegin/onEnded keep them
+                mutually exclusive). */}
             <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">
-              {isComplete ? 'Reset complete' : 'Recommended for you'}
+              {outcomeMessage ? outcomeMessage.headline : 'Recommended for you'}
             </h1>
             <p className="text-sm text-on-surface-variant">
-              {isComplete
-                ? 'Take a moment to notice how you feel.'
+              {outcomeMessage
+                ? outcomeMessage.body
                 : `${ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label} · ${ANYTIME_RESET_DURATIONS.find((d) => d.id === durationId)?.label}`}
             </p>
           </div>
@@ -452,9 +528,11 @@ export const AnytimeReset = () => {
               startLabel={isGuest ? 'Sign in to start' : 'Start'}
               startDisabled={authLoading || verifyingAuth}
               startBusy={verifyingAuth}
-              onChooseAnother={handleChooseAnother}
-              showChooseAnother={items.length > 1}
-              chooseAnotherLabel="Choose another"
+              onChooseAnother={handleToggleAlternatives}
+              showChooseAnother
+              chooseAnotherLabel={alternativesOpen ? 'Hide alternatives' : 'Choose another'}
+              expanded={alternativesOpen}
+              controlsId="anytime-reset-alternatives"
               accent="anytime"
               locked={isGuest}
             />
@@ -465,39 +543,64 @@ export const AnytimeReset = () => {
             </div>
           )}
 
-          {/* WakeWise DEV — Anytime quick-reset alternatives: real,
-              already-shipped WakeWise practices, never a placeholder or
-              a duplicate of the current recommendation. No "Stretch"
-              entry - no standalone Stretch route exists anywhere in this
-              app (MorningFlow.jsx's own stretching is embedded in the
-              Morning routine only), and showing one here would be
-              exactly the invented/duplicate practice this correction
-              forbids. Recommended item stays prominent above; changing
-              need/duration below updates it without ever hiding this
-              row. Hidden during the completion state - "Choose another
-              quick reset" there is the one, unambiguous way back to this
-              same set of choices. */}
-          {!isComplete && (
-            <div className="space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Or choose another quick reset</h2>
-              <div className="space-y-2" role="group" aria-label="Or choose another quick reset">
-                {QUICK_RESET_ALTERNATIVES.map((alt) => (
-                  <button
-                    key={alt.id}
-                    type="button"
-                    onClick={() => handleQuickResetAlternative(alt.id)}
-                    className="w-full text-left glass-panel rounded-2xl p-3 flex items-center gap-3 hover:bg-white/5 active:scale-[0.99] transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary"
-                  >
-                    <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-tertiary/15 text-tertiary">
-                      <span className="material-symbols-outlined text-lg" aria-hidden="true">{alt.icon}</span>
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-bold text-on-surface">{alt.label}</span>
-                      <span className="block text-xs text-tertiary">{alt.durationLabel}</span>
-                    </span>
-                    <span className="material-symbols-outlined text-on-surface-variant text-lg shrink-0" aria-hidden="true">arrow_forward</span>
-                  </button>
-                ))}
+          {/* WakeWise Phase 2 (B5) — progressive disclosure: collapsed by
+              default so the recommendation above stays visually primary
+              and these no longer compete equally with it. Expanding
+              "Choose another" reveals the genuine other matching items
+              (if any) plus the three existing quick-reset practices below
+              - nothing invented, nothing removed, still real WakeWise
+              practices/no "Stretch" entry (no standalone Stretch route
+              exists anywhere in this app). Hidden during the completion
+              state - "Choose another quick reset" there is the one,
+              unambiguous way back to this same set of choices. */}
+          {!isComplete && alternativesOpen && (
+            <div id="anytime-reset-alternatives" className="space-y-4">
+              {items.length > 1 && (
+                <div className="space-y-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Other matches for this need</h2>
+                  <div className="space-y-2" role="group" aria-label="Other matches for this need">
+                    {items.map((item, index) => {
+                      if (index === optionIndex % items.length) return null;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectAlternativeItem(index)}
+                          className="w-full text-left glass-panel rounded-2xl p-3 flex items-center gap-3 hover:bg-white/5 active:scale-[0.99] transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary"
+                        >
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-sm font-bold text-on-surface">{item.title}</span>
+                            <span className="block text-xs text-tertiary">{formatDuration(item.anytimeReset.durationSeconds)}</span>
+                          </span>
+                          <span className="material-symbols-outlined text-on-surface-variant text-lg shrink-0" aria-hidden="true">arrow_forward</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Or choose another quick reset</h2>
+                <div className="space-y-2" role="group" aria-label="Or choose another quick reset">
+                  {QUICK_RESET_ALTERNATIVES.map((alt) => (
+                    <button
+                      key={alt.id}
+                      type="button"
+                      onClick={() => handleQuickResetAlternative(alt.id)}
+                      className="w-full text-left glass-panel rounded-2xl p-3 flex items-center gap-3 hover:bg-white/5 active:scale-[0.99] transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary"
+                    >
+                      <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-tertiary/15 text-tertiary">
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">{alt.icon}</span>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-bold text-on-surface">{alt.label}</span>
+                        <span className="block text-xs text-tertiary">{alt.durationLabel}</span>
+                      </span>
+                      <span className="material-symbols-outlined text-on-surface-variant text-lg shrink-0" aria-hidden="true">arrow_forward</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

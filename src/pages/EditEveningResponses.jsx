@@ -344,13 +344,21 @@ export const EditEveningResponses = () => {
         )}
       </div>
 
+      {/* WakeWise Phase 2 (B7, dialog severity audit) — was `destructive`.
+          This discards only the in-progress, unsaved EDIT draft ("Your
+          changes have not been saved") - the original saved responses
+          this screen loaded are completely untouched, so recovery
+          (re-opening Edit and starting again from the real saved answers)
+          remains fully possible. That is this app's "discard a temporary
+          draft where recovery remains possible" tier, not its "erases
+          saved data" tier - mildDestructive. */}
       <ConfirmDialog
         open={discardDialogOpen}
         title="Discard your changes?"
         message="Your changes have not been saved."
         confirmLabel="Discard Changes"
         cancelLabel="Keep Editing"
-        destructive
+        mildDestructive
         onConfirm={handleConfirmDiscard}
         onDismiss={() => setDiscardDialogOpen(false)}
       />

@@ -13,6 +13,16 @@
 
 export const MAX_INTENTIONS = 2;
 
+// WakeWise Phase 2 — guided intention ladder. A custom intention has no
+// length cap anywhere else in this module (by design, until now) - the
+// ladder's "excessively long entries are handled clearly" requirement
+// needs one. 60 characters comfortably fits every existing preset
+// ('Take one step forward' is the longest at 22) with generous room for a
+// genuine custom phrase, while still fitting on one line in the summary
+// card and the chip row without wrapping awkwardly.
+export const MAX_CUSTOM_INTENTION_LENGTH = 60;
+export const TOO_LONG_INTENTION_MESSAGE = `Please keep it under ${MAX_CUSTOM_INTENTION_LENGTH} characters.`;
+
 export const LIMIT_MESSAGE = 'You can choose up to two intentions.';
 
 // Custom-intention defect fix — a more actionable message for the "Add
@@ -94,8 +104,68 @@ export const addCustomIntention = (current, rawValue) => {
   if (current.length >= MAX_INTENTIONS) {
     return { intentions: current, status: 'limit-reached' };
   }
+  // WakeWise Phase 2 — checked last, after duplicate/limit, so every
+  // existing caller/test exercising those two statuses with ordinary
+  // short strings is completely unaffected; only a genuinely-too-long
+  // value that would otherwise have been added now isn't.
+  if (value.length > MAX_CUSTOM_INTENTION_LENGTH) {
+    return { intentions: current, status: 'too-long' };
+  }
   return { intentions: [...current, value], status: 'added' };
 };
+
+// WakeWise Phase 2 — guided intention ladder. Order IS the model (see this
+// file's own top comment), so "set the primary" / "set the supporting" /
+// "clear the supporting" are just the three shapes that order can be
+// changed into from a stage-based UI - never a new field, never a second
+// source of truth. All three are pure and never mutate `current`.
+
+/**
+ * Sets the primary (index 0) intention, replacing whatever was there.
+ * Preserves an existing supporting (index 1) intention unless it now
+ * equals the new primary (case-insensitively) - a supporting intention
+ * can never be identical to its own primary, so it is dropped rather than
+ * left as a same-value duplicate.
+ * @param {string[]} current - current ordered selection (0-2 items)
+ * @param {string} rawValue - the chosen preset, or trimmed custom text
+ * @returns {string[]} the next ordered selection; `current` unchanged if
+ *   `rawValue` is blank
+ */
+export const setPrimaryIntention = (current, rawValue) => {
+  const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+  if (!value) return current;
+  const existingSupporting = current[1];
+  const keepSupporting = existingSupporting && !isSameIntention(existingSupporting, value);
+  return keepSupporting ? [value, existingSupporting] : [value];
+};
+
+/**
+ * Sets the supporting (index 1) intention. Requires a primary already at
+ * index 0 - returns `current` unchanged if there isn't one (never invents
+ * a primary). Also returns `current` unchanged if `rawValue` matches the
+ * primary (case-insensitively): a defensive guarantee that a supporting
+ * intention is never identical to its own primary - the calling UI is
+ * expected to already exclude the primary from the supporting choices, so
+ * this should never actually trigger in practice.
+ * @param {string[]} current - current ordered selection (0-2 items)
+ * @param {string} rawValue - the chosen preset, or trimmed custom text
+ * @returns {string[]} the next ordered selection
+ */
+export const setSupportingIntention = (current, rawValue) => {
+  const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+  if (!value || current.length === 0) return current;
+  if (isSameIntention(value, current[0])) return current;
+  return [current[0], value];
+};
+
+/**
+ * Drops the supporting (index 1) intention only - the "No thanks, one is
+ * enough" action. Keeps the primary untouched; a safe no-op when there is
+ * no supporting intention yet.
+ * @param {string[]} current - current ordered selection (0-2 items)
+ * @returns {string[]} the next ordered selection
+ */
+export const clearSupportingIntention = (current) => (current.length > 1 ? [current[0]] : current);
 
 /**
  * Role label for display ("Primary"/"Supporting"/null), purely a

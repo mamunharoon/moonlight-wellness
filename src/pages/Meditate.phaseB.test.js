@@ -139,7 +139,7 @@ describe('Meditate.jsx — Phase B: protected regression areas stay byte-for-byt
   });
 
   it('BetaVideoModal is still reused unchanged - no second/alternate player introduced', () => {
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} \/>/);
+    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setVideoEndedNaturally\(true\)\} \/>/);
   });
 
   it('the post-sign-in restore/return-path mechanism is unchanged', () => {

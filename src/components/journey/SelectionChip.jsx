@@ -23,9 +23,12 @@
  *     presentational, still just a function of the caller's own array
  *     index (roleForIndex), never a value this component invents.
  *   - `large` swaps the compact icon-topped tile sizing for a taller,
- *     bigger-type card with no icon column, for a screen (intention
- *     presets) that has no icon per choice and wants a bigger tap
- *     target than the 4-icon grids' own compact tiles.
+ *     bigger-type card, for a screen (intention presets) that wants a
+ *     bigger tap target than the 4-icon grids' own compact tiles. Icons
+ *     were optional here at first (ChangeIntention.jsx originally passed
+ *     none); WakeWise Phase 2 (B2) gave every intention preset a real
+ *     icon (intentionIcons.js), so `large` now commonly renders with one
+ *     too - nothing about the sizing itself changed to accommodate that.
  *
  * Anytime Reset Visual Uplift (Phase 2) — `accent` (additive, default
  * 'primary': every existing caller - Meditate.jsx, ChangeIntention.jsx -
@@ -36,6 +39,16 @@
  * (tertiary/tertiary-tint) the rest of this phase's uplift uses, never a
  * new colour. The unselected state and every non-colour channel (border
  * shape, check_circle glyph, font-weight) are unaffected by accent.
+ *
+ * WakeWise Phase 2 (guided intention ladder) — `accent="morning"` is a
+ * third, additive value, only ever passed by IntentionSetup.jsx's own
+ * primary/supporting stage grids: the same already-approved morning-
+ * accent gold tokens that screen's own preset cards and role badge used
+ * before this component replaced them (intentionSetupMorningUplift's own
+ * prior `bg-morning-accent/15 border-morning-accent text-morning-accent`/
+ * `bg-morning-accent text-on-morning-accent` pairing, carried over
+ * verbatim - never a new colour). Existing callers passing 'primary' or
+ * 'anytime' (or omitting accent) are completely unaffected.
  */
 const CHIP_ACCENT = {
   primary: {
@@ -51,6 +64,13 @@ const CHIP_ACCENT = {
     check: 'text-tertiary',
     icon: 'text-tertiary',
     label: 'text-tertiary font-bold'
+  },
+  morning: {
+    selected: 'bg-morning-accent/15 border-morning-accent shadow-md shadow-morning-accent/10',
+    badge: 'bg-morning-accent text-on-morning-accent',
+    check: 'text-morning-accent',
+    icon: 'text-morning-accent',
+    label: 'text-morning-accent font-bold'
   }
 };
 

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
@@ -7,13 +7,15 @@ import { BackButton } from '../components/BackButton';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
 import { saveIntentionsToCloud } from '../lib/intentionPersistence';
 import {
-  toggleIntention,
-  addCustomIntention,
-  roleForIndex,
-  LIMIT_MESSAGE,
-  CUSTOM_LIMIT_MESSAGE,
-  DUPLICATE_INTENTION_MESSAGE
+  setPrimaryIntention,
+  setSupportingIntention,
+  clearSupportingIntention,
+  MAX_CUSTOM_INTENTION_LENGTH,
+  DUPLICATE_INTENTION_MESSAGE,
+  TOO_LONG_INTENTION_MESSAGE
 } from '../lib/intentionSelection';
+import { getIntentionIcon } from '../lib/intentionIcons';
+import { SelectionChip } from '../components/journey/SelectionChip';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
@@ -71,13 +73,14 @@ export const IntentionSetup = () => {
   const navigate = useNavigate();
   const { userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep } = useAlarm();
   const { state, currentStep, advanceStep, abandonSession } = useSession();
-  // Safe backward navigation ("Review Mode") - handleSelectPreset/
-  // handleAddCustom below already only ever call setIntentions (no
-  // Session Engine call at all), so changing today's intention while
-  // reviewing this step is already exactly as safe as Home's own "Change
-  // intention" - nothing extra to gate there. Only Continue/Skip/Exit
-  // (which DO drive the Session Engine forward) need to be replaced by a
-  // plain "Return to current step" while reviewing.
+  // Safe backward navigation ("Review Mode") - handleSelectPrimary/
+  // handleSelectSupporting/handleAddCustom below already only ever call
+  // setIntentions (no Session Engine call at all), so changing today's
+  // intention while reviewing this step is already exactly as safe as
+  // Home's own "Change intention" - nothing extra to gate there. Only
+  // Set My Intention/Skip/Exit (which DO drive the Session Engine
+  // forward) need to be replaced by a plain "Return to current step"
+  // while reviewing.
   const { isReviewMode, isLiveStep } = useStepReviewMode('intention', 'morning-routine');
   const [customIntention, setCustomIntention] = useState('');
   const [limitMessage, setLimitMessage] = useState('');
@@ -144,6 +147,36 @@ export const IntentionSetup = () => {
 
   const presets = INTENTION_PRESETS;
 
+  // WakeWise Phase 2 (B1) — guided intention ladder. Replaces the former
+  // flat "choose one or two qualities" grid with a progressive Stage 1
+  // (primary, exactly one) -> Stage 2 (supporting, optional) -> Summary
+  // flow. Starts on 'summary' when there is already a genuine confirmed
+  // selection (a returning/review visit shouldn't re-ask questions
+  // already answered) or while reviewing this step from later in the
+  // journey - both cases fall back to 'primary' if `intentions` is
+  // somehow empty, so this can never render a summary with nothing in it.
+  // A fresh, unconfirmed visit (including the two DEFAULT_INTENTIONS
+  // AlarmContext seeds for a brand new identity) always starts at
+  // 'primary' - the two-stage ladder is the intended path even when a
+  // suggested default already sits in `intentions`; the primary/
+  // supporting grids below simply show it pre-selected, exactly like the
+  // former flat grid already did, via the same "Suggested starting
+  // points" banner.
+  const [stage, setStage] = useState(() => {
+    if (intentions.length === 0) return 'primary';
+    return isReviewMode || intentionsConfirmed ? 'summary' : 'primary';
+  });
+  const stageHeadingRef = useRef(null);
+  // Screen-reader announcement (item 8): moving focus to the new stage's
+  // own heading on every stage change means a screen reader announces
+  // that heading's text automatically - "Would another intention support
+  // you?" clearly differs from "What matters most today?"/"Today's
+  // focus", so Primary vs. Supporting vs. Summary is always unambiguous,
+  // without a second, separate live-region announcement to keep in sync.
+  useEffect(() => {
+    stageHeadingRef.current?.focus();
+  }, [stage]);
+
   // Safe backward navigation ("Review Mode") fix: while reviewing this
   // step, Continue/Skip (the only place that otherwise calls
   // saveIntentionsToCloud, in handleComplete below) is replaced by
@@ -152,58 +185,77 @@ export const IntentionSetup = () => {
   // app reads (correct), but silently never reach Supabase, reverting on
   // the next reload/device. Saving immediately here (only in review
   // mode) closes that gap without changing the ordinary live-step flow,
-  // which still defers to its own explicit Continue tap.
-  //
-  // One or two intentions - toggleIntention owns every rule (dedup,
-  // deselect, promote Supporting to Primary when index 0 is removed, the
-  // two-item limit). Never mutates `intentions` - always a new array.
-  const applySelection = (value) => {
-    const { intentions: next, limitReached } = toggleIntention(intentions, value);
-    if (limitReached) {
-      setLimitMessage(LIMIT_MESSAGE);
-      setTimeout(() => setLimitMessage(''), 2500);
-      return;
-    }
-    setLimitMessage('');
+  // which still defers to its own explicit "Set My Intention" tap. Shared
+  // by every stage transition below - the one place `intentions` is ever
+  // actually written.
+  const commit = (next) => {
     setIntentions(next);
-    // F1 — a review-mode edit saves to Supabase immediately (see this
-    // effect's own established comment above), which already makes it a
-    // genuine confirmed selection, not just a suggestion being browsed.
     if (isReviewMode) {
       saveIntentionsToCloud(userId, next);
       setIntentionsConfirmed(true);
     }
   };
 
-  const handleSelectPreset = (preset) => applySelection(preset);
+  const showLimitMessage = (message) => {
+    setLimitMessage(message);
+    setTimeout(() => setLimitMessage(''), 2500);
+  };
 
-  // Custom-intention defect fix — mirrors ChangeIntention.jsx's own fix:
-  // addCustomIntention (ADD-only) rather than the chip-tap
-  // toggleIntention/applySelection above, so typing an already-selected
-  // value is rejected as a duplicate instead of silently deselecting it.
-  // Writes directly into the live `intentions` (this screen has no draft
-  // model), and mirrors applySelection's own review-mode cloud-save so a
-  // custom addition here has the same persistence guarantee as a chip tap.
-  const handleAddCustom = () => {
-    const { intentions: next, status } = addCustomIntention(intentions, customIntention);
-    if (status === 'blank') return;
-    if (status === 'duplicate') {
-      setLimitMessage(DUPLICATE_INTENTION_MESSAGE);
-      setTimeout(() => setLimitMessage(''), 2500);
-      return;
-    }
-    if (status === 'limit-reached') {
-      setLimitMessage(CUSTOM_LIMIT_MESSAGE);
-      setTimeout(() => setLimitMessage(''), 2500);
-      return;
-    }
+  // Stage 1 — exactly one primary. setPrimaryIntention (intentionSelection.js)
+  // replaces index 0 outright (never a toggle) and drops a now-conflicting
+  // supporting intention for free, so tapping any preset here always
+  // leaves a valid, single primary.
+  const handleSelectPrimary = (preset) => {
     setLimitMessage('');
-    setIntentions(next);
-    if (isReviewMode) {
-      saveIntentionsToCloud(userId, next);
-      setIntentionsConfirmed(true);
+    commit(setPrimaryIntention(intentions, preset));
+    setStage('supporting');
+  };
+
+  // Stage 2 — optional supporting, must differ from the primary. The
+  // preset grid for this stage already excludes whichever preset is the
+  // current primary (see the render below), so a chip tap here can never
+  // collide with it; setSupportingIntention's own defensive equal-to-
+  // primary guard exists only for the free-text path immediately below.
+  const handleSelectSupporting = (preset) => {
+    setLimitMessage('');
+    commit(setSupportingIntention(intentions, preset));
+    setStage('summary');
+  };
+
+  const handleSkipSupporting = () => {
+    setLimitMessage('');
+    commit(clearSupportingIntention(intentions));
+    setStage('summary');
+  };
+
+  const handleBackToPrimary = () => {
+    setLimitMessage('');
+    setStage('primary');
+  };
+
+  // Custom-intention defect fix (unchanged rule, applied at whichever
+  // stage is active): blank input is a silent no-op, an excessively long
+  // one shows TOO_LONG_INTENTION_MESSAGE, and at Stage 2 a value equal to
+  // the primary (case-insensitively) shows DUPLICATE_INTENTION_MESSAGE
+  // rather than silently being dropped by setSupportingIntention's own
+  // defensive guard - the user gets an actual, visible reason.
+  const handleAddCustom = () => {
+    const value = customIntention.trim();
+    if (!value) return;
+    if (value.length > MAX_CUSTOM_INTENTION_LENGTH) {
+      showLimitMessage(TOO_LONG_INTENTION_MESSAGE);
+      return;
+    }
+    if (stage === 'supporting' && intentions[0] && value.toLowerCase() === intentions[0].toLowerCase()) {
+      showLimitMessage(DUPLICATE_INTENTION_MESSAGE);
+      return;
     }
     setCustomIntention('');
+    if (stage === 'primary') {
+      handleSelectPrimary(value);
+    } else {
+      handleSelectSupporting(value);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -341,15 +393,42 @@ export const IntentionSetup = () => {
         <>
       <div className="text-center space-y-2">
         <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Your Intentions</span>
-        <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Set your intention</h2>
-        <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-          Choose one or two qualities you want to carry into today.
-        </p>
+        {/* WakeWise Phase 2 (B1) — one heading per stage, focused on every
+            stage change (see the `stage` effect above) so a screen reader
+            announces which stage is active from the heading text alone
+            (item 8). */}
+        {stage === 'primary' && (
+          <>
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+              What matters most today?
+            </h2>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
+              Choose one intention to guide your day.
+            </p>
+          </>
+        )}
+        {stage === 'supporting' && (
+          <>
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+              Would another intention support you?
+            </h2>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
+              Choose one, or continue with your main intention.
+            </p>
+          </>
+        )}
+        {stage === 'summary' && (
+          <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+            Today's focus
+          </h2>
+        )}
         {/* F1 — visible only until the user has genuinely confirmed a
-            selection (Continue/Skip on the live step, or a saved edit
-            while reviewing); the two starting presets are real defaults,
-            not a previous choice, and must not be presented as one. */}
-        {!intentionsConfirmed && (
+            selection (Set My Intention/Skip on the live step, or a saved
+            edit while reviewing); the two starting presets are real
+            defaults, not a previous choice, and must not be presented as
+            one. Stage 1 only - Stage 2/Summary already show a real,
+            deliberately-made primary by the time they render. */}
+        {stage === 'primary' && !intentionsConfirmed && (
           <p className="text-[11px] text-morning-accent/90 font-semibold max-w-sm mx-auto leading-relaxed">
             Suggested starting points — keep, remove or add your own.
           </p>
@@ -359,80 +438,174 @@ export const IntentionSetup = () => {
         )}
       </div>
 
-      {/* Preset List */}
-      <div className="grid grid-cols-2 gap-3 w-full">
-        {presets.map((preset, idx) => {
-          const selectedIndex = intentions.findIndex((item) => item.toLowerCase() === preset.toLowerCase());
-          const isSelected = selectedIndex !== -1;
-          const role = roleForIndex(selectedIndex);
-          return (
-            <button
-              key={idx}
-              onClick={() => handleSelectPreset(preset)}
-              aria-pressed={isSelected}
-              className={`relative p-4 rounded-2xl border text-xs font-semibold text-center transition-all duration-200 ${
-                isSelected
-                  ? 'bg-morning-accent/15 border-morning-accent text-morning-accent font-bold shadow-md shadow-morning-accent/10'
-                  : 'glass-panel border-white/5 text-on-surface-variant hover:bg-white/10'
-              }`}
-            >
-              {role && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-morning-accent text-on-morning-accent text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                  {role}
-                </span>
-              )}
-              {preset}
-            </button>
-          );
-        })}
-      </div>
+      {/* Stage 1 — Primary: exactly one, via SelectionChip's own morning
+          accent (icons, B2) - selected state carried through four
+          channels at once (fill/border/weight/check_circle), never colour
+          alone (item 9). */}
+      {stage === 'primary' && (
+        <>
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {presets.map((preset) => (
+              <SelectionChip
+                key={preset}
+                large
+                accent="morning"
+                icon={getIntentionIcon(preset)}
+                label={preset}
+                selected={intentions[0]?.toLowerCase() === preset.toLowerCase()}
+                onClick={() => handleSelectPrimary(preset)}
+              />
+            ))}
+          </div>
 
-      {/* Selected summary - the only place a selected CUSTOM intention is
-          shown (it never appears in the preset grid above), and the
-          shared way to deselect either kind by role. */}
-      {intentions.length > 0 && (
-        <div className="flex flex-wrap gap-2 w-full justify-center">
-          {intentions.map((item, idx) => (
-            <button
-              key={item.toLowerCase()}
-              onClick={() => applySelection(item)}
-              className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-morning-accent/15 border border-morning-accent text-morning-accent text-xs font-semibold"
-            >
-              <span className="text-[9px] font-bold uppercase tracking-wider">{roleForIndex(idx)}</span>
-              <span>{item}</span>
-              <span className="material-symbols-outlined text-sm">close</span>
-            </button>
-          ))}
-        </div>
+          <div className="space-y-1.5 w-full">
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+              <input
+                type="text"
+                value={customIntention}
+                onChange={(e) => setCustomIntention(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={MAX_CUSTOM_INTENTION_LENGTH}
+                aria-label="Write your own primary intention"
+                className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+                placeholder="Write your own..."
+              />
+              <button
+                onClick={handleAddCustom}
+                disabled={!customIntention.trim()}
+                className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
+              >
+                Add
+              </button>
+            </div>
+            {/* Custom-intention defect fix — a second, reliably-visible copy
+                of limitMessage right next to the input, since the banner
+                further up can be scrolled out of view or hidden behind the
+                on-screen keyboard once this input has focus (same fix as
+                ChangeIntention.jsx). */}
+            {limitMessage && (
+              <p className="text-xs text-secondary font-semibold px-1" role="status">{limitMessage}</p>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Unified custom input/button control */}
-      <div className="space-y-1.5 w-full">
-        <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
-          <input
-            type="text"
-            value={customIntention}
-            onChange={(e) => setCustomIntention(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
-            placeholder="Write your own..."
-          />
+      {/* Stage 2 — Supporting: optional, must differ from the primary (the
+          grid below excludes it entirely, so a chip tap can never
+          collide). Back returns to Stage 1 without exiting the routine
+          (item 2); "No thanks" explicitly proceeds with one intention. */}
+      {stage === 'supporting' && (
+        <>
           <button
-            onClick={handleAddCustom}
-            disabled={!customIntention.trim()}
-            className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
+            type="button"
+            onClick={handleBackToPrimary}
+            className="flex items-center gap-1 min-h-[44px] -ml-2 pl-2 pr-3 self-start text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
           >
-            Add
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
+            Back
           </button>
+
+          <div className="flex items-center justify-center gap-1.5 text-xs text-on-surface-variant">
+            <span className="material-symbols-outlined text-morning-accent text-base" aria-hidden="true">{getIntentionIcon(intentions[0])}</span>
+            <span>Primary: <span className="font-bold text-on-surface">{intentions[0]}</span></span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {presets
+              .filter((preset) => preset.toLowerCase() !== intentions[0]?.toLowerCase())
+              .map((preset) => (
+                <SelectionChip
+                  key={preset}
+                  large
+                  accent="morning"
+                  icon={getIntentionIcon(preset)}
+                  label={preset}
+                  selected={intentions[1]?.toLowerCase() === preset.toLowerCase()}
+                  onClick={() => handleSelectSupporting(preset)}
+                />
+              ))}
+          </div>
+
+          <div className="space-y-1.5 w-full">
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+              <input
+                type="text"
+                value={customIntention}
+                onChange={(e) => setCustomIntention(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={MAX_CUSTOM_INTENTION_LENGTH}
+                aria-label="Write your own supporting intention"
+                className="flex-1 min-w-0 bg-transparent border-none text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
+                placeholder="Write your own..."
+              />
+              <button
+                onClick={handleAddCustom}
+                disabled={!customIntention.trim()}
+                className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider active:scale-95 disabled:opacity-40 transition-all shrink-0"
+              >
+                Add
+              </button>
+            </div>
+            {limitMessage && (
+              <p className="text-xs text-secondary font-semibold px-1" role="status">{limitMessage}</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSkipSupporting}
+            className="w-full min-h-[44px] text-center text-xs text-on-surface-variant/80 font-semibold hover:text-on-surface-variant transition-colors"
+          >
+            No thanks — one is enough
+          </button>
+        </>
+      )}
+
+      {/* Summary — primary, an optional downward "supported by" connector,
+          then the optional supporting intention (matches the approved
+          visual: icon + label, connector, icon + label). "Change
+          primary"/"Change supporting" reopen the matching stage without
+          losing the other selection. */}
+      {stage === 'summary' && (
+        <div className="glass-panel rounded-2xl p-6 space-y-4 text-center w-full">
+          <div className="flex flex-col items-center gap-1">
+            <span className="material-symbols-outlined text-morning-accent text-2xl" aria-hidden="true">{getIntentionIcon(intentions[0])}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent">Primary</span>
+            <span className="text-lg font-bold text-on-surface">{intentions[0]}</span>
+          </div>
+
+          {intentions[1] && (
+            <>
+              <div className="flex flex-col items-center gap-0.5 text-on-surface-variant">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_downward</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider">supported by</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="material-symbols-outlined text-morning-accent/80 text-xl" aria-hidden="true">{getIntentionIcon(intentions[1])}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent/80">Supporting</span>
+                <span className="text-base font-semibold text-on-surface">{intentions[1]}</span>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-center gap-4 pt-1">
+            <button
+              type="button"
+              onClick={() => setStage('primary')}
+              className="min-h-[44px] px-2 text-xs font-bold text-primary hover:opacity-80 active:scale-95 transition-all"
+            >
+              Change primary
+            </button>
+            <button
+              type="button"
+              onClick={() => setStage('supporting')}
+              className="min-h-[44px] px-2 text-xs font-bold text-primary hover:opacity-80 active:scale-95 transition-all"
+            >
+              {intentions[1] ? 'Change supporting' : 'Add a supporting intention'}
+            </button>
+          </div>
         </div>
-        {/* Custom-intention defect fix — a second, reliably-visible copy of
-            limitMessage right next to the input, since the banner further
-            up can be scrolled out of view or hidden behind the on-screen
-            keyboard once this input has focus (same fix as ChangeIntention.jsx). */}
-        {limitMessage && (
-          <p className="text-xs text-secondary font-semibold px-1" role="status">{limitMessage}</p>
-        )}
-      </div>
+      )}
 
       <div className="space-y-3 w-full">
         {/* Duplicate-return-action fix, found live: the ReviewModeBanner
@@ -444,21 +617,27 @@ export const IntentionSetup = () => {
             this branch while reviewing; the banner covers it. */}
         {!isReviewMode && (
           <>
-            <button
-              onClick={() => handleComplete(true)}
-              disabled={isSaving || intentions.length === 0}
-              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40`}
-            >
-              <span>{isSaving ? 'Saving...' : 'Continue'}</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-            <button
-              onClick={() => handleComplete(false)}
-              disabled={isSaving}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-            >
-              Skip this step
-            </button>
+            {stage === 'summary' ? (
+              <button
+                onClick={() => handleComplete(true)}
+                disabled={isSaving || intentions.length === 0}
+                className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40`}
+              >
+                <span>{isSaving ? 'Saving...' : 'Set My Intention'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            ) : (
+              // Stage 1/2 escape hatch - lets a user move on WITHOUT
+              // completing the ladder, exactly like before (handleComplete's
+              // own default-fallback logic is unchanged).
+              <button
+                onClick={() => handleComplete(false)}
+                disabled={isSaving}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+              >
+                Skip this step
+              </button>
+            )}
             <button
               onClick={handleExitRoutine}
               className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"

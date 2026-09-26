@@ -297,13 +297,18 @@ export const MorningMeditate = () => {
             routine?" guard - the canonical whole-Morning-routine exit
             confirmation, reused verbatim rather than inventing new wording
             for this one screen. */}
+        {/* WakeWise Phase 2 (B7, dialog severity audit) — mirrors
+            BackButton.jsx's own identical correction: this only pauses
+            progress (interruptSession, resumable from Home), it erases
+            nothing, so it's this app's "exit an active session" tier, not
+            its "erases meaningful progress" tier. */}
         <ConfirmDialog
           open={exitConfirmOpen}
           title="Leave this routine?"
           message="Your current progress may be paused."
           confirmLabel="Leave routine"
           cancelLabel="Stay"
-          destructive
+          mildDestructive
           onConfirm={handleConfirmExitRoutine}
           onDismiss={() => setExitConfirmOpen(false)}
         />

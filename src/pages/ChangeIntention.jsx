@@ -11,8 +11,11 @@ import {
   roleForIndex,
   LIMIT_MESSAGE,
   CUSTOM_LIMIT_MESSAGE,
-  DUPLICATE_INTENTION_MESSAGE
+  DUPLICATE_INTENTION_MESSAGE,
+  MAX_CUSTOM_INTENTION_LENGTH,
+  TOO_LONG_INTENTION_MESSAGE
 } from '../lib/intentionSelection';
+import { getIntentionIcon } from '../lib/intentionIcons';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionChip } from '../components/journey/SelectionChip';
 
@@ -117,6 +120,15 @@ export const ChangeIntention = () => {
       setTimeout(() => setLimitMessage(''), 2500);
       return;
     }
+    // WakeWise Phase 2 (B3.6) — addCustomIntention's own too-long check
+    // (intentionSelection.js), reached here for the first time now that a
+    // length cap exists; the custom-text field below also carries a
+    // matching maxLength as defense in depth.
+    if (status === 'too-long') {
+      setLimitMessage(TOO_LONG_INTENTION_MESSAGE);
+      setTimeout(() => setLimitMessage(''), 2500);
+      return;
+    }
     setLimitMessage('');
     setManualDraft(next);
     setCustomIntention('');
@@ -175,6 +187,7 @@ export const ChangeIntention = () => {
               <SelectionChip
                 key={preset}
                 large
+                icon={getIntentionIcon(preset)}
                 label={preset}
                 selected={isSelected}
                 roleLabel={roleForIndex(selectedIndex)}
@@ -212,6 +225,7 @@ export const ChangeIntention = () => {
                 value={customIntention}
                 onChange={(e) => setCustomIntention(e.target.value)}
                 onKeyDown={handleKeyDown}
+                maxLength={MAX_CUSTOM_INTENTION_LENGTH}
                 className="flex-1 min-w-0 min-h-[44px] bg-transparent border-none text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none px-3"
                 placeholder="Write your own..."
                 autoFocus

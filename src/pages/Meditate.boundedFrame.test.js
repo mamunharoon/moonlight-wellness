@@ -46,6 +46,6 @@ describe('Meditate.jsx — Phase A is a container-only change: recommendation lo
 
   it('BetaVideoModal is still reused unchanged - no second/alternate player introduced', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} \/>/);
+    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setVideoEndedNaturally\(true\)\} \/>/);
   });
 });

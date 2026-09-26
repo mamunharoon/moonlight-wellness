@@ -430,7 +430,7 @@ export const EveningBreathing = () => {
       )}
 
       {hasBegun && !isRepeatGated && manuallyPaused && (
-        <ExercisePausedPanel onResume={handleResume} />
+        <ExercisePausedPanel onResume={handleResume} journeyTone="evening" />
       )}
 
       {hasBegun && !isRepeatGated && !manuallyPaused && (

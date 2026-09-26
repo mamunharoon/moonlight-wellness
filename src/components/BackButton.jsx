@@ -75,6 +75,20 @@ import { ConfirmDialog } from './ConfirmDialog';
  * navigate(-1) would silently re-enter that completed step, which the
  * canonical Morning navigation map explicitly forbids ("do not re-enter
  * a completed journey using browser Back").
+ *
+ * WakeWise Phase 2 (B7, dialog severity audit) — this confirmation's own
+ * severity was `destructive` (full red), the same visual weight as
+ * genuinely erasing saved data (Redo Tonight's Wind-Down, Discard
+ * Changes). What it actually does - leaveActiveRoutine() -> a plain
+ * interruptSession(), never resetRoutine/completeSession - only PAUSES
+ * progress ("Your current progress may be paused", the confirmMessage
+ * default itself already says so); nothing is erased, and the paused
+ * routine remains resumable from Home. That is exactly this app's
+ * "exit an active session" tier, not its "erases meaningful progress"
+ * tier, so this is now `mildDestructive` - corrected once, here, for
+ * every one of this shared component's own callers at once (Breathe.jsx,
+ * Affirmation.jsx, IntentionSetup.jsx, MorningFlow.jsx, and any other
+ * screen using the default guardActiveRoute confirmation).
  */
 export const BackButton = ({
   fallback = '/',
@@ -130,7 +144,7 @@ export const BackButton = ({
         message={confirmMessage}
         confirmLabel="Leave routine"
         cancelLabel="Stay"
-        destructive
+        mildDestructive
         onConfirm={handleLeave}
         onDismiss={() => setConfirmOpen(false)}
       />

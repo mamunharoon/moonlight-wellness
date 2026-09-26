@@ -79,12 +79,18 @@ export const ExitEveningButton = () => {
         <span className="material-symbols-outlined text-on-surface-variant">close</span>
       </button>
 
+      {/* WakeWise Phase 2 (B7, dialog severity audit) — previously had no
+          severity styling at all (plain default). This is an "exit an
+          active session" action (leaveActiveRoutine -> interruptSession,
+          resumable - "will be saved... continue from Home" already says
+          so), matching this app's mild-warning tier exactly. */}
       <ConfirmDialog
         open={confirmOpen}
         title="Leave Evening Wind-Down?"
         message="Your place in the Evening Wind-Down will be saved. You can continue from Home when you're ready."
         confirmLabel="Return Home"
         cancelLabel="Continue Wind-Down"
+        mildDestructive
         onConfirm={handleConfirmReturnHome}
         onDismiss={() => setConfirmOpen(false)}
       />
