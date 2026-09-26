@@ -147,7 +147,7 @@ export const EveningComplete = () => {
             evening-accent instead of morning-accent. Heading (already
             Newsreader italic), body copy, and all four action buttons
             below (order, labels, handlers) are completely untouched. */}
-        <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent/25 shadow-evening-glow flex items-center justify-center">
+        <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
           <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
         </span>
         {/* Journey Embedding (correction) — Meditate is now a counted step,

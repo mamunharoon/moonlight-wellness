@@ -22,7 +22,7 @@ describe('IntentionSetup — intro phase visual uplift (unchanged by the Phase 2
   });
 
   it('the icon sits in a restrained glow circle (morning-glow shadow token, sparing per its own tailwind.config.js comment) - not an ambient/default shadow on the whole screen', () => {
-    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent\/25 shadow-morning-glow/);
+    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/25 shadow-morning-glow/);
   });
 
   it('the display heading now uses the new font-morning-display (Playfair Display) token, distinct from font-serif (Newsreader, Evening\'s own unchanged serif)', () => {

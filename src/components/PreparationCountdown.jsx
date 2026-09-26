@@ -21,7 +21,7 @@
 // competing visually with the real primary action that follows it.
 //
 // Pre-existing bug fixed in passing: accentBorder previously used
-// `border-morning-accent/40`/`border-evening-accent/40` directly - the
+// `border-morning-accent-tint/40`/`border-evening-accent-tint/40` directly - the
 // same opacity-on-plain-hex-CSS-var gap JourneyGlow.jsx's own doc
 // comment documents (a Tailwind `/<n>` modifier silently resolves to
 // fully transparent on these tokens), so the countdown ring's own border

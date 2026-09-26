@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
@@ -88,6 +88,27 @@ export const Library = () => {
   // an unknown/missing value resolves to `undefined`, never a caller-
   // chosen destination.
   const [entryContext] = useState(() => FROM_CONTEXTS[searchParams.get('from')]);
+
+  // WakeWise Phase 3A (R11) — the category chip row has no visual cue that
+  // more categories exist past the visible edge. `showCategoryFade` tracks
+  // whether the row is genuinely scrolled short of its end (a 1px slack
+  // absorbs subpixel rounding), so the trailing fade disappears once the
+  // last chip is actually reached rather than permanently covering it.
+  // Purely decorative (pointer-events-none, aria-hidden) - it never
+  // intercepts touch/click, and every chip stays a real, keyboard-
+  // reachable <button> underneath it exactly as before.
+  const categoryScrollRef = useRef(null);
+  const [showCategoryFade, setShowCategoryFade] = useState(false);
+  const updateCategoryFade = () => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    setShowCategoryFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+  };
+  useEffect(() => {
+    updateCategoryFade();
+    window.addEventListener('resize', updateCategoryFade);
+    return () => window.removeEventListener('resize', updateCategoryFade);
+  }, []);
 
   // Strips the now-consumed `from` marker so it can't linger in the URL
   // while the user browses/filters within Library, or reappear on a
@@ -184,38 +205,58 @@ export const Library = () => {
       {/* Category filter chips. scroll-hide keeps this row's own
           horizontal scroll visually clean; Layout.jsx's content
           container (overflow-x-hidden) is what stops it from causing a
-          document-level horizontal scrollbar. */}
-      <div className="flex gap-2 overflow-x-auto scroll-hide -mx-4 px-4 pb-1">
-        <button
-          type="button"
-          onClick={() => handleSelectCategory(null)}
-          className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-            !activeCategory ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
-          }`}
+          document-level horizontal scrollbar. Wrapped in a relative
+          container so the trailing fade (R11) can sit on top without
+          affecting the row's own layout. */}
+      <div className="relative">
+        <div
+          ref={categoryScrollRef}
+          onScroll={updateCategoryFade}
+          className="flex gap-2 overflow-x-auto scroll-hide -mx-4 px-4 pb-1"
         >
-          All
-        </button>
-        {CATALOG_CATEGORIES.map((category) => (
           <button
-            key={category}
             type="button"
-            onClick={() => handleSelectCategory(category)}
+            onClick={() => handleSelectCategory(null)}
             className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-              activeCategory === category ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+              !activeCategory ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
             }`}
           >
-            {category}
+            All
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => handleSelectCategory(MEDITATION_FILTER)}
-          className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-            activeCategory === MEDITATION_FILTER ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
-          }`}
-        >
-          {MEDITATION_FILTER}
-        </button>
+          {CATALOG_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => handleSelectCategory(category)}
+              className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+                activeCategory === category ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => handleSelectCategory(MEDITATION_FILTER)}
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+              activeCategory === MEDITATION_FILTER ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+            }`}
+          >
+            {MEDITATION_FILTER}
+          </button>
+        </div>
+        {/* Trailing edge fade (R11) — signals more categories are
+            scrollable past the visible edge. Decorative only: aria-hidden
+            and pointer-events-none so it never blocks touch/click on the
+            chip underneath, and disappears once genuinely scrolled to the
+            end (see updateCategoryFade above). No motion/transition here
+            to respect Reduced Motion - it simply mounts/unmounts. */}
+        {showCategoryFade && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-background to-transparent"
+          />
+        )}
       </div>
 
       {/* Content sections */}

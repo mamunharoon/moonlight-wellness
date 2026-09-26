@@ -208,7 +208,7 @@ describe('Home.jsx — passes intentionsConfirmed straight through as the confir
 
 describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-confirm wiring', () => {
   it('destructures intentionsConfirmed/setIntentionsConfirmed from useAlarm', () => {
-    expect(intentionSetupSource).toMatch(/const \{ userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep \} = useAlarm\(\);/);
+    expect(intentionSetupSource).toMatch(/const \{ userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep, effectiveTimezone \} = useAlarm\(\);/);
   });
 
   it('shows the suggested-starting-point hint only at Stage 1 while unconfirmed, never claiming a previous saved choice (Stage 2/Summary already show a real, deliberately-made primary)', () => {
@@ -218,7 +218,7 @@ describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-co
 
   it('handleComplete only confirms when called with confirmed=true (Continue) - Skip (confirmed=false) must never convert a suggested default into a confirmed Active Intention', () => {
     const body = intentionSetupSource.match(/const handleComplete = async \(confirmed\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(confirmed\) setIntentionsConfirmed\(true\);/);
+    expect(body).toMatch(/if \(confirmed\) \{\s*\n\s*setIntentionsConfirmed\(true\);/);
   });
 
   it('Continue and Skip pass explicit, opposite confirmed values - never a shared default that could silently confirm both', () => {
@@ -227,7 +227,7 @@ describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-co
   });
 
   it('a review-mode edit (applySelection/handleAddCustom, which already saves to Supabase immediately) also confirms - it is a genuine save, not just browsing', () => {
-    expect(intentionSetupSource).toMatch(/if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}/);
+    expect(intentionSetupSource).toMatch(/if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*recordIntentionConfirmation\(userId, next, today\);\s*\n\s*\}/);
   });
 
   // F1 acceptance correction — found on review: the ORIGINAL fix had
@@ -247,6 +247,6 @@ describe('IntentionSetup.jsx — F1 suggested-starting-point hint and genuine-co
     // unconditional or duplicate call path that could still fire for Skip.
     const confirmCalls = body.match(/setIntentionsConfirmed\(true\)/g) ?? [];
     expect(confirmCalls.length).toBe(1);
-    expect(body).toMatch(/if \(confirmed\) setIntentionsConfirmed\(true\);/);
+    expect(body).toMatch(/if \(confirmed\) \{\s*\n\s*setIntentionsConfirmed\(true\);/);
   });
 });

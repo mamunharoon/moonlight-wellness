@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { isBetaProgramVisible } from '../lib/featureFlags';
@@ -27,9 +28,17 @@ import { BackButton } from '../components/BackButton';
 const APP_VERSION = '0.0.0';
 const BUILD_NUMBER = '1';
 
+// WakeWise Phase 3 (R13) — "Subscription" is the row's fixed label ("what
+// this row is"); the actual plan is its live value, same split every
+// other value-bearing row here uses (Wake time / Bedtime). Matches
+// Subscription.jsx's own PLAN_LABELS mapping so a Free-plan account
+// never reads as already-subscribed at a glance.
+const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
+
 export const Settings = () => {
   const navigate = useNavigate();
   const { user, isGuest, signOut } = useAuth();
+  const { subscription } = useSubscription();
   const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | null
   const [reducedMotion, setReducedMotionState] = useState(getReducedMotionPreference);
 
@@ -106,9 +115,12 @@ export const Settings = () => {
           <Link to="/subscription" className={rowClass}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">workspace_premium</span>
-              WakeWise Plus
+              Subscription
             </span>
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+            <span className="flex items-center gap-1 text-xs text-on-surface-variant">
+              {PLAN_LABELS[subscription.plan] ?? subscription.plan}
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </span>
           </Link>
         </div>
       </section>

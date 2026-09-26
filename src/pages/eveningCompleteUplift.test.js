@@ -15,9 +15,9 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./EveningComplete.jsx', import.meta.url)), 'utf-8');
 
 describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
-  it('the bedtime icon is now wrapped in a circular evening-accent badge (bg-evening-accent/10 border-evening-accent/25 shadow-evening-glow)', () => {
+  it('the bedtime icon is now wrapped in a circular evening-accent badge (bg-evening-accent/10 border-evening-accent-tint/25 shadow-evening-glow)', () => {
     expect(source).toMatch(
-      /<span className="w-16 h-16 rounded-full bg-evening-accent\/10 border border-evening-accent\/25 shadow-evening-glow flex items-center justify-center">\s*\n\s*<span className="material-symbols-outlined text-evening-accent text-3xl">bedtime<\/span>\s*\n\s*<\/span>/
+      /<span className="w-16 h-16 rounded-full bg-evening-accent\/10 border border-evening-accent-tint\/25 shadow-evening-glow flex items-center justify-center">\s*\n\s*<span className="material-symbols-outlined text-evening-accent text-3xl">bedtime<\/span>\s*\n\s*<\/span>/
     );
   });
 

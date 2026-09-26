@@ -76,7 +76,7 @@ describe('RoutineDetail.jsx — same scoped-by-isMorning pattern, same real acce
   });
 
   it('step-number badges branch four ways: morning-accent gold, evening-accent periwinkle, (Phase 2) tertiary-tint mint, or the original bg-primary/10 treatment - never unconditionally accented', () => {
-    expect(routineDetailSource).toMatch(/isMorning\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent\/25 text-morning-accent'\s*\n\s*: isEvening\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent\/25 text-evening-accent'\s*\n\s*: isAnytime\s*\n\s*\? 'bg-tertiary-tint\/15 border border-tertiary-tint\/30 text-tertiary'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
+    expect(routineDetailSource).toMatch(/isMorning\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent-tint\/25 text-morning-accent'\s*\n\s*: isEvening\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent-tint\/25 text-evening-accent'\s*\n\s*: isAnytime\s*\n\s*\? 'bg-tertiary-tint\/15 border border-tertiary-tint\/30 text-tertiary'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
   });
 
   it('the Start Routine button stays the real peach primary CTA (bg-primary/text-on-primary) for every routine - the approved canonical tokens keep primary action buttons peach app-wide; only the sparing glow is Morning/Evening/Anytime-scoped', () => {

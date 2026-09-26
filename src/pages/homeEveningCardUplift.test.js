@@ -1,7 +1,7 @@
 // Evening Visual Uplift (Build 17), Decision C — Home's four Evening card
 // shells (stale-choice, not-started, in-progress, completed) gain
-// `border-evening-accent/25 shadow-evening-glow`, mirroring Morning's own
-// `border-morning-accent/25 shadow-morning-glow` from Build 16. This file
+// `border-evening-accent-tint/25 shadow-evening-glow`, mirroring Morning's own
+// `border-morning-accent-tint/25 shadow-morning-glow` from Build 16. This file
 // proves the new className is scoped to exactly those four Evening cards,
 // that Morning's own card treatment and Anytime's plain card are
 // untouched, and that no card logic (which state renders, button labels/
@@ -17,9 +17,9 @@ import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)), 'utf-8');
 
-describe('Home.jsx — Evening card shells gain border-evening-accent/25 shadow-evening-glow', () => {
+describe('Home.jsx — Evening card shells gain border-evening-accent-tint/25 shadow-evening-glow', () => {
   it('exactly 4 Evening cards carry the new className (stale-choice, not-started, in-progress, completed) - p-5, Home Visual Uplift compaction (was p-6)', () => {
-    const count = (source.match(/className="glass-panel p-5 rounded-3xl space-y-[56] border-evening-accent\/25 shadow-evening-glow"/g) ?? []).length;
+    const count = (source.match(/className="glass-panel p-5 rounded-3xl space-y-[56] border-evening-accent-tint\/25 shadow-evening-glow"/g) ?? []).length;
     expect(count).toBe(4);
   });
 
@@ -27,8 +27,8 @@ describe('Home.jsx — Evening card shells gain border-evening-accent/25 shadow-
     expect(source).not.toMatch(/border-white\/5 shadow-sm/);
   });
 
-  it('Morning\'s own card shells keep their Build 16 border-morning-accent/25 shadow-morning-glow, completely untouched by this change', () => {
-    const morningCount = (source.match(/border-morning-accent\/25 shadow-morning-glow/g) ?? []).length;
+  it('Morning\'s own card shells keep their Build 16 border-morning-accent-tint/25 shadow-morning-glow, completely untouched by this change', () => {
+    const morningCount = (source.match(/border-morning-accent-tint\/25 shadow-morning-glow/g) ?? []).length;
     expect(morningCount).toBeGreaterThanOrEqual(3); // not-started, in-progress, completed (at minimum)
   });
 

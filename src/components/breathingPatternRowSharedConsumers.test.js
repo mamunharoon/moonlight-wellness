@@ -51,7 +51,7 @@ describe('BreathingPatternRow — default behaviour is genuinely unchanged', () 
   // 'primary' test above, still byte-identical.
   it('the \'evening\' token set uses the alpha-safe evening-accent-tint for its selectedRow background, fixing the same opacity-on-hex-var gap the primary token still has', () => {
     expect(journeyToneSource).toMatch(
-      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'/
+      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent-tint\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'/
     );
   });
 

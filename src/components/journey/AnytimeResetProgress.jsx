@@ -47,7 +47,7 @@
  *   - active (i === stepIndex):  h-2.5, bg-tertiary, no border
  *
  * Delivery-verification fix — the completed segment's border was
- * originally `border-tertiary/40`. `tertiary` (like `primary`) is a plain
+ * originally `border-tertiary-tint/40`. `tertiary` (like `primary`) is a plain
  * hex string with no Tailwind opacity-modifier support, so that class
  * silently generated no rule at all and the border fell back to
  * Tailwind's default gray - live-caught via getComputedStyle() against

@@ -56,8 +56,8 @@ describe('RoutineDetail.jsx — isEvening derived per-routine, optional-chained'
   });
 
   it('step-number badges are periwinkle for Evening, gold for Morning, mint for Anytime, plain peach for anything else - a genuine four-way branch, never unconditional', () => {
-    expect(routineDetailSource).toMatch(/bg-evening-accent\/10 border border-evening-accent\/25 text-evening-accent/);
-    expect(routineDetailSource).toMatch(/bg-morning-accent\/10 border border-morning-accent\/25 text-morning-accent/);
+    expect(routineDetailSource).toMatch(/bg-evening-accent\/10 border border-evening-accent-tint\/25 text-evening-accent/);
+    expect(routineDetailSource).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/25 text-morning-accent/);
     expect(routineDetailSource).toMatch(/bg-tertiary-tint\/15 border border-tertiary-tint\/30 text-tertiary/);
     expect(routineDetailSource).toMatch(/bg-primary\/10 border border-primary\/20 text-primary/);
   });

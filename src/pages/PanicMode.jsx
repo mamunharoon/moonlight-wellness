@@ -25,7 +25,14 @@ export const PanicMode = () => {
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback="/support">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-        <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">self_improvement</span>
+        {/* WakeWise Phase 3B (3B.4) — was self_improvement, the same
+            generic glyph ordinary meditation elsewhere already uses; this
+            screen is acute/urgent support, not routine practice, and
+            deserves its own visual identity. `spa` reads as calm and
+            reassuring, never alarming/emergency imagery (no siren, cross,
+            or warning glyph), and isn't used by any other
+            Anytime/breathing/meditation screen in this app. */}
+        <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">spa</span>
         <h1 className="font-serif italic text-3xl text-on-surface leading-snug">
           You're safe.
           <br />

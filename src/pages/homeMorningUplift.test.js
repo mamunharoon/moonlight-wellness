@@ -20,7 +20,7 @@ describe('Home.jsx — nextStepCardBody stays one shared function, period is add
   });
 
   it('the eyebrow chip branches three ways: morning-accent gold, evening-accent periwinkle, or the original primary peach default - never a fourth colour', () => {
-    expect(source).toMatch(/isMorningPeriod\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent\/30 text-morning-accent'\s*\n\s*: isEveningPeriod\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent\/30 text-evening-accent'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
+    expect(source).toMatch(/isMorningPeriod\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent-tint\/30 text-morning-accent'\s*\n\s*: isEveningPeriod\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent-tint\/30 text-evening-accent'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
   });
 
   it('the heading branches three ways: Playfair Display for Morning, Newsreader (font-serif) italic for Evening, plain sans (empty string) for anytime/default', () => {
@@ -67,14 +67,14 @@ describe('Home.jsx — Morning\'s four card states all render the gold/Playfair 
     const shellMatches = morningBlock.match(/className="glass-panel p-5 rounded-3xl[^"]*"/g) ?? [];
     expect(shellMatches.length).toBe(4);
     for (const cls of shellMatches) {
-      expect(cls).toMatch(/border-morning-accent\//);
+      expect(cls).toMatch(/border-morning-accent-tint\//);
       expect(cls).toMatch(/shadow-morning-glow/);
       expect(cls).not.toMatch(/shadow-sm\b/);
     }
   });
 
   it('the stale-choice card\'s own separate "Rise & Reset" badge and heading (outside nextStepCardBody) also use morning-accent gold and Playfair', () => {
-    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent\/30 text-morning-accent text-\[10px\] font-bold uppercase tracking-wider">\s*\n\s*Rise &amp; Reset/);
+    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/30 text-morning-accent text-\[10px\] font-bold uppercase tracking-wider">\s*\n\s*Rise &amp; Reset/);
     expect(source).toMatch(/text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic/);
   });
 

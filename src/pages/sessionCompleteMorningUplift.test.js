@@ -18,7 +18,7 @@ const source = read('./SessionComplete.jsx');
 
 describe('SessionComplete.jsx — more uplifting completion presentation', () => {
   it('a new, purely decorative "Morning Flow" orienting badge sits beside BackButton - same established pill pattern Home\'s own "YOUR MORNING" badge already uses, not new data', () => {
-    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent\/25 text-morning-accent text-\[10px\] font-bold uppercase tracking-wider">\s*\n\s*Morning Flow/);
+    expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/25 text-morning-accent text-\[10px\] font-bold uppercase tracking-wider">\s*\n\s*Morning Flow/);
   });
 
   it('the ring stroke is now the real gratitude-accent CSS variable (the same underlying colour morning-accent already points to) instead of the generic --color-primary it used before', () => {

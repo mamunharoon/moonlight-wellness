@@ -24,7 +24,7 @@ export const JOURNEY_TONE_TOKENS = {
   },
   evening: {
     selectedRow: 'bg-evening-accent-tint/10 border-evening-accent',
-    unselectedRow: 'bg-surface-container border-evening-accent/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-evening-accent-tint/55 hover:bg-white/10',
     selectedLabel: 'text-evening-accent font-bold',
     selectedRing: 'border-evening-accent bg-evening-accent',
     unselectedRing: 'border-evening-accent bg-surface-container-lowest',
@@ -34,7 +34,7 @@ export const JOURNEY_TONE_TOKENS = {
   },
   morning: {
     selectedRow: 'bg-morning-accent-tint/10 border-morning-accent',
-    unselectedRow: 'bg-surface-container border-morning-accent/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-morning-accent-tint/55 hover:bg-white/10',
     selectedLabel: 'text-morning-accent font-bold',
     selectedRing: 'border-morning-accent bg-morning-accent',
     unselectedRing: 'border-morning-accent bg-surface-container-lowest',
@@ -44,7 +44,7 @@ export const JOURNEY_TONE_TOKENS = {
   },
   anytime: {
     selectedRow: 'bg-tertiary-tint/10 border-tertiary',
-    unselectedRow: 'bg-surface-container border-tertiary/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-tertiary-tint/55 hover:bg-white/10',
     selectedLabel: 'text-tertiary font-bold',
     selectedRing: 'border-tertiary bg-tertiary',
     unselectedRing: 'border-tertiary bg-surface-container-lowest',

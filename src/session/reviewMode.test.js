@@ -590,7 +590,7 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
     // specifically (a second, redundant array-state write would be the
     // real bug this originally guarded against) - setIntentionsConfirmed(
     // (F1, added since) is a different setter and must not trip this.
-    const reviewBlock = intentionSetupSource.match(/if \(isReviewMode\) \{[\s\S]{0,120}?\n {4}\}/)?.[0] ?? '';
+    const reviewBlock = intentionSetupSource.match(/if \(isReviewMode\) \{[\s\S]{0,220}?\n {4}\}/)?.[0] ?? '';
     expect(reviewBlock).not.toMatch(/setIntentions\(/);
     expect(reviewBlock).toMatch(/setIntentionsConfirmed\(true\);/);
   });
@@ -604,7 +604,7 @@ describe('IntentionSetup.jsx - reviewing Intend allows changing today\'s intenti
   // immediately when isReviewMode is true; the ordinary live-step flow
   // (isReviewMode false) is unchanged and still defers to Continue.
   it('saves to Supabase immediately when changed during review, since Continue/handleComplete is unreachable then (F1: also confirms - a review-mode edit is a genuine save, not just browsing)', () => {
-    expect(intentionSetupSource).toMatch(/setIntentions\(next\);\s*\n[\s\S]*?if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*\}/);
+    expect(intentionSetupSource).toMatch(/setIntentions\(next\);\s*\n[\s\S]*?if \(isReviewMode\) \{\s*\n\s*saveIntentionsToCloud\(userId, next\);\s*\n\s*setIntentionsConfirmed\(true\);\s*\n\s*recordIntentionConfirmation\(userId, next, today\);\s*\n\s*\}/);
   });
 
   it('has no ProgressIndicator of its own (Step 1 - nothing earlier to review from here)', () => {

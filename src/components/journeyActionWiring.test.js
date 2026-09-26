@@ -12,7 +12,7 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionClasses with its own real journey', () => {
   const expectations = [
     // [file, journey, how many call sites expected]
-    ['../pages/Home.jsx', 'morning', 3],
+    ['../pages/Home.jsx', 'morning', 4],
     ['../pages/Home.jsx', 'evening', 4],
     ['../pages/Home.jsx', 'anytime', 1],
     ['../pages/IntentionSetup.jsx', 'morning', 2],

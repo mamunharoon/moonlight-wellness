@@ -218,9 +218,9 @@ export const RoutineDetail = () => {
               <span
                 className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${
                   isMorning
-                    ? 'bg-morning-accent/10 border border-morning-accent/25 text-morning-accent'
+                    ? 'bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent'
                     : isEvening
-                    ? 'bg-evening-accent/10 border border-evening-accent/25 text-evening-accent'
+                    ? 'bg-evening-accent/10 border border-evening-accent-tint/25 text-evening-accent'
                     : isAnytime
                     ? 'bg-tertiary-tint/15 border border-tertiary-tint/30 text-tertiary'
                     : 'bg-primary/10 border border-primary/20 text-primary'

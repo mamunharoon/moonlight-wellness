@@ -23,7 +23,7 @@ export const Toolkit = () => {
       title: 'Panic Reset',
       desc: 'Ground yourself quickly using the 5-4-3-2-1 technique to engage your physical senses.',
       icon: 'energy_savings_leaf',
-      color: 'text-tertiary bg-tertiary/10 border-tertiary/20'
+      color: 'text-tertiary bg-tertiary/10 border-tertiary-tint/20'
     }
   ];
 

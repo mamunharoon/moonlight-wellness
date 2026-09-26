@@ -70,8 +70,8 @@ describe('Home Visual Uplift — Active Intention: mint label + restrained, peri
   it('the Active Intention wrapper (Home.jsx) gets the SAME period border-colour family as the main card, at a lower, restrained opacity, and no glow - never competing with the primary card', () => {
     const wrapperMatch = homeSource.match(/className=\{`glass-panel p-5 rounded-3xl shadow-sm \$\{[\s\S]*?\}`\}/)?.[0] ?? '';
     expect(wrapperMatch.length).toBeGreaterThan(0);
-    expect(wrapperMatch).toMatch(/border-morning-accent\/12/);
-    expect(wrapperMatch).toMatch(/border-evening-accent\/12/);
+    expect(wrapperMatch).toMatch(/border-morning-accent-tint\/\[12%\]/);
+    expect(wrapperMatch).toMatch(/border-evening-accent-tint\/\[12%\]/);
     expect(wrapperMatch).toMatch(/border-tertiary-tint\/20/);
     // Restrained: no shadow-*-glow class anywhere in this wrapper.
     expect(wrapperMatch).not.toMatch(/shadow-\w+-glow/);

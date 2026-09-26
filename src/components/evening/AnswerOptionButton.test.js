@@ -112,7 +112,7 @@ describe('AnswerOptionButton - now driven by the shared journeyTone.js token map
 describe('AnswerOptionButton - unselected state (Build 15 visual refinement)', () => {
   it('deep surface-container background, a visible border (calculated ~3.4:1 against the row, clearing the 3:1 AA non-text floor - see the contrast-computation describe block below), off-white readable label at medium weight - now resolved from tokens.unselectedRow (tone-driven) rather than a hardcoded evening-accent border, so a genuine non-Evening consumer (StressRelease.jsx, journeyTone="anytime") no longer incorrectly shows a periwinkle unselected border', () => {
     expect(source).toMatch(/text-on-surface font-medium/);
-    expect(journeyToneSource).toMatch(/unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',/);
+    expect(journeyToneSource).toMatch(/unselectedRow: 'bg-surface-container border-evening-accent-tint\/55 hover:bg-white\/10',/);
   });
 
   it('the radio glyph is a strong accent ring with an explicit dark navy centre (surface-container-lowest) - not the old pale border-on-surface-variant outline, no inner dot; resolved from tokens.unselectedRing', () => {

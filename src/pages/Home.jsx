@@ -653,7 +653,7 @@ export const Home = () => {
   // treatment before this change, and its heading was still plain sans -
   // found during the Home Visual Uplift Stitch audit, since only the
   // outer card SHELL below had ever been given
-  // border-evening-accent/shadow-evening-glow, never this shared inner
+  // border-evening-accent-tint/shadow-evening-glow, never this shared inner
   // body - now genuinely periwinkle-badged + font-serif italic
   // (Newsreader), matching the approved circadian typography contract for
   // Evening exactly as it already did for Morning).
@@ -673,9 +673,9 @@ export const Home = () => {
           <span
             className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
               isMorningPeriod
-                ? 'bg-morning-accent/10 border border-morning-accent/30 text-morning-accent'
+                ? 'bg-morning-accent/10 border border-morning-accent-tint/30 text-morning-accent'
                 : isEveningPeriod
-                ? 'bg-evening-accent/10 border border-evening-accent/30 text-evening-accent'
+                ? 'bg-evening-accent/10 border border-evening-accent-tint/30 text-evening-accent'
                 : 'bg-primary/10 border border-primary/20 text-primary'
             }`}
           >
@@ -948,7 +948,7 @@ export const Home = () => {
               both explicit choices are always shown side by side. */}
           {morningCardState === 'not-started' && morningHasStaleChoice && (
             <div
-              className="glass-panel p-5 rounded-3xl space-y-5 border-morning-accent/30 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl space-y-5 border-morning-accent-tint/30 shadow-morning-glow"
               // Build 15 Phase B fix: an inline style, not the
               // bg-morning-tint/10 utility class - .glass-panel's own
               // plain-CSS `background` shorthand sits later in the
@@ -964,7 +964,7 @@ export const Home = () => {
               aria-label="Unfinished previous Rise & Reset routine"
             >
               <div className="space-y-1">
-                <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent/30 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/30 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
                   Rise &amp; Reset
                 </span>
                 <h3 className="text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic">
@@ -998,7 +998,7 @@ export const Home = () => {
               (morning/afternoon/evening-night) per nextStepCard.js. */}
           {morningCardState === 'not-started' && !morningHasStaleChoice && (
             <div
-              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent-tint/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningNotStartedCard, undefined, 'morning')}
@@ -1015,7 +1015,7 @@ export const Home = () => {
           {/* MORNING — paused today. */}
           {morningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent-tint/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), 'morning')}
@@ -1039,14 +1039,14 @@ export const Home = () => {
           {/* MORNING — completed today. */}
           {morningCardState === 'completed' && (
             <div
-              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent/25 shadow-morning-glow"
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent-tint/25 shadow-morning-glow"
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningCompletedCard, undefined, 'morning')}
               <button
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
-                className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+                className={`block w-full py-3 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all`}
               >
                 {morningCompletedCard.buttonLabel}
               </button>
@@ -1059,7 +1059,7 @@ export const Home = () => {
         <>
           {/* Evening Visual Uplift (Build 17) — all four Evening card
               shells below (stale-choice, not-started, in-progress,
-              completed) gained `border-evening-accent/25 shadow-evening-
+              completed) gained `border-evening-accent-tint/25 shadow-evening-
               glow`, the same restrained boxShadow-token shape Build 16
               already established for the Morning cards, just built from
               evening-accent periwinkle instead - see tailwind.config.js's
@@ -1071,7 +1071,7 @@ export const Home = () => {
               Morning stale-choice card exactly. */}
           {eveningCardState === 'not-started' && eveningHasStaleChoice && (
             <div
-              className="glass-panel p-5 rounded-3xl space-y-5 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-5 border-evening-accent-tint/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
               role="region"
               aria-label="Unfinished previous Evening Wind-Down routine"
@@ -1107,7 +1107,7 @@ export const Home = () => {
           {/* EVENING — not started, no stale choice. */}
           {eveningCardState === 'not-started' && !eveningHasStaleChoice && (
             <div
-              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent-tint/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningNotStartedCard, undefined, 'evening')}
@@ -1124,7 +1124,7 @@ export const Home = () => {
           {/* EVENING — paused today. */}
           {eveningCardState === 'in-progress' && (
             <div
-              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent-tint/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex), 'evening')}
@@ -1163,7 +1163,7 @@ export const Home = () => {
               simply begin the routine again. */}
           {eveningCardState === 'completed' && (
             <div
-              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent/25 shadow-evening-glow"
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent-tint/25 shadow-evening-glow"
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningCompletedCard, undefined, 'evening')}
@@ -1278,9 +1278,9 @@ export const Home = () => {
       <div
         className={`glass-panel p-5 rounded-3xl shadow-sm ${
           activePeriod === 'morning'
-            ? 'border-morning-accent/12'
+            ? 'border-morning-accent-tint/[12%]'
             : activePeriod === 'evening'
-            ? 'border-evening-accent/12'
+            ? 'border-evening-accent-tint/[12%]'
             : 'border-tertiary-tint/20'
         }`}
       >

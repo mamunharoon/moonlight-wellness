@@ -38,7 +38,7 @@ const TOKENS = {
   },
   morning: {
     selectedRow: 'bg-morning-accent-tint/10 border-morning-accent',
-    unselectedRow: 'bg-surface-container border-morning-accent/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-morning-accent-tint/55 hover:bg-white/10',
     selectedLabel: 'text-morning-accent font-bold',
     selectedCheckBg: 'bg-morning-accent border-morning-accent',
     checkIconText: 'text-on-morning-accent',
@@ -47,7 +47,7 @@ const TOKENS = {
   },
   anytime: {
     selectedRow: 'bg-tertiary-tint/10 border-tertiary',
-    unselectedRow: 'bg-surface-container border-tertiary/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-tertiary-tint/55 hover:bg-white/10',
     selectedLabel: 'text-tertiary font-bold',
     selectedCheckBg: 'bg-tertiary border-tertiary',
     checkIconText: 'text-on-tertiary',
@@ -56,7 +56,7 @@ const TOKENS = {
   },
   evening: {
     selectedRow: 'bg-evening-accent-tint/10 border-evening-accent',
-    unselectedRow: 'bg-surface-container border-evening-accent/55 hover:bg-white/10',
+    unselectedRow: 'bg-surface-container border-evening-accent-tint/55 hover:bg-white/10',
     selectedLabel: 'text-evening-accent font-bold',
     selectedCheckBg: 'bg-evening-accent border-evening-accent',
     checkIconText: 'text-on-evening-accent',

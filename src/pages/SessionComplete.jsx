@@ -1,5 +1,5 @@
 ﻿/* eslint-disable no-unused-vars */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
@@ -13,6 +13,9 @@ import { getMorningCompletionKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
+import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
+
+const RING_CIRCUMFERENCE = 276.46;
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
@@ -26,11 +29,46 @@ export const SessionComplete = () => {
   // an extra guard ref here.
   const { state, currentStep, completeSession, resetSession } = useSession();
 
+  // WakeWise Phase 3B (3B.1) — captured once, before the mount effect below
+  // can flip state.status to 'completed': true only for a genuine natural
+  // completion arriving with the session still 'playing' (the exact same
+  // signal the effect itself gates completeSession() on). A direct/
+  // refreshed visit, or a Review Mode revisit, mounts with status already
+  // 'completed' and never animates - matching this file's own established
+  // "same static screen either way" precedent for those cases, just now
+  // additionally deciding whether the ring animates rather than only what
+  // copy it shows.
+  const [isFreshCompletion] = useState(() => state.status === 'playing');
+  const [reducedMotion] = useState(() => {
+    try {
+      return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    } catch {
+      return false;
+    }
+  });
+  // Starts empty only when it genuinely needs to animate; a revisit or
+  // Reduced Motion renders the final 100% state immediately, no flash of
+  // an empty ring first.
+  const [ringFilled, setRingFilled] = useState(() => !isFreshCompletion || reducedMotion);
+
   useEffect(() => {
     if (state.status === 'playing' && currentStep?.id === 'complete') {
       completeSession();
     }
   }, [state.status, currentStep, completeSession]);
+
+  useEffect(() => {
+    if (ringFilled) return;
+    // A short delay (not requestAnimationFrame's next-paint timing alone)
+    // reliably lets the browser commit the initial empty-ring paint first,
+    // so the stroke-dashoffset transition below is actually observed
+    // rather than the fill appearing to jump straight to 100%.
+    const timer = setTimeout(() => setRingFilled(true), 80);
+    return () => clearTimeout(timer);
+    // Runs once - deliberately not re-armed by any later state change, so
+    // the fill never replays (e.g. on an unrelated re-render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleReturnHome = () => {
     // "Repeat Morning Routine" / "Resume Previous Routine" remediation —
@@ -108,7 +146,7 @@ export const SessionComplete = () => {
         {/* Morning Visual Uplift (Build 16) — a small decorative orienting
             badge, the same established pattern Home's own "YOUR MORNING"
             pill already uses (Build 15) - not new data, just a label. */}
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
+        <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
           Morning Flow
         </span>
       </div>
@@ -117,7 +155,23 @@ export const SessionComplete = () => {
       <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-6 rounded-full shadow-morning-glow">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle cx="50" cy="50" fill="transparent" r="44" stroke="rgba(255,255,255,0.05)" strokeWidth="4"></circle>
-          <circle cx="50" cy="50" fill="transparent" r="44" stroke="var(--color-gratitude-accent)" strokeDasharray="276.46" strokeDashoffset="0" strokeLinecap="round" strokeWidth="5"></circle>
+          {/* WakeWise Phase 3B (3B.1) — animates from empty to full only on
+              a genuine fresh completion with Reduced Motion off (see
+              ringFilled above); a revisit or Reduced Motion renders this
+              at strokeDashoffset 0 from the very first paint, no
+              transition attached. */}
+          <circle
+            cx="50"
+            cy="50"
+            fill="transparent"
+            r="44"
+            stroke="var(--color-gratitude-accent)"
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={ringFilled ? 0 : RING_CIRCUMFERENCE}
+            strokeLinecap="round"
+            strokeWidth="5"
+            style={isFreshCompletion && !reducedMotion ? { transition: 'stroke-dashoffset 900ms ease-out' } : undefined}
+          ></circle>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="material-symbols-outlined text-morning-accent text-2xl font-bold">check_circle</span>

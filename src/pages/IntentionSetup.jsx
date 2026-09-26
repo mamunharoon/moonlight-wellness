@@ -15,6 +15,9 @@ import {
   TOO_LONG_INTENTION_MESSAGE
 } from '../lib/intentionSelection';
 import { getIntentionIcon } from '../lib/intentionIcons';
+import { recordIntentionConfirmation, getPreviousDayIntention, wasConfirmedToday } from '../lib/previousIntentionShortcut';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
@@ -71,7 +74,14 @@ import { JourneyGlow } from '../components/JourneyGlow';
  */
 export const IntentionSetup = () => {
   const navigate = useNavigate();
-  const { userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep } = useAlarm();
+  const { userId, intentions, setIntentions, intentionsConfirmed, setIntentionsConfirmed, setJourneyStep, effectiveTimezone } = useAlarm();
+  // WakeWise Phase 3B (3B.2) — today's local calendar dateKey, and
+  // yesterday's (or the last prior day's) confirmed intention if one
+  // exists and hasn't already been reconfirmed today. Both read once at
+  // mount (lazy initializers): this screen's own lifecycle is "one Morning
+  // routine visit," never expected to cross a midnight boundary mid-visit.
+  const [today] = useState(() => getZonedParts(effectiveTimezone, devNow()).dateKey);
+  const [previousDayIntention] = useState(() => getPreviousDayIntention(userId, today));
   const { state, currentStep, advanceStep, abandonSession } = useSession();
   // Safe backward navigation ("Review Mode") - handleSelectPrimary/
   // handleSelectSupporting/handleAddCustom below already only ever call
@@ -162,9 +172,18 @@ export const IntentionSetup = () => {
   // supporting grids below simply show it pre-selected, exactly like the
   // former flat grid already did, via the same "Suggested starting
   // points" banner.
+  // WakeWise Phase 3B (3B.2) — a prior confirmation only skips straight to
+  // Summary when it happened TODAY (wasConfirmedToday). intentionsConfirmed
+  // itself is untouched everywhere else in this app (Home's Active
+  // Intention card, ChangeIntention.jsx, custom-intention persistence all
+  // still read it exactly as before) - only THIS stage-entry decision now
+  // additionally consults the local day, so "confirmed once, ever" no
+  // longer silently reuses a prior day's pick without an explicit tap
+  // (rule: never auto-reuse yesterday's intention without one). Review
+  // Mode is unaffected either way - it always lands on Summary already.
   const [stage, setStage] = useState(() => {
     if (intentions.length === 0) return 'primary';
-    return isReviewMode || intentionsConfirmed ? 'summary' : 'primary';
+    return isReviewMode || (intentionsConfirmed && wasConfirmedToday(userId, today)) ? 'summary' : 'primary';
   });
   const stageHeadingRef = useRef(null);
   // Screen-reader announcement (item 8): moving focus to the new stage's
@@ -193,6 +212,7 @@ export const IntentionSetup = () => {
     if (isReviewMode) {
       saveIntentionsToCloud(userId, next);
       setIntentionsConfirmed(true);
+      recordIntentionConfirmation(userId, next, today);
     }
   };
 
@@ -209,6 +229,22 @@ export const IntentionSetup = () => {
     setLimitMessage('');
     commit(setPrimaryIntention(intentions, preset));
     setStage('supporting');
+  };
+
+  // WakeWise Phase 3B (3B.2) — an explicit, one-tap shortcut, never an
+  // automatic reuse. Commits BOTH roles from the prior day's record at
+  // once (through the same validated `commit` write path every other
+  // selection uses) and jumps straight to Summary, since both primary and
+  // supporting are already decided - exactly as if the user had manually
+  // reselected each one. A custom intention from a prior day renders
+  // safely here: it is plain already-validated text, not re-parsed or
+  // re-checked against today's duplicate/length rules (those only guard
+  // NEW input).
+  const handleUsePreviousIntention = () => {
+    if (!previousDayIntention || previousDayIntention.length === 0) return;
+    setLimitMessage('');
+    commit(previousDayIntention);
+    setStage('summary');
   };
 
   // Stage 2 — optional supporting, must differ from the primary. The
@@ -309,7 +345,10 @@ export const IntentionSetup = () => {
     // F1 — only a genuine Continue confirms (see this function's own top
     // comment); Skip never does, even when it just fell back to the
     // suggested default above.
-    if (confirmed) setIntentionsConfirmed(true);
+    if (confirmed) {
+      setIntentionsConfirmed(true);
+      recordIntentionConfirmation(userId, toSave, today);
+    }
 
     setIsSaving(false);
 
@@ -360,7 +399,7 @@ export const IntentionSetup = () => {
                 approved sunrise glow token is meant for (see
                 tailwind.config.js's own morning-glow comment: sparing,
                 never an ambient/default shadow). */}
-            <span className="w-16 h-16 rounded-full bg-morning-accent/10 border border-morning-accent/25 shadow-morning-glow flex items-center justify-center">
+            <span className="w-16 h-16 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center">
               <span className="material-symbols-outlined text-morning-accent text-3xl">wb_sunny</span>
             </span>
             {/* Journey Embedding (correction) — total is now 5, not 4. */}
@@ -457,6 +496,23 @@ export const IntentionSetup = () => {
               />
             ))}
           </div>
+
+          {/* WakeWise Phase 3B (3B.2) — only offered when a genuinely
+              PRIOR day's confirmed intention exists (never today's own,
+              never another user's - previousIntentionShortcut.js is
+              userId-scoped and local-date-validated). Purely optional:
+              the presets/custom input above and below remain the
+              ordinary path. */}
+          {previousDayIntention && previousDayIntention.length > 0 && (
+            <button
+              type="button"
+              onClick={handleUsePreviousIntention}
+              className="w-full min-h-[44px] px-4 py-3 rounded-2xl glass-panel border border-morning-accent-tint/25 text-left hover:bg-white/5 active:scale-[0.99] transition-all"
+            >
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-morning-accent">Use yesterday's intention</span>
+              <span className="block text-xs text-on-surface-variant mt-0.5">{previousDayIntention.join(' · ')}</span>
+            </button>
+          )}
 
           <div className="space-y-1.5 w-full">
             <div className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">

@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <!-- WakeWise Phase 3A (R12) — Material Symbols specifically uses
+         `display=block` rather than the `swap` every text font above
+         uses. `swap` renders the fallback font's OWN glyphs immediately,
+         which for a ligature icon font means literal readable text
+         ("arrow_back") flashes on a cold, uncached load - exactly the
+         defect this fixes. `block` gives the glyphs a short invisible
+         period (spec-bounded, a few seconds at most) instead, then swaps
+         the real icons in once loaded; it never blocks layout, text, or
+         the rest of the app - only these specific glyphs stay invisible
+         briefly rather than rendering as words. -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet" />
     <!-- Stage 3 "felt" typography voice (design proposal §11) — additive -->
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
     <!-- Morning Visual Uplift — Playfair Display, deliberately Morning's own

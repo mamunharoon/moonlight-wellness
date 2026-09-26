@@ -75,7 +75,7 @@ describe('Home.jsx — Anytime detail card uses mint accents with an unchanged p
 
 describe('Home.jsx — Morning and Evening detail cards are untouched by the Anytime mint change', () => {
   it('Morning\'s own cards keep border-morning-accent/shadow-morning-glow, Evening\'s keep border-evening-accent/shadow-evening-glow', () => {
-    expect(homeSource).toMatch(/border-morning-accent\/30 shadow-morning-glow/);
-    expect(homeSource).toMatch(/border-evening-accent\/25 shadow-evening-glow/);
+    expect(homeSource).toMatch(/border-morning-accent-tint\/30 shadow-morning-glow/);
+    expect(homeSource).toMatch(/border-evening-accent-tint\/25 shadow-evening-glow/);
   });
 });

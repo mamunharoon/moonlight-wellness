@@ -156,7 +156,7 @@ export const Affirmation = () => {
         Begin with a supportive thought to shape how you meet the day.
       </p>
 
-      <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
+      <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent-tint/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <span className="material-symbols-outlined text-9xl">wb_sunny</span>
         </div>
