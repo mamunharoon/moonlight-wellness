@@ -122,8 +122,8 @@ describe('Edit Mode presentation', () => {
     expect(read('../components/evening/EveningEditBanner.jsx')).toMatch(/Editing.*tonight.*responses/);
   });
 
-  it('passes each question\'s own accent through to EveningEditQuestion - Gratitude now renders the same peach as Reflection (Build 15 Evening UX correction), not gold', () => {
-    expect(editSource).toMatch(/accent=\{activePrompt\.accent\}/);
+  it('passes journeyTone="evening" through to EveningEditQuestion for every question - EVENING_EDIT_PROMPTS is exclusively Reflection+Gratitude, both genuinely Evening, so this is a literal constant rather than reading the now-unused per-prompt accent field (Evening journey-theme correction)', () => {
+    expect(editSource).toMatch(/journeyTone="evening"/);
     expect(editQuestionSource).not.toMatch(/text-gratitude-accent/);
   });
 

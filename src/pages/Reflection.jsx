@@ -173,7 +173,11 @@ export const Reflection = () => {
       <ProgressIndicator activeStep="reflection" sessionId="evening-wind-down" onReviewStep={requestReview} />
 
       {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+        <ReviewModeBanner
+          currentStepLabel={getStepLabel(currentStep.id)}
+          onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))}
+          journeyTone="evening"
+        />
       )}
 
       <div className="flex-1 flex flex-col justify-center">
@@ -199,7 +203,7 @@ export const Reflection = () => {
               onClear={handlePromptClear}
               onAdvance={handleAdvance}
               onComplete={handleComplete}
-              accent="reflection"
+              journeyTone="evening"
             />
           )}
         </div>

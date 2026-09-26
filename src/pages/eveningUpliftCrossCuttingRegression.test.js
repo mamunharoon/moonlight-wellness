@@ -121,26 +121,30 @@ describe('Prepare for Rest — all 10 real SL01-SL10 sleep experiences still pre
   });
 });
 
-describe('The compact two-column answer grid (commit 96f5f30) is untouched - this phase never edited any of these four files', () => {
-  const gridFiles = [
-    ['../components/evening/AnswerOptionButton.jsx', 'AnswerOptionButton.jsx'],
-    ['../components/evening/PromptStepper.jsx', 'PromptStepper.jsx'],
-    ['../components/evening/EveningEditQuestion.jsx', 'EveningEditQuestion.jsx'],
-    ['../components/evening/EveningReviewQuestion.jsx', 'EveningReviewQuestion.jsx'],
+describe('The compact two-column answer grid (commit 96f5f30) is untouched by Build 17 - this describe block\'s own name refers to THAT phase; the LATER Evening journey-theme correction genuinely did edit AnswerOptionButton.jsx/PromptStepper.jsx (see AnswerOptionButton.test.js/reflectionGratitudeTapFirst.test.js for that phase\'s own full coverage) - grid structure itself is still untouched by either phase', () => {
+  const gridContainerFiles = [
+    '../components/evening/PromptStepper.jsx',
+    '../components/evening/EveningEditQuestion.jsx',
+    '../components/evening/EveningReviewQuestion.jsx',
   ];
 
-  it('every grid file still declares grid grid-cols-2, and none references evening-accent-based selected-state colour (peach/periwinkle split stays exactly as delivered in commit 96f5f30)', () => {
-    for (const [path, label] of gridFiles) {
-      const source = read(path);
-      if (label === 'AnswerOptionButton.jsx') {
-        // The radio's own unselected ring/border already used evening-accent
-        // before this phase (Build 15) - confirms this file was never
-        // touched by Build 17, not that evening-accent is newly absent.
-        expect(source).toMatch(/reflection: \{ text: 'text-primary', border: 'border-primary'/);
-        expect(source).toMatch(/gratitude: \{ text: 'text-primary', border: 'border-primary'/);
-      } else {
-        expect(source).toMatch(/grid grid-cols-2/);
-      }
+  it('every grid CONTAINER file (the three callers, not AnswerOptionButton.jsx itself - it renders one card, never the container) still declares grid grid-cols-2', () => {
+    for (const path of gridContainerFiles) {
+      expect(read(path)).toMatch(/grid grid-cols-2/);
     }
+  });
+
+  // Evening journey-theme correction — AnswerOptionButton.jsx's old
+  // ACCENT_TOKENS (peach for BOTH 'reflection' and 'gratitude', with a
+  // hardcoded evening-accent unselected state regardless of accent) is
+  // gone, replaced by journeyTone.js's shared token map (see
+  // AnswerOptionButton.test.js for the full new-behaviour coverage). This
+  // reverses what this describe block used to pin as permanently
+  // unchanged.
+  it('AnswerOptionButton.jsx now resolves colour from the shared journeyTone.js map, not a local peach-only ACCENT_TOKENS object', () => {
+    const source = read('../components/evening/AnswerOptionButton.jsx');
+    expect(source).toMatch(/import \{ getJourneyToneTokens \} from '\.\.\/\.\.\/lib\/journeyTone';/);
+    expect(source).not.toMatch(/reflection: \{ text: 'text-primary', border: 'border-primary'/);
+    expect(source).not.toMatch(/gratitude: \{ text: 'text-primary', border: 'border-primary'/);
   });
 });

@@ -153,9 +153,9 @@ describe('Reuse of question configuration (item 4)', () => {
     expect(GRATITUDE_PROMPTS.map((p) => p.id)).toEqual(['appreciated-moment', 'who-made-better', 'grateful-now']);
   });
 
-  it('both review pages pass the correct accent (reflection peach / gratitude gold) - the exact same tokens the live journey uses', () => {
-    expect(reflectionReviewSource).toMatch(/accent="reflection"/);
-    expect(gratitudeReviewSource).toMatch(/accent="gratitude"/);
+  it('both review pages pass journeyTone="evening" to EveningReviewQuestion - the same periwinkle tokens the live journey now uses (Evening journey-theme correction; previously accent="reflection"/"gratitude", both of which only ever resolved to the same hardcoded peach)', () => {
+    expect(reflectionReviewSource).toMatch(/journeyTone="evening"/);
+    expect(gratitudeReviewSource).toMatch(/journeyTone="evening"/);
   });
 });
 

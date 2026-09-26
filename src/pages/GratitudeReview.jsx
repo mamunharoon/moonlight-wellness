@@ -6,6 +6,7 @@ import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { EveningReviewBanner } from '../components/evening/EveningReviewBanner';
 import { EveningReviewQuestion } from '../components/evening/EveningReviewQuestion';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { GRATITUDE_PROMPTS } from '../lib/eveningJourneyQuestions';
 import { loadRoutineResponses } from '../lib/routineResponses';
 import { parseActiveIndex } from '../lib/questionStepNavigation';
@@ -71,7 +72,7 @@ export const GratitudeReview = () => {
         </div>
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return Home
         </button>
@@ -91,7 +92,7 @@ export const GratitudeReview = () => {
         </div>
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return Home
         </button>
@@ -111,7 +112,7 @@ export const GratitudeReview = () => {
         </div>
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return Home
         </button>
@@ -131,7 +132,7 @@ export const GratitudeReview = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)}>
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">Gratitude</span>
+      <span className="block text-center text-[10px] text-evening-accent uppercase font-bold tracking-wider">Gratitude</span>
       <EveningReviewBanner onReturn={handleReturnToSummary} onEdit={() => navigate('/edit/evening?q=1')} />
 
       <div className="flex-1 flex flex-col justify-center space-y-6">
@@ -147,7 +148,7 @@ export const GratitudeReview = () => {
               questionNumber={activeIndex + 1}
               totalQuestions={GRATITUDE_PROMPTS.length}
               savedValue={responses[activePrompt.id]}
-              accent="gratitude"
+              journeyTone="evening"
               groupName={`review-${activePrompt.id}`}
             />
           )}
@@ -156,7 +157,7 @@ export const GratitudeReview = () => {
         {responses !== null && (
           <button
             onClick={handleNext}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
           >
             <span>{isLast ? 'Continue' : 'Next'}</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>

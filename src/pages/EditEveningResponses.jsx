@@ -10,6 +10,7 @@ import { EveningEditQuestion } from '../components/evening/EveningEditQuestion';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EVENING_EDIT_PROMPTS, computeChangedEntries } from '../lib/eveningJourneyQuestions';
 import { loadRoutineResponses, upsertRoutineResponsesBatch } from '../lib/routineResponses';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { parseActiveIndex } from '../lib/questionStepNavigation';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
@@ -221,7 +222,7 @@ export const EditEveningResponses = () => {
         </div>
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return Home
         </button>
@@ -241,7 +242,7 @@ export const EditEveningResponses = () => {
         </div>
         <button
           onClick={() => navigate('/')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return Home
         </button>
@@ -261,7 +262,7 @@ export const EditEveningResponses = () => {
         </div>
         <button
           onClick={() => navigate('/evening-complete')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className="w-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent py-4 rounded-full font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
         >
           Return to Evening Summary
         </button>
@@ -281,7 +282,7 @@ export const EditEveningResponses = () => {
       backFallback={backFallbackForIndex(activeIndex)}
       onBeforeLeave={activeIndex === 0 ? handleQ1BeforeLeave : undefined}
     >
-      <span className="block text-center text-[10px] text-primary uppercase font-bold tracking-wider">{sectionLabel}</span>
+      <span className="block text-center text-[10px] text-evening-accent uppercase font-bold tracking-wider">{sectionLabel}</span>
       <EveningEditBanner />
 
       <div className="flex-1 flex flex-col justify-center space-y-6">
@@ -298,7 +299,7 @@ export const EditEveningResponses = () => {
               questionNumber={activeIndex + 1}
               totalQuestions={EVENING_EDIT_PROMPTS.length}
               value={draftAnswers[activePrompt.id] ?? ''}
-              accent={activePrompt.accent}
+              journeyTone="evening"
               groupName={`edit-${activePrompt.id}`}
               onSelectPreset={(value) => handleSelectPreset(activePrompt.id, value)}
               onCustomChange={(value) => handleCustomChange(activePrompt.id, value)}
@@ -327,7 +328,7 @@ export const EditEveningResponses = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-60"
+              className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-60`}
             >
               <span>{saving ? 'Saving…' : 'Save Changes'}</span>
             </button>

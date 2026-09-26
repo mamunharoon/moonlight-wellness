@@ -34,7 +34,7 @@ describe('AnswerOptionButton - semantic radio, not a styled button/switch', () =
   });
 
   it('readOnly (Evening completed-review) is additive - default false, so every existing active-journey caller is unaffected - and drives the native `disabled` attribute, never a CSS-only trick', () => {
-    expect(source).toMatch(/accent = 'reflection', groupName, readOnly = false/);
+    expect(source).toMatch(/journeyTone = 'primary', groupName, readOnly = false/);
     expect(source).toMatch(/disabled=\{readOnly\}/);
   });
 
@@ -70,37 +70,71 @@ describe('AnswerOptionButton - button interaction contract', () => {
     expect(source).not.toMatch(/chevron_right|chevron_left|check_circle|material-symbols-outlined/);
   });
 
-  it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden)', () => {
-    expect(source).toMatch(/has-\[:focus-visible\]:ring-2 has-\[:focus-visible\]:ring-primary/);
+  it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden) - the ring colour is journeyTone-driven (getJourneyToneTokens), \'primary\' resolving to the original ring-primary', () => {
+    expect(source).toMatch(/has-\[:focus-visible\]:ring-2 \$\{tokens\.focusRing\}/);
+    expect(read('../../lib/journeyTone.js')).toMatch(/focusRing: 'has-\[:focus-visible\]:ring-primary'/);
+  });
+});
+
+// Evening journey-theme correction — ACCENT_TOKENS (peach-only, keyed by
+// the old 'reflection'/'gratitude' accent prop, with a hardcoded
+// evening-accent unselected state regardless of accent) is gone,
+// replaced by the same shared journeyTone.js token map every other
+// journey-aware selectable control in this app already uses. 'primary'
+// is byte-identical to the old reflection/gratitude values, so every
+// existing behaviour below is re-asserted against journeyTone.js's own
+// real content instead of a local copy inside this file.
+const journeyToneSource = read('../../lib/journeyTone.js');
+
+describe('AnswerOptionButton - now driven by the shared journeyTone.js token map, not a local ACCENT_TOKENS copy', () => {
+  it('imports getJourneyToneTokens and resolves tokens from journeyTone (default \'primary\'), never a local accent-keyed object', () => {
+    expect(source).toMatch(/import \{ getJourneyToneTokens \} from '\.\.\/\.\.\/lib\/journeyTone';/);
+    expect(source).toMatch(/const tokens = getJourneyToneTokens\(journeyTone\);/);
+    expect(source).not.toMatch(/const ACCENT_TOKENS = \{/);
+  });
+
+  it('journeyTone.js\'s own \'primary\' entry is byte-identical to the original hardcoded peach values this component used before the correction', () => {
+    expect(journeyToneSource).toMatch(/selectedRow: 'bg-primary\/10 border-primary',/);
+    expect(journeyToneSource).toMatch(/unselectedRow: 'bg-surface-container border-primary\/50 hover:bg-white\/10',/);
+    expect(journeyToneSource).toMatch(/selectedLabel: 'text-primary font-bold',/);
+    expect(journeyToneSource).toMatch(/selectedRing: 'border-primary bg-primary',/);
+    expect(journeyToneSource).toMatch(/dot: 'bg-on-primary',/);
+  });
+
+  it('journeyTone.js\'s own \'evening\' entry - what Reflection.jsx/Gratitude.jsx now explicitly opt into - is real periwinkle, not peach', () => {
+    expect(journeyToneSource).toMatch(/selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',/);
+    expect(journeyToneSource).toMatch(/selectedLabel: 'text-evening-accent font-bold',/);
+    expect(journeyToneSource).toMatch(/selectedRing: 'border-evening-accent bg-evening-accent',/);
+    expect(journeyToneSource).toMatch(/dot: 'bg-on-evening-accent',/);
   });
 });
 
 describe('AnswerOptionButton - unselected state (Build 15 visual refinement)', () => {
-  it('deep surface-container background, a visible evening-accent/55 border (calculated ~3.4:1 against the row, clearing the 3:1 AA non-text floor - see the contrast-computation describe block below), off-white readable label at medium weight', () => {
-    expect(source).toMatch(/bg-surface-container border-evening-accent\/55/);
+  it('deep surface-container background, a visible border (calculated ~3.4:1 against the row, clearing the 3:1 AA non-text floor - see the contrast-computation describe block below), off-white readable label at medium weight - now resolved from tokens.unselectedRow (tone-driven) rather than a hardcoded evening-accent border, so a genuine non-Evening consumer (StressRelease.jsx, journeyTone="anytime") no longer incorrectly shows a periwinkle unselected border', () => {
     expect(source).toMatch(/text-on-surface font-medium/);
+    expect(journeyToneSource).toMatch(/unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',/);
   });
 
-  it('the radio glyph is a strong evening-accent ring with an explicit dark navy centre (surface-container-lowest) - not the old pale border-on-surface-variant outline, no inner dot', () => {
-    const unselectedRadio = source.match(/selected \? tokens\.radioFill : ('[^']*')/)?.[1] ?? '';
-    expect(unselectedRadio).toBe("'border-evening-accent bg-surface-container-lowest'");
+  it('the radio glyph is a strong accent ring with an explicit dark navy centre (surface-container-lowest) - not the old pale border-on-surface-variant outline, no inner dot; resolved from tokens.unselectedRing', () => {
+    expect(source).toMatch(/selected \? tokens\.selectedRing : tokens\.unselectedRing/);
+    expect(journeyToneSource).toMatch(/unselectedRing: 'border-evening-accent bg-surface-container-lowest',/);
     expect(source).not.toMatch(/border-on-surface-variant/);
     expect(source).toMatch(/\{selected && <span/); // the inner dot only ever renders when selected
   });
 });
 
 describe('AnswerOptionButton - readOnly mode (Evening completed-review)', () => {
-  it('drops the interactive hover/press affordances (cursor-pointer, active:scale, hover:bg-white/10) since nothing happens on press', () => {
+  it('drops the interactive hover/press affordances (cursor-pointer, active:scale, hover:bg-white/10) since nothing happens on press - hover is stripped from tokens.unselectedRow\'s own bundled hover class specifically for the readOnly+unselected case', () => {
     expect(source).toMatch(/readOnly \? 'cursor-default' : 'cursor-pointer active:scale-\[0\.98\]'/);
-    expect(source).toMatch(/readOnly \? '' : 'hover:bg-white\/10'/);
+    expect(source).toMatch(/tokens\.unselectedRow\.replace\(' hover:bg-white\/10', ''\)/);
   });
 
-  it('selected/unselected colour treatment is identical in readOnly mode to the live journey - the same tokens/classes are reused, never a separate dimmed palette, so legibility and contrast are unchanged', () => {
+  it('selected/unselected colour treatment is identical in readOnly mode to the live journey - the same tokens are reused, never a separate dimmed palette, so legibility and contrast are unchanged', () => {
     // The selected/unselected branch that decides colour classes does not
-    // itself branch on `readOnly` at all - only the interactive-affordance
-    // classes above do. Same tokens, same contrast, in both modes.
-    const colourBranch = source.match(/\$\{\s*selected\s*\?\s*`\$\{tokens\.tint\} \$\{tokens\.border\}`\s*\n\s*: `bg-surface-container border-evening-accent\/55 \$\{readOnly \? '' : 'hover:bg-white\/10'\}`\s*\}/);
-    expect(colourBranch).not.toBeNull();
+    // itself branch on `readOnly` for the SELECTED case at all - only the
+    // unselected branch strips hover (see the test above). Same tokens,
+    // same contrast, in both modes.
+    expect(source).toMatch(/selected\s*\n\s*\? tokens\.selectedRow/);
   });
 
   it('the native `disabled` attribute is the only readOnly-specific change to the input itself - never removed from the DOM, never aria-hidden, so its checked/unchecked state stays in the accessibility tree', () => {
@@ -110,32 +144,29 @@ describe('AnswerOptionButton - readOnly mode (Evening completed-review)', () => 
 });
 
 describe('AnswerOptionButton - selected state (subtle row tint, never a fully filled/bright block, never colour alone)', () => {
-  it('the row itself only gets a SUBTLE colour tint (bg-*/10) and a full-strength border - never a fully filled/bright background', () => {
-    expect(source).toMatch(/reflection: \{ text: 'text-primary', border: 'border-primary', tint: 'bg-primary\/10'/);
-    expect(source).not.toMatch(/tint: 'bg-primary'[^/]/);
+  it('the row itself only gets a SUBTLE colour tint (bg-*/10) and a full-strength border - never a fully filled/bright background (tokens.selectedRow, from journeyTone.js)', () => {
+    expect(journeyToneSource).toMatch(/selectedRow: 'bg-primary\/10 border-primary',/);
+    expect(source).toMatch(/selected\s*\n\s*\? tokens\.selectedRow/);
   });
 
-  it('the radio glyph itself carries the strong, saturated colour when selected - filled circle plus a small, contrasting inner dot, never a tick/checkmark', () => {
-    expect(source).toMatch(/radioFill: 'border-primary bg-primary', dot: 'bg-on-primary'/);
+  it('the radio glyph itself carries the strong, saturated colour when selected - filled circle plus a small, contrasting inner dot, never a tick/checkmark (tokens.selectedRing/dot, from journeyTone.js)', () => {
+    expect(journeyToneSource).toMatch(/selectedRing: 'border-primary bg-primary',/);
+    expect(journeyToneSource).toMatch(/dot: 'bg-on-primary',/);
   });
 
   it('selected label text is bold and coloured (never colour alone - weight changes too), row border switches to the full-strength accent border', () => {
-    expect(source).toMatch(/\$\{tokens\.text\} font-bold/);
-    expect(source).toMatch(/\$\{tokens\.tint\} \$\{tokens\.border\}/);
+    expect(source).toMatch(/\{selected \? tokens\.selectedLabel : 'text-on-surface font-medium'\}/);
+    expect(journeyToneSource).toMatch(/selectedLabel: 'text-primary font-bold',/);
   });
 
-  // Build 15 Evening UX correction — Gratitude's selected state now
-  // reuses Reflection's exact peach tokens, replacing the former gold
-  // identity, so both sections share one selected-answer colour
-  // throughout Evening (active, read-only Review, and Edit all consume
-  // this same ACCENT_TOKENS map).
-  it('gratitude reuses reflection\'s EXACT peach token values (text/border/tint/radioFill/dot) - not a second, near-identical peach', () => {
-    const gratitudeLine = source.match(/gratitude: \{[^}]*\}/)?.[0] ?? '';
-    expect(gratitudeLine).toBe(
-      "gratitude: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' }"
-    );
-  });
-
+  // Evening journey-theme correction — journeyTone replaces the old
+  // accent prop entirely; Reflection.jsx and Gratitude.jsx (both
+  // formerly hardcoded to the same peach 'reflection'/'gratitude'
+  // ACCENT_TOKENS entries) now both pass journeyTone="evening" at their
+  // own call sites (see reflectionGratitudeTapFirst.test.js), so they
+  // share one selected-answer colour throughout Evening exactly as
+  // before, just resolved through the shared token map instead of a
+  // local duplicate.
   it('gold (gratitude-accent/on-gratitude-accent) is completely absent from the ACTUAL CODE - the doc comment above may still mention it in prose explaining the change, but no real class/token reference remains', () => {
     const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(code).not.toMatch(/text-gratitude-accent|border-gratitude-accent|bg-gratitude-accent|on-gratitude-accent/);

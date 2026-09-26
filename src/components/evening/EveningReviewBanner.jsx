@@ -30,12 +30,25 @@
  * exclusive (no Morning/Anytime consumer exists), so per the approved
  * Phase 2 clarification it gets a restrained periwinkle border/tint,
  * distinct from the genuinely shared, deliberately-untouched
- * ConfirmDialog/ReviewModeBanner. The "Evening Summary" primary action
- * stays bg-primary peach, unchanged - only the banner's own border/tint/
- * label colour move to evening-accent.
+ * ConfirmDialog. (ReviewModeBanner.jsx, the OTHER genuinely-shared
+ * banner, gained its own opt-in journeyTone support in the Evening
+ * journey-theme correction below - it stays untouched here.)
+ *
+ * Evening journey-theme correction — two fixes: (1) the container's own
+ * border/tint used a `/<n>` opacity modifier directly on the plain-hex
+ * evening-accent token, the same silently-transparent bug already fixed
+ * everywhere else in this app (see journeyTone.js's own doc comment) -
+ * fixed with the alpha-safe evening-accent-tint RGB-triplet token, so
+ * the border/tint that was supposed to exist since Build 17 actually
+ * renders now. (2) "Evening Summary" - a review-return control exactly
+ * like ReviewModeBanner's own "Return to X" - was left peach ("stays
+ * bg-primary, unchanged") at the time; that's now corrected too, using
+ * the same periwinkle-tinted/outline treatment (not the solid
+ * bg-evening-accent primary-action fill) since it's a secondary
+ * navigation action, not this screen's main Continue-style CTA.
  */
 export const EveningReviewBanner = ({ onReturn, onEdit }) => (
-  <div className="glass-panel rounded-2xl px-4 py-3 space-y-3 border-evening-accent/20 bg-evening-accent/5">
+  <div className="glass-panel rounded-2xl px-4 py-3 space-y-3 border-evening-accent-tint/20 bg-evening-accent-tint/5">
     <p className="text-xs text-on-surface-variant">
       <span className="font-bold text-evening-accent">Reviewing</span> tonight's completed journey.
     </p>
@@ -43,7 +56,7 @@ export const EveningReviewBanner = ({ onReturn, onEdit }) => (
       <button
         type="button"
         onClick={onReturn}
-        className="min-h-[44px] px-3 py-2 rounded-full bg-primary text-on-primary text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
+        className="min-h-[44px] px-3 py-2 rounded-full bg-evening-accent-tint/15 text-evening-accent border border-evening-accent text-xs font-bold hover:bg-evening-accent-tint/25 active:scale-95 transition-all"
       >
         Evening Summary
       </button>

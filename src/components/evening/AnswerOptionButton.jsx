@@ -86,9 +86,24 @@
  * dark fill (surface-container-lowest) rather than transparent - ~9.4:1
  * against its own ring, satisfying "centre against its surrounding
  * circle" as its own measured pair, not just "whatever the row happens to
- * show through." Selected state is unchanged: Reflection's peach/
- * Gratitude's gold identity, the same filled-ring-plus-dot construction,
- * still never a full bright row fill, still never a checkmark.
+ * show through."
+ *
+ * Evening journey-theme correction — found live: Reflection/Gratitude's
+ * SELECTED state was still hardcoded peach (`ACCENT_TOKENS.reflection`/
+ * `.gratitude`, both byte-identical bg-primary/text-primary/on-primary
+ * tokens) regardless of journey, while the row's own UNSELECTED border/
+ * ring above were already hardcoded to evening-accent regardless of
+ * journey too - the opposite bug, silently painting a periwinkle
+ * unselected border onto any non-Evening consumer (StressRelease.jsx's
+ * Anytime prompts). Both are now driven by one real `journeyTone` prop
+ * (default 'primary', the exact original peach look, byte-identical for
+ * any caller that omits it) via the same shared journeyTone.js token map
+ * BreathingPatternRow/MeditationSetupPanel/MovementCheckboxRow already
+ * use - selected and unselected both resolve from the same tone, so a
+ * genuine Anytime consumer (StressRelease, passing journeyTone="anytime")
+ * now correctly gets mint throughout, not a mixed peach/periwinkle
+ * identity. Reflection.jsx/Gratitude.jsx (and their read-only Review/Edit
+ * twins) now explicitly pass journeyTone="evening".
  *
  * `readOnly` (Evening completed-review work, additive - every existing
  * active-journey caller omits it and is completely unaffected):
@@ -112,25 +127,32 @@
  *   on press - a non-interactive control should not visually invite a
  *   press.
  */
-// Build 15 Evening UX correction — Gratitude now reuses Reflection's own
-// peach tokens exactly (same values, not a second near-identical peach),
-// so both sections share one selected-answer identity throughout Evening.
-const ACCENT_TOKENS = {
-  reflection: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' },
-  gratitude: { text: 'text-primary', border: 'border-primary', tint: 'bg-primary/10', radioFill: 'border-primary bg-primary', dot: 'bg-on-primary' }
-};
+// Evening journey-theme correction — replaces the old accent-keyed
+// ACCENT_TOKENS (peach for 'reflection'/'gratitude', a hardcoded
+// evening-accent unselected state regardless of accent) with the same
+// shared journeyTone.js token map every other journey-aware selectable
+// control in this app already uses (BreathingPatternRow/
+// MeditationSetupPanel/MovementCheckboxRow). 'primary' is byte-identical
+// to the old reflection/gratitude tokens (bg-primary/10 border-primary
+// selected, text-primary label, border-primary bg-primary radio fill,
+// bg-on-primary dot) - so a caller passing no journeyTone at all keeps
+// the exact original peach look; 'evening' is the real fix Reflection/
+// Gratitude now opt into explicitly.
+import { getJourneyToneTokens } from '../../lib/journeyTone';
 
-export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflection', groupName, readOnly = false }) => {
-  const tokens = ACCENT_TOKENS[accent];
+export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'primary', groupName, readOnly = false }) => {
+  const tokens = getJourneyToneTokens(journeyTone);
 
   return (
     <label
-      className={`flex items-center justify-between gap-2 w-full min-h-[64px] px-3 py-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+      className={`flex items-center justify-between gap-2 w-full min-h-[64px] px-3 py-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
         readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'
       } ${
         selected
-          ? `${tokens.tint} ${tokens.border}`
-          : `bg-surface-container border-evening-accent/55 ${readOnly ? '' : 'hover:bg-white/10'}`
+          ? tokens.selectedRow
+          : readOnly
+            ? tokens.unselectedRow.replace(' hover:bg-white/10', '')
+            : tokens.unselectedRow
       }`}
     >
       <input
@@ -141,13 +163,13 @@ export const AnswerOptionButton = ({ label, selected, onClick, accent = 'reflect
         disabled={readOnly}
         className="sr-only"
       />
-      <span className={`block text-sm leading-snug ${selected ? `${tokens.text} font-bold` : 'text-on-surface font-medium'}`}>
+      <span className={`block text-sm leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-medium'}`}>
         {label}
       </span>
       <span
         aria-hidden="true"
         className={`relative w-5 h-5 rounded-full border-2 shrink-0 transition-colors ${
-          selected ? tokens.radioFill : 'border-evening-accent bg-surface-container-lowest'
+          selected ? tokens.selectedRing : tokens.unselectedRing
         }`}
       >
         {selected && <span className={`absolute inset-0 m-auto w-2 h-2 rounded-full ${tokens.dot}`} />}

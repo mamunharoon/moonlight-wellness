@@ -7,6 +7,32 @@ import { SignInPromptDialog } from '../SignInPromptDialog';
 import { useProtectedVideo } from '../../hooks/useProtectedVideo';
 import { getBetaVideoById } from '../../lib/betaVideoManifest';
 import { getCachedDurationMinutes } from '../../lib/durationCache';
+import { getJourneyToneTokens } from '../../lib/journeyTone';
+import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
+
+// Evening journey-theme correction — Next/Continue, the "Add your own"
+// toggle, and the guidance disclosure's focus ring/chevron all used to be
+// hardcoded peach (bg-primary/text-primary), regardless of journeyTone.
+// Each now resolves from a tiny local map keyed the same way
+// journeyTone.js already is - 'primary' entries are byte-identical to the
+// old hardcoded classes, so any caller that omits journeyTone (or passes
+// an unrecognised value) renders exactly as before.
+const GUIDANCE_FOCUS_RING = {
+  primary: 'focus-visible:ring-primary',
+  evening: 'focus-visible:ring-evening-accent',
+  morning: 'focus-visible:ring-morning-accent',
+  anytime: 'focus-visible:ring-tertiary'
+};
+// Distinct from GUIDANCE_FOCUS_RING above - the custom-answer textarea
+// uses the plain `focus:` variant (matches on click too, not just
+// keyboard focus), which the original hardcoded `focus:ring-primary`
+// already did.
+const TEXTAREA_FOCUS_RING = {
+  primary: 'focus:ring-primary',
+  evening: 'focus:ring-evening-accent',
+  morning: 'focus:ring-morning-accent',
+  anytime: 'focus:ring-tertiary'
+};
 
 // Reflection/Gratitude persistence race fix: firing onChange (an async
 // Supabase upsert - see routineResponses.js) on every single keystroke,
@@ -103,13 +129,24 @@ const CHANGE_DEBOUNCE_MS = 400;
  *                 Next or Skip is pressed on the LAST prompt. `answers`
  *                 is a { [promptId]: value } map of everything entered -
  *                 skipped prompts are simply absent from the map.
- *   accent        'reflection' | 'gratitude' (required) - which section's
- *                 colour AnswerOptionButton uses for a selected answer
- *                 (see that component's own doc comment). Passed straight
- *                 through; this component makes no colour decisions of
- *                 its own.
+ *   journeyTone   'primary' | 'morning' | 'anytime' | 'evening', default
+ *                 'primary' - which journey's colour this stepper (Next/
+ *                 Continue, "Add your own", guidance focus ring) and
+ *                 every AnswerOptionButton use. Evening journey-theme
+ *                 correction: previously a required `accent` prop
+ *                 ('reflection' | 'gratitude') that only ever resolved to
+ *                 the same hardcoded peach either way - replaced with the
+ *                 same shared journeyTone contract every other journey-
+ *                 aware component in this app already uses. Reflection.jsx/
+ *                 Gratitude.jsx now pass "evening" explicitly;
+ *                 StressRelease.jsx (the one genuine non-Evening consumer)
+ *                 passes "anytime".
  */
-export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent }) => {
+export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' }) => {
+  const tokens = getJourneyToneTokens(journeyTone);
+  const primaryActionClasses = getJourneyPrimaryActionClasses(journeyTone);
+  const guidanceFocusRing = GUIDANCE_FOCUS_RING[journeyTone] ?? GUIDANCE_FOCUS_RING.primary;
+  const textareaFocusRing = TEXTAREA_FOCUS_RING[journeyTone] ?? TEXTAREA_FOCUS_RING.primary;
   const [answers, setAnswers] = useState(initialAnswers ?? {});
   // Per-prompt "Add your own" disclosure - lazily seeded once at mount so
   // a historical free-text answer (one that doesn't match any preset for
@@ -311,7 +348,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             label={option}
             selected={selectedOption === option}
             onClick={() => handleSelectPreset(option)}
-            accent={accent}
+            journeyTone={journeyTone}
             groupName={activePrompt.id}
           />
         ))}
@@ -340,13 +377,13 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           aria-expanded={isCustomOpen}
           aria-controls={`${activePrompt.id}-custom-field`}
           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors px-1 min-h-[44px] ${
-            // Build 15 Evening UX correction — Gratitude's "Add your own"
-            // toggle now matches Reflection's peach exactly, same as
-            // AnswerOptionButton's own selected-state tokens; the old
-            // accent-branching ternary here is gone since both branches
-            // would now be identical.
+            // Evening journey-theme correction — tints with this
+            // stepper's own journeyTone (tokens.text) instead of a
+            // hardcoded peach, so Evening's "Add your own" reads
+            // periwinkle while every other journey's stays exactly as
+            // before ('primary' -> text-primary, byte-identical).
             isCustomOpen
-              ? 'text-primary'
+              ? tokens.text
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -362,7 +399,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             onChange={(e) => handleCustomChange(e.target.value)}
             placeholder="Write your own answer..."
             rows={3}
-            className="mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
+            className={`mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 ${textareaFocusRing} focus:border-transparent outline-none resize-none`}
           />
         )}
       </div>
@@ -387,7 +424,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
               <button
                 type="button"
                 onClick={handleConfirmClear}
-                className="px-3 py-1.5 rounded-full bg-primary text-on-primary text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
+                className={`px-3 py-1.5 rounded-full ${primaryActionClasses} text-xs font-bold hover:opacity-90 active:scale-95 transition-all`}
               >
                 Clear
               </button>
@@ -414,11 +451,18 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           Evening selectable-control visual refinement (Build 15): moved
           off the generic translucent glass-panel onto the same deep
           surface-container background every Evening row now shares, but
-          deliberately kept a neutral white/15 border (not the periwinkle
-          evening-accent border) - a disclosure is not an answer choice,
-          and must stay recognisably different from a radio/switch row,
-          not just visually coordinated with it. Its own expand/collapse
-          chevron is unchanged. */}
+          deliberately kept a neutral white/15 border - a disclosure is
+          not an answer choice, and must stay recognisably different from
+          a radio/switch row, not just visually coordinated with it.
+
+          Evening journey-theme correction: the container border stays
+          exactly that same neutral white/15 (the "not an answer choice"
+          reasoning above still holds), but the focus ring and the
+          chevron itself (only while expanded, matching "Add your own"'s
+          own expanded-only tint) now carry this stepper's journeyTone
+          accent instead of a hardcoded peach - a restrained accent touch
+          on the one genuinely interactive glyph here, not a full
+          recolour of the disclosure row. */}
       {guidanceItems.length > 0 && (
         <div className="space-y-2">
           <button
@@ -426,11 +470,11 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             onClick={() => setGuidanceOpen((v) => !v)}
             aria-expanded={guidanceOpen}
             aria-controls={`${activePrompt.id}-guidance`}
-            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            className={`w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 ${guidanceFocusRing}`}
           >
             <span className="text-sm font-semibold text-on-surface">Would some guidance help?</span>
             <span
-              className="material-symbols-outlined text-on-surface-variant transition-transform"
+              className={`material-symbols-outlined transition-transform ${guidanceOpen ? tokens.text : 'text-on-surface-variant'}`}
               style={{ transform: guidanceOpen ? 'rotate(180deg)' : 'none' }}
               aria-hidden="true"
             >
@@ -456,7 +500,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
       <div className="flex gap-3">
         <button
           onClick={handleNext}
-          className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className={`flex-1 ${primaryActionClasses} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
         >
           <span>{isLast ? 'Continue' : 'Next'}</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

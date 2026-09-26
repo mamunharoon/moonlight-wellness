@@ -24,7 +24,7 @@ import { resolveSavedAnswerDisplay } from '../../lib/eveningJourneyQuestions';
  * own `selectedOption`/`currentValue` logic) - never a second, possibly-
  * diverging interpretation of the same saved string.
  */
-export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, savedValue, accent, groupName }) => {
+export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, savedValue, journeyTone, groupName }) => {
   const { trimmed, hasValue, selectedOption, isCustomAnswer } = resolveSavedAnswerDisplay(prompt, savedValue);
 
   return (
@@ -52,7 +52,7 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
             key={option}
             label={option}
             selected={selectedOption === option}
-            accent={accent}
+            journeyTone={journeyTone}
             groupName={groupName}
             readOnly
           />

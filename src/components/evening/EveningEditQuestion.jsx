@@ -1,6 +1,18 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { AnswerOptionButton } from './AnswerOptionButton';
+import { getJourneyToneTokens } from '../../lib/journeyTone';
+
+// journeyTone.js's own focusRing field is the has-[:focus-visible]:ring-X
+// form (for a wrapping <label>); this textarea's plain `focus:ring-X`
+// variant (matches on click too, not just keyboard focus) needs its own
+// literal map for the same reason PromptStepper.jsx's does.
+const TEXTAREA_FOCUS_RING = {
+  primary: 'focus:ring-primary',
+  evening: 'focus:ring-evening-accent',
+  morning: 'focus:ring-morning-accent',
+  anytime: 'focus:ring-tertiary'
+};
 
 /*
  * Edit Tonight's Responses (Build 15) — EveningEditQuestion
@@ -27,9 +39,11 @@ import { AnswerOptionButton } from './AnswerOptionButton';
  * both already use, just re-derived once per question instead of once
  * per app-wide answer map.
  */
-export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, value, accent, groupName, onSelectPreset, onCustomChange }) => {
+export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, value, journeyTone = 'primary', groupName, onSelectPreset, onCustomChange }) => {
   const selectedOption = prompt.options?.find((option) => option === value) ?? null;
   const [isCustomOpen, setIsCustomOpen] = useState(Boolean(value && !selectedOption));
+  const tokens = getJourneyToneTokens(journeyTone);
+  const textareaFocusRing = TEXTAREA_FOCUS_RING[journeyTone] ?? TEXTAREA_FOCUS_RING.primary;
 
   const handleSelectPreset = (option) => {
     onSelectPreset(option);
@@ -61,7 +75,7 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
             label={option}
             selected={selectedOption === option}
             onClick={() => handleSelectPreset(option)}
-            accent={accent}
+            journeyTone={journeyTone}
             groupName={groupName}
           />
         ))}
@@ -74,11 +88,11 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
           aria-expanded={isCustomOpen}
           aria-controls={`${prompt.id}-edit-custom-field`}
           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors px-1 min-h-[44px] ${
-            // Build 15 Evening UX correction — Gratitude's "Add your own"
-            // toggle now matches Reflection's peach exactly, same as
-            // AnswerOptionButton's own selected-state tokens.
+            // Evening journey-theme correction — tints with journeyTone
+            // (tokens.text) instead of a hardcoded peach; 'primary'
+            // resolves to the exact original text-primary.
             isCustomOpen
-              ? 'text-primary'
+              ? tokens.text
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -94,7 +108,7 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
             onChange={(e) => onCustomChange(e.target.value)}
             placeholder="Write your own answer..."
             rows={3}
-            className="mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 focus:ring-primary focus:border-transparent outline-none resize-none"
+            className={`mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 ${textareaFocusRing} focus:border-transparent outline-none resize-none`}
           />
         )}
       </div>

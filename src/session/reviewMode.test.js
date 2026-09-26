@@ -270,7 +270,11 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
   // goPrevious/handleNext (both removed - see the next test).
   it('activeIndex is a controlled prop, not internal state - confirm-clear/guidance-disclosure reset when it changes, adjusted directly during render (React\'s own documented pattern) rather than a useEffect, so this never causes an extra committed render', () => {
     expect(promptStepperSource).not.toMatch(/const \[activeIndex, setActiveIndex\]/);
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent \}\) => \{/);
+    // Evening journey-theme correction — `accent` (a required
+    // 'reflection'|'gratitude' prop that only ever resolved to the same
+    // hardcoded peach) was replaced by `journeyTone` (default 'primary'),
+    // the same shared contract every other journey-aware component uses.
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' \}\) => \{/);
     expect(promptStepperSource).toMatch(/if \(activeIndex !== prevActiveIndex\) \{\s*\n\s*setPrevActiveIndex\(activeIndex\);\s*\n\s*setConfirmingClear\(false\);\s*\n\s*setGuidanceOpen\(false\);\s*\n\s*\}/);
     expect(promptStepperSource).not.toMatch(/useEffect\(/);
   });
@@ -372,8 +376,20 @@ describe('Every Morning/Evening step page wires review mode consistently', () =>
   });
 
   it('every OTHER page (all but EveningWindDown) renders ReviewModeBanner gated on isReviewMode && currentStep, wired to navigate back to the live step', () => {
+    // Evening journey-theme correction — Reflection.jsx/Gratitude.jsx now
+    // additionally pass journeyTone="evening" (see reflectionGratitudeTapFirst
+    // .test.js and eveningReviewEditBannersUplift.test.js for that specific
+    // coverage), so their own call site is now multi-line with an extra
+    // prop; every other page's call site is untouched, still single-line.
+    const journeyThemedPages = new Set(['Reflection', 'Gratitude']);
     for (const [page, source] of Object.entries(ALL_STEP_PAGES)) {
       if (page === 'EveningWindDown') continue;
+      if (journeyThemedPages.has(page)) {
+        expect(source).toMatch(
+          /\{isReviewMode && currentStep && \(\s*\n\s*<ReviewModeBanner\s*\n\s*currentStepLabel=\{getStepLabel\(currentStep\.id\)\}\s*\n\s*onReturnToCurrentStep=\{\(\) => navigate\(routeForStep\(currentStep\.id\)\)\}\s*\n\s*journeyTone="evening"\s*\n\s*\/>\s*\n\s*\)\}/
+        );
+        continue;
+      }
       expect(source).toMatch(
         /\{isReviewMode && currentStep && \(\s*\n\s*<ReviewModeBanner currentStepLabel=\{getStepLabel\(currentStep\.id\)\} onReturnToCurrentStep=\{\(\) => navigate\(routeForStep\(currentStep\.id\)\)\}\s*\/>\s*\n\s*\)\}/
       );

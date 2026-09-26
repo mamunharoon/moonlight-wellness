@@ -17,6 +17,14 @@ import { PromptStepper } from '../components/evening/PromptStepper';
  * memory or otherwise, past this component's own lifetime. Not the
  * evening session engine either: no useSession, no advanceStep — this is
  * a standalone comfort flow, same as every other Support & Calm page.
+ *
+ * Evening journey-theme correction — this is PromptStepper's one genuine
+ * non-Evening consumer (this page's own journey="anytime" above), so it
+ * now explicitly passes journeyTone="anytime" (mint) rather than
+ * inheriting PromptStepper's default 'primary'/peach or silently reusing
+ * Evening's periwinkle - the shared component's colour now genuinely
+ * varies by which journey is asking, never hardcoded to one journey for
+ * every consumer.
  */
 const STRESS_PROMPTS = [
   { id: 'heavy', label: 'What feels heavy right now?' },
@@ -37,7 +45,7 @@ export const StressRelease = () => {
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback="/support">
       <div className="flex-1 flex flex-col justify-center">
         <div className="glass-panel rounded-3xl p-6">
-          <PromptStepper prompts={STRESS_PROMPTS} onComplete={handleComplete} />
+          <PromptStepper prompts={STRESS_PROMPTS} onComplete={handleComplete} journeyTone="anytime" />
         </div>
       </div>
     </EveningSceneShell>

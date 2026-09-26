@@ -11,9 +11,15 @@
  * Evening Visual Uplift (Build 17) — genuinely Evening-exclusive, same as
  * EveningReviewBanner.jsx (see its matching comment) - restrained
  * periwinkle border/tint/icon/label, no shared default touched.
+ *
+ * Evening journey-theme correction — the border/tint used a `/<n>`
+ * opacity modifier directly on the plain-hex evening-accent token (the
+ * same silently-transparent bug fixed in EveningReviewBanner.jsx - see
+ * its own doc comment); switched to the alpha-safe evening-accent-tint
+ * token, same fix, same reasoning.
  */
 export const EveningEditBanner = () => (
-  <div className="glass-panel rounded-2xl px-4 py-3 flex items-center gap-3 border-evening-accent/20 bg-evening-accent/5">
+  <div className="glass-panel rounded-2xl px-4 py-3 flex items-center gap-3 border-evening-accent-tint/20 bg-evening-accent-tint/5">
     <span className="material-symbols-outlined text-evening-accent text-lg shrink-0" aria-hidden="true">
       edit
     </span>

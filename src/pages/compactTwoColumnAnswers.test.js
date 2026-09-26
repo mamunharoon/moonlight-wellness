@@ -103,7 +103,10 @@ describe('7. Custom response remains full width', () => {
     const textareaIndex = promptStepperSource.indexOf('<textarea');
     expect(textareaIndex).toBeGreaterThan(gridEnd);
     const textareaBlock = promptStepperSource.match(/<textarea[\s\S]*?\/>/)?.[0] ?? '';
-    expect(textareaBlock).toMatch(/className="mt-2 w-full/);
+    // Evening journey-theme correction — the focus ring is now
+    // journeyTone-driven, so className became a template literal
+    // (className={`mt-2 w-full...`}) instead of a plain string.
+    expect(textareaBlock).toMatch(/className=\{`mt-2 w-full/);
   });
 
   it('EveningReviewQuestion\'s read-only saved custom answer is also full width and outside the grid', () => {
@@ -119,7 +122,9 @@ describe('8. Guidance remains full width', () => {
     const gridEnd = promptStepperSource.indexOf('</div>', promptStepperSource.indexOf(GRID_CONTAINER));
     const guidanceIndex = promptStepperSource.indexOf('Would some guidance help?');
     expect(guidanceIndex).toBeGreaterThan(gridEnd);
-    expect(promptStepperSource).toMatch(/className="w-full flex items-center justify-between gap-3 bg-surface-container/);
+    // Evening journey-theme correction — the focus ring is now
+    // journeyTone-driven, so className became a template literal.
+    expect(promptStepperSource).toMatch(/className=\{`w-full flex items-center justify-between gap-3 bg-surface-container/);
   });
 });
 
@@ -233,7 +238,7 @@ describe('16. Keyboard and accessible radio behaviour remain correct', () => {
     expect(answerOptionButtonSource).toMatch(/checked=\{selected\}/);
   });
 
-  it('keyboard focus still gets a visible ring on the whole card (has-[:focus-visible]:ring-2) - unchanged by the resize, still not just a colour cue', () => {
-    expect(answerOptionButtonSource).toMatch(/has-\[:focus-visible\]:ring-2 has-\[:focus-visible\]:ring-primary/);
+  it('keyboard focus still gets a visible ring on the whole card (has-[:focus-visible]:ring-2) - unchanged by the resize, still not just a colour cue; the ring colour is journeyTone-driven since the Evening journey-theme correction, \'primary\' resolving to the original ring-primary', () => {
+    expect(answerOptionButtonSource).toMatch(/has-\[:focus-visible\]:ring-2 \$\{tokens\.focusRing\}/);
   });
 });

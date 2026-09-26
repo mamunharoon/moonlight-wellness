@@ -185,8 +185,8 @@ describe('Layout: every Reflection/Gratitude question renders its predefined opt
     expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionRow'/);
   });
 
-  it('each AnswerOptionButton receives accent (passed straight through from the page, not decided in PromptStepper) and groupName (the active question\'s own id, scoping native radio-group keyboard behaviour to this question only)', () => {
-    expect(promptStepperSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}accent=\{accent\}[\s\S]{0,60}groupName=\{activePrompt\.id\}/);
+  it('each AnswerOptionButton receives journeyTone (passed straight through from the page, not decided in PromptStepper) and groupName (the active question\'s own id, scoping native radio-group keyboard behaviour to this question only)', () => {
+    expect(promptStepperSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}journeyTone=\{journeyTone\}[\s\S]{0,60}groupName=\{activePrompt\.id\}/);
   });
 
   it('Reflection "went-well" keeps its own (now purely historical, unread) layout: \'rows\' field - harmless since PromptStepper no longer branches on it, left as-is rather than editing data that already matches the new universal behaviour', () => {
@@ -303,16 +303,16 @@ describe('Real guidance content only - real titles/descriptions from betaVideoMa
   });
 });
 
-describe('Phase 3 UX correction - each page passes its own section accent through to PromptStepper, unchanged otherwise', () => {
-  it('Reflection.jsx passes accent="reflection"; Gratitude.jsx passes accent="gratitude"', () => {
-    expect(reflectionSource).toMatch(/<PromptStepper[\s\S]*?accent="reflection"[\s\S]*?\/>/);
-    expect(gratitudeSource).toMatch(/<PromptStepper[\s\S]*?accent="gratitude"[\s\S]*?\/>/);
+describe('Evening journey-theme correction - both pages pass journeyTone="evening" through to PromptStepper, unchanged otherwise', () => {
+  it('Reflection.jsx and Gratitude.jsx both pass journeyTone="evening" (previously accent="reflection"/"gratitude", which only ever resolved to the same hardcoded peach either way)', () => {
+    expect(reflectionSource).toMatch(/<PromptStepper[\s\S]*?journeyTone="evening"[\s\S]*?\/>/);
+    expect(gratitudeSource).toMatch(/<PromptStepper[\s\S]*?journeyTone="evening"[\s\S]*?\/>/);
   });
 
-  it('PromptStepper declares accent as a prop and forwards it verbatim to every AnswerOptionButton - it never picks a colour itself', () => {
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, accent \}\) => \{/);
-    const accentUsages = promptStepperSource.match(/accent=\{accent\}/g) ?? [];
-    expect(accentUsages.length).toBe(1); // one options render (the old rows/grid branch is gone)
+  it('PromptStepper declares journeyTone as a prop (default \'primary\') and forwards it verbatim to every AnswerOptionButton - it resolves a shared token map for its own Next/Continue/"Add your own"/guidance focus ring, but never picks a colour itself for AnswerOptionButton', () => {
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' \}\) => \{/);
+    const journeyToneUsages = promptStepperSource.match(/journeyTone=\{journeyTone\}/g) ?? [];
+    expect(journeyToneUsages.length).toBe(1); // one options render (the old rows/grid branch is gone)
   });
 });
 
@@ -325,9 +325,9 @@ describe('Phase 3 UX correction - "Add your own" disclosure: edit icon (not a ch
     expect(customBlock).toMatch(/aria-expanded=\{isCustomOpen\}/);
   });
 
-  it('expanded state tints icon+label with the section\'s own accent colour (text-only, never a filled/bordered button) - explicitly distinct from a selected preset answer; Gratitude now renders the same peach as Reflection (Build 15 Evening UX correction), not gold', () => {
+  it('expanded state tints icon+label with this stepper\'s own journeyTone colour (text-only, via tokens.text - never a filled/bordered button) - explicitly distinct from a selected preset answer; Evening journey-theme correction: journeyTone="evening" now resolves to periwinkle (text-evening-accent) rather than the old hardcoded peach', () => {
     const customBlock = promptStepperSource.match(/onClick=\{handleToggleCustom\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(customBlock).toMatch(/isCustomOpen\s*\n\s*\? 'text-primary'/);
+    expect(customBlock).toMatch(/isCustomOpen\s*\n\s*\? tokens\.text/);
     expect(customBlock).not.toMatch(/text-gratitude-accent/);
     expect(customBlock).not.toMatch(/bg-primary|bg-gratitude-accent|border-primary|border-gratitude-accent/);
   });
