@@ -39,10 +39,16 @@ export const AlarmStatusCard = ({ variant, alarmConfigured, isAlarmSet, alarmTim
   // PreparationCountdown.jsx). Solid text-morning-accent (no modifier)
   // is unaffected and used as-is.
   return (
-    <div className="w-full glass-panel rounded-2xl p-4 flex items-center gap-3.5 border border-morning-accent-tint/20">
-      <span className="flex items-center justify-center w-12 h-12 rounded-xl shrink-0 bg-morning-accent-tint/15 text-morning-accent">
+    // WakeWise DEV — Welcome vertical-space fix: p-4 -> p-3 and the icon
+    // chip w-12 h-12/text-2xl -> w-10 h-10/text-xl (reducing padding/size
+    // before touching the heading/detail text itself, per this app's own
+    // established trim-spacing-first convention) - this card only ever
+    // renders on Introduction.jsx's two Welcome variants (confirmed by
+    // grep - no other caller exists), so the trim is fully scoped there.
+    <div className="w-full glass-panel rounded-2xl p-2 flex items-center gap-3.5 border border-morning-accent-tint/20">
+      <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-morning-accent-tint/15 text-morning-accent">
         <span
-          className="material-symbols-outlined text-2xl"
+          className="material-symbols-outlined text-lg"
           aria-hidden="true"
           style={{ fontVariationSettings: "'FILL' 1" }}
         >

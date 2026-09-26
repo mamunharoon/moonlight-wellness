@@ -7,19 +7,25 @@
 // silence, and a user who wants no music does not necessarily want
 // reduced animation.
 //
-// Default is OFF (conservative) rather than defaulting music on: no
-// licensed music asset exists yet (see the spec doc), so this is
-// currently a no-op in practice either way, but the conservative default
-// matters once real assets ship - a new/returning user should not be
-// surprised by audio they never opted into, and background music is a
-// meaningfully bigger UX change than most toggles default to permitting.
+// WakeWise DEV — Anytime Breathing silent-music fix: default is now ON
+// when no preference has ever been saved (real, licensed background
+// tracks now exist and play - the earlier "default OFF, no asset exists
+// yet" reasoning this comment used to carry no longer applies). Still
+// distinguishes "never chosen" from "explicitly turned off" - a stored
+// 'false' always stays OFF; only a genuinely absent key defaults to ON.
+// Once a user (or a guest's own in-session choice, via
+// setMusicPreferenceForUser) explicitly saves either value, that choice
+// is honoured exactly as it was before this fix - only the UNSET case
+// changed.
 const MUSIC_PREFERENCE_KEY = 'moonlight_background_music_enabled';
 
 export const getMusicPreference = () => {
   try {
-    return localStorage.getItem(MUSIC_PREFERENCE_KEY) === 'true';
+    const stored = localStorage.getItem(MUSIC_PREFERENCE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
   } catch {
-    return false;
+    return true;
   }
 };
 

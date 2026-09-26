@@ -43,6 +43,20 @@ import { BackButton } from '../BackButton';
  * this Back exits to Home, since without this JourneyHeader's own
  * BackButton previously navigated away with no way for the caller to
  * intervene first.
+ *
+ * `alwaysFallback` (WakeWise DEV — Anytime Back-navigation correction,
+ * additive - every existing caller omits it and is completely
+ * unaffected): forwarded straight through to the internal BackButton's
+ * own `alwaysFallback` (only relevant on the `showBackButton` path).
+ * Without this, BackButton's own goBack() prefers a real navigate(-1)
+ * over `backFallback` whenever this app instance's in-app history stack
+ * has more than one entry - which silently discarded
+ * SelfGuidedMeditation.jsx's own correctly-computed `exitDestination`
+ * (the preserved Anytime Reset recommendation) in favour of Anytime
+ * Reset's bare, state-less previous history entry. A caller passes this
+ * only when it knows, via its own explicit origin marker (never
+ * journeyTone or browser history), that goBack's normal "prefer the real
+ * previous screen" behaviour would be wrong for this exact tap.
  */
 export const JourneyHeader = ({
   showBackButton,
@@ -52,12 +66,13 @@ export const JourneyHeader = ({
   showCloseButton = true,
   stepIndex,
   stepCount,
-  onBackBeforeLeave
+  onBackBeforeLeave,
+  alwaysFallback = false
 }) => (
   <div className="space-y-4">
     <div className="flex items-center justify-between gap-3">
       {showBackButton ? (
-        <BackButton fallback={backFallback} onBeforeLeave={onBackBeforeLeave} />
+        <BackButton fallback={backFallback} onBeforeLeave={onBackBeforeLeave} alwaysFallback={alwaysFallback} />
       ) : (
         <button
           type="button"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
@@ -79,7 +79,33 @@ const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';
  */
 export const QuietBreathing = ({ standalone = false }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isGuest } = useAuth();
+
+  // WakeWise DEV — Anytime completion correction: AnytimeReset.jsx's own
+  // "Or choose another quick reset" passes needId/durationId here via
+  // router state so "Choose another quick reset" below can return to the
+  // exact recommendation the user was on (the same allowlisted
+  // ?need=&duration= restore AnytimeReset.jsx already uses after
+  // sign-in), rather than restarting that wizard from step 1.
+  //
+  // WakeWise DEV — Anytime Back-navigation correction: `anytimeOrigin` is
+  // the one EXPLICIT marker this whole standalone lifecycle (setup,
+  // countdown, active, early exit, completion) uses to know it was
+  // genuinely launched from Anytime Reset - never inferred from
+  // journeyTone (which also defaults to 'anytime' for an unrelated
+  // reason: no morning/evening session active and no explicit tone at
+  // all - see usePracticeJourneyTone.js's own fallback chain), and never
+  // from navigate(-1)/browser history, which is exactly what let Back
+  // eject a guest all the way past Anytime Reset to Home/Welcome before
+  // this fix (found live: Welcome -> Take a calming pause -> Anytime
+  // Step 1 -> Calm -> Breathe -> Back from the pre-start/pattern-picker
+  // screen fell straight through to backFallback='/' unconditionally,
+  // with no memory of the Anytime Reset screen it came from).
+  const anytimeOrigin = Boolean(location.state?.anytimeNeed && location.state?.anytimeDuration);
+  const anytimeResetDestination = anytimeOrigin
+    ? `/anytime-reset?need=${encodeURIComponent(location.state.anytimeNeed)}&duration=${encodeURIComponent(location.state.anytimeDuration)}`
+    : '/anytime-reset';
 
   // Context-aware Breathing/Meditation theming — standalone only (see
   // usePracticeJourneyTone's own `enabled` doc comment for why this is
@@ -92,7 +118,16 @@ export const QuietBreathing = ({ standalone = false }) => {
 
   // Build 15 — standalone mode's own return targets. Support's existing
   // embedded usage keeps its exact original targets, unconditionally.
-  const backFallback = standalone ? '/' : '/support';
+  //
+  // WakeWise DEV — Anytime Back-navigation correction: standalone's own
+  // Back (the single EveningSceneShell button covering pre-start/pattern-
+  // picker setup AND, via handleBackFromActive's own confirm-then-return-
+  // to-setup logic below, the point a confirmed active-session Back lands
+  // on too) now resolves to the preserved Anytime Reset recommendation
+  // when anytimeOrigin is true, instead of unconditionally '/' - a direct
+  // standalone visit (e.g. Home's own "Breathe" tile, no anytimeNeed in
+  // state) still resolves to '/' exactly as before, completely unchanged.
+  const backFallback = standalone ? (anytimeOrigin ? anytimeResetDestination : '/') : '/support';
   const completionRoute = standalone ? '/' : '/support-complete';
 
   // Pattern selection - standalone only. Non-standalone (Support) never
@@ -171,6 +206,15 @@ export const QuietBreathing = ({ standalone = false }) => {
   // gesture at all (MusicEntryChoice is its own, deliberately unchanged
   // legacy gate - see this file's own top doc comment), so this hook is
   // simply never started from that branch.
+  //
+  // WakeWise DEV — Anytime Breathing silent-music fix: onComplete now
+  // only unmute()s (see InteractiveAmbientMusic.jsx's own doc comment on
+  // start()/unmute() for the full root-cause trace) - the real start(true)
+  // call already happened synchronously in handleBeginBreathing below, at
+  // the moment of the actual tap, so audio is already genuinely playing
+  // (muted) by the time this fires; unmute() is a plain property set with
+  // no gesture requirement of its own, safe to call from this
+  // setInterval-derived callback.
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
@@ -178,16 +222,27 @@ export const QuietBreathing = ({ standalone = false }) => {
       setBreatheState('Inhale');
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
-        musicPlayerRef.current?.start();
+        musicPlayerRef.current?.unmute();
       }
     }
   });
 
+  // WakeWise DEV — Anytime Breathing silent-music fix: calls the REAL
+  // start(true) (muted) here, synchronously within this actual tap - the
+  // one genuine user gesture this screen has - instead of only preload()
+  // (network fetch, no play()). A muted play() still passes iOS/WKWebView's
+  // gesture-before-playback check and produces no audible sound during
+  // the 5-second "get ready" countdown; onComplete above then reveals it
+  // with a plain unmute() once the active breathing phase actually
+  // begins. Fixes the real defect: the previous preload()-then-deferred-
+  // start() shape called the REAL play() from onComplete, several seconds
+  // and a setInterval/useEffect hop removed from the tap - not a
+  // synchronous continuation of it - which iOS silently rejected.
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.preload();
+      musicPlayerRef.current?.start(true);
     }
     countdown.start();
   };
@@ -325,9 +380,23 @@ export const QuietBreathing = ({ standalone = false }) => {
     }
   };
 
+  // WakeWise DEV — Anytime Back-navigation correction: found live -
+  // BackButton's own goBack() (NavigationHistoryContext) prefers a real
+  // navigate(-1) over the fallback prop whenever this app instance's own
+  // in-app history stack has more than one entry - which it always does
+  // once Welcome -> Anytime Reset -> Breathe has been visited - so
+  // backFallback alone (however correctly computed) was silently
+  // ignored, landing Back on Anytime Reset's OWN bare, state-less
+  // previous history entry (step 1) instead of the preserved
+  // recommendation. alwaysFallback (the same escape hatch
+  // EveningComplete.jsx already uses to stop goBack from re-entering a
+  // completed routine via history) forces Back straight to backFallback
+  // when anytimeOrigin - an explicit marker, never navigate(-1)/browser
+  // history - completely unchanged (still goBack's normal "prefer real
+  // previous screen" behaviour) for a direct standalone visit.
   if (standalone) {
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive} alwaysFallback={anytimeOrigin}>
         {isComplete || earlyEnded ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">
@@ -337,20 +406,53 @@ export const QuietBreathing = ({ standalone = false }) => {
               </p>
             </div>
             <div className="space-y-3 w-full">
-              <button
-                type="button"
-                onClick={() => exitPracticeToHome(navigate, '/')}
-                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-              >
-                <span>Done</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleBreatheAgain}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                Breathe again
-              </button>
+              {/* WakeWise DEV — Anytime completion correction: a practice
+                  reached through Anytime's own quick-reset context
+                  (journeyTone === 'anytime') gets the two Anytime-
+                  specific actions instead of Done/Breathe again - "Choose
+                  another quick reset" returns to the real Anytime Reset
+                  recommendation/options screen (never auto-starts a new
+                  exercise), "Return to Home" clears the temporary
+                  practice context exactly like the Done button always
+                  has. Morning/Evening-themed and primary/default
+                  standalone completions (journeyTone !== 'anytime') are
+                  completely untouched - same Done/Breathe again pair as
+                  before. */}
+              {journeyTone === 'anytime' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
+                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                  >
+                    <span>Choose another quick reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, '/')}
+                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Return to Home
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, '/')}
+                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                  >
+                    <span>Done</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBreatheAgain}
+                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Breathe again
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : countdown.isActive ? (

@@ -125,16 +125,24 @@ describe('4 & 5. Off -> Begin creates no audio instance; On -> Begin creates exa
     });
 
     it(`${name}: start() itself is guarded by isBusyRef for its whole async body (InteractiveAmbientMusic.jsx, shared by every surface) - a guest tapping Begin twice, or Begin then the active toggle, can never issue two overlapping start() calls`, () => {
-      expect(playerSource).toMatch(/const start = async \(\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
+      expect(playerSource).toMatch(/const start = async \(muted = false\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
     });
   }
 
-  it('QuietBreathing.jsx (standalone) Begin handler: same ungated condition (now preload + countdown.start(), the actual start() living in the countdown\'s onComplete)', () => {
+  // WakeWise DEV — silent Anytime/standalone Breathing music fix:
+  // QuietBreathing.jsx's Begin handler now calls the real, gesture-linked
+  // start(true) (muted) itself instead of merely preloading, so iOS/WKWebView
+  // still counts play() as issued within the genuine tap gesture; the
+  // countdown's own onComplete then just unmutes (a property set, no gesture
+  // required) rather than issuing a second, ungestured play() call.
+  it('QuietBreathing.jsx (standalone) Begin handler: calls the real start(true) (muted) within the genuine tap gesture; the countdown\'s onComplete only unmutes, never calls start() again', () => {
     const body = quietBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.preload\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(true\);\s*\n\s*\}/);
     expect(body).toMatch(/countdown\.start\(\);/);
+    expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
     const countdownBlock = quietBreathingSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
-    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.unmute\(\);\s*\n\s*\}/);
+    expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\)/);
     expect(body).not.toMatch(/!isGuest/);
   });
 });

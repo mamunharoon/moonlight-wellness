@@ -21,8 +21,16 @@ import { fileURLToPath } from 'node:url';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
+// WakeWise DEV — F1 mobile-nav fix: Affirmation.jsx is no longer part of
+// this shared min-h-[85vh]/py-6-or-pb-6 loop - it now owns its own
+// h-dvh/overflow-y-auto scroll container (the same proven shape
+// Introduction.jsx/AnytimeReset.jsx already use), a genuinely different
+// structure from the other 7 pages below (all unchanged by this fix).
+// Its own top-safe-area padding is untouched (still the exact F8 calc()
+// this describe.each still verifies for every other page); see the
+// dedicated describe block below for its new bottom-safe-area/scroll
+// container coverage.
 const AFFECTED_PAGES = [
-  ['Affirmation.jsx', './Affirmation.jsx'],
   ['Breathe.jsx', './Breathe.jsx'],
   ['IntentionSetup.jsx', './IntentionSetup.jsx'],
   ['MeditationComplete.jsx', './MeditationComplete.jsx'],
@@ -56,6 +64,33 @@ describe.each(AFFECTED_PAGES)('%s — top-left Back button safe-area correction 
   });
 });
 
+// WakeWise DEV — F1 mobile-nav fix: Affirmation.jsx's own dedicated
+// coverage, now that it owns a real scroll container instead of the
+// shared min-h-[85vh] shape every other AFFECTED_PAGES entry still uses.
+describe('Affirmation.jsx — F1 mobile-nav fix: real scroll container, F8 top-safe-area untouched', () => {
+  const source = read('./Affirmation.jsx');
+
+  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
+    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
+    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
+    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  });
+
+  it('now also adds env(safe-area-inset-bottom) - never accounted for before this fix, on a page rendered outside <Layout> with its own no-header-of-its-own top-left Back button', () => {
+    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  });
+
+  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Introduction.jsx/AnytimeReset.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
+    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+    expect(source).not.toMatch(/min-h-\[85vh\]/);
+  });
+
+  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor) and no longer carries the old flat pb-6', () => {
+    expect(source).toMatch(/className="min-h-full flex flex-col justify-between max-w-xl mx-auto space-y-10"/);
+  });
+});
+
 describe('Back button destinations are unchanged by the F8 safe-area correction', () => {
   it('Affirmation.jsx still falls back to /morning-meditate', () => {
     expect(read('./Affirmation.jsx')).toMatch(/<BackButton fallback="\/morning-meditate" guardActiveRoute=\{false\} \/>/);
@@ -77,11 +112,14 @@ describe('Back button destinations are unchanged by the F8 safe-area correction'
   });
   // Context-aware Breathing/Meditation theming — this BackButton now also
   // clears the captured practice journey tone via onBeforeLeave before
-  // navigating away (a real exit-to-Home) - the destination/label/guard
-  // props themselves are unchanged.
-  it('SelfGuidedMeditationComplete.jsx still falls back to the dynamic context.fallback', () => {
+  // navigating away (a real exit-to-Home) - the label/guard props are
+  // unchanged; the fallback destination is now `backDestination` (WakeWise
+  // DEV Anytime Back-navigation correction - see
+  // selfGuidedMeditationComplete.test.js's own dedicated coverage of what
+  // that resolves to).
+  it('SelfGuidedMeditationComplete.jsx still falls back to backDestination (context.fallback, or the preserved Anytime Reset recommendation when anytimeOrigin)', () => {
     expect(read('./SelfGuidedMeditationComplete.jsx')).toMatch(
-      /<BackButton\s*\n\s*fallback=\{context\.fallback\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
+      /<BackButton\s*\n\s*fallback=\{backDestination\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n[\s\S]*?\s*alwaysFallback=\{anytimeOrigin\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
     );
   });
   it('SessionComplete.jsx still uses alwaysFallback to / (never re-enters the completed routine via browser Back)', () => {

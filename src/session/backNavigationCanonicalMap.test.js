@@ -73,8 +73,8 @@ describe('InteractiveAmbientMusic.jsx — stop() exposed via ref alongside the e
   // guided-session-resume-music fix) - this block still only cares about
   // stop()'s own presence/behaviour, updated to match the current
   // three-key handle.
-  it('useImperativeHandle now exposes { start, stop, isPlaying, preload }, including stop()', () => {
-    expect(interactiveAmbientMusicSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload \}\)\);/);
+  it('useImperativeHandle now exposes { start, stop, isPlaying, preload, unmute }, including stop()', () => {
+    expect(interactiveAmbientMusicSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload, unmute \}\)\);/);
   });
 
   it('stop() itself is unchanged - a plain audioRef.current?.pause()', () => {

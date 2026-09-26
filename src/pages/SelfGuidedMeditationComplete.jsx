@@ -51,6 +51,37 @@ export const SelfGuidedMeditationComplete = () => {
     exitPracticeToHome(navigate, context.fallback);
   };
 
+  // WakeWise DEV — Anytime completion correction: a practice reached
+  // through Anytime Reset's own quick-reset context (journeyTone ===
+  // 'anytime') gets the same two Anytime-specific actions
+  // QuietBreathing.jsx's own completion screen shows, instead of the
+  // generic Done/Meditate Again/Choose Another Meditation trio -
+  // "Choose another quick reset" returns to the real Anytime Reset
+  // recommendation/options screen (need+duration restored via the same
+  // allowlisted query-param mechanism AnytimeReset.jsx already uses for
+  // its post-sign-in restore, never auto-starting a new exercise),
+  // "Return to Home" clears the temporary practice context exactly like
+  // Done always has. Reached any other way (Home/Library's own Meditate
+  // tiles), journeyTone !== 'anytime' and this screen is completely
+  // unchanged.
+  const anytimeOrigin = Boolean(session?.anytimeNeed && session?.anytimeDuration);
+  const anytimeResetDestination = anytimeOrigin
+    ? `/anytime-reset?need=${encodeURIComponent(session.anytimeNeed)}&duration=${encodeURIComponent(session.anytimeDuration)}`
+    : '/anytime-reset';
+  // WakeWise DEV — Anytime Back-navigation correction: this screen's own
+  // top-left Back (there is no earlier in-flow step on the completion
+  // screen itself) now returns to the preserved Anytime Reset
+  // recommendation - via the explicit anytimeOrigin marker, never
+  // journeyTone/browser history - instead of falling through past it to
+  // context.fallback (Home), when it was genuinely reached that way.
+  const backDestination = anytimeOrigin ? anytimeResetDestination : context.fallback;
+  const handleChooseAnotherQuickReset = () => {
+    exitPracticeToHome(navigate, anytimeResetDestination);
+  };
+  const handleReturnToHome = () => {
+    exitPracticeToHome(navigate, '/');
+  };
+
   // Both restore the exact same style/duration/sound choices and land back
   // on setup - only the label differs. Neither auto-starts: Begin Meditation
   // still requires its own fresh, deliberate tap either way. `soundId` here
@@ -89,9 +120,20 @@ export const SelfGuidedMeditationComplete = () => {
             step on the completion screen itself) - clears the captured
             tone before BackButton's own navigation proceeds. */}
         <BackButton
-          fallback={context.fallback}
+          fallback={backDestination}
           label={context.label}
           guardActiveRoute={false}
+          // WakeWise DEV — Anytime Back-navigation correction: without
+          // this, goBack() would silently prefer a real navigate(-1) over
+          // backDestination whenever this app instance's in-app history
+          // has more than one entry - discarding the preserved Anytime
+          // Reset recommendation in favour of its bare, state-less
+          // previous history entry. Forced straight to backDestination
+          // only when anytimeOrigin; reached any other way, goBack's
+          // normal "prefer the real previous screen" behaviour (here,
+          // always Home - there is no earlier in-flow step on the
+          // completion screen itself) is completely unchanged.
+          alwaysFallback={anytimeOrigin}
           onBeforeLeave={() => {
             clearPracticeJourneyTone();
           }}
@@ -111,28 +153,49 @@ export const SelfGuidedMeditationComplete = () => {
       </div>
 
       <div className="space-y-3">
-        <button
-          type="button"
-          onClick={handleDone}
-          className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-        >
-          <span>Done</span>
-          <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleMeditateAgain}
-          className="w-full glass-panel text-on-surface py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          Meditate Again
-        </button>
-        <button
-          type="button"
-          onClick={handleChooseAnotherMeditation}
-          className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          Choose Another Meditation
-        </button>
+        {journeyTone === 'anytime' ? (
+          <>
+            <button
+              type="button"
+              onClick={handleChooseAnotherQuickReset}
+              className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+            >
+              <span>Choose another quick reset</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleReturnToHome}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Return to Home
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleDone}
+              className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+            >
+              <span>Done</span>
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleMeditateAgain}
+              className="w-full glass-panel text-on-surface py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Meditate Again
+            </button>
+            <button
+              type="button"
+              onClick={handleChooseAnotherMeditation}
+              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Choose Another Meditation
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

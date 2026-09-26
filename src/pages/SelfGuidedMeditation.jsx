@@ -100,6 +100,25 @@ export const SelfGuidedMeditation = () => {
   // fresh, deliberate tap (no auto-start from this preset).
   const preset = location.state || null;
 
+  // WakeWise DEV — Anytime Back-navigation correction: `anytimeOrigin` is
+  // the one EXPLICIT marker (never journeyTone, which also defaults to
+  // 'anytime' for an unrelated reason, and never navigate(-1)/browser
+  // history) this whole lifecycle uses to know it was genuinely launched
+  // from Anytime Reset's "Meditate" alternative - see QuietBreathing.jsx's
+  // identical fix/doc comment for the full rationale. `exitDestination`
+  // replaces every context.fallback use below that is a real "leave this
+  // practice" destination (Back, Close, Session-ended-early Done) so all
+  // of them return to the preserved Anytime Reset recommendation instead
+  // of falling through past it to Home/Welcome - reached any other way
+  // (Home's Meditate tile, Library), anytimeOrigin is false and every one
+  // of those destinations is exactly context.fallback, completely
+  // unchanged.
+  const anytimeOrigin = Boolean(preset?.anytimeNeed && preset?.anytimeDuration);
+  const anytimeResetDestination = anytimeOrigin
+    ? `/anytime-reset?need=${encodeURIComponent(preset.anytimeNeed)}&duration=${encodeURIComponent(preset.anytimeDuration)}`
+    : null;
+  const exitDestination = anytimeOrigin ? anytimeResetDestination : context.fallback;
+
   const [reducedMotion] = useState(() => {
     try {
       return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -109,7 +128,20 @@ export const SelfGuidedMeditation = () => {
   });
 
   const handleComplete = (finished) => {
-    navigate('/self-guided-meditation-complete', { state: { ...finished, from: searchParams.get('from') || null } });
+    // WakeWise DEV — Anytime completion correction: a practice reached
+    // through Anytime Reset's own "Or choose another quick reset" carries
+    // its needId/durationId here via router state (preset.anytimeNeed/
+    // anytimeDuration) - forwarded on to the completion screen so its own
+    // "Choose another quick reset" can return to the exact recommendation
+    // the user was on, not restart the Anytime wizard from step 1.
+    navigate('/self-guided-meditation-complete', {
+      state: {
+        ...finished,
+        from: searchParams.get('from') || null,
+        anytimeNeed: preset?.anytimeNeed || null,
+        anytimeDuration: preset?.anytimeDuration || null
+      }
+    });
   };
 
   const session = useMeditationSession({
@@ -161,7 +193,7 @@ export const SelfGuidedMeditation = () => {
     // feature exit really does leave this practice; the centralized
     // helper clears the captured context before navigating, so a later,
     // unrelated practice launch never inherits it.
-    exitPracticeToHome(navigate, context.fallback);
+    exitPracticeToHome(navigate, exitDestination);
   };
 
   const handleExploreGuided = () => {
@@ -185,7 +217,7 @@ export const SelfGuidedMeditation = () => {
           >
             <div className="flex items-center gap-3">
               <BackButton
-                fallback={context.fallback}
+                fallback={exitDestination}
                 onBeforeLeave={() => {
                   countdown.cancel();
                   session.cancelPreload();
@@ -296,22 +328,52 @@ export const SelfGuidedMeditation = () => {
                 Your {session.duration.label} {session.style.label} session ended before the timer finished.
               </p>
             </div>
+            {/* WakeWise DEV — Anytime Back-navigation correction: this
+                early-ended session stays labelled as ended early (unchanged
+                above) and is never recorded as a success, but the user
+                must still be able to choose another reset or return Home -
+                reached through Anytime Reset (anytimeOrigin), this is the
+                same "Choose another quick reset" / "Return to Home" pair
+                QuietBreathing.jsx's own early-ended panel already shows,
+                restoring the preserved need/duration; reached any other
+                way, the original Done/Meditate Again pair is untouched. */}
             <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => exitPracticeToHome(navigate, context.fallback)}
-                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-              >
-                <span>Done</span>
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleMeditateAgainFromEarlyEnd}
-                className="w-full glass-panel text-on-surface py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                Meditate Again
-              </button>
+              {anytimeOrigin ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, exitDestination)}
+                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                  >
+                    <span>Choose another quick reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, '/')}
+                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Return to Home
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => exitPracticeToHome(navigate, exitDestination)}
+                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                  >
+                    <span>Done</span>
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMeditateAgainFromEarlyEnd}
+                    className="w-full glass-panel text-on-surface py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Meditate Again
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -345,9 +407,21 @@ export const SelfGuidedMeditation = () => {
         >
           <JourneyHeader
             showBackButton
-            backFallback={context.fallback}
+            backFallback={exitDestination}
+            // WakeWise DEV — Anytime Back-navigation correction: without
+            // alwaysFallback, JourneyHeader's internal BackButton's own
+            // goBack() would silently prefer a real navigate(-1) over
+            // exitDestination whenever this app instance's in-app history
+            // has more than one entry - discarding the preserved Anytime
+            // Reset recommendation in favour of its bare, state-less
+            // previous history entry. Forced straight to exitDestination
+            // only when anytimeOrigin; a direct standalone visit keeps
+            // goBack's normal "prefer the real previous screen" behaviour,
+            // completely unchanged.
+            alwaysFallback={anytimeOrigin}
             // Context-aware Breathing/Meditation theming — Back from this
-            // setup screen is a real exit to Home too (see
+            // setup screen is a real exit (to Home, or to the preserved
+            // Anytime Reset recommendation when anytimeOrigin - see
             // JourneyHeader.jsx's own onBackBeforeLeave doc comment) -
             // without this, JourneyHeader's own internal BackButton
             // navigated away directly, with no way for this page to clear
@@ -355,7 +429,7 @@ export const SelfGuidedMeditation = () => {
             onBackBeforeLeave={() => {
               clearPracticeJourneyTone();
             }}
-            onClose={() => exitPracticeToHome(navigate, context.fallback)}
+            onClose={() => exitPracticeToHome(navigate, exitDestination)}
           />
 
           <MeditationSetupPanel

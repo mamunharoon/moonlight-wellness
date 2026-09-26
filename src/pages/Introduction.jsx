@@ -61,34 +61,26 @@ import { completeIntroductionVersion } from '../lib/introductionCompletion';
  *     navigate('/intention-setup') sequence as Home.jsx's own
  *     handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
  *     (see beginRiseAndReset below, a direct copy of that exact shape).
- *   - "Take a calming pause" -> navigate('/breathe-standalone') directly -
- *     the SAME real destination Home's own "Breathe" quick-action tile
- *     already uses (QuietBreathing.jsx's `standalone` branch), not the
- *     Gentle Reset non-standalone route this card previously opened.
- *     requiresAuth: false (matches QuietBreathing's own standalone
- *     behaviour - no sign-in gate).
- *     WakeWise DEV — "Repair Take a calming pause": this card previously
- *     opened /quiet-breathing (QuietBreathing.jsx's non-standalone
- *     branch, the same embedded experience Support.jsx's own mood picker
- *     uses), which has no real pre-start pattern choice, no clear Exit
- *     during the countdown (only an ambiguous always-visible Continue/
- *     Skip that could reach a "complete" screen before the countdown
- *     ever finished), and funnelled "Try another exercise" into Support's
- *     own "How are you feeling?" mood picker - disconnected from what
- *     this card promised. /breathe-standalone is this app's own
- *     established, coherent guided-breathing screen instead: a real
- *     pattern picker (56-76s per pattern, shown before starting - never a
- *     fabricated duration), a 5-second "get ready" countdown, an active
- *     phase with only one unambiguous "End early" control (never a
- *     Continue that could claim completion early), a genuine "Breathing
- *     complete" screen reached only once the countdown truly finishes,
- *     and "Breathe again" (same screen's own setup) rather than a detour
- *     through an unrelated mood picker. Never "Instant Calm" (E03 in
- *     betaVideoManifest.js, a narrated exercise VIDEO, not a breathing
- *     practice) either way. Support.jsx's own separate "calm" need
- *     mapping to /quiet-breathing (RoutineDetail.jsx's dormant Gentle
- *     Reset entry too) is unchanged - out of this pass's scope; only this
- *     card's own destination moved.
+ *   - "Take an Anytime Reset" -> navigate('/anytime-reset') directly - the
+ *     real, existing Anytime Reset entry point (need -> duration ->
+ *     recommendation -> practice), the same three-step wizard Home's own
+ *     Anytime surfaces already use. requiresAuth: false - AnytimeReset.jsx
+ *     itself already lets a guest walk the whole wizard and only gates
+ *     the final Start tap (its own SignInPromptDialog), matching this
+ *     card's previous no-gate behaviour exactly; nothing new is guarded
+ *     here.
+ *     WakeWise DEV — F3 correction: this card previously jumped straight
+ *     into /breathe-standalone (QuietBreathing.jsx's standalone pattern
+ *     picker), skipping the actual Anytime entry experience entirely -
+ *     inconsistent with "Start my morning"/"Wind down for sleep", both of
+ *     which open their own real journey's front door rather than one
+ *     fixed exercise inside it. Anytime's own front door is
+ *     /anytime-reset (need -> duration -> recommendation -> practice);
+ *     /breathe-standalone remains fully reachable as before, just no
+ *     longer the first thing a first-time visitor sees - Home's own
+ *     "Breathe" quick-action tile is unchanged and still opens it
+ *     directly, as does Anytime Reset's own recommendation flow for
+ *     whichever real practice it resolves to.
  *   - "Wind down for sleep" -> navigate('/evening-wind-down') directly,
  *     the same plain navigate Home.jsx's own handleBeginEveningWindDown
  *     uses (EveningWindDown.jsx's own Begin button is what actually
@@ -237,11 +229,14 @@ const WELCOME_CARDS = [
     icon: 'air',
     iconClass: 'bg-tertiary/15 text-tertiary',
     subtitleClass: 'text-tertiary',
+    // WakeWise DEV — F3 correction: title stays "Take a calming pause"
+    // (explicitly approved as-is) - only the destination changed, from a
+    // fixed jump straight into standalone Breathing to the real Anytime
+    // Reset entry (need -> time -> recommendation), the same short flow
+    // Home's own "Start Anytime Reset" already opens. Subtitle updated to
+    // describe that real flow honestly rather than one fixed exercise.
     title: 'Take a calming pause',
-    // WakeWise DEV — "Repair Take a calming pause": no invented duration
-    // (the real destination's patterns run 56-76s each, shown on that
-    // screen's own pattern picker, never claimed as a flat number here).
-    subtitle: 'A quick guided breathing break.',
+    subtitle: 'Choose your need and your time.',
     requiresAuth: false
   },
   {
@@ -383,7 +378,10 @@ export const Introduction = () => {
     // WakeWise DEV — "Repair Take a calming pause": routes to this app's
     // established, coherent standalone breathing screen (see this file's
     // own top doc comment) instead of the ambiguous non-standalone flow.
-    calm: () => navigate('/breathe-standalone'),
+    // WakeWise DEV — F3 correction: now opens the real Anytime Reset
+    // entry (need -> time -> recommendation) instead of jumping straight
+    // into one fixed exercise - see this file's own top doc comment.
+    calm: () => navigate('/anytime-reset'),
     sleep: () => navigate('/evening-wind-down')
   };
 
@@ -514,17 +512,37 @@ export const Introduction = () => {
     <div className="h-dvh overflow-hidden">
       <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
         <div
-          className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-8"
+          className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-2"
           style={{
-            paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+            // WakeWise DEV — Welcome vertical-space fix: found live at
+            // 390x844 (both Welcome variants) - adding AlarmStatusCard
+            // pushed real content height to ~1145px against an ~844px
+            // device viewport (301px measured overflow in a browser with
+            // zero safe-area inset; a real notched/Dynamic-Island iPhone
+            // adds ~47-59px top + ~34px bottom on top of that), putting
+            // "Go to Home" and even the third journey card below the
+            // fold. Fixed the same way this app's own established
+            // convention always does first - trimming padding/gaps/icon
+            // sizes before ever touching body copy or the primary
+            // action's own touch target: 2rem -> 1.25rem here (was
+            // space-y-8, now space-y-4 above - both together are the
+            // bulk of the real saving, see the hero block/cards/
+            // AlarmStatusCard's own matching trims below).
+            paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
             // WakeWise DEV — welcome screens: this route now renders its
             // own Home/Library/Profile navigation (see the fixed <nav>
             // below), matching the approved design. 88px covers that
-            // nav's own footprint (72px height + the 1rem gap below it),
-            // on top of the original 2rem/home-indicator clearance, so
-            // "Go to Home" and every card stay reachable above it rather
-            // than sitting behind it.
-            paddingBottom: 'calc(2rem + 88px + env(safe-area-inset-bottom))'
+            // nav's own footprint (72px height + the 1rem gap below it) -
+            // kept exactly as-is (the nav itself is unchanged). The flat
+            // base clearance above it went 2rem -> 0.5rem as part of the
+            // original Welcome vertical-space fix, then back up to
+            // 1.25rem after live-testing at 390x844 with a simulated real
+            // safe-area/home-indicator inset found "Go to Home" touching
+            // (0px clearance from) the fixed nav - min-h-full's own
+            // flex-1 spacer absorbs any slack from content trimmed above,
+            // so this flat constant - not the content above it - is what
+            // actually controls "Go to Home"'s clearance from the nav.
+            paddingBottom: 'calc(1.25rem + 88px + env(safe-area-inset-bottom))'
           }}
         >
       {!isAutomaticFirstUse && (
@@ -533,19 +551,26 @@ export const Introduction = () => {
         </div>
       )}
 
-      <div className="text-center space-y-4">
+      {/* WakeWise DEV — Welcome vertical-space fix: this hero block alone
+          measured 343px live at 390x844 (icon 48 + heading/subcopy 207 +
+          video pill 50, plus its own space-y-4 gaps) - the single
+          largest contributor to "Go to Home" landing below the fold.
+          Trimmed spacing/icon/heading size first, per this app's own
+          established convention (see the outer container's own doc
+          comment) - the subcopy's own real words are untouched. */}
+      <div className="text-center space-y-2">
         <span
-          className="material-symbols-outlined text-primary text-5xl"
+          className="material-symbols-outlined text-primary text-2xl"
           style={{ fontVariationSettings: "'FILL' 1" }}
           aria-hidden="true"
         >
           spa
         </span>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold text-on-surface tracking-tight">
+        <div className="space-y-1.5">
+          <h1 className="text-lg font-extrabold text-on-surface tracking-tight">
             {welcomeHeading}
           </h1>
-          <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm mx-auto">
+          <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
             {welcomeSubcopy}
           </p>
         </div>
@@ -555,7 +580,7 @@ export const Introduction = () => {
             type="button"
             onClick={() => handleSelect(introVideo.storageRef)}
             aria-label="Play one-minute introduction: Why WakeWise."
-            className="inline-flex items-center gap-2 mx-auto px-4 py-2.5 rounded-full glass-panel hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="inline-flex items-center gap-2 mx-auto px-4 py-1.5 min-h-[44px] rounded-full glass-panel hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span
               className="material-symbols-outlined text-primary text-lg"
@@ -594,7 +619,17 @@ export const Introduction = () => {
         <h2 id="welcome-cards-heading" className="sr-only">
           Choose what would help you most
         </h2>
-        <div className="space-y-3">
+        {/* WakeWise DEV — Welcome vertical-space fix: space-y-3 -> space-y-2
+            between cards, p-4 -> p-3 -> p-1.5 and the icon chip
+            w-12 h-12/text-2xl -> w-9 h-9/text-lg on each card below (same
+            trim-spacing-first approach as AlarmStatusCard.jsx's own
+            matching fix) - title/subtitle text and every tap target/
+            destination are unchanged. The final p-1.5 trim (live-verified,
+            390x844 with a simulated real safe-area/home-indicator inset)
+            was needed to clear "Go to Home" from under the fixed bottom
+            nav - source-level checks alone can't catch this kind of real
+            device geometry. */}
+        <div className="space-y-2">
           {WELCOME_CARDS.map((card) => (
             <button
               key={card.id}
@@ -609,11 +644,11 @@ export const Introduction = () => {
               // accessible name still derives naturally from the visible
               // title/subtitle exactly as before.
               aria-label={card.note ? `${card.title}. ${card.subtitle}. ${card.note}` : undefined}
-              className="w-full text-left glass-panel rounded-2xl p-4 flex items-center gap-3.5 hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+              className="w-full text-left glass-panel rounded-2xl p-1.5 flex items-center gap-3.5 hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             >
-              <span className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 ${card.iconClass}`}>
+              <span className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${card.iconClass}`}>
                 <span
-                  className="material-symbols-outlined text-2xl"
+                  className="material-symbols-outlined text-lg"
                   aria-hidden="true"
                   style={card.id === 'sleep' ? { fontVariationSettings: "'FILL' 1" } : undefined}
                 >
@@ -634,7 +669,10 @@ export const Introduction = () => {
 
       <div className="flex-1" />
 
-      <div className="space-y-3 pt-4">
+      {/* WakeWise DEV — Welcome vertical-space fix: pt-4 -> pt-1.5 (the
+          button itself keeps its own full py-4 - the primary action's
+          touch target/prominence is deliberately untouched). */}
+      <div className="space-y-3 pt-1.5">
         {saveError && (
           <p role="alert" className="text-xs text-red-400 font-medium text-center">
             {saveError}

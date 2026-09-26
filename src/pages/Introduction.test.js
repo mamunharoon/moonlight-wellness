@@ -91,14 +91,16 @@ describe('Introduction.jsx — three tappable destination cards', () => {
   it('each card routes directly to a real canonical entry point, traced from Home.jsx\'s own Morning/Evening/Breathe handlers - not through the (now unrouted) Routines Hub, not an invented destination', () => {
     // CARD_DESTINATIONS resolves 'morning' to the real beginRiseAndReset
     // (Session-Engine-initializing, same as Home.jsx's own
-    // handleBeginRiseAndReset), 'calm' to a plain navigate to the same
-    // standalone breathing route Home's own "Breathe" quick-action tile
-    // uses, and 'sleep' to a plain navigate to Evening Wind-Down's real
-    // intro route (same as Home.jsx's own handleBeginEveningWindDown -
+    // handleBeginRiseAndReset), 'calm' to a plain navigate to the real
+    // Anytime Reset entry (need -> time -> recommendation, the same short
+    // flow Home's own "Start Anytime Reset" already opens - WakeWise DEV
+    // F3 correction, superseding the earlier direct-to-breathe routing),
+    // and 'sleep' to a plain navigate to Evening Wind-Down's real intro
+    // route (same as Home.jsx's own handleBeginEveningWindDown -
     // EveningWindDown.jsx's own Begin button starts the session, not this
     // navigate).
     expect(introductionSource).toMatch(
-      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,[\s\S]*?\s*calm: \(\) => navigate\('\/breathe-standalone'\),\s*\n\s*sleep: \(\) => navigate\('\/evening-wind-down'\)\s*\n\s*\};/
+      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,[\s\S]*?\s*calm: \(\) => navigate\('\/anytime-reset'\),\s*\n\s*sleep: \(\) => navigate\('\/evening-wind-down'\)\s*\n\s*\};/
     );
     // beginRiseAndReset itself mirrors Home.jsx's own
     // handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
@@ -113,24 +115,27 @@ describe('Introduction.jsx — three tappable destination cards', () => {
     expect(routinesCatalogSource).toMatch(/id: 'wind-down'/);
   });
 
-  it('WakeWise DEV — "Repair Take a calming pause": opens the established, coherent standalone breathing screen directly, never the ambiguous non-standalone /quiet-breathing flow or "Instant Calm" (a narrated exercise video, not a breathing practice)', () => {
-    expect(introductionSource).toMatch(/calm: \(\) => navigate\('\/breathe-standalone'\)/);
-    // Comments legitimately name "Instant Calm"/"/quiet-breathing" in
-    // prose explaining what this card deliberately does NOT open any
-    // more - only the real code matters here.
-    const codeOnly = introductionSource.replace(/\/\*[\s\S]*?\*\//g, '');
+  it('WakeWise DEV — F3 correction: "Take a calming pause" opens the real Anytime Reset entry (need -> time -> recommendation), never a fixed jump straight into standalone Breathing, never the ambiguous non-standalone /quiet-breathing flow, never "Instant Calm" (a narrated exercise video, not a breathing practice)', () => {
+    expect(introductionSource).toMatch(/calm: \(\) => navigate\('\/anytime-reset'\)/);
+    // Comments legitimately name "Instant Calm"/"/quiet-breathing"/
+    // "/breathe-standalone" in prose explaining what this card
+    // deliberately does NOT open any more - only the real code matters
+    // here.
+    const codeOnly = introductionSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     expect(codeOnly).not.toMatch(/Instant Calm/);
     expect(codeOnly).not.toMatch(/navigate\('\/quiet-breathing'\)/);
-    // requiresAuth: false, matching /breathe-standalone's own real gate
-    // (QuietBreathing.jsx's standalone branch never requires sign-in) -
-    // a guest reaches it directly, never a sign-in prompt.
+    expect(codeOnly).not.toMatch(/navigate\('\/breathe-standalone'\)/);
+    // requiresAuth: false, matching /anytime-reset's own real gate (a
+    // guest reaches it directly, never a sign-in prompt - the same
+    // guest-eligibility as the standalone breathing screen it can lead
+    // to).
     const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
     expect(calmCard).toMatch(/requiresAuth: false/);
   });
 
-  it('the calming-pause card names no fabricated duration - the real destination\'s patterns are shown on its own pattern picker (56-76s each), never claimed as a flat number on this card', () => {
+  it('the calming-pause card names no fabricated single duration - it now honestly describes the real Anytime Reset flow (choose need + time), not one fixed exercise; kept to one line at 390px width (WakeWise DEV mobile-nav fix: a longer, wrapped subtitle was found live to add 16px and push "Go to Home" under the bottom nav)', () => {
     const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
-    expect(calmCard).toMatch(/subtitle: 'A quick guided breathing break\.'/);
+    expect(calmCard).toMatch(/subtitle: 'Choose your need and your time\.'/);
     expect(calmCard).not.toMatch(/1 min/);
   });
 

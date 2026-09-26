@@ -74,11 +74,20 @@ describe('SelfGuidedMeditationComplete.jsx — no fabricated history, no complet
 });
 
 describe('SelfGuidedMeditationComplete.jsx — a visible accessible Back control, real shared BackButton', () => {
-  it('uses the shared BackButton with the resolved context\'s fallback/label, and clears the captured practice journey tone before it navigates away', () => {
+  it('uses the shared BackButton with backDestination (WakeWise DEV Anytime Back-navigation correction) and the resolved context\'s label, clearing the captured practice journey tone before it navigates away', () => {
     expect(source).toMatch(/import \{ BackButton \} from '\.\.\/components\/BackButton';/);
     expect(source).toMatch(
-      /<BackButton\s*\n\s*fallback=\{context\.fallback\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
+      /<BackButton\s*\n\s*fallback=\{backDestination\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n[\s\S]*?\s*alwaysFallback=\{anytimeOrigin\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
     );
+  });
+
+  it('the BackButton\'s alwaysFallback={anytimeOrigin} forces Back straight to backDestination, never goBack()\'s own real-navigate(-1)-preferring behaviour, when genuinely reached from Anytime Reset', () => {
+    expect(source).toMatch(/alwaysFallback=\{anytimeOrigin\}/);
+  });
+
+  it('backDestination resolves to the preserved Anytime Reset recommendation via the explicit anytimeOrigin marker (never journeyTone/browser history), falling back to context.fallback (Home) only when not genuinely reached from Anytime Reset', () => {
+    expect(source).toMatch(/const anytimeOrigin = Boolean\(session\?\.anytimeNeed && session\?\.anytimeDuration\);/);
+    expect(source).toMatch(/const backDestination = anytimeOrigin \? anytimeResetDestination : context\.fallback;/);
   });
 });
 
@@ -86,5 +95,41 @@ describe('SelfGuidedMeditationComplete.jsx — touch targets', () => {
   it('all three action buttons carry the 44px minimum', () => {
     const minHeightMatches = source.match(/min-h-\[44px\]/g) ?? [];
     expect(minHeightMatches.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// WakeWise DEV — Anytime completion correction: a Meditate practice
+// reached through Anytime Reset's own "Or choose another quick reset"
+// gets the same two Anytime-specific actions QuietBreathing.jsx's own
+// completion screen already shows (journeyTone === 'anytime'), instead of
+// the generic Done/Meditate Again/Choose Another Meditation trio above -
+// reached any other way (Home/Library's Meditate tiles), journeyTone
+// isn't 'anytime' and the trio above is completely unchanged.
+describe('SelfGuidedMeditationComplete.jsx — Anytime-only completion gating', () => {
+  it('renders "Choose another quick reset" / "Return to Home" only when journeyTone === \'anytime\', the generic trio only otherwise', () => {
+    expect(source).toMatch(/\{journeyTone === 'anytime' \? \(/);
+    expect(source).toMatch(/<span>Choose another quick reset<\/span>/);
+    expect(source).toMatch(/>\s*Return to Home\s*</);
+  });
+
+  it('"Choose another quick reset" restores the exact need/duration this practice was entered with, via the same allowlisted ?need=&duration= restore AnytimeReset.jsx already uses after sign-in - never a bare navigate that would restart the wizard from step 1', () => {
+    expect(source).toMatch(
+      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(session\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(session\.anytimeDuration\)\}`\s*\n\s*: '\/anytime-reset';/
+    );
+    expect(source).toMatch(/const handleChooseAnotherQuickReset = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, anytimeResetDestination\);\s*\n\s*\};/);
+  });
+
+  it('"Return to Home" is a plain exitPracticeToHome to \'/\', clearing the temporary practice context exactly like Done always has', () => {
+    expect(source).toMatch(/const handleReturnToHome = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, '\/'\);\s*\n\s*\};/);
+  });
+
+  it('the generic Done/Meditate Again/Choose Another Meditation trio is unreachable while journeyTone === \'anytime\' - it sits in the else branch of the same conditional', () => {
+    const buttonsBlock = source.slice(source.indexOf('<div className="space-y-3">'), source.indexOf('</div>\n    </div>\n  );'));
+    const ifIndex = buttonsBlock.indexOf("journeyTone === 'anytime' ? (");
+    const elseIndex = buttonsBlock.indexOf(') : (');
+    const doneIndex = buttonsBlock.indexOf('<span>Done</span>');
+    expect(ifIndex).toBeGreaterThanOrEqual(0);
+    expect(elseIndex).toBeGreaterThan(ifIndex);
+    expect(doneIndex).toBeGreaterThan(elseIndex);
   });
 });

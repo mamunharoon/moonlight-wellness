@@ -90,20 +90,38 @@ export const Affirmation = () => {
   };
 
   return (
-    // Build 16 physical-iPhone correction (F8) - top-left Back buttons
-    // were confirmed (live) to sit flush at the exact top-left corner
-    // (x:0, y:24, no safe-area accounting at all) on this and every other
-    // full-screen journey page that renders outside <Layout> (which
-    // already handles this for every in-Layout screen - see Layout.jsx's
-    // own header/content safe-area padding). Same established pattern as
-    // ResetPassword.jsx/EveningSceneShell.jsx: adds the real device inset
-    // on top of the existing flat padding, never replacing it.
+    // WakeWise DEV — F1 mobile-nav fix: found live at 390x844 with two
+    // affirmations (Primary + Supporting) - this screen rendered OUTSIDE
+    // <Layout> with no scroll container of its own (index.html sets
+    // `overflow: hidden` on <body> for BOTH axes deliberately - see
+    // scrollContainer.test.js's own doc comment - because Layout.jsx is
+    // the only page shell meant to own document scroll; every route
+    // rendered outside <Layout> must supply its own). The old min-height-
+    // percentage-of-viewport wrapper only ever set a FLOOR, not a ceiling
+    // - once real content (two
+    // affirmations, or the same content at a larger iOS Dynamic Type
+    // setting) pushed total height past the true device viewport, the
+    // Continue button was simply clipped with no way to reach it at all,
+    // not merely "needs a scroll" - the exact same class of bug already
+    // diagnosed and fixed on Introduction.jsx/AnytimeReset.jsx (see
+    // their own matching doc comments). Same proven fix here: this
+    // screen now owns its own single min-h-full/overflow-y-auto scroll
+    // container instead of depending on document scroll, so Continue is
+    // always reachable by scrolling, never hard-clipped - and the safe-
+    // area-inset-BOTTOM this page's own pb-6 never accounted for
+    // (top-left-right safe-area accounting was covered by the Build 16
+    // Back-button fix above; bottom home-indicator clearance never was)
+    // now runs through the same paddingBottom calc() every other full-
+    // bleed screen already uses.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
+      className="min-h-full flex flex-col justify-between max-w-xl mx-auto space-y-10"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
       }}
     >
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
@@ -179,6 +197,8 @@ export const Affirmation = () => {
           </>
         )}
       </div>
+    </div>
+    </div>
     </div>
   );
 };

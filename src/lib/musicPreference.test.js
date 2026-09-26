@@ -26,8 +26,13 @@ describe('music preference (background-music framework scaffold)', () => {
     store.clear();
   });
 
-  it('defaults to off (conservative) when never set', () => {
-    expect(getMusicPreference()).toBe(false);
+  // WakeWise DEV — Anytime Breathing silent-music fix: real, licensed
+  // background tracks now exist and play, so the earlier "no asset
+  // exists yet" conservative-OFF default no longer applies - reversed to
+  // default ON specifically for the never-set case. An explicit stored
+  // 'false' still always stays OFF (see the next test).
+  it('defaults to ON when never set', () => {
+    expect(getMusicPreference()).toBe(true);
   });
 
   it('persists an explicit on/off choice across reads', () => {
@@ -43,7 +48,7 @@ describe('music preference (background-music framework scaffold)', () => {
       setItem: () => { throw new Error('unavailable'); }
     };
     try {
-      expect(getMusicPreference()).toBe(false);
+      expect(getMusicPreference()).toBe(true);
       expect(() => setMusicPreference(true)).not.toThrow();
     } finally {
       globalThis.localStorage = localStorageMock;
@@ -57,13 +62,24 @@ describe('setMusicPreferenceForUser — guest pre-start-music correction (Build 
   });
 
   it('a guest\'s choice never reaches the shared key, in either direction (On or Off)', () => {
+    // Nothing was ever actually written by this guest tap - the key
+    // stays genuinely unset, so it still reads the real default (now ON,
+    // see the "defaults to ON when never set" test above), not a value
+    // this guest tap silently wrote.
     setMusicPreferenceForUser(true, { isGuest: true });
-    expect(getMusicPreference()).toBe(false);
-    // Prove it genuinely never wrote - not "wrote false" - by pre-seeding
-    // true first, then confirming a guest Off-write doesn't touch it.
+    expect(getMusicPreference()).toBe(true);
+    // Prove a guest Off-write is also a genuine no-op, not a real write -
+    // pre-seed an explicit stored TRUE (distinct from the new default, so
+    // a guest Off "leaking" through would be observable), then confirm
+    // the guest's Off tap leaves it untouched.
     setMusicPreference(true);
     setMusicPreferenceForUser(false, { isGuest: true });
     expect(getMusicPreference()).toBe(true);
+    // And the reverse: pre-seed an explicit stored FALSE, confirm a
+    // guest's On tap doesn't flip it either.
+    setMusicPreference(false);
+    setMusicPreferenceForUser(true, { isGuest: true });
+    expect(getMusicPreference()).toBe(false);
   });
 
   it('an authenticated (non-guest) choice persists exactly as the original setMusicPreference always did', () => {
@@ -74,6 +90,7 @@ describe('setMusicPreferenceForUser — guest pre-start-music correction (Build 
   });
 
   it('a guest\'s choice does not leak into a later authenticated write on the same device - the two stay genuinely independent', () => {
+    setMusicPreference(false); // explicit stored OFF, distinct from the new default-ON
     setMusicPreferenceForUser(true, { isGuest: true }); // guest turns on, never persisted
     expect(getMusicPreference()).toBe(false);
     setMusicPreferenceForUser(true, { isGuest: false }); // a signed-in user turns on for real

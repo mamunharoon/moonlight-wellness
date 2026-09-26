@@ -93,7 +93,7 @@ describe('ExercisePausedPanel — starts or resumes exactly one correct audio in
   }
 
   it('start() itself (InteractiveAmbientMusic.jsx, shared by every caller) is guarded by isBusyRef for its whole async body - handleResume tapped rapidly, or alongside the active toggle, can never issue two overlapping start() calls', () => {
-    expect(playerSource).toMatch(/const start = async \(\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
+    expect(playerSource).toMatch(/const start = async \(muted = false\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
   });
 });
 

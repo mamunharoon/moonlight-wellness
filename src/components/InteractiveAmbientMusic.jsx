@@ -181,7 +181,28 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     return preloadPromiseRef.current;
   };
 
-  const start = async () => {
+  // WakeWise DEV — Anytime Breathing silent-music fix. Root cause (traced
+  // live): QuietBreathing.jsx's standalone Begin tap only called
+  // preload() (network fetch, no play()) and deferred the real start()
+  // call to usePreparationCountdown's onComplete - which fires from a
+  // setInterval tick + useEffect several REAL SECONDS after the tap, not
+  // a synchronous continuation of it. iOS/WKWebView's gesture-before-
+  // unmuted-playback rule (this file's own AUTOPLAY/GESTURE POLICY
+  // comment above) does not survive that gap, so audio.play() silently
+  // rejected - caught by the catch block below exactly as designed, but
+  // for the wrong reason (a real, lost gesture, not a genuine load/
+  // playback failure).
+  //
+  // Fix: `muted` lets a caller call the REAL play() - and therefore the
+  // REAL gesture-authorization check - synchronously within the actual
+  // tap (QuietBreathing.jsx now calls start(true) directly from its
+  // Begin handler, not preload()), while producing no audible sound
+  // during the "get ready" countdown that follows. `unmute()` below then
+  // reveals the now-already-playing element the moment the countdown
+  // completes - a plain property set, never a new play() call, so it
+  // never needs its own gesture and can safely fire from the deferred
+  // onComplete callback exactly as before.
+  const start = async (muted = false) => {
     if (isBusyRef.current) return;
     isBusyRef.current = true;
     setLoadError(false);
@@ -211,10 +232,13 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         audio.volume = DEFAULT_VOLUME;
       }
       isPreloadedRef.current = false;
-      // Called synchronously within handleToggle's own click handler (a
-      // real user gesture) via this same call chain — never from an
-      // effect, never on mount. A successful play() fires the element's
-      // own `play` event, which is what actually flips musicEnabled on.
+      audio.muted = muted;
+      // Called synchronously within handleToggle's/handleBeginBreathing's
+      // own click handler (a real user gesture) via this same call
+      // chain — never from an effect, never from a setTimeout/setInterval-
+      // derived callback. A successful play() fires the element's own
+      // `play` event, which is what actually flips musicEnabled on (even
+      // while muted - a muted element is still genuinely playing).
       await audio.play();
     } catch {
       // Loading/playback failed - continue the breathing exercise
@@ -226,6 +250,16 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     } finally {
       isBusyRef.current = false;
     }
+  };
+
+  // Reveals an already-playing (possibly still muted, per start(true)
+  // above) element - a plain property assignment, never a new play()
+  // call, so it carries no gesture requirement of its own and is safe to
+  // call from a deferred/async callback (e.g. the preparation countdown's
+  // onComplete). A no-op if nothing is currently playing/muted.
+  const unmute = () => {
+    const audio = audioRef.current;
+    if (audio) audio.muted = false;
   };
 
   const handleToggle = () => {
@@ -275,7 +309,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // instant the user safely stops the exercise, without waiting for the
   // `suspended` prop (which only reacts to an open guided video/manual
   // pause, not this).
-  useImperativeHandle(ref, () => ({ start, stop, isPlaying, preload }));
+  useImperativeHandle(ref, () => ({ start, stop, isPlaying, preload, unmute }));
 
   if (!eligible) return null;
 

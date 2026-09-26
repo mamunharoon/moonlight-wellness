@@ -47,8 +47,8 @@ describe('Items 23/24 - no Session Engine coupling in either mode', () => {
 // preserved behaviour.
 // ---------------------------------------------------------------------
 describe('Support\'s own embedded (non-standalone) usage is preserved exactly', () => {
-  it('backFallback/completionRoute default to the original /support and /support-complete when standalone is omitted', () => {
-    expect(source).toMatch(/const backFallback = standalone \? '\/' : '\/support';/);
+  it('backFallback/completionRoute default to the original \'/\' and \'/support-complete\' when standalone is omitted - non-standalone never reads anytimeOrigin', () => {
+    expect(source).toMatch(/const backFallback = standalone \? \(anytimeOrigin \? anytimeResetDestination : '\/'\) : '\/support';/);
     expect(source).toMatch(/const completionRoute = standalone \? '\/' : '\/support-complete';/);
   });
 
@@ -122,30 +122,35 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => !standalone\);/);
   });
 
-  // Build 16 physical-iPhone correction (F3/F4) — see breathingPreStart
-  // .test.js's identical Breathe.jsx/EveningBreathing.jsx split for the
-  // full rationale: handleBeginBreathing itself now only guards against a
-  // double tap, preloads, and starts the preparation countdown; the
-  // countdown's own onComplete callback resets the countdown/sets
-  // hasBegun/starts music.
-  it('Begin Breathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
+  // WakeWise DEV — silent Anytime/standalone Breathing music fix: the
+  // countdown-deferred musicPlayerRef.current?.start() call (several
+  // async/timer hops removed from the real tap) lost iOS/WKWebView's
+  // gesture-authorization for HTMLMediaElement.play(), so audio silently
+  // failed to start. Fix: handleBeginBreathing now calls the real,
+  // gesture-linked start(true) (muted) itself, synchronously within the
+  // genuine tap; the countdown's own onComplete callback then just
+  // unmutes (a property set, no gesture required) rather than issuing a
+  // second, ungestured play() call.
+  it('Begin Breathing guards against double taps and calls the real start(true) (muted) within the genuine tap gesture, then starts the preparation countdown (no direct state changes)', () => {
     const body = source.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.start\(true\);/);
+    expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
     expect(body).toMatch(/countdown\.start\(\);/);
     expect(body).not.toMatch(/setSecondsLeft|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback resets the countdown, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+  it('the countdown\'s onComplete callback resets the countdown, sets hasBegun, and only unmutes the already-playing (muted) music if eligible+preferred - never a second start() call (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
     const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
     expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
+    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.unmute\(\);/);
+    expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\)/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
@@ -256,5 +261,54 @@ describe('Early-end result correction — "End early" no longer silently duplica
 describe('Repeatable use, no interference with another active routine', () => {
   it('the pattern/preference/hasBegun state is all plain local component state - nothing persisted, so a fresh visit always starts clean and a concurrently active Morning/Evening routine (tracked entirely elsewhere, in SessionContext) is structurally unreachable from this file', () => {
     expect(source).not.toMatch(/localStorage\.getItem\(['"]moonlight_session/);
+  });
+});
+
+// WakeWise DEV — Anytime completion correction: found live that "Choose
+// another quick reset" (shown when journeyTone === 'anytime') landed back
+// on Anytime Reset's own step 1 instead of the recommendation/options
+// screen the FINAL instruction's item 5 requires, because a fresh
+// navigate() to /anytime-reset remounts that component, discarding its
+// local needId/durationId wizard state. Fixed by reading back the
+// needId/durationId AnytimeReset.jsx's own "Or choose another quick
+// reset" now forwards via router state (see anytimeResetCompletion
+// .test.js's own matching coverage of that forwarding), and restoring
+// them via the same allowlisted ?need=&duration= mechanism
+// AnytimeReset.jsx already uses for its post-sign-in resume.
+describe('QuietBreathing.jsx (standalone) — "Choose another quick reset" restores the exact Anytime recommendation it was launched from', () => {
+  it('imports useLocation and reads anytimeNeed/anytimeDuration from router state (via the explicit anytimeOrigin marker) to build the real restore URL, falling back to a bare /anytime-reset only when absent', () => {
+    expect(source).toMatch(/import \{ useNavigate, useLocation \} from 'react-router-dom';/);
+    expect(source).toMatch(/const location = useLocation\(\);/);
+    expect(source).toMatch(/const anytimeOrigin = Boolean\(location\.state\?\.anytimeNeed && location\.state\?\.anytimeDuration\);/);
+    expect(source).toMatch(
+      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(location\.state\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(location\.state\.anytimeDuration\)\}`\s*\n\s*: '\/anytime-reset';/
+    );
+  });
+
+  it('the anytime-tone completion screen\'s "Choose another quick reset" button uses this computed destination, never a bare literal \'/anytime-reset\'', () => {
+    expect(source).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
+    expect(source).not.toMatch(/exitPracticeToHome\(navigate, '\/anytime-reset'\)/);
+  });
+});
+
+// WakeWise DEV — Anytime Back-navigation correction: found live - Welcome
+// -> Take a calming pause -> Anytime Step 1 -> Calm -> Breathe -> Back
+// from the pre-start/pattern-picker setup screen (and, after a confirmed
+// active-session Back returns there, Back again) fell straight through
+// to backFallback='/' unconditionally, silently ejecting the user past
+// Anytime Reset to Home/Welcome with no memory of the need/duration
+// already chosen. anytimeOrigin (explicit router-state marker, never
+// journeyTone/browser history) now gates backFallback itself so the same
+// single Back button - covering setup, the confirmed-active return point,
+// and the complete/early-ended screens, all one EveningSceneShell - goes
+// to the preserved Anytime Reset recommendation instead.
+describe('QuietBreathing.jsx (standalone) — Back-navigation correction: backFallback resolves to the preserved Anytime Reset recommendation when anytimeOrigin, exactly \'/\' otherwise (direct standalone Breathe completely unchanged)', () => {
+  it('backFallback is anytimeResetDestination when anytimeOrigin, else the original \'/\' - never unconditional', () => {
+    expect(source).toMatch(/const backFallback = standalone \? \(anytimeOrigin \? anytimeResetDestination : '\/'\) : '\/support';/);
+  });
+
+  it('the standalone EveningSceneShell (covering setup, active, complete and early-ended - one shared Back button) is wired to this same backFallback, not a separate literal', () => {
+    const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.indexOf('return (\n    <EveningSceneShell'));
+    expect(standaloneReturn).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} journey=\{journeyTone\} showBack backFallback=\{backFallback\} onBeforeLeave=\{handleBackFromActive\} alwaysFallback=\{anytimeOrigin\}>/);
   });
 });

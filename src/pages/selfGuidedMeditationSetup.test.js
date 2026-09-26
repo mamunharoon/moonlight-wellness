@@ -87,9 +87,9 @@ describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no con
 });
 
 describe('SelfGuidedMeditation.jsx — completion reproduces the exact original navigate target', () => {
-  it('onComplete navigates to /self-guided-meditation-complete with the finished session state, including `from`', () => {
+  it('onComplete navigates to /self-guided-meditation-complete with the finished session state, including `from` and (WakeWise DEV Anytime completion correction) the anytimeNeed/anytimeDuration this practice was itself entered with, if any', () => {
     const body = source.match(/const handleComplete = \(finished\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/navigate\('\/self-guided-meditation-complete', \{ state: \{ \.\.\.finished, from: searchParams\.get\('from'\) \|\| null \} \}\);/);
+    expect(body).toMatch(/navigate\('\/self-guided-meditation-complete', \{\s*\n\s*state: \{\s*\n\s*\.\.\.finished,\s*\n\s*from: searchParams\.get\('from'\) \|\| null,\s*\n\s*anytimeNeed: preset\?\.anytimeNeed \|\| null,\s*\n\s*anytimeDuration: preset\?\.anytimeDuration \|\| null\s*\n\s*\}\s*\n\s*\}\);/);
   });
 
   it('never opens any other route on completion', () => {
@@ -114,10 +114,10 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
     expect(body).not.toMatch(/navigate/);
   });
 
-  it('performClose (the header Close/X, bypassing that local dialog) ends the session then exits to context.fallback via the centralized helper (clears the captured practice journey tone first) - the one real "leave" action', () => {
+  it('performClose (the header Close/X, bypassing that local dialog) ends the session then exits to exitDestination via the centralized helper (clears the captured practice journey tone first) - the one real "leave" action. WakeWise DEV Anytime Back-navigation correction: exitDestination is context.fallback unless anytimeOrigin, in which case it is the preserved Anytime Reset recommendation - see the dedicated describe block below for what anytimeOrigin/exitDestination resolve to.', () => {
     const body = source.match(/const performClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/session\.endSession\(\);/);
-    expect(body).toMatch(/exitPracticeToHome\(navigate, context\.fallback\);/);
+    expect(body).toMatch(/exitPracticeToHome\(navigate, exitDestination\);/);
   });
 
   // Standalone Home quick-action correction — Close/X previously called
@@ -168,10 +168,61 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
 });
 
 describe('SelfGuidedMeditation.jsx — Back/Close on the setup screen (pre-Begin), unchanged', () => {
-  it('setup renders JourneyHeader with a real Back button (step 1 shape) falling back to the resolved context, clearing the captured practice journey tone on either Back or Close (both are real exits to Home from this screen)', () => {
+  it('setup renders JourneyHeader with a real Back button (step 1 shape) falling back to exitDestination, clearing the captured practice journey tone on either Back or Close (both are real exits from this screen)', () => {
+    const headerBlock = source.slice(source.indexOf('<JourneyHeader\n'), source.indexOf('<MeditationSetupPanel'));
+    expect(headerBlock).toMatch(/showBackButton\s*\n\s*backFallback=\{exitDestination\}/);
+    expect(headerBlock).toMatch(/onBackBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}/);
+    expect(headerBlock).toMatch(/onClose=\{\(\) => exitPracticeToHome\(navigate, exitDestination\)\}/);
+  });
+
+  it('this JourneyHeader is forced straight to exitDestination via alwaysFallback={anytimeOrigin} - without it, goBack() would silently prefer a real navigate(-1) over exitDestination whenever this app instance\'s in-app history has more than one entry, discarding the preserved Anytime Reset recommendation', () => {
+    const headerBlock = source.slice(source.indexOf('<JourneyHeader\n'), source.indexOf('<MeditationSetupPanel'));
+    expect(headerBlock).toMatch(/alwaysFallback=\{anytimeOrigin\}/);
+  });
+});
+
+// WakeWise DEV — Anytime Back-navigation correction: found live - Welcome
+// -> Take a calming pause -> Anytime Step 1 -> Calm -> Meditate -> Back
+// from setup (and Close, and the early-ended Done button) all fell
+// straight through to context.fallback ('/' - no `?from=` param survives
+// AnytimeReset.jsx's own navigate() call), silently ejecting the user
+// past Anytime Reset to Home, with no memory of the need/duration they'd
+// already chosen. `anytimeOrigin` is the one EXPLICIT marker (never
+// journeyTone, which also defaults to 'anytime' for an unrelated reason,
+// and never navigate(-1)/browser history) this whole lifecycle uses to
+// know it was genuinely launched from Anytime Reset's "Meditate"
+// alternative; `exitDestination` replaces every real "leave this
+// practice" destination with the preserved Anytime Reset recommendation
+// when it's true - reached any other way (Home's Meditate tile, Library),
+// anytimeOrigin is false and every one of those destinations is exactly
+// context.fallback, completely unchanged.
+describe('SelfGuidedMeditation.jsx — Anytime Back-navigation correction: explicit origin, not journeyTone or browser history', () => {
+  it('anytimeOrigin/anytimeResetDestination/exitDestination are computed from router state, not journeyTone', () => {
+    expect(source).toMatch(/const anytimeOrigin = Boolean\(preset\?\.anytimeNeed && preset\?\.anytimeDuration\);/);
     expect(source).toMatch(
-      /<JourneyHeader\s*\n\s*showBackButton\s*\n\s*backFallback=\{context\.fallback\}[\s\S]{0,600}?onBackBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*onClose=\{\(\) => exitPracticeToHome\(navigate, context\.fallback\)\}\s*\n\s*\/>/
+      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(preset\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(preset\.anytimeDuration\)\}`\s*\n\s*: null;/
     );
+    expect(source).toMatch(/const exitDestination = anytimeOrigin \? anytimeResetDestination : context\.fallback;/);
+  });
+
+  it('the countdown screen\'s own Back also falls back to exitDestination, not context.fallback', () => {
+    const countdownBlock = source.slice(source.indexOf('if (countdown.isActive)'), source.indexOf("if (session.phase === 'active'"));
+    expect(countdownBlock).toMatch(/fallback=\{exitDestination\}/);
+    expect(countdownBlock).not.toMatch(/fallback=\{context\.fallback\}/);
+  });
+
+  it('the earlyEnded panel shows "Choose another quick reset"/"Return to Home" (restoring the preserved need/duration) only when anytimeOrigin, the original Done/Meditate Again pair only otherwise - exactly the same two-branch shape QuietBreathing.jsx\'s own early-ended panel already uses', () => {
+    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
+    expect(panelBlock).toMatch(/\{anytimeOrigin \? \(/);
+    expect(panelBlock).toMatch(/<span>Choose another quick reset<\/span>/);
+    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return to Home/);
+    const ifIndex = panelBlock.indexOf('anytimeOrigin ? (');
+    const elseIndex = panelBlock.indexOf(') : (');
+    const doneIndex = panelBlock.indexOf('<span>Done</span>');
+    expect(elseIndex).toBeGreaterThan(ifIndex);
+    expect(doneIndex).toBeGreaterThan(elseIndex);
+    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, exitDestination\)\}/);
+    expect(panelBlock).toMatch(/onClick=\{handleMeditateAgainFromEarlyEnd\}/);
   });
 });
 
@@ -231,17 +282,12 @@ describe('SelfGuidedMeditation.jsx — Early-end result correction: End Session 
     expect(source).toMatch(/onEndSession=\{performEndSession\}/);
   });
 
-  it('the earlyEnded panel renders truthful wording - never claims the full selected duration completed - with Done (-> context.fallback) and Meditate Again (-> clears earlyEnded, revealing setup with the same style/duration/sound still selected)', () => {
+  it('the earlyEnded panel renders truthful wording - never claims the full selected duration completed (Done -> exitDestination and Meditate Again -> clears earlyEnded, revealing setup with the same style/duration/sound still selected, are covered by the dedicated Anytime Back-navigation describe block below)', () => {
     const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
     expect(panelBlock.length).toBeGreaterThan(0);
     expect(panelBlock).toMatch(/Session ended early/);
     expect(panelBlock).toMatch(/session ended before the timer finished/);
     expect(panelBlock).not.toMatch(/complete/i);
-    // Context-aware Breathing/Meditation theming — Done routes through
-    // the centralized exitPracticeToHome helper (clears the captured
-    // practice journey tone, then navigates) rather than a bare pair.
-    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, context\.fallback\)\}/);
-    expect(panelBlock).toMatch(/onClick=\{handleMeditateAgainFromEarlyEnd\}/);
   });
 
   it('handleMeditateAgainFromEarlyEnd only clears earlyEnded - no navigation, no session reset (style/duration/sound and the setup screen underneath are untouched, since endSession() never resets them)', () => {

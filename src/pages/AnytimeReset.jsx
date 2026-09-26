@@ -32,6 +32,25 @@ const NEED_ICONS = {
   'not-sure': 'help'
 };
 
+// WakeWise DEV — Anytime quick-reset alternatives (correction: Anytime is
+// a quick/flexible hub, never a sequential Morning/Evening-style
+// journey). Exactly three REAL, already-shipped WakeWise experiences -
+// no invented/duplicate practice. A standalone "Stretch" was considered
+// and dropped: no such route exists anywhere in this app (grepped
+// App.jsx) - MorningFlow.jsx's own stretching is embedded in the Morning
+// routine only, not a genuine standalone Anytime-reachable screen, so
+// showing it here would be exactly the "invented/duplicate practice"
+// this correction explicitly forbids. Durations are each real: Breathe's
+// own patterns run 56-76s (see QuietBreathing.jsx's PATTERNS), Meditate
+// genuinely offers 2/5/10 minutes (SelfGuidedMeditation.jsx), Instant
+// Calm (E03) is a real catalog video at 100.1s (mediaCatalog.js) - not
+// one of them is a flat invented estimate.
+const QUICK_RESET_ALTERNATIVES = [
+  { id: 'breathe', icon: 'air', label: 'Breathe', durationLabel: 'About 1-2 min' },
+  { id: 'meditate', icon: 'self_improvement', label: 'Meditate', durationLabel: '2, 5 or 10 min' },
+  { id: 'instant-calm', icon: 'bolt', label: 'Instant Calm', durationLabel: 'About 2 min' }
+];
+
 /*
  * WakeWise — Anytime Reset (Build 15 UX remediation)
  *
@@ -177,6 +196,35 @@ export const AnytimeReset = () => {
 
   const returnPath = () => `/anytime-reset?need=${needId}&duration=${durationId}`;
 
+  // WakeWise DEV — Anytime quick-reset alternatives: "Instant Calm" opens
+  // the real E03 catalog video through this screen's own existing
+  // BetaVideoModal mechanism (same guest/auth gate as the recommended
+  // item); "Breathe"/"Meditate" leave this page entirely for their own
+  // real, already-shipped standalone screens, carrying journeyTone via
+  // router state - the same location.state.journeyTone shape
+  // usePracticeJourneyTone already reads (see practiceJourneyContext.js),
+  // so mint carries through their own setup/countdown/active/completion
+  // exactly as if launched from Home's own Anytime quick-action tile.
+  const handleQuickResetAlternative = (id) => {
+    if (id === 'instant-calm') {
+      if (authLoading || verifyingAuthRef.current) return;
+      if (isGuest) {
+        setSignInPromptOpen(true);
+        return;
+      }
+      verifyAndOpenVideo('E03');
+      return;
+    }
+    const path = id === 'breathe' ? '/breathe-standalone' : '/self-guided-meditation';
+    // WakeWise DEV — Anytime completion correction: needId/durationId ride
+    // along so the destination practice's own "Choose another quick
+    // reset" (QuietBreathing.jsx/SelfGuidedMeditationComplete.jsx) can
+    // return here via the same allowlisted ?need=&duration= restore this
+    // component already uses after sign-in, landing back on this exact
+    // recommendation instead of restarting the wizard from step 1.
+    navigate(path, { state: { journeyTone: 'anytime', anytimeNeed: needId, anytimeDuration: durationId } });
+  };
+
   // Never treat "auth not resolved yet" as authenticated - a tap that
   // lands while AuthContext is still loading (e.g. a direct/refresh
   // navigation straight to /anytime-reset) is simply ignored rather than
@@ -239,15 +287,6 @@ export const AnytimeReset = () => {
   // early close here always falls through to the ordinary "Recommended
   // for you" state, never the completion state.
   const handleVideoClose = () => setOpenVideoId(null);
-
-  // Anytime Reset completion fix — "Play again" replays the exact same
-  // recommended item via the existing guest/auth-verified open path
-  // (handleBegin), first clearing isComplete so a subsequent early close
-  // of the replay doesn't show stale "Reset complete" copy.
-  const handlePlayAgain = () => {
-    setIsComplete(false);
-    handleBegin();
-  };
 
   const handleClose = () => navigate('/');
 
@@ -375,20 +414,27 @@ export const AnytimeReset = () => {
           </div>
 
           {isComplete ? (
+            // WakeWise DEV — Anytime completion correction: exactly two
+            // actions, matching the same pair QuietBreathing.jsx now
+            // shows for an anytime-tone completion. "Choose another quick
+            // reset" un-completes this same screen (keeps needId/
+            // durationId, so the full recommendation + alternatives below
+            // reappears immediately) rather than forcing a fresh need/
+            // duration pick or auto-starting anything new.
             <div className="space-y-3 w-full">
               <button
                 type="button"
-                onClick={() => navigate('/')}
+                onClick={() => setIsComplete(false)}
                 className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
-                <span>Done</span>
+                <span>Choose another quick reset</span>
               </button>
               <button
                 type="button"
-                onClick={handlePlayAgain}
+                onClick={() => navigate('/')}
                 className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Play again
+                Return to Home
               </button>
             </div>
           ) : current ? (
@@ -419,35 +465,61 @@ export const AnytimeReset = () => {
             </div>
           )}
 
-          {/* Anytime Reset completion fix — this "Choose another" control
-              (and the two secondary step-switch controls just below) remain
-              available in the completion state too, per spec. */}
-          {isComplete && items.length > 1 && (
-            <button
-              type="button"
-              onClick={handleChooseAnother}
-              className="w-full glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Choose another
-            </button>
+          {/* WakeWise DEV — Anytime quick-reset alternatives: real,
+              already-shipped WakeWise practices, never a placeholder or
+              a duplicate of the current recommendation. No "Stretch"
+              entry - no standalone Stretch route exists anywhere in this
+              app (MorningFlow.jsx's own stretching is embedded in the
+              Morning routine only), and showing one here would be
+              exactly the invented/duplicate practice this correction
+              forbids. Recommended item stays prominent above; changing
+              need/duration below updates it without ever hiding this
+              row. Hidden during the completion state - "Choose another
+              quick reset" there is the one, unambiguous way back to this
+              same set of choices. */}
+          {!isComplete && (
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Or choose another quick reset</h2>
+              <div className="space-y-2" role="group" aria-label="Or choose another quick reset">
+                {QUICK_RESET_ALTERNATIVES.map((alt) => (
+                  <button
+                    key={alt.id}
+                    type="button"
+                    onClick={() => handleQuickResetAlternative(alt.id)}
+                    className="w-full text-left glass-panel rounded-2xl p-3 flex items-center gap-3 hover:bg-white/5 active:scale-[0.99] transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary"
+                  >
+                    <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-tertiary/15 text-tertiary">
+                      <span className="material-symbols-outlined text-lg" aria-hidden="true">{alt.icon}</span>
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-bold text-on-surface">{alt.label}</span>
+                      <span className="block text-xs text-tertiary">{alt.durationLabel}</span>
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-lg shrink-0" aria-hidden="true">arrow_forward</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleChangeNeed}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Change need
-            </button>
-            <button
-              type="button"
-              onClick={handleChangeTime}
-              className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Change time
-            </button>
-          </div>
+          {!isComplete && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleChangeNeed}
+                className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Change need
+              </button>
+              <button
+                type="button"
+                onClick={handleChangeTime}
+                className="flex-1 glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Change time
+              </button>
+            </div>
+          )}
         </div>
       )}
 

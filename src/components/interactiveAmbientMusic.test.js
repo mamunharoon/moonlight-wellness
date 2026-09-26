@@ -86,10 +86,17 @@ describe('Feature flag + registered-asset gating (missing music variants fall ba
 });
 
 describe('Start only after a user gesture (iOS autoplay rules)', () => {
+  // WakeWise DEV — Anytime Breathing silent-music fix: start() now takes
+  // an optional `muted` param so a caller (QuietBreathing.jsx's own
+  // Begin handler) can call the REAL play() synchronously within its own
+  // genuine user gesture without producing audible sound - still only
+  // ever called from a real click handler (handleToggle in this file, or
+  // an equivalent direct-tap handler in a calling page), never from an
+  // effect or on mount.
   it('audio.play() is only ever called from inside start(), which is only ever called from handleToggle - never from an effect or on mount', () => {
     const playCalls = playerSource.match(/await audio\.play\(\);/g) ?? [];
     expect(playCalls.length).toBe(1);
-    expect(playerSource).toMatch(/const start = async \(\) => \{/);
+    expect(playerSource).toMatch(/const start = async \(muted = false\) => \{/);
     expect(playerSource).toMatch(/const handleToggle = \(\) => \{[\s\S]*?start\(\);/);
   });
 
@@ -105,7 +112,7 @@ describe('Start only after a user gesture (iOS autoplay rules)', () => {
 
 describe('Prevent duplicate playback on remount or repeated taps', () => {
   it('start() is guarded by isBusyRef for its entire async body, including the network fetch', () => {
-    expect(playerSource).toMatch(/const start = async \(\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
+    expect(playerSource).toMatch(/const start = async \(muted = false\) => \{\s*\n\s*if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
     expect(playerSource).toMatch(/\} finally \{\s*\n\s*isBusyRef\.current = false;\s*\n\s*\}/);
   });
 
@@ -410,8 +417,8 @@ describe('ExercisePausedPanel.jsx - the shared paused-for-guided-session panel i
   });
 });
 
-describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying() and preload() via ref, and re-checks `suspended` after its own async gap', () => {
-  it('is wrapped in forwardRef and exposes exactly { start, stop, isPlaying, preload } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
+describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying(), preload() and unmute() via ref, and re-checks `suspended` after its own async gap', () => {
+  it('is wrapped in forwardRef and exposes exactly { start, stop, isPlaying, preload, unmute } via useImperativeHandle, called unconditionally (before the eligible early-return, not after)', () => {
     // Back-navigation repair (Morning canonical map) — stop() was added
     // alongside the pre-existing start() so Breathe.jsx/MorningFlow.jsx's
     // "Active [exercise] Back" handler can silence already-playing music
@@ -421,8 +428,12 @@ describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying() and p
     // moment an interruption begins. preload() (Build 16, F4) resolves
     // and primes the signed URL ahead of a real start(), without ever
     // calling .play() - see this file's own start()/preload() tests below.
+    // unmute() (WakeWise DEV — Anytime Breathing silent-music fix) reveals
+    // an already-playing muted element with a plain property set, no
+    // gesture requirement of its own.
     expect(playerSource).toMatch(/const isPlaying = \(\) => musicEnabled;/);
-    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload \}\)\);/);
+    expect(playerSource).toMatch(/const unmute = \(\) => \{/);
+    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload, unmute \}\)\);/);
     const imperativeIndex = playerSource.indexOf('useImperativeHandle(ref');
     const eligibleReturnIndex = playerSource.indexOf('if (!eligible) return null;');
     expect(imperativeIndex).toBeGreaterThan(-1);
@@ -431,7 +442,7 @@ describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying() and p
 
   it('start() re-checks a suspended-mirroring ref AFTER its await, before ever touching the <audio> element - the actual fix for music starting under/after a video opened mid-fetch', () => {
     expect(playerSource).toMatch(/const suspendedRef = useRef\(suspended\);\s*\n\s*suspendedRef\.current = suspended;/);
-    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const startBody = playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     const awaitIndex = startBody.indexOf('await requestBetaVideoUrl');
     const suspendedCheckIndex = startBody.indexOf('if (suspendedRef.current) return;');
     const audioSrcIndex = startBody.indexOf('audio.src = url;');
@@ -468,7 +479,7 @@ describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying() and p
   });
 
   it('start() skips re-resolving the signed URL when preload() already primed audio.src - the real fix for "music starts several seconds after the timer"', () => {
-    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const startBody = playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(startBody).toMatch(/if \(!isPreloadedRef\.current \|\| !audio\.src\) \{/);
     // isPreloadedRef is cleared right after, so a later stop()+start()
     // (e.g. Resume) always re-resolves fresh rather than reusing a
@@ -508,7 +519,7 @@ describe('InteractiveAmbientMusic.jsx — start() no longer silently drops playb
   });
 
   it('start() awaits an in-flight preloadPromiseRef (succeed or fail) before proceeding, rather than bailing out because one happens to be running', () => {
-    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const startBody = playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(startBody).toMatch(/if \(preloadPromiseRef\.current\) await preloadPromiseRef\.current;/);
     // The await happens before start() ever touches audioRef/checks
     // isPreloadedRef, so a completed-or-failed preload is always settled
@@ -520,7 +531,7 @@ describe('InteractiveAmbientMusic.jsx — start() no longer silently drops playb
   });
 
   it('start() still guards against a duplicate concurrent start() via its own isBusyRef, independent of preload', () => {
-    const startBody = playerSource.match(/const start = async \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const startBody = playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(startBody).toMatch(/if \(isBusyRef\.current\) return;\s*\n\s*isBusyRef\.current = true;/);
   });
 

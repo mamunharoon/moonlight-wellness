@@ -41,7 +41,12 @@ describe('Introduction.jsx — owns a single, real, bounded scroll container', (
   });
 
   it('the inner content wrapper uses min-h-full (not a plain flex-1) so the "buttons pinned to bottom on short content" spacer trick still works inside a scrollable ancestor', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-8"/);
+    // WakeWise DEV F2 mobile-nav fix: vertical rhythm tightened
+    // (space-y-8 -> space-y-2) as part of the smallest-safe-spacing
+    // correction that makes Welcome Home visible without scrolling at
+    // 390x844/393x852 - the min-h-full/flex-col/px-6/max-w-md structure
+    // itself, and the bottom-pinning spacer below, are unchanged.
+    expect(source).toMatch(/className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-2"/);
     // the existing bottom-pinning spacer between the guides section and the button block is untouched
     expect(source).toMatch(/<div className="flex-1" \/>/);
   });
@@ -49,11 +54,21 @@ describe('Introduction.jsx — owns a single, real, bounded scroll container', (
 
 describe('Introduction.jsx — iPhone safe-area clearance, both edges', () => {
   it('adds top safe-area clearance (this route has no header of its own to already reserve it)', () => {
-    expect(source).toMatch(/paddingTop: 'calc\(2rem \+ env\(safe-area-inset-top\)\)'/);
+    // WakeWise DEV F2 mobile-nav fix: flat top padding trimmed
+    // (2rem -> 0.75rem) as part of the smallest-safe-spacing correction -
+    // the real safe-area-inset-top clearance itself is still added on top,
+    // untouched.
+    expect(source).toMatch(/paddingTop: 'calc\(0\.75rem \+ env\(safe-area-inset-top\)\)'/);
   });
 
   it('adds bottom safe-area clearance for the home indicator, plus clearance for this screen\'s own new fixed Home/Library/Profile nav (WakeWise DEV welcome screens)', () => {
-    expect(source).toMatch(/paddingBottom: 'calc\(2rem \+ 88px \+ env\(safe-area-inset-bottom\)\)'/);
+    // WakeWise DEV F2 mobile-nav fix: flat bottom padding trimmed
+    // (2rem -> 0.5rem), then raised back to 1.25rem after live device
+    // testing (390x844, simulated real safe-area inset) found "Go to
+    // Home" with zero clearance from the fixed bottom nav - the 88px
+    // nav-footprint clearance and the real safe-area-inset-bottom itself
+    // are unchanged.
+    expect(source).toMatch(/paddingBottom: 'calc\(1\.25rem \+ 88px \+ env\(safe-area-inset-bottom\)\)'/);
   });
 });
 

@@ -9,14 +9,22 @@ const source = readFileSync(fileURLToPath(new URL('./JourneyHeader.jsx', import.
 describe('JourneyHeader.jsx — Back/Close, presentation only', () => {
   it('reuses the real shared BackButton for the first-step case, never a bespoke reimplementation', () => {
     expect(source).toMatch(/import \{ BackButton \} from '\.\.\/BackButton';/);
-    expect(source).toMatch(/showBackButton \? \(\s*\n\s*<BackButton fallback=\{backFallback\} onBeforeLeave=\{onBackBeforeLeave\} \/>/);
+    expect(source).toMatch(/showBackButton \? \(\s*\n\s*<BackButton fallback=\{backFallback\} onBeforeLeave=\{onBackBeforeLeave\} alwaysFallback=\{alwaysFallback\} \/>/);
   });
 
   // Context-aware Meditation/Breathing theming — additive pass-through,
   // default undefined so every existing caller keeps BackButton's own
   // default (undefined -> always proceeds), completely unaffected.
   it('onBackBeforeLeave is forwarded straight through to BackButton, optional', () => {
-    expect(source).toMatch(/onBackBeforeLeave\s*\n\}\) => \(/);
+    expect(source).toMatch(/onBackBeforeLeave,\s*\n\s*alwaysFallback = false\s*\n\}\) => \(/);
+  });
+
+  // WakeWise DEV — Anytime Back-navigation correction, additive - every
+  // existing caller omits it (defaults false) and is completely
+  // unaffected.
+  it('alwaysFallback is forwarded straight through to BackButton\'s own alwaysFallback, defaulting to false', () => {
+    expect(source).toMatch(/alwaysFallback = false\s*\n\}\) => \(/);
+    expect(source).toMatch(/<BackButton fallback=\{backFallback\} onBeforeLeave=\{onBackBeforeLeave\} alwaysFallback=\{alwaysFallback\} \/>/);
   });
 
   it('the step-back and Close controls are explicit 44x44 (w-11 h-11), matching the app\'s established circular icon-button convention', () => {
@@ -34,7 +42,14 @@ describe('JourneyHeader.jsx — Back/Close, presentation only', () => {
   });
 
   it('holds no state and makes no navigation decisions of its own - every action is a prop the caller supplies', () => {
-    expect(source).not.toMatch(/useState|useEffect|navigate\(/);
+    // WakeWise DEV Anytime Back-navigation correction: the new
+    // alwaysFallback doc comment above legitimately names "navigate(-1)"
+    // in prose explaining what BackButton's own goBack() does - strip
+    // comments first so only real code is checked, matching this
+    // codebase's own established "strip comments before checking real
+    // code" pattern (see selfGuidedMeditationComplete.test.js).
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/useState|useEffect|navigate\(/);
   });
 });
 
