@@ -114,10 +114,10 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
     expect(body).not.toMatch(/navigate/);
   });
 
-  it('performClose (the header Close/X, bypassing that local dialog) ends the session then navigates to context.fallback - the one real "leave" action', () => {
+  it('performClose (the header Close/X, bypassing that local dialog) ends the session then exits to context.fallback via the centralized helper (clears the captured practice journey tone first) - the one real "leave" action', () => {
     const body = source.match(/const performClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/session\.endSession\(\);/);
-    expect(body).toMatch(/navigate\(context\.fallback\);/);
+    expect(body).toMatch(/exitPracticeToHome\(navigate, context\.fallback\);/);
   });
 
   // Standalone Home quick-action correction — Close/X previously called
@@ -168,8 +168,10 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
 });
 
 describe('SelfGuidedMeditation.jsx — Back/Close on the setup screen (pre-Begin), unchanged', () => {
-  it('setup renders JourneyHeader with a real Back button (step 1 shape) falling back to the resolved context', () => {
-    expect(source).toMatch(/<JourneyHeader showBackButton backFallback=\{context\.fallback\} onClose=\{\(\) => navigate\(context\.fallback\)\}\s*\/>/);
+  it('setup renders JourneyHeader with a real Back button (step 1 shape) falling back to the resolved context, clearing the captured practice journey tone on either Back or Close (both are real exits to Home from this screen)', () => {
+    expect(source).toMatch(
+      /<JourneyHeader\s*\n\s*showBackButton\s*\n\s*backFallback=\{context\.fallback\}[\s\S]{0,600}?onBackBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*onClose=\{\(\) => exitPracticeToHome\(navigate, context\.fallback\)\}\s*\n\s*\/>/
+    );
   });
 });
 
@@ -235,7 +237,10 @@ describe('SelfGuidedMeditation.jsx — Early-end result correction: End Session 
     expect(panelBlock).toMatch(/Session ended early/);
     expect(panelBlock).toMatch(/session ended before the timer finished/);
     expect(panelBlock).not.toMatch(/complete/i);
-    expect(panelBlock).toMatch(/onClick=\{\(\) => navigate\(context\.fallback\)\}/);
+    // Context-aware Breathing/Meditation theming — Done routes through
+    // the centralized exitPracticeToHome helper (clears the captured
+    // practice journey tone, then navigates) rather than a bare pair.
+    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, context\.fallback\)\}/);
     expect(panelBlock).toMatch(/onClick=\{handleMeditateAgainFromEarlyEnd\}/);
   });
 

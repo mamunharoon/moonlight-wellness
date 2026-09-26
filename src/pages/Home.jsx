@@ -437,21 +437,38 @@ export const Home = () => {
   // otherwise use the real-context default above.
   const activePeriod = selectedPeriod ?? defaultPeriod;
 
+  // Context-aware Breathing/Meditation theming — the exact context the
+  // "Breathe"/"Meditate" quick-action tiles preview with their own icon
+  // colour and hand off to the standalone practice screen they open (see
+  // usePracticeJourneyTone.js). activePeriod is already 'morning' |
+  // 'anytime' | 'evening', the same vocabulary the practice screens use -
+  // no translation needed, just reused directly.
+  const quickActionJourneyTone = activePeriod;
+  const quickActionIconClass =
+    quickActionJourneyTone === 'morning'
+      ? 'text-morning-accent'
+      : quickActionJourneyTone === 'evening'
+        ? 'text-evening-accent'
+        : 'text-tertiary';
+
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
   // Home redesign — single greeting line, shown once regardless of which
   // period is selected (Greeting is its own fixed item in the approved
   // Home order, independent of the Morning/Evening pill). Every timeState
   // band now maps to one of the three greeted dayparts (see morningDaypart
-  // above for why before-wake/night are folded the way they are) -
-  // getGreeting itself, and its own neutral/no-name fallback, are
-  // completely unchanged.
+  // above for why before-wake/night are folded the way they are).
+  // `dateKey: today` drives getGreeting's own deterministic per-local-day
+  // rotation through its several message variants per daypart - passing
+  // the same local dateKey on every render keeps the chosen message
+  // stable for the whole day and changes it only at local midnight; the
+  // neutral/no-name fallback is otherwise unchanged.
   const greetingText =
     timeState === 'daytime-morning' || timeState === 'before-wake'
-      ? getGreeting('morning', { profile, user })
+      ? getGreeting('morning', { profile, user, dateKey: today })
       : timeState === 'daytime'
-        ? getGreeting('afternoon', { profile, user })
-        : getGreeting('evening', { profile, user });
+        ? getGreeting('afternoon', { profile, user, dateKey: today })
+        : getGreeting('evening', { profile, user, dateKey: today });
 
   // Home redesign — the six possible "Your Next Step" card contents,
   // precomputed up front (cheap, pure - resolveNextStepCard does no I/O)
@@ -1308,11 +1325,20 @@ export const Home = () => {
               tile's own full tap area are unchanged. */}
           <Link
             to="/breathe-standalone"
+            // Context-aware Breathing/Meditation theming — captures
+            // Home's own currently active rhythm tab at the exact moment
+            // of this tap (never recalculated later, never the clock),
+            // read once by the standalone screen's own
+            // usePracticeJourneyTone() and preserved for that whole
+            // practice's lifecycle.
+            state={{ journeyTone: quickActionJourneyTone }}
             aria-describedby="quick-action-tip-breathe"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            {/* Circadian Colors — sage/mint pause/breathing accent. */}
-            <span className="material-symbols-outlined text-tertiary text-2xl">air</span>
+            {/* Circadian Colors — the icon previews the context that will
+                open: Home's own currently active rhythm colour (gold/
+                mint/periwinkle), not a fixed mint. */}
+            <span className={`material-symbols-outlined ${quickActionIconClass} text-2xl`}>air</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Breathe</span>
             <span
               id="quick-action-tip-breathe"
@@ -1333,10 +1359,17 @@ export const Home = () => {
               context (selfGuidedMeditationNav.js). */}
           <Link
             to="/self-guided-meditation?from=home"
+            // Context-aware Breathing/Meditation theming — see the
+            // Breathe tile's own comment above; identical mechanism.
+            state={{ journeyTone: quickActionJourneyTone }}
             aria-describedby="quick-action-tip-meditate"
             className="group relative glass-panel rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:bg-white/5 active:scale-95 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-primary text-2xl">spa</span>
+            {/* Meditate and Breathe both open Anytime-family experiences
+                when Home is in its Anytime state - sharing the same
+                journey colour here is correct, not a bug; their distinct
+                icons (air vs spa) are what keeps them visually distinct. */}
+            <span className={`material-symbols-outlined ${quickActionIconClass} text-2xl`}>spa</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Meditate</span>
             <span
               id="quick-action-tip-meditate"

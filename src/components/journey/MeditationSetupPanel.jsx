@@ -5,6 +5,7 @@ import { MEDITATION_DURATIONS, formatMeditationBeginLabel } from '../../lib/medi
 import { MEDITATION_SOUNDS, getMeditationSoundById } from '../../lib/meditationSounds';
 import { MeditationOptionRow, MeditationDurationChip, MeditationStyleCard } from './MeditationControls';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
+import { getJourneyToneTokens } from '../../lib/journeyTone';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared setup
@@ -63,14 +64,19 @@ export const MeditationSetupPanel = ({
   onExploreGuided,
   defaultExpanded = false,
   onExpandedConsumed,
-  // WakeWise DEV — journey-aware primary action colour (additive, default
-  // 'primary': every existing caller - MorningMeditate.jsx, EveningMeditate.jsx,
-  // SelfGuidedMeditation.jsx - previously passed nothing and got the
-  // generic peach Begin button; each now passes its own real journey
-  // explicitly ('morning'/'evening'/'anytime') so this one shared setup
-  // screen's Begin button matches whichever journey actually launched it,
-  // never guessed from a route name inside this component itself.
-  accent = 'primary'
+  // Context-aware Meditation theming — `journeyTone` (renamed from the
+  // earlier `accent`, additive, default 'primary'): every caller -
+  // MorningMeditate.jsx, EveningMeditate.jsx pass their own fixed
+  // 'morning'/'evening' directly (unambiguous, embedded journeys);
+  // SelfGuidedMeditation.jsx now passes its own dynamically-resolved
+  // journeyTone (see usePracticeJourneyTone.js) instead of a hardcoded
+  // 'anytime' literal, so a Home-quick-action-launched standalone
+  // Meditation inherits whichever journey was active on Home, not always
+  // mint. Drives the Begin button (via getJourneyPrimaryActionClasses),
+  // the icon, the "Recommended for you" eyebrow, and is threaded down
+  // into MeditationStyleCard/MeditationDurationChip/MeditationOptionRow
+  // for their own selected-state colours.
+  journeyTone = 'primary'
 }) => {
   // Morning/Evening journey meditation-selection fix — `defaultExpanded`
   // (additive, default false: every existing caller either omits it or
@@ -113,18 +119,18 @@ export const MeditationSetupPanel = ({
     <div className="space-y-4">
       {compact ? (
         <div className="space-y-1">
-          <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">self_improvement</span>
+          <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-3xl`} aria-hidden="true">self_improvement</span>
           <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take a Mindful Pause</h1>
           {purpose && <p className="text-xs text-on-surface-variant">{purpose}</p>}
           <div className="glass-panel rounded-2xl p-4 mt-3 space-y-1.5 text-left">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-primary">Recommended for you</p>
+            <p className={`text-[10px] uppercase tracking-wider font-bold ${getJourneyToneTokens(journeyTone).text}`}>Recommended for you</p>
             <p className="text-sm text-on-surface font-semibold">{style.label} &middot; {duration.label}</p>
             <p className="text-xs text-on-surface-variant">{sound ? sound.label : 'No Music'}</p>
           </div>
         </div>
       ) : (
         <div className="space-y-1">
-          <span className="material-symbols-outlined text-primary text-3xl" aria-hidden="true">self_improvement</span>
+          <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-3xl`} aria-hidden="true">self_improvement</span>
           <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take a Mindful Pause</h1>
           <p className="text-xs text-on-surface-variant">Choose how you would like to meditate and how much time you have.</p>
         </div>
@@ -150,6 +156,7 @@ export const MeditationSetupPanel = ({
                   selected={style.id === s.id}
                   onSelect={() => onSelectStyle(s.id)}
                   fullWidth={MEDITATION_STYLES.length % 2 === 1 && idx === MEDITATION_STYLES.length - 1}
+                  journeyTone={journeyTone}
                 />
               ))}
             </div>
@@ -170,6 +177,7 @@ export const MeditationSetupPanel = ({
                   sublabel={d.id === recommendedDurationId ? 'Recommended' : null}
                   selected={duration.id === d.id}
                   onSelect={() => onSelectDuration(d.id)}
+                  journeyTone={journeyTone}
                 />
               ))}
             </div>
@@ -186,6 +194,7 @@ export const MeditationSetupPanel = ({
                   description={s.description}
                   selected={soundId === s.id}
                   onSelect={() => onSelectSound(s.id)}
+                  journeyTone={journeyTone}
                 />
               ))}
             </div>
@@ -197,7 +206,7 @@ export const MeditationSetupPanel = ({
         <button
           type="button"
           onClick={onBegin}
-          className={`w-full ${getJourneyPrimaryActionClasses(accent)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+          className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span>{resolvedBeginLabel}</span>
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

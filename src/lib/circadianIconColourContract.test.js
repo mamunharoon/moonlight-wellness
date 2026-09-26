@@ -23,9 +23,24 @@ const routinesCatalogSource = read('./routinesCatalog.js');
 const mediaCatalogSource = read('./mediaCatalog.js');
 const librarySource = read('../pages/Library.jsx');
 
-describe('1. Breathe (Home quick action) uses the mint token', () => {
-  it('text-tertiary, not peach or any other accent', () => {
-    expect(homeSource).toMatch(/text-tertiary text-2xl">air</);
+// Context-aware Breathing/Meditation theming — this correction supersedes
+// the earlier "Breathe is permanently mint" / "Meditate stays peach"
+// contract below (sections 1 and 3): both quick-action icons now preview
+// Home's own currently active rhythm tab (gold/mint/periwinkle), and hand
+// that same context off to whichever standalone practice they open - see
+// usePracticeJourneyTone.js/practiceJourneyContext.js.
+describe('1. Breathe (Home quick action) previews Home\'s own active rhythm colour', () => {
+  it('uses quickActionIconClass (dynamic), never a hardcoded text-tertiary literal', () => {
+    expect(homeSource).toMatch(/const quickActionJourneyTone = activePeriod;/);
+    expect(homeSource).toMatch(
+      /const quickActionIconClass =\s*\n\s*quickActionJourneyTone === 'morning'\s*\n\s*\? 'text-morning-accent'\s*\n\s*: quickActionJourneyTone === 'evening'\s*\n\s*\? 'text-evening-accent'\s*\n\s*: 'text-tertiary';/
+    );
+    expect(homeSource).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>air</);
+  });
+
+  it('hands the captured context to the standalone screen it opens, via the Link\'s own state', () => {
+    const tileBlock = homeSource.match(/<Link\s+to="\/breathe-standalone"[\s\S]*?<\/Link>/)?.[0] ?? '';
+    expect(tileBlock).toMatch(/state=\{\{ journeyTone: quickActionJourneyTone \}\}/);
   });
 });
 
@@ -35,9 +50,14 @@ describe('2. Sleep & Unwind (Home quick action) uses the evening lavender token'
   });
 });
 
-describe('3. Meditate remains WakeWise peach', () => {
-  it('still uses text-primary, unchanged by the contract - not every icon needs a distinct colour', () => {
-    expect(homeSource).toMatch(/text-primary text-2xl">spa</);
+describe('3. Meditate also previews Home\'s own active rhythm colour (superseding the earlier "always peach" contract)', () => {
+  it('uses the same dynamic quickActionIconClass as Breathe - Meditate and Breathe share a colour when Home is Anytime-active because both open Anytime-family experiences; their distinct icons (air vs spa) keep them visually distinct', () => {
+    expect(homeSource).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>spa</);
+  });
+
+  it('hands the captured context to the standalone screen it opens, via the Link\'s own state', () => {
+    const tileBlock = homeSource.match(/<Link\s+to="\/self-guided-meditation\?from=home"[\s\S]*?<\/Link>/)?.[0] ?? '';
+    expect(tileBlock).toMatch(/state=\{\{ journeyTone: quickActionJourneyTone \}\}/);
   });
 
   it('Explore Library (the former fourth quick-action tile) is gone entirely - navigation simplification follow-up, Library stays reachable via the permanent bottom-nav item instead, so there is no icon left for this contract to check', () => {
@@ -68,9 +88,13 @@ describe('4. Morning-specific cards use dawn gold', () => {
 });
 
 describe('5. Equivalent repeated destinations use the same semantic accent everywhere they appear', () => {
-  it('mint (breathing/calming-pause) appears on Welcome\'s "Take a calming pause" card, Home\'s Breathe tile, and Routines Hub\'s Gentle Reset border - the same token, every time', () => {
+  // Context-aware Breathing/Meditation theming — Home's own Breathe tile
+  // is deliberately excluded from this "same token everywhere" check now:
+  // it previews Home's own CURRENT active rhythm colour (gold/mint/
+  // periwinkle, see section 1 above), not a permanently-mint icon the
+  // way Welcome's static card and Routines Hub's static border still are.
+  it('mint (breathing/calming-pause) appears on Welcome\'s "Take a calming pause" card and Routines Hub\'s Gentle Reset border - the same token, every time', () => {
     expect(introductionSource).toMatch(/iconClass: 'bg-tertiary\/15 text-tertiary'/); // Welcome
-    expect(homeSource).toMatch(/text-tertiary text-2xl">air</); // Home
     expect(routinesCatalogSource).toMatch(/accentColor: 'var\(--color-tertiary\)'/); // Routines Hub
     expect(mediaCatalogSource).toMatch(/Breathing: 'text-tertiary'/); // Library category
   });
@@ -155,13 +179,18 @@ describe('9. Labels/icons remain accessible without colour alone', () => {
 });
 
 describe('10. Existing routing, order and touch targets remain unchanged', () => {
+  // Context-aware Breathing/Meditation theming — the Breathe/Meditate
+  // tiles now carry an extra `state={{ journeyTone: ... }}` prop (and an
+  // explanatory comment) between `to="..."` and `aria-describedby=...`;
+  // matched with a bounded [\s\S]*? span rather than exact adjacency so
+  // this still holds regardless of what sits in between.
   it('Home\'s three remaining quick-action tiles keep their exact original order and destinations (navigation simplification follow-up: the former fourth tile, /library?from=home "Explore Library", is removed - Library stays permanently reachable via the bottom nav)', () => {
-    const hrefs = [...homeSource.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
+    const hrefs = [...homeSource.matchAll(/<Link\s+to="([^"]+)"[\s\S]{0,900}?aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
     expect(hrefs).toEqual(['/breathe-standalone', '/self-guided-meditation?from=home', '/library?category=sleep-soundscapes&from=home']);
   });
 
   it('every quick-action tile still carries its min-h-[44px] touch target', () => {
-    const tileLinks = [...homeSource.matchAll(/<Link\s+to="[^"]+"\s*\n\s*aria-describedby="quick-action-tip-[^"]+"\s*\n\s*className="([^"]*)"/g)];
+    const tileLinks = [...homeSource.matchAll(/<Link\s+to="[^"]+"[\s\S]{0,900}?aria-describedby="quick-action-tip-[^"]+"\s*\n\s*className="([^"]*)"/g)];
     expect(tileLinks.length).toBe(3);
     for (const [, className] of tileLinks) {
       expect(className).toMatch(/min-h-\[44px\]/);

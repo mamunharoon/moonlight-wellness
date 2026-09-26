@@ -30,6 +30,19 @@ import { BackButton } from '../BackButton';
  * never render at the same corner. The Back arrow (when `showBackButton`
  * is false) is unaffected either way - it still renders and still calls
  * `onStepBack`.
+ *
+ * `onBackBeforeLeave` (Context-aware Meditation/Breathing theming,
+ * additive - every existing caller omits it and is completely
+ * unaffected): forwarded straight through to the internal BackButton's
+ * own `onBeforeLeave` (only relevant on the `showBackButton` path - the
+ * step-back arrow calls `onStepBack` directly and was never a BackButton
+ * to begin with). Lets a caller run a side effect (or cancel the tap
+ * entirely, by returning `false`) the moment this real "leave the whole
+ * screen" Back is about to fire - e.g. SelfGuidedMeditation.jsx's own
+ * setup screen clearing its captured practice journey tone right before
+ * this Back exits to Home, since without this JourneyHeader's own
+ * BackButton previously navigated away with no way for the caller to
+ * intervene first.
  */
 export const JourneyHeader = ({
   showBackButton,
@@ -38,12 +51,13 @@ export const JourneyHeader = ({
   onClose,
   showCloseButton = true,
   stepIndex,
-  stepCount
+  stepCount,
+  onBackBeforeLeave
 }) => (
   <div className="space-y-4">
     <div className="flex items-center justify-between gap-3">
       {showBackButton ? (
-        <BackButton fallback={backFallback} />
+        <BackButton fallback={backFallback} onBeforeLeave={onBackBeforeLeave} />
       ) : (
         <button
           type="button"

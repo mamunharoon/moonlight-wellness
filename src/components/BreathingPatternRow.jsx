@@ -1,4 +1,5 @@
 import { formatCadence, formatBreathingDuration } from '../lib/breathingPatterns';
+import { JOURNEY_TONE_TOKENS } from '../lib/journeyTone';
 
 /*
  * Build 15 — BreathingPatternRow
@@ -74,44 +75,13 @@ import { formatCadence, formatBreathingDuration } from '../lib/breathingPatterns
 // component today, but may in future) can now pass accent="anytime" for
 // the same mint identity every other Anytime surface already uses,
 // rather than silently falling back to peach.
-const ACCENT_TOKENS = {
-  primary: {
-    selectedRow: 'bg-primary/10 border-primary',
-    unselectedRow: 'bg-surface-container border-primary/50 hover:bg-white/10',
-    selectedLabel: 'text-primary font-bold',
-    selectedRing: 'border-primary bg-primary',
-    unselectedRing: 'border-primary bg-surface-container-lowest',
-    dot: 'bg-on-primary',
-    focusRing: 'has-[:focus-visible]:ring-primary'
-  },
-  evening: {
-    selectedRow: 'bg-evening-accent-tint/10 border-evening-accent',
-    unselectedRow: 'bg-surface-container border-evening-accent/55 hover:bg-white/10',
-    selectedLabel: 'text-evening-accent font-bold',
-    selectedRing: 'border-evening-accent bg-evening-accent',
-    unselectedRing: 'border-evening-accent bg-surface-container-lowest',
-    dot: 'bg-on-evening-accent',
-    focusRing: 'has-[:focus-visible]:ring-evening-accent'
-  },
-  morning: {
-    selectedRow: 'bg-morning-accent-tint/10 border-morning-accent',
-    unselectedRow: 'bg-surface-container border-morning-accent/55 hover:bg-white/10',
-    selectedLabel: 'text-morning-accent font-bold',
-    selectedRing: 'border-morning-accent bg-morning-accent',
-    unselectedRing: 'border-morning-accent bg-surface-container-lowest',
-    dot: 'bg-on-morning-accent',
-    focusRing: 'has-[:focus-visible]:ring-morning-accent'
-  },
-  anytime: {
-    selectedRow: 'bg-tertiary-tint/10 border-tertiary',
-    unselectedRow: 'bg-surface-container border-tertiary/55 hover:bg-white/10',
-    selectedLabel: 'text-tertiary font-bold',
-    selectedRing: 'border-tertiary bg-tertiary',
-    unselectedRing: 'border-tertiary bg-surface-container-lowest',
-    dot: 'bg-on-tertiary',
-    focusRing: 'has-[:focus-visible]:ring-tertiary'
-  }
-};
+// Context-aware Breathing/Meditation theming — now sourced from the
+// shared journeyTone.js token file (identical content) so Meditation's
+// own controls can reuse the exact same mapping instead of a second,
+// divergent copy. The local `ACCENT_TOKENS` name is kept (rather than
+// renaming every reference below) purely to minimise this diff - it is
+// the same object JOURNEY_TONE_TOKENS is, not a fork of it.
+const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;
 
 // Build 16 physical-iPhone correction (F5) — `compact` renders a grid-
 // card variant: pattern name only, no cadence/duration on the card

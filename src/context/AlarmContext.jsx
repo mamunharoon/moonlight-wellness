@@ -57,6 +57,37 @@ const getInitialIntentionsConfirmed = () => {
   }
 };
 
+// Welcome alarm-status card — the real, persisted forms of isAlarmSet
+// (enable/disable) and alarmConfigured ("has this identity ever
+// genuinely saved their alarm"). Guest-only localStorage, mirroring
+// INTENTIONS_CONFIRMED_KEY's own shape exactly (same identity-guarded
+// persist effects below, same reset-on-account-switch handling); a
+// registered user's real source of truth is the new
+// rhythms.alarm_enabled/alarm_configured columns (see fetchRhythm),
+// never these guest-only keys. ALARM_ENABLED_KEY defaults to true (no
+// stored value, or an unrecognised one, means "on" - matching this
+// column's own DEFAULT true and this flag's pre-existing in-memory-only
+// default before it had any persistence at all).
+const ALARM_ENABLED_KEY = 'moonlight_alarm_enabled';
+const ALARM_CONFIGURED_KEY = 'moonlight_alarm_configured';
+
+const getInitialAlarmEnabled = () => {
+  try {
+    const stored = localStorage.getItem(ALARM_ENABLED_KEY);
+    return stored === null ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+};
+
+const getInitialAlarmConfigured = () => {
+  try {
+    return localStorage.getItem(ALARM_CONFIGURED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 // One or two intentions, ordered (index 0 = Primary, index 1 =
 // Supporting), distinct case-insensitively - sanitizeIntentions is the
 // single shared source of truth for that shape (also used to validate a
@@ -166,7 +197,10 @@ export const AlarmProvider = ({ children }) => {
   // this is consumed).
   const timezoneUnconfirmed = Boolean(!authLoading && timezone === null && !mismatchSnoozedThisSession);
   const askTimezoneLater = () => setMismatchSnoozedThisSession(true);
-  const [isAlarmSet, setIsAlarmSet] = useState(true);
+  const [isAlarmSet, setIsAlarmSet] = useState(getInitialAlarmEnabled);
+  // Welcome alarm-status card — see ALARM_CONFIGURED_KEY's own doc
+  // comment above for why this can't be derived from alarmTime alone.
+  const [alarmConfigured, setAlarmConfigured] = useState(getInitialAlarmConfigured);
   const [isRinging, setIsRinging] = useState(false);
   const [intentions, setIntentions] = useState(getInitialIntentions);
   // F1 — see getInitialIntentionsConfirmed's own doc comment above. This
@@ -243,6 +277,22 @@ export const AlarmProvider = ({ children }) => {
     else localStorage.removeItem('moonlight_timezone');
   }, [timezone, authLoading, isGuest, userId]);
 
+  // Welcome alarm-status card — same guest-only persistence shape as
+  // alarmTime/bedTime/timezone above, for the same reason (a registered
+  // user's real source of truth is the Supabase rhythms row instead -
+  // see fetchRhythm/saveRhythm).
+  useEffect(() => {
+    if (authLoading || !isGuest) return;
+    if (settledRhythmUserIdRef.current !== userId) return;
+    localStorage.setItem(ALARM_ENABLED_KEY, isAlarmSet ? 'true' : 'false');
+  }, [isAlarmSet, authLoading, isGuest, userId]);
+
+  useEffect(() => {
+    if (authLoading || !isGuest) return;
+    if (settledRhythmUserIdRef.current !== userId) return;
+    localStorage.setItem(ALARM_CONFIGURED_KEY, alarmConfigured ? 'true' : 'false');
+  }, [alarmConfigured, authLoading, isGuest, userId]);
+
   // WakeWise DEV — alarm wake-up sound picker. Unlike alarmTime/bedTime/
   // timezone above, this is local-only for BOTH guests and registered
   // users (see alarmSounds.js's own doc comment) - so this reads the
@@ -306,12 +356,17 @@ export const AlarmProvider = ({ children }) => {
     localStorage.setItem(INTENTIONS_CONFIRMED_KEY, intentionsConfirmed ? 'true' : 'false');
   }, [intentionsConfirmed, authLoading, isGuest, userId]);
 
-  // Fetch sleep/wake rhythms from Supabase
+  // Fetch sleep/wake rhythms from Supabase. alarm_enabled/alarm_configured
+  // (Welcome alarm-status card) default to true/null-safe fallbacks below
+  // if the migration adding them hasn't been applied to this Supabase
+  // project yet - a missing column makes the whole select() error, which
+  // the existing `if (error)` branch already handles by leaving current
+  // in-memory state untouched, exactly like any other fetch failure.
   const fetchRhythm = async (uid) => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('rhythms')
-      .select('wake_up_time, bedtime, timezone')
+      .select('wake_up_time, bedtime, timezone, alarm_enabled, alarm_configured')
       .eq('user_id', uid)
       .maybeSingle();
 
@@ -324,6 +379,8 @@ export const AlarmProvider = ({ children }) => {
       setAlarmTime(data.wake_up_time);
       setBedTime(data.bedtime);
       setTimezoneState(isValidTimezone(data.timezone) ? data.timezone : null);
+      setIsAlarmSet(data.alarm_enabled ?? true);
+      setAlarmConfigured(Boolean(data.alarm_configured));
     }
   };
 
@@ -346,6 +403,8 @@ export const AlarmProvider = ({ children }) => {
         setAlarmTime(guestAlarm);
         setBedTime(guestBed);
         setTimezoneState(isValidTimezone(guestTimezone) ? guestTimezone : null);
+        setIsAlarmSet(getInitialAlarmEnabled());
+        setAlarmConfigured(getInitialAlarmConfigured());
         // Only mark this identity settled once the guest values are in
         // place, so the persist-write effects above never fire in between.
         settledRhythmUserIdRef.current = userId;
@@ -355,6 +414,8 @@ export const AlarmProvider = ({ children }) => {
       setAlarmTime('07:30');
       setBedTime('22:00');
       setTimezoneState(null);
+      setIsAlarmSet(true);
+      setAlarmConfigured(false);
       await fetchRhythm(userId);
       // Only mark this identity settled once the fetch has resolved, so the
       // transition into this account's rhythm is fully established first.
@@ -617,8 +678,12 @@ export const AlarmProvider = ({ children }) => {
   // rhythms_user_id_key unique constraint. No select-before-write.
   // newTimezone is nullable (still unconfirmed) - explicitly upserted as
   // such rather than omitted, so a real "not yet set" is never confused
-  // with "leave whatever is already in the row alone".
-  const saveRhythm = async (newAlarm, newBed, newTimezone) => {
+  // with "leave whatever is already in the row alone". newEnabled/
+  // newConfigured (Welcome alarm-status card) are always passed by every
+  // caller below - the upsert always sends the full row, same as every
+  // other field here, so there is no "leave unchanged" concept for these
+  // either (unlike newTimezone's own optional-omit convention).
+  const saveRhythm = async (newAlarm, newBed, newTimezone, newEnabled, newConfigured) => {
     if (!supabase || !userId) return;
 
     const { error } = await supabase
@@ -629,6 +694,8 @@ export const AlarmProvider = ({ children }) => {
           wake_up_time: newAlarm,
           bedtime: newBed,
           timezone: newTimezone ?? null,
+          alarm_enabled: newEnabled,
+          alarm_configured: newConfigured,
           updated_at: new Date().toISOString()
         },
         { onConflict: 'user_id' }
@@ -648,7 +715,14 @@ export const AlarmProvider = ({ children }) => {
   // means "don't change the currently-held timezone", so existing
   // wake/bed-only call sites can't accidentally clear an already-
   // confirmed timezone.
-  const updateRhythm = (newAlarm, newBed, newTimezone) => {
+  // newEnabled (Welcome alarm-status card): optional, same "omitted means
+  // don't change" convention as newTimezone - a plain time/bed/timezone
+  // save (Onboarding's existing call shape) never accidentally flips
+  // enabled/disabled. Any real call to updateRhythm at all - even one
+  // that only toggles newEnabled - is a genuine, deliberate save, so
+  // alarmConfigured always becomes true here (see ALARM_CONFIGURED_KEY's
+  // own doc comment for why this is the one true "configured" signal).
+  const updateRhythm = (newAlarm, newBed, newTimezone, newEnabled) => {
     // Same-minute re-trigger defect fix, edited-alarm gap: the
     // handled-occurrence key is (identity, today's dateKey, alarmTime) -
     // editing the alarm to a different time and then back to an
@@ -670,20 +744,26 @@ export const AlarmProvider = ({ children }) => {
     setBedTime(newBed);
     const resolvedTimezone = newTimezone !== undefined ? newTimezone : timezone;
     if (newTimezone !== undefined) setTimezoneState(newTimezone);
+    const resolvedEnabled = newEnabled !== undefined ? newEnabled : isAlarmSet;
+    if (newEnabled !== undefined) setIsAlarmSet(newEnabled);
+    setAlarmConfigured(true);
 
     if (!authLoading && !isGuest && userId) {
-      saveRhythm(newAlarm, newBed, resolvedTimezone);
+      saveRhythm(newAlarm, newBed, resolvedTimezone, resolvedEnabled, true);
     }
   };
 
   // Global timezone correctness: resolves the "Your timezone appears to
   // have changed" banner (and the equivalent first-time confirmation when
   // timezone is still null) by adopting the live device zone as the
-  // user's confirmed timezone.
+  // user's confirmed timezone. A pure timezone confirmation, not a
+  // deliberate alarm-setup save - passes the CURRENT isAlarmSet/
+  // alarmConfigured through unchanged (never resets a real "configured"
+  // flag back to false, never silently re-enables a disabled alarm).
   const useCurrentTimezone = () => {
     setTimezoneState(deviceTimezone);
     if (!authLoading && !isGuest && userId) {
-      saveRhythm(alarmTime, bedTime, deviceTimezone);
+      saveRhythm(alarmTime, bedTime, deviceTimezone, isAlarmSet, alarmConfigured);
     }
   };
 
@@ -706,6 +786,7 @@ export const AlarmProvider = ({ children }) => {
       setAlarmSoundId,
       isAlarmSet,
       setIsAlarmSet,
+      alarmConfigured,
       isRinging,
       setIsRinging,
       intentions,

@@ -17,16 +17,26 @@ import { fileURLToPath } from 'node:url';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
 const componentSource = read('./BreathingPatternRow.jsx');
+const journeyToneSource = read('../lib/journeyTone.js');
 const breatheSource = read('../pages/Breathe.jsx');
 const eveningBreathingSource = read('../pages/EveningBreathing.jsx');
 const quietBreathingSource = read('../pages/QuietBreathing.jsx');
 const selfGuidedMeditationSource = read('../pages/SelfGuidedMeditation.jsx');
 
 describe('BreathingPatternRow — default behaviour is genuinely unchanged', () => {
+  // Context-aware Meditation/Breathing theming — the token object itself
+  // moved to the shared journeyTone.js file (so Meditation's own controls
+  // can reuse it too), leaving only `const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;`
+  // here - same values, same behaviour, verified against the new file.
+  it('imports the shared token set rather than defining its own copy', () => {
+    expect(componentSource).toMatch(/import \{ JOURNEY_TONE_TOKENS \} from '\.\.\/lib\/journeyTone';/);
+    expect(componentSource).toMatch(/const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;/);
+  });
+
   it('accent still defaults to \'primary\' when omitted, and the primary token set is byte-identical to before this phase', () => {
     expect(componentSource).toMatch(/accent = 'primary'/);
-    expect(componentSource).toMatch(
-      /primary: \{\s*\n\s*selectedRow: 'bg-primary\/10 border-primary',\s*\n\s*unselectedRow: 'bg-surface-container border-primary\/50 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-primary font-bold',\s*\n\s*selectedRing: 'border-primary bg-primary',\s*\n\s*unselectedRing: 'border-primary bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-primary',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-primary'\s*\n\s*\}/
+    expect(journeyToneSource).toMatch(
+      /primary: \{\s*\n\s*selectedRow: 'bg-primary\/10 border-primary',\s*\n\s*unselectedRow: 'bg-surface-container border-primary\/50 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-primary font-bold',\s*\n\s*selectedRing: 'border-primary bg-primary',\s*\n\s*unselectedRing: 'border-primary bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-primary',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-primary'/
     );
   });
 
@@ -40,21 +50,21 @@ describe('BreathingPatternRow — default behaviour is genuinely unchanged', () 
   // left untouched (a separately-scoped, pre-existing issue) - see the
   // 'primary' test above, still byte-identical.
   it('the \'evening\' token set uses the alpha-safe evening-accent-tint for its selectedRow background, fixing the same opacity-on-hex-var gap the primary token still has', () => {
-    expect(componentSource).toMatch(
-      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'\s*\n\s*\}/
+    expect(journeyToneSource).toMatch(
+      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'/
     );
   });
 
   it('the \'morning\' entry reuses the already-verified morning-accent/on-morning-accent tokens (via the alpha-safe morning-accent-tint for selectedRow) - never a new colour', () => {
-    expect(componentSource).toMatch(/morning: \{/);
-    expect(componentSource).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent'/);
-    expect(componentSource).toMatch(/dot: 'bg-on-morning-accent'/);
+    expect(journeyToneSource).toMatch(/morning: \{/);
+    expect(journeyToneSource).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent'/);
+    expect(journeyToneSource).toMatch(/dot: 'bg-on-morning-accent'/);
   });
 
   it('a genuinely new \'anytime\' entry exists, reusing the already-verified tertiary/on-tertiary mint tokens (via the alpha-safe tertiary-tint for selectedRow) - never a new colour', () => {
-    expect(componentSource).toMatch(/anytime: \{/);
-    expect(componentSource).toMatch(/selectedRow: 'bg-tertiary-tint\/10 border-tertiary'/);
-    expect(componentSource).toMatch(/dot: 'bg-on-tertiary'/);
+    expect(journeyToneSource).toMatch(/anytime: \{/);
+    expect(journeyToneSource).toMatch(/selectedRow: 'bg-tertiary-tint\/10 border-tertiary'/);
+    expect(journeyToneSource).toMatch(/dot: 'bg-on-tertiary'/);
   });
 });
 
@@ -84,14 +94,16 @@ describe('BreathingPatternRow — only Breathe.jsx (Morning) passes accent="morn
     expect(callSite).toMatch(/accent="evening"/);
   });
 
-  // WakeWise DEV — journey-aware primary action colour: QuietBreathing.jsx's
-  // standalone branch now explicitly passes accent="anytime" (added by
-  // that later pass) instead of omitting the prop and silently getting
-  // the generic peach - this test's own original "keeps the default
-  // 'primary' peach" was true only of the phase it was written for.
-  it('QuietBreathing.jsx (Anytime) passes accent="anytime" to BreathingPatternRow, never "morning"', () => {
+  // Context-aware Meditation/Breathing theming — QuietBreathing.jsx's
+  // standalone branch no longer passes a hardcoded accent="anytime"
+  // literal; it now passes the dynamically-resolved journeyTone (see
+  // usePracticeJourneyTone.js), which inherits Morning/Anytime/Evening
+  // from whatever launched this standalone practice rather than always
+  // being mint.
+  it('QuietBreathing.jsx\'s standalone branch passes the dynamic accent={journeyTone}, never a hardcoded literal', () => {
     const callSite = quietBreathingSource.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
-    expect(callSite).toMatch(/accent="anytime"/);
+    expect(callSite).not.toMatch(/accent="anytime"/);
+    expect(callSite).toMatch(/accent=\{journeyTone\}/);
   });
 });

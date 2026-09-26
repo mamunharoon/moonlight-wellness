@@ -553,6 +553,7 @@ export const MorningFlow = () => {
                   icon={step.icon}
                   isSelected={selectedMovements.has(idx)}
                   onToggle={() => handleToggleMovement(idx)}
+                  journeyTone="morning"
                 />
               ))}
             </div>
@@ -639,9 +640,15 @@ export const MorningFlow = () => {
               <span>Stretching Progress</span>
               <span>Movement {activeStep + 1} of {orderedActiveSteps.length}</span>
             </div>
+            {/* Context-aware Meditation/Breathing theming consistency
+                audit — this fill previously faded from morning-accent
+                into the peach primary token, a leftover blend from before
+                the "stays gold throughout Morning" rule. Solid gold now,
+                matching every other selected/progress element on this
+                same Stretch step. */}
             <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-morning-accent to-primary rounded-full transition-all duration-1000"
+                className="h-full bg-morning-accent rounded-full transition-all duration-1000"
                 style={{ width: `${((activeStep + 1) / orderedActiveSteps.length) * 100}%` }}
               ></div>
             </div>
@@ -667,12 +674,21 @@ export const MorningFlow = () => {
                 <div
                   key={idx}
                   className={`glass-panel p-5 rounded-2xl flex items-center justify-between border transition-all duration-300 ${
-                    isActive ? 'border-morning-accent/30 opacity-100 shadow-md shadow-morning-accent/10 bg-morning-accent/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
+                    // Context-aware Meditation/Breathing theming
+                    // consistency audit — found live: these three used the
+                    // plain-hex morning-accent token with a /<n> opacity
+                    // modifier, the same "resolves to fully transparent"
+                    // bug already fixed everywhere else this session (see
+                    // JourneyGlow.jsx's own doc comment) - the active
+                    // movement's own highlighted border/shadow/background
+                    // were rendering invisibly. Fixed with the alpha-safe
+                    // -tint RGB-triplet token, same as everywhere else.
+                    isActive ? 'border-morning-accent-tint/30 opacity-100 shadow-md shadow-morning-accent-tint/10 bg-morning-accent-tint/5' : isCompleted ? 'opacity-50 border-transparent' : 'opacity-30 border-transparent'
                   }`}
                 >
                   <div className="flex gap-4 items-center">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      isActive ? 'bg-morning-accent/25 text-morning-accent' : 'bg-white/5 text-on-surface-variant'
+                      isActive ? 'bg-morning-accent-tint/25 text-morning-accent' : 'bg-white/5 text-on-surface-variant'
                     }`}>
                       <span className="material-symbols-outlined text-2xl">{step.icon}</span>
                     </div>

@@ -189,9 +189,9 @@ describe('Standalone Home quick-action correction — Back while active is a loc
     expect(source).toMatch(/showBack backFallback=\{backFallback\} onBeforeLeave=\{handleBackFromActive\}/);
   });
 
-  it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete, not already earlyEnded) - setup and either result screen let Back proceed to Home normally', () => {
+  it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete, not already earlyEnded) - setup and either result screen let Back proceed to Home normally, clearing the captured practice journey tone first (Context-aware Breathing/Meditation theming - a real exit-to-Home)', () => {
     const body = source.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!hasBegun \|\| isComplete \|\| earlyEnded\) return;/);
+    expect(body).toMatch(/if \(!hasBegun \|\| isComplete \|\| earlyEnded\) \{\s*\n[\s\S]*?clearPracticeJourneyTone\(\);\s*\n\s*return;\s*\n\s*\}/);
     expect(body).toMatch(/setEndConfirmSource\('back'\);/);
     expect(body).toMatch(/setEndConfirmOpen\(true\);/);
     expect(body).toMatch(/return false;/);

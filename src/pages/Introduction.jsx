@@ -3,8 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
+import { useAlarm } from '../context/AlarmContext';
 import { supabase } from '../lib/supabaseClient';
 import { BackButton } from '../components/BackButton';
+import { AlarmStatusCard } from '../components/AlarmStatusCard';
 import { getFirstName } from '../lib/greeting';
 import { INTRODUCTION_MEDIA } from '../lib/introductionMedia';
 import { getBetaVideoById } from '../lib/mediaCatalog';
@@ -266,6 +268,11 @@ export const Introduction = () => {
   const isAutomaticFirstUse = searchParams.get('auto') === '1';
   const { user, isGuest, profile, refreshProfile, loading: authLoading } = useAuth();
   const { state, startSession, resetSession } = useSession();
+  // Welcome alarm-status card — real, live state, no second persistence
+  // model. Works for guests too (AlarmContext's own guest-device-local
+  // storage path already gives every guest a genuinely working local
+  // alarm).
+  const { alarmTime, isAlarmSet, alarmSoundId, alarmConfigured } = useAlarm();
   const [saving, setSaving] = useState(false);
 
   // Morning/Evening authentication continuity — captured ONCE, at the
@@ -561,6 +568,20 @@ export const Introduction = () => {
           </button>
         )}
       </div>
+
+      {/* Welcome alarm-status card — sits directly above the three
+          journey choices (Morning first among them), compact, never the
+          full alarm setup form itself. Same component, same real state,
+          on both the First Visit and Welcome Back copy variants - only
+          the copy differs (see alarmStatus.js's own per-variant matrix). */}
+      <AlarmStatusCard
+        variant={isReturningSignedInUser ? 'returning' : 'first-use'}
+        alarmConfigured={alarmConfigured}
+        isAlarmSet={isAlarmSet}
+        alarmTime={alarmTime}
+        alarmSoundId={alarmSoundId}
+        returnTo={isAutomaticFirstUse ? '/introduction?auto=1' : '/introduction'}
+      />
 
       <section aria-labelledby="welcome-cards-heading" className="space-y-3">
         {/* Visually hidden: the visible question is already asked above,

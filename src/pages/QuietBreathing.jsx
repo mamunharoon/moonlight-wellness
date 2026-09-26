@@ -22,6 +22,9 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
+import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
+import { getJourneyToneTokens } from '../lib/journeyTone';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -77,6 +80,15 @@ const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';
 export const QuietBreathing = ({ standalone = false }) => {
   const navigate = useNavigate();
   const { isGuest } = useAuth();
+
+  // Context-aware Breathing/Meditation theming — standalone only (see
+  // usePracticeJourneyTone's own `enabled` doc comment for why this is
+  // called unconditionally but disabled for Support's embedded usage,
+  // which has its own fixed journey identity already and must never
+  // touch this key). Falls back to 'anytime' for the disabled branch so
+  // any accidental read still resolves to a real, valid tone rather than
+  // null reaching a class-lookup.
+  const journeyTone = usePracticeJourneyTone(undefined, standalone) ?? 'anytime';
 
   // Build 15 — standalone mode's own return targets. Support's existing
   // embedded usage keeps its exact original targets, unconditionally.
@@ -284,7 +296,17 @@ export const QuietBreathing = ({ standalone = false }) => {
       hasBegunOnceRef.current = false;
       return false;
     }
-    if (!hasBegun || isComplete || earlyEnded) return;
+    if (!hasBegun || isComplete || earlyEnded) {
+      // Context-aware Breathing/Meditation theming — Back from the
+      // pre-start setup screen, or from the "Breathing complete"/"Session
+      // ended early" result screen, is a real exit to Home. This function
+      // never calls navigate() itself - EveningSceneShell's own BackButton
+      // (wired to onBeforeLeave, below) performs the actual navigation
+      // once this returns anything other than false - so the clear
+      // happens here, synchronously, before that navigation proceeds.
+      clearPracticeJourneyTone();
+      return;
+    }
     setEndConfirmSource('back');
     setEndConfirmOpen(true);
     return false;
@@ -305,7 +327,7 @@ export const QuietBreathing = ({ standalone = false }) => {
 
   if (standalone) {
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
         {isComplete || earlyEnded ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">
@@ -317,8 +339,8 @@ export const QuietBreathing = ({ standalone = false }) => {
             <div className="space-y-3 w-full">
               <button
                 type="button"
-                onClick={() => navigate('/')}
-                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                onClick={() => exitPracticeToHome(navigate, '/')}
+                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
               >
                 <span>Done</span>
               </button>
@@ -339,12 +361,12 @@ export const QuietBreathing = ({ standalone = false }) => {
             secondsRemaining={countdown.secondsRemaining}
             cue="Find a comfortable, steady position."
             onSkip={countdown.skip}
-            accent="anytime"
+            accent={journeyTone}
           />
         ) : !hasBegun ? (
           <>
             <div className="text-center space-y-2">
-              <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Mindful Breathing</span>
+              <span className={`font-label-sm text-xs ${getJourneyToneTokens(journeyTone).text} uppercase tracking-widest font-bold`}>Mindful Breathing</span>
               <h2 className="text-2xl font-bold text-on-surface">Choose Your Breathing Practice</h2>
               <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
                 Choose a breathing rhythm, then begin when you&rsquo;re ready.
@@ -362,7 +384,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 <BreathingPatternRow
                   key={pattern.id}
                   compact
-                  accent="anytime"
+                  accent={journeyTone}
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={setSelectedPatternId}
@@ -378,7 +400,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 isOn={musicPreferenceOn}
                 onToggle={handleToggleMusicPreference}
                 description="Play gentle music during your breathing practice."
-                accent="anytime"
+                accent={journeyTone}
               />
             )}
 
@@ -386,7 +408,7 @@ export const QuietBreathing = ({ standalone = false }) => {
               <button
                 type="button"
                 onClick={handleBeginBreathing}
-                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
                 <span>Begin Breathing</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -455,7 +477,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 Just breathe. There is nowhere else to be.
               </p>
 
-              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} />
             </div>
 
             <div className="space-y-3 w-full">

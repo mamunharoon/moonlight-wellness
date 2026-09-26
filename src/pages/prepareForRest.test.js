@@ -74,9 +74,16 @@ describe('PrepareToggleRow - a real switch (role="switch"/aria-checked), never r
 
 // 3. Off knob/track state.
 describe('PrepareToggleRow - OFF state: muted track, knob on the left, no full colour (Build 15 visual refinement)', () => {
-  it('track is a muted deep slate (bg-evening-track-off, calculated ~3.2:1 against the row) when off, row keeps its deep surface-container background with a visible evening-accent/55 border', () => {
+  // Context-aware Meditation/Breathing theming consistency audit — found
+  // live: this pinned assertion had actually been encoding the opacity-
+  // on-plain-hex-var bug (a /<n> modifier directly on the plain-hex
+  // evening-accent token resolves to fully transparent - see
+  // JourneyGlow.jsx's own doc comment) - the unselected row's own border
+  // was almost certainly invisible in production. Fixed with the alpha-
+  // safe -tint RGB-triplet token.
+  it('track is a muted deep slate (bg-evening-track-off, calculated ~3.2:1 against the row) when off, row keeps its deep surface-container background with a visible border (the alpha-safe evening-accent-tint/55 form)', () => {
     expect(toggleRowSource).toMatch(/selected \? 'bg-evening-accent' : 'bg-evening-track-off'/);
-    expect(toggleRowSource).toMatch(/'bg-surface-container border-evening-accent\/55/);
+    expect(toggleRowSource).toMatch(/'bg-surface-container border-evening-accent-tint\/55/);
   });
 
   it('the knob sits at the left (translate-x-0) when off, and is a dark navy fill (surface-container-lowest) with a thin evening-accent ring - not the old bright bg-on-surface circle', () => {
@@ -88,8 +95,8 @@ describe('PrepareToggleRow - OFF state: muted track, knob on the left, no full c
 
 // 4, 5. On: knob moves right + blue accent; row does NOT become a full bright-blue fill.
 describe('PrepareToggleRow - ON state: subtle tint only (never a full bright-blue fill), knob slides right, blue track', () => {
-  it('the row itself only gains a SUBTLE evening-accent/10 tint plus a full-strength border - never a solid/opaque evening-accent fill', () => {
-    expect(toggleRowSource).toMatch(/'bg-evening-accent\/10 border-evening-accent/);
+  it('the row itself only gains a SUBTLE tint (the alpha-safe evening-accent-tint/10 form) plus a full-strength border - never a solid/opaque evening-accent fill', () => {
+    expect(toggleRowSource).toMatch(/'bg-evening-accent-tint\/10 border-evening-accent/);
     expect(toggleRowSource).not.toMatch(/'bg-evening-accent border-evening-accent/);
   });
 

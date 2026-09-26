@@ -75,8 +75,14 @@ describe('Back button destinations are unchanged by the F8 safe-area correction'
   it('MorningMeditate.jsx still falls back to /breathe', () => {
     expect(read('./MorningMeditate.jsx')).toMatch(/<BackButton fallback="\/breathe" guardActiveRoute=\{false\} \/>/);
   });
+  // Context-aware Breathing/Meditation theming — this BackButton now also
+  // clears the captured practice journey tone via onBeforeLeave before
+  // navigating away (a real exit-to-Home) - the destination/label/guard
+  // props themselves are unchanged.
   it('SelfGuidedMeditationComplete.jsx still falls back to the dynamic context.fallback', () => {
-    expect(read('./SelfGuidedMeditationComplete.jsx')).toMatch(/<BackButton fallback=\{context\.fallback\} label=\{context\.label\} guardActiveRoute=\{false\} \/>/);
+    expect(read('./SelfGuidedMeditationComplete.jsx')).toMatch(
+      /<BackButton\s*\n\s*fallback=\{context\.fallback\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
+    );
   });
   it('SessionComplete.jsx still uses alwaysFallback to / (never re-enters the completed routine via browser Back)', () => {
     expect(read('./SessionComplete.jsx')).toMatch(/<BackButton fallback="\/" guardActiveRoute=\{false\} alwaysFallback \/>/);

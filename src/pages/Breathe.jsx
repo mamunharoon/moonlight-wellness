@@ -528,7 +528,7 @@ export const Breathe = () => {
           </div>
 
           {/* Breathing Ring Visualizer — src/components/BreathingRing.jsx */}
-          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="morning" />
 
           <div className="text-center space-y-2">
             <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">

@@ -78,7 +78,10 @@ describe('QuietBreathing.jsx (standalone) — natural completion: distinct "Brea
 
   it('primary "Done" navigates to Home ("/"), secondary "Breathe again" calls handleBreatheAgain', () => {
     const completionBlock = standaloneBlock.slice(standaloneBlock.indexOf('{isComplete || earlyEnded ? ('), standaloneBlock.indexOf(') : !hasBegun ? ('));
-    expect(completionBlock).toMatch(/onClick=\{\(\) => navigate\('\/'\)\}[\s\S]*?Done/);
+    // Context-aware Breathing/Meditation theming — Done routes through
+    // the centralized exitPracticeToHome helper (clears the captured
+    // practice journey tone, then navigates) - see practiceJourneyContext.js.
+    expect(completionBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Done/);
     expect(completionBlock).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]*?Breathe again/);
   });
 

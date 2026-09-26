@@ -264,7 +264,7 @@ export const MorningMeditate = () => {
             its own atmosphere. */}
         <JourneyGlow journey="morning" />
         <MeditationActiveSession
-          accent="morning"
+          journeyTone="morning"
           style={session.style}
           snapshot={session.snapshot}
           soundId={session.soundId}
@@ -341,7 +341,7 @@ export const MorningMeditate = () => {
 
       <MeditationSetupPanel
         compact
-        accent="morning"
+        journeyTone="morning"
         purpose="A short pause to settle your mind before your affirmation."
         recommendedDurationId={getRecommendedDurationId(MEDITATION_CONTEXTS.MORNING_EMBEDDED)}
         // Defect fix — beginLabel omitted entirely: it previously

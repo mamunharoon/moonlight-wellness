@@ -399,7 +399,7 @@ export const EveningBreathing = () => {
               </p>
             </div>
 
-            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="evening" />
           </div>
         </>
       ))}

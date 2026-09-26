@@ -43,7 +43,11 @@ const TILES = [
 
 describe('Home — quick-action row stays exactly three tiles, unchanged destinations', () => {
   it('exactly three Link tiles route to the three approved destinations, in order', () => {
-    const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"\s*\n\s*aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
+    // Context-aware Breathing/Meditation theming — Breathe/Meditate now
+    // also carry a `state={{ journeyTone: ... }}` prop between `to="..."`
+    // and `aria-describedby=...`; matched with a bounded span rather
+    // than exact adjacency.
+    const hrefs = [...source.matchAll(/<Link\s+to="([^"]+)"[\s\S]{0,900}?aria-describedby="quick-action-tip-/g)].map((m) => m[1]);
     expect(hrefs).toEqual(TILES.map((t) => t.href));
   });
 

@@ -62,14 +62,19 @@ describe('Onboarding.jsx — a consistent header is present on every step', () =
     expect(stepTwoBlock).not.toMatch(/JourneyHeader/);
   });
 
-  it('step 1 shows the real shared BackButton (fallback Home); step 2 shows the local step-back arrow instead', () => {
+  it('step 1 shows the real shared BackButton (fallback Home, or back to Welcome when arrived via the Welcome alarm-status card\'s returnTo); step 2 shows the local step-back arrow instead', () => {
     expect(onboardingSource).toMatch(/showBackButton=\{step === 1\}/);
-    expect(onboardingSource).toMatch(/backFallback="\/"/);
+    expect(onboardingSource).toMatch(/backFallback=\{homeOrReturnTo\}/);
     expect(onboardingSource).toMatch(/onStepBack=\{handleBack\}/);
   });
 
-  it('Close is unconditional (not step-gated) and always goes straight Home, never an arbitrary/external destination', () => {
-    expect(onboardingSource).toMatch(/onClose=\{\(\) => navigate\('\/'\)\}/);
+  it('Close is unconditional (not step-gated) and always goes Home or back to wherever returnTo points - never an arbitrary/external destination outside this app\'s own control', () => {
+    expect(onboardingSource).toMatch(/onClose=\{\(\) => navigate\(homeOrReturnTo\)\}/);
+    // homeOrReturnTo itself is only ever '/' or a query-param-read string -
+    // never accepts anything but this app's own /introduction routes in
+    // practice (see the Welcome alarm-status card's own AlarmStatusCard.jsx,
+    // the only caller that ever supplies returnTo).
+    expect(onboardingSource).toMatch(/const homeOrReturnTo = returnTo \|\| '\/';/);
   });
 
   it('the header sits in a safe-area-aware top position - the root container carries the same env(safe-area-inset-top) calc() every other full-bleed screen (Introduction.jsx, AnytimeReset.jsx, etc.) uses', () => {
@@ -92,19 +97,20 @@ describe('Onboarding.jsx — the old undersized text-only step-2 Back link is go
 });
 
 describe('Onboarding.jsx — direct route/refresh cannot trap the user', () => {
-  it('step always starts at a safe, valid value (useState(1)) - no persisted partial-step state to restore or corrupt', () => {
-    expect(onboardingSource).toMatch(/const \[step, setStep\] = useState\(1\);/);
+  it('step always starts at a safe, valid value - 1 for a direct URL/refresh with no returnTo, or 2 (skip the unrelated step-1 blurb) only when reached deliberately via the Welcome alarm-status card\'s own returnTo - no persisted partial-step state to restore or corrupt either way', () => {
+    expect(onboardingSource).toMatch(/const \[step, setStep\] = useState\(\(\) => \(returnTo \? 2 : 1\)\);/);
   });
 
-  it('step 1 (the only step a direct URL/refresh ever lands on) always shows the real BackButton with a hardcoded, non-caller-suppliable fallback ("/") - never accepts an external/arbitrary return path', () => {
-    expect(onboardingSource).toMatch(/showBackButton=\{step === 1\}[\s\S]{0,10}backFallback="\/"/);
+  it('step 1 (the only step a plain, returnTo-less direct URL/refresh ever lands on) always shows the real BackButton, its fallback resolving safely to Home when no returnTo was ever supplied', () => {
+    expect(onboardingSource).toMatch(/showBackButton=\{step === 1\}[\s\S]{0,20}backFallback=\{homeOrReturnTo\}/);
+    expect(onboardingSource).toMatch(/const homeOrReturnTo = returnTo \|\| '\/';/);
   });
 });
 
 describe('Onboarding.jsx — state, progress, and completion logic are completely untouched by this navigation-only change', () => {
-  it('handleBack/handleNext and the rhythm-persistence call are byte-for-byte the same', () => {
+  it('handleBack is byte-for-byte the same; handleNext\'s rhythm-persistence call now also passes localEnabled (Welcome alarm-status card) and navigates to homeOrReturnTo instead of an unconditional Home', () => {
     expect(onboardingSource).toMatch(/const handleBack = \(\) => \{\s*\n\s*if \(step > 1\) setStep\(step - 1\);\s*\n\s*\};/);
-    expect(onboardingSource).toMatch(/if \(step < TOTAL_STEPS\) \{\s*\n\s*setStep\(step \+ 1\);\s*\n\s*\} else \{\s*\n\s*updateRhythm\(localAlarm, localBed, localTimezone\);\s*\n\s*navigate\('\/'\);/);
+    expect(onboardingSource).toMatch(/if \(step < TOTAL_STEPS\) \{\s*\n\s*setStep\(step \+ 1\);\s*\n\s*\} else \{[\s\S]*?updateRhythm\(localAlarm, localBed, localTimezone, localEnabled\);\s*\n\s*navigate\(homeOrReturnTo\);/);
   });
 
   it('completion (updateRhythm) is reachable through exactly one code path - the else branch of handleNext, only when step === TOTAL_STEPS - never called from Back, Close, or a second location', () => {

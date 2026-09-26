@@ -133,7 +133,16 @@ import { JourneyGlow } from '../JourneyGlow';
  */
 export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
-  const isAnytime = journey === 'anytime';
+  // Context-aware Breathing/Meditation theming — 'morning' is a new,
+  // additive value (only QuietBreathing.jsx's standalone branch can ever
+  // pass it, via its own dynamically-resolved journeyTone - no existing
+  // caller of this shell has a real Morning identity, so this can never
+  // change behaviour for Support.jsx/PanicMode.jsx/Grounding.jsx/
+  // StressRelease.jsx/SupportComplete.jsx, none of which pass 'morning').
+  // Both non-evening values render the same self-contained JourneyGlow,
+  // just with a different journey colour - never AtmosphereManager's own
+  // moonlight/periwinkle atmosphere, which stays exclusively 'evening's.
+  const glowJourney = journey === 'anytime' || journey === 'morning' ? journey : null;
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
   ) : (
@@ -157,14 +166,14 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
           become a scroll owner of its own), and rendered with no children
           of its own at all - see Gradient.jsx's own doc comment for the
           matching `position` fix this still needs regardless. */}
-      {isAnytime ? (
-        // WakeWise DEV — colour glow extension: an Anytime-flavoured
-        // caller must not inherit Evening's moonlight/periwinkle
-        // atmosphere just because it happens to reuse this shell - see
-        // the `journey` prop's own doc comment above. JourneyGlow is
-        // self-contained (own `fixed inset-0`) - no wrapping element or
-        // extra classes needed here.
-        <JourneyGlow journey="anytime" />
+      {glowJourney ? (
+        // WakeWise DEV — colour glow extension: an Anytime- or Morning-
+        // flavoured caller must not inherit Evening's moonlight/
+        // periwinkle atmosphere just because it happens to reuse this
+        // shell - see the `journey` prop's own doc comment above.
+        // JourneyGlow is self-contained (own `fixed inset-0`) - no
+        // wrapping element or extra classes needed here.
+        <JourneyGlow journey={glowJourney} />
       ) : (
         <AtmosphereManager
           {...atmosphere}

@@ -180,12 +180,12 @@ describe('8. Morning, Evening, Anytime and standalone breathing styling remains 
     expect(callSite).toMatch(/accent="evening"/);
   });
 
-  // WakeWise DEV — journey-aware primary action colour: QuietBreathing.jsx's
-  // standalone branch now explicitly passes accent="anytime" instead of
-  // omitting the prop and silently getting the generic peach.
-  it('QuietBreathing.jsx (Anytime/standalone) passes accent="anytime"', () => {
+  // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
+  // standalone branch now passes the dynamic accent={journeyTone},
+  // inheriting whichever journey launched it, never a hardcoded literal.
+  it('QuietBreathing.jsx (Anytime-family/standalone) passes the dynamic accent={journeyTone}', () => {
     const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="anytime"/);
+    expect(callSite).toMatch(/accent=\{journeyTone\}/);
   });
 
   it('the ACCENT_TOKENS map itself (primary/morning/evening) is completely unchanged by this correction', () => {

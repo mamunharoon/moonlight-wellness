@@ -9,7 +9,14 @@ const source = readFileSync(fileURLToPath(new URL('./JourneyHeader.jsx', import.
 describe('JourneyHeader.jsx — Back/Close, presentation only', () => {
   it('reuses the real shared BackButton for the first-step case, never a bespoke reimplementation', () => {
     expect(source).toMatch(/import \{ BackButton \} from '\.\.\/BackButton';/);
-    expect(source).toMatch(/showBackButton \? \(\s*\n\s*<BackButton fallback=\{backFallback\} \/>/);
+    expect(source).toMatch(/showBackButton \? \(\s*\n\s*<BackButton fallback=\{backFallback\} onBeforeLeave=\{onBackBeforeLeave\} \/>/);
+  });
+
+  // Context-aware Meditation/Breathing theming — additive pass-through,
+  // default undefined so every existing caller keeps BackButton's own
+  // default (undefined -> always proceeds), completely unaffected.
+  it('onBackBeforeLeave is forwarded straight through to BackButton, optional', () => {
+    expect(source).toMatch(/onBackBeforeLeave\s*\n\}\) => \(/);
   });
 
   it('the step-back and Close controls are explicit 44x44 (w-11 h-11), matching the app\'s established circular icon-button convention', () => {

@@ -21,9 +21,12 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
     ['../pages/MorningFlow.jsx', 'morning', 2],
     ['../pages/Breathe.jsx', 'morning', 2],
     ['../pages/AnytimeReset.jsx', 'anytime', 1],
-    ['../pages/QuietBreathing.jsx', 'anytime', 3],
-    ['../pages/SelfGuidedMeditation.jsx', 'anytime', 1],
-    ['../pages/SelfGuidedMeditationComplete.jsx', 'anytime', 1],
+    // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
+    // standalone branch now passes the dynamic journeyTone (see the
+    // describe block below), not a hardcoded 'anytime' literal; only its
+    // non-standalone (Support-embedded) branch still does, which has its
+    // own real, unambiguous Anytime identity.
+    ['../pages/QuietBreathing.jsx', 'anytime', 1],
     ['../pages/EveningWindDown.jsx', 'evening', 2],
     ['../pages/EveningBreathing.jsx', 'evening', 2],
     ['../pages/PrepareForRest.jsx', 'evening', 1],
@@ -40,27 +43,33 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
 });
 
 describe('Shared accent-prop components — each caller passes its own real journey explicitly, never guessed from a route name inside the shared component', () => {
-  it('MeditationSetupPanel.jsx: MorningMeditate/EveningMeditate/SelfGuidedMeditation each pass their own accent', () => {
-    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*accent="morning"/);
-    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*accent="evening"/);
-    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact=\{false\}\s*\n\s*accent="anytime"/);
+  // Context-aware Meditation theming — the prop MeditationSetupPanel.jsx/
+  // MeditationActiveSession.jsx accept was renamed accent -> journeyTone
+  // (see those files' own doc comments). Morning/Evening's embedded
+  // callers still pass their own fixed literal (unambiguous, no capture
+  // needed); SelfGuidedMeditation.jsx now passes its own dynamically-
+  // resolved journeyTone instead of a hardcoded 'anytime' literal.
+  it('MeditationSetupPanel.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {
+    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="morning"/);
+    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="evening"/);
+    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact=\{false\}\s*\n\s*journeyTone=\{journeyTone\}/);
   });
 
-  it('MeditationActiveSession.jsx: MorningMeditate/EveningMeditate/SelfGuidedMeditation each pass their own accent', () => {
-    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*accent="morning"/);
-    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*accent="evening"/);
-    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*accent="anytime"/);
+  it('MeditationActiveSession.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {
+    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*journeyTone="morning"/);
+    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*journeyTone="evening"/);
+    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationActiveSession\s*\n\s*journeyTone=\{journeyTone\}/);
   });
 
-  it('PreparationCountdown.jsx: standalone Anytime callers pass accent="anytime", not omitted', () => {
-    expect(read('../pages/QuietBreathing.jsx')).toMatch(/<PreparationCountdown[\s\S]*?accent="anytime"/);
-    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<PreparationCountdown[\s\S]*?accent="anytime"/);
+  it('PreparationCountdown.jsx: standalone Anytime-family callers still pass a real accent, not omitted - QuietBreathing.jsx dynamically, SelfGuidedMeditation.jsx dynamically too (see usePracticeJourneyTone.js)', () => {
+    expect(read('../pages/QuietBreathing.jsx')).toMatch(/<PreparationCountdown[\s\S]*?accent=\{journeyTone\}/);
+    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<PreparationCountdown[\s\S]*?accent=\{journeyTone\}/);
   });
 
-  it('MusicPreferenceToggle.jsx and BreathingPatternRow.jsx: QuietBreathing.jsx\'s standalone branch passes accent="anytime" to both', () => {
+  it('MusicPreferenceToggle.jsx and BreathingPatternRow.jsx: QuietBreathing.jsx\'s standalone branch passes the dynamic accent={journeyTone} to both, never a hardcoded literal', () => {
     const source = read('../pages/QuietBreathing.jsx');
-    expect(source).toMatch(/<MusicPreferenceToggle[\s\S]*?accent="anytime"/);
-    expect(source).toMatch(/<BreathingPatternRow[\s\S]*?accent="anytime"/);
+    expect(source).toMatch(/<MusicPreferenceToggle[\s\S]*?accent=\{journeyTone\}/);
+    expect(source).toMatch(/<BreathingPatternRow[\s\S]*?accent=\{journeyTone\}/);
   });
 
   it('RecommendationCard.jsx: AnytimeReset.jsx passes accent="anytime" (unchanged from the earlier mint-border pass); Meditate.jsx still omits it, keeping the peach fallback', () => {

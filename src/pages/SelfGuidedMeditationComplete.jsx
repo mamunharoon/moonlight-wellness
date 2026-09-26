@@ -5,6 +5,9 @@ import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationN
 import { DEFAULT_MEDITATION_STYLE_ID, getMeditationStyleById } from '../lib/meditationStyles';
 import { DEFAULT_MEDITATION_DURATION_ID, getMeditationDurationById } from '../lib/meditationDurations';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
+import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
+import { getJourneyToneTokens } from '../lib/journeyTone';
 
 /*
  * Self-Guided Meditation — completion screen.
@@ -29,10 +32,24 @@ export const SelfGuidedMeditationComplete = () => {
   const session = location.state || null;
   const context = resolveSelfGuidedMeditationContext(session?.from);
 
+  // Context-aware Breathing/Meditation theming — reads back whatever
+  // SelfGuidedMeditation.jsx's own setup screen already captured for
+  // this same practice (see usePracticeJourneyTone.js's own
+  // capture/read-back shape) - never re-resolved from a fresh Home tap
+  // or a possibly-different daypart, since no explicit journeyTone is
+  // threaded through this specific navigate() call.
+  const journeyTone = usePracticeJourneyTone();
+
   const style = getMeditationStyleById(session?.styleId) || getMeditationStyleById(DEFAULT_MEDITATION_STYLE_ID);
   const duration = getMeditationDurationById(session?.durationId) || getMeditationDurationById(DEFAULT_MEDITATION_DURATION_ID);
 
-  const handleDone = () => navigate(context.fallback);
+  const handleDone = () => {
+    // Context-aware Breathing/Meditation theming — natural completion is
+    // a real exit-to-Home; the centralized helper clears the captured
+    // context before navigating, so a later, unrelated practice launch
+    // never inherits this finished practice's colour.
+    exitPracticeToHome(navigate, context.fallback);
+  };
 
   // Both restore the exact same style/duration/sound choices and land back
   // on setup - only the label differs. Neither auto-starts: Begin Meditation
@@ -67,16 +84,27 @@ export const SelfGuidedMeditationComplete = () => {
       }}
     >
       <div className="flex items-center gap-3">
-        <BackButton fallback={context.fallback} label={context.label} guardActiveRoute={false} />
+        {/* Context-aware Breathing/Meditation theming — this screen's own
+            Back always exits to Home too (there is no earlier in-flow
+            step on the completion screen itself) - clears the captured
+            tone before BackButton's own navigation proceeds. */}
+        <BackButton
+          fallback={context.fallback}
+          label={context.label}
+          guardActiveRoute={false}
+          onBeforeLeave={() => {
+            clearPracticeJourneyTone();
+          }}
+        />
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-        <span className="material-symbols-outlined text-primary text-4xl" aria-hidden="true">self_improvement</span>
+        <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Meditation complete</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">Take this steadiness with you.</p>
         {session && (
           <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
-            <p className="text-xs text-primary font-bold uppercase tracking-wider">{style.label}</p>
+            <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
             <p className="text-xs text-on-surface-variant">{duration.label}</p>
           </div>
         )}
@@ -86,7 +114,7 @@ export const SelfGuidedMeditationComplete = () => {
         <button
           type="button"
           onClick={handleDone}
-          className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+          className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span>Done</span>
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

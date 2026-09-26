@@ -90,10 +90,10 @@ describe('Home Visual Uplift — greeting: reduced size, personalisation and lon
     expect(homeSource).toMatch(/<h2 className="text-3xl font-extrabold text-on-surface tracking-tight break-words">\{greetingText\}<\/h2>/);
   });
 
-  it('greeting personalisation logic itself (getGreeting, profile/user precedence) is untouched by this pass', () => {
-    expect(homeSource).toMatch(/getGreeting\('morning', \{ profile, user \}\)/);
-    expect(homeSource).toMatch(/getGreeting\('afternoon', \{ profile, user \}\)/);
-    expect(homeSource).toMatch(/getGreeting\('evening', \{ profile, user \}\)/);
+  it('greeting personalisation logic itself (getGreeting, profile/user precedence) is untouched by this pass, now with the local-day rotation dateKey', () => {
+    expect(homeSource).toMatch(/getGreeting\('morning', \{ profile, user, dateKey: today \}\)/);
+    expect(homeSource).toMatch(/getGreeting\('afternoon', \{ profile, user, dateKey: today \}\)/);
+    expect(homeSource).toMatch(/getGreeting\('evening', \{ profile, user, dateKey: today \}\)/);
   });
 
   it('no fixed-width class is introduced on the greeting or its wrapper (would break long-name safety)', () => {

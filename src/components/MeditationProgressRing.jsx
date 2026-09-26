@@ -1,3 +1,5 @@
+import { getJourneyToneTokens } from '../lib/journeyTone';
+
 /*
  * WakeWise — Self-Guided Meditation — progress ring.
  *
@@ -12,8 +14,16 @@
  * The ring's fill fraction and the visible mm:ss text are both derived
  * from the same elapsedSeconds/durationSeconds - the ring conveys nothing
  * the text doesn't already state plainly.
+ *
+ * Context-aware Meditation theming — `journeyTone` (additive, default
+ * 'primary': every pre-existing caller that omits it keeps its exact
+ * original peach ring): the active stroke colour (`stroke="currentColor"`
+ * reads the element's own text colour) now reuses the same shared
+ * journeyTone.js token map every other Meditation/Breathing control uses.
+ * The timer number/label stay neutral (text-on-surface/text-on-surface-
+ * variant) regardless - only the ring itself carries the journey colour.
  */
-export const MeditationProgressRing = ({ elapsedSeconds, durationSeconds, reducedMotion = false }) => {
+export const MeditationProgressRing = ({ elapsedSeconds, durationSeconds, reducedMotion = false, journeyTone = 'primary' }) => {
   const safeDuration = durationSeconds > 0 ? durationSeconds : 1;
   const remainingSeconds = Math.max(0, safeDuration - elapsedSeconds);
   const fraction = Math.max(0, Math.min(1, elapsedSeconds / safeDuration));
@@ -43,7 +53,7 @@ export const MeditationProgressRing = ({ elapsedSeconds, durationSeconds, reduce
           stroke="currentColor"
           strokeWidth="8"
           strokeLinecap="round"
-          className="text-primary"
+          className={getJourneyToneTokens(journeyTone).text}
           strokeDasharray={circumference}
           strokeDashoffset={dashOffset}
           style={reducedMotion ? undefined : { transition: 'stroke-dashoffset 1s linear' }}

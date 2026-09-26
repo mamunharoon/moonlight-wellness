@@ -5,13 +5,14 @@
 // breathingPatternRowSharedConsumers.test.js/
 // musicPreferenceToggleSharedConsumers.test.js for their own shared-
 // component safety proof), so this file mainly proves the real
-// functional contract is untouched, plus a deliberate, disclosed scope
-// decision: BreathingRing itself (the animated visualizer) is shared
-// with Evening/Anytime and has no existing accent mechanism - rather
-// than add a fourth shared-component accent prop, this phase leaves its
-// own peach glow untouched and only recolours the surrounding screen
-// text, keeping one consistent "breathing" ring identity across every
-// context it appears in.
+// functional contract is untouched.
+//
+// Context-aware Meditation/Breathing theming — supersedes this file's
+// earlier "BreathingRing stays untouched/peach, deliberately out of
+// scope" note: BreathingRing.jsx now has a real, additive journeyTone
+// prop (default 'primary', every other existing caller unaffected - see
+// BreathingRing.test.js for its own full coverage), and Breathe.jsx
+// passes its own fixed "morning" explicitly.
 //
 // No DOM rendering is available in this repo's Vitest (environment:
 // 'node' - see vite.config.js) - source-level checks, matching every
@@ -50,8 +51,8 @@ describe('Breathe.jsx — active "Center Yourself" grounding view', () => {
     expect(source).toMatch(/Bring your attention to the present before the day becomes busy\./);
   });
 
-  it('BreathingRing itself is rendered with its original two real props only (breatheState, secondsLeft) - no accent prop added, a deliberate scope decision since it is shared with Evening/Anytime and has no existing accent mechanism', () => {
-    expect(source).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} \/>/);
+  it('BreathingRing now receives journeyTone="morning" explicitly - the active grounding view is gold, not the original always-peach look', () => {
+    expect(source).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" \/>/);
   });
 
   it('the active pattern label pill (activePattern.supportingLabel/label) stays the neutral bg-white/5 treatment - unchanged, since it is real per-pattern data, not a decorative moment this phase targets', () => {

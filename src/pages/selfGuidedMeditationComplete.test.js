@@ -25,7 +25,13 @@ describe('SelfGuidedMeditationComplete.jsx — exactly the three approved action
 describe('SelfGuidedMeditationComplete.jsx — Done routes via the allowlisted context, never a raw value', () => {
   it('resolves context from session.from through the shared allowlist resolver', () => {
     expect(source).toMatch(/const context = resolveSelfGuidedMeditationContext\(session\?\.from\);/);
-    expect(source).toMatch(/const handleDone = \(\) => navigate\(context\.fallback\);/);
+    // Context-aware Breathing/Meditation theming — handleDone now routes
+    // through the centralized exitPracticeToHome helper (clears the
+    // captured practice journey tone, then navigates) rather than a bare
+    // clear+navigate pair - a real exit-to-Home should never leak into a
+    // later, unrelated practice - see practiceJourneyContext.js.
+    const handleDoneBody = source.match(/const handleDone = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleDoneBody).toMatch(/exitPracticeToHome\(navigate, context\.fallback\);/);
   });
 });
 
@@ -68,9 +74,11 @@ describe('SelfGuidedMeditationComplete.jsx — no fabricated history, no complet
 });
 
 describe('SelfGuidedMeditationComplete.jsx — a visible accessible Back control, real shared BackButton', () => {
-  it('uses the shared BackButton with the resolved context\'s fallback/label', () => {
+  it('uses the shared BackButton with the resolved context\'s fallback/label, and clears the captured practice journey tone before it navigates away', () => {
     expect(source).toMatch(/import \{ BackButton \} from '\.\.\/components\/BackButton';/);
-    expect(source).toMatch(/<BackButton fallback=\{context\.fallback\} label=\{context\.label\} guardActiveRoute=\{false\} \/>/);
+    expect(source).toMatch(
+      /<BackButton\s*\n\s*fallback=\{context\.fallback\}\s*\n\s*label=\{context\.label\}\s*\n\s*guardActiveRoute=\{false\}\s*\n\s*onBeforeLeave=\{\(\) => \{\s*\n\s*clearPracticeJourneyTone\(\);\s*\n\s*\}\}\s*\n\s*\/>/
+    );
   });
 });
 

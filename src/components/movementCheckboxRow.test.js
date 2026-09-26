@@ -34,14 +34,31 @@ describe('MovementCheckboxRow - real checkbox semantics, never switch/radio', ()
     expect(source).toMatch(/onChange=\{onToggle\}/);
   });
 
-  it('selected state uses a real filled checkmark glyph, border, subtle tint, AND bold text weight - never colour alone', () => {
-    expect(source).toMatch(/isSelected \? 'bg-primary\/10 border-primary'/);
-    expect(source).toMatch(/isSelected && <span className="material-symbols-outlined text-on-primary text-base leading-none">check<\/span>/);
-    expect(source).toMatch(/isSelected \? 'text-primary font-bold' : 'text-on-surface font-medium'/);
+  // Context-aware Meditation/Breathing theming consistency audit — a
+  // dedicated local TOKENS map (default 'primary', byte-identical to the
+  // original peach look) replaced the hardcoded bg-primary/text-primary
+  // classes, so MorningFlow.jsx can pass journeyTone="morning" and get a
+  // real gold selected state instead of always-peach.
+  it('selected state uses a real filled checkmark glyph, border, subtle tint, AND bold text weight - never colour alone (via the TOKENS map, default primary byte-identical to before)', () => {
+    expect(source).toMatch(/const TOKENS = \{/);
+    expect(source).toMatch(/primary: \{\s*\n\s*selectedRow: 'bg-primary\/10 border-primary',/);
+    expect(source).toMatch(/checkIconText: 'text-on-primary',/);
+    expect(source).toMatch(/selectedLabel: 'text-primary font-bold',/);
+    expect(source).toMatch(/isSelected && <span className=\{`material-symbols-outlined \$\{tokens\.checkIconText\} text-base leading-none`\}>check<\/span>/);
+    expect(source).toMatch(/isSelected \? tokens\.selectedLabel : 'text-on-surface font-medium'/);
+  });
+
+  it('morning/anytime/evening tone entries reuse already-approved accent tokens - never a fresh hex value', () => {
+    expect(source).toMatch(/morning: \{/);
+    expect(source).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent',/);
+    expect(source).toMatch(/anytime: \{/);
+    expect(source).toMatch(/selectedRow: 'bg-tertiary-tint\/10 border-tertiary',/);
+    expect(source).toMatch(/evening: \{/);
+    expect(source).toMatch(/selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',/);
   });
 
   it('unselected state remains legible - a real border colour and body-weight text, never a blank/invisible row', () => {
-    expect(source).toMatch(/bg-surface-container border-primary\/50/);
+    expect(source).toMatch(/unselectedRow: 'bg-surface-container border-primary\/50 hover:bg-white\/10'/);
     expect(source).toMatch(/border-on-surface-variant\/50 bg-transparent/);
   });
 
@@ -50,8 +67,9 @@ describe('MovementCheckboxRow - real checkbox semantics, never switch/radio', ()
     expect(source).not.toMatch(/aria-hidden="true"[\s\S]{0,40}relative w-11 h-6/);
   });
 
-  it('a keyboard focus on the hidden input shows a visible ring on the row - the proven has-[:focus-visible] pattern already used by AnswerOptionButton.jsx', () => {
-    expect(source).toMatch(/has-\[:focus-visible\]:ring-2 has-\[:focus-visible\]:ring-primary/);
+  it('a keyboard focus on the hidden input shows a visible ring on the row - tone-driven (primary\'s own default is byte-identical to the original hardcoded ring-primary)', () => {
+    expect(source).toMatch(/focusRing: 'has-\[:focus-visible\]:ring-primary'/);
+    expect(source).toMatch(/has-\[:focus-visible\]:ring-2 \$\{tokens\.focusRing\}/);
   });
 
   it('title/description/durationLabel/icon are all passed through as props, never hard-coded inside the component', () => {
@@ -88,7 +106,7 @@ describe('MovementCheckboxRow - compact grid-card variant', () => {
   });
 
   it('keeps the same focus-visible ring pattern as the full row', () => {
-    expect(compactBlock).toMatch(/has-\[:focus-visible\]:ring-2 has-\[:focus-visible\]:ring-primary/);
+    expect(compactBlock).toMatch(/has-\[:focus-visible\]:ring-2 \$\{tokens\.focusRing\}/);
   });
 
   it('enforces a minimum 76px card height - comfortably above the 44x44pt touch-target minimum even in a 2-column grid on a 320px-wide screen', () => {
@@ -105,8 +123,23 @@ describe('MovementCheckboxRow - compact grid-card variant', () => {
     expect(compactBlock).not.toMatch(/\{description\}/);
   });
 
-  it('selected state is still communicated by more than colour alone - a real checkmark glyph plus a border/tint change, matching the full row\'s own accessibility bar', () => {
-    expect(compactBlock).toMatch(/isSelected && <span className="material-symbols-outlined text-on-primary text-sm leading-none">check<\/span>/);
-    expect(compactBlock).toMatch(/isSelected \? 'bg-primary\/10 border-primary'/);
+  it('selected state is still communicated by more than colour alone - a real checkmark glyph plus a border/tint change, matching the full row\'s own accessibility bar (tone-driven)', () => {
+    expect(compactBlock).toMatch(/isSelected && <span className=\{`material-symbols-outlined \$\{tokens\.checkIconText\} text-sm leading-none`\}>check<\/span>/);
+    expect(compactBlock).toMatch(/isSelected \? tokens\.selectedRow : tokens\.unselectedRow/);
+  });
+});
+
+// Context-aware Meditation/Breathing theming consistency audit —
+// journeyTone prop and MorningFlow.jsx's own real-caller wiring.
+describe('MovementCheckboxRow — journeyTone', () => {
+  it('defaults to \'primary\' and resolves via the local TOKENS map, falling back to primary for any unknown value', () => {
+    expect(source).toMatch(/journeyTone = 'primary'/);
+    expect(source).toMatch(/const tokens = TOKENS\[journeyTone\] \|\| TOKENS\.primary;/);
+  });
+
+  it('MorningFlow.jsx (the only real consumer today) passes journeyTone="morning" on its own MovementCheckboxRow call site', () => {
+    const morningFlowSource = readFileSync(fileURLToPath(new URL('../pages/MorningFlow.jsx', import.meta.url)), 'utf-8');
+    const callSite = morningFlowSource.match(/<MovementCheckboxRow[\s\S]*?\/>/)?.[0] ?? '';
+    expect(callSite).toMatch(/journeyTone="morning"/);
   });
 });

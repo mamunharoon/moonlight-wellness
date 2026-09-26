@@ -70,7 +70,13 @@ describe('AlarmContext resets intentions/rhythm synchronously (useLayoutEffect) 
 
   it('the synchronous reset still happens before the async fetch in both effects (unchanged logic - only the hook timing changed; F1 also resets intentionsConfirmed to false in between, before the fetch)', () => {
     expect(alarmContextSource).toMatch(/setIntentions\(DEFAULT_INTENTIONS\);\s*\n[\s\S]*?setIntentionsConfirmed\(false\);\s*\n\s*await fetchIntention\(userId\);/);
-    expect(alarmContextSource).toMatch(/setTimezoneState\(null\);\s*\n\s*await fetchRhythm\(userId\);/);
+    // Welcome alarm-status card: setIsAlarmSet(true)/setAlarmConfigured(false)
+    // reset alongside setTimezoneState(null), same identity-guard, same
+    // reset-before-fetch shape - never left holding a previous identity's
+    // enabled/configured state while this one's own fetch is in flight.
+    expect(alarmContextSource).toMatch(
+      /setTimezoneState\(null\);\s*\n\s*setIsAlarmSet\(true\);\s*\n\s*setAlarmConfigured\(false\);\s*\n\s*await fetchRhythm\(userId\);/
+    );
   });
 
   it('a missing/guest identity resets from getInitialIntentions(), never from a previous authenticated identity\'s in-memory value (F1 also re-reads intentionsConfirmed fresh from guest storage in the same branch)', () => {

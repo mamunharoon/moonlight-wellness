@@ -50,7 +50,10 @@ describe('Home.jsx — quick-action row stays at exactly three tiles', () => {
   });
 
   it('the Breathe tile routes to the standalone /breathe-standalone destination, not /support or the old /anytime-reset slot', () => {
-    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[\s\S]{0,700}Breathe/);
+    // Context-aware Breathing/Meditation theming — the tile now carries
+    // an extra explanatory comment + state={{ journeyTone: ... }} prop
+    // before its label text, widening how far this needs to search.
+    const tileMatch = quickActionBlock.match(/to="\/breathe-standalone"[\s\S]{0,1200}Breathe/);
     expect(tileMatch).toBeTruthy();
     expect(quickActionBlock).not.toMatch(/to="\/support"/);
     expect(quickActionBlock).not.toMatch(/to="\/anytime-reset"/);

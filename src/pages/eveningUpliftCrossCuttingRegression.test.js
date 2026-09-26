@@ -61,17 +61,28 @@ describe('Shared components this phase touched keep Morning/Anytime\'s own defau
   // own doc comment documents - the original value pinned here was
   // silently transparent). 'primary' is untouched, still byte-identical -
   // that identical pre-existing gap is left as a separately-scoped issue.
-  it('BreathingPatternRow.jsx\'s \'primary\' accent token is byte-identical to before; \'morning\' now uses the alpha-safe tint fix', () => {
-    const source = read('../components/BreathingPatternRow.jsx');
+  // Context-aware Meditation/Breathing theming — the token object itself
+  // moved to the shared journeyTone.js file (so Meditation's own
+  // controls can reuse it too); BreathingPatternRow.jsx now imports it
+  // rather than defining its own copy. Same values, same behaviour.
+  it('the shared journeyTone.js \'primary\' accent token is byte-identical to before; \'morning\' still uses the alpha-safe tint fix', () => {
+    const source = read('../lib/journeyTone.js');
     expect(source).toMatch(/selectedRow: 'bg-primary\/10 border-primary',/);
     expect(source).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent',/);
   });
 
-  it('BreathingRing.jsx (Decision B) has no accent prop and no evening-accent reference - shared peach glow unchanged, no animation touched', () => {
+  // Context-aware Meditation/Breathing theming — BreathingRing.jsx now
+  // has a real, additive journeyTone prop (default 'primary', the
+  // original peach/coral look byte-identical to before) - see
+  // BreathingRing.test.js for its own full coverage. This "Decision B"
+  // guard is retargeted to what it always actually protected: the
+  // default (no journeyTone passed) stays the exact original peach
+  // gradient/glow, and the animation timing is untouched.
+  it('BreathingRing.jsx defaults to the original peach gradient/glow (journeyTone="primary") when omitted, and the animation timing is unchanged', () => {
     const source = read('../components/BreathingRing.jsx');
-    expect(source).toMatch(/export const BreathingRing = \(\{ breatheState, secondsLeft \}\) => \{/);
-    expect(source).not.toMatch(/evening-accent/);
-    expect(source).not.toMatch(/accent/);
+    expect(source).toMatch(/journeyTone = 'primary'/);
+    expect(source).toMatch(/orb: 'bg-gradient-to-br from-\[#954835\] to-\[#ff9d85\] shadow-primary\/10'/);
+    expect(source).toMatch(/duration-\[4000ms\]/);
   });
 });
 

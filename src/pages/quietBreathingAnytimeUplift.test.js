@@ -58,18 +58,26 @@ describe('QuietBreathing.jsx — Continue resolves to the mint journey-action he
   });
 });
 
-describe('QuietBreathing.jsx — BreathingRing stays completely unchanged (approved decision C)', () => {
-  it('BreathingRing is rendered with only its original two props, no new accent prop introduced anywhere in this file', () => {
-    const usages = [...source.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
-    expect(usages.length).toBeGreaterThanOrEqual(1);
-    for (const usage of usages) {
-      expect(usage).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />');
-    }
+// Context-aware Meditation/Breathing theming — supersedes this file's
+// earlier "approved decision C: BreathingRing stays completely
+// unchanged" contract. BreathingRing.jsx now has a real, additive
+// journeyTone prop (default 'primary', every other existing caller
+// unaffected - see BreathingRing.test.js for its own full coverage).
+// The non-standalone (Support-embedded) branch deliberately still omits
+// it and stays peach - that specific decision is unchanged; only the
+// standalone branch (which now has a real journey identity of its own -
+// see usePracticeJourneyTone.js) gained the dynamic prop.
+describe('QuietBreathing.jsx — BreathingRing: standalone is dynamically themed, non-standalone stays peach', () => {
+  it('the standalone branch passes the dynamic journeyTone={journeyTone}', () => {
+    const usages = [...standaloneBlock.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
+    expect(usages.length).toBe(1);
+    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} />');
   });
 
-  it('BreathingRing.jsx itself was not touched by this phase - it has no accent mechanism to pass one to', () => {
-    const ringSource = read('../components/BreathingRing.jsx');
-    expect(ringSource).not.toMatch(/accent/);
+  it('the non-standalone (Support-embedded) branch still omits journeyTone entirely - unchanged, still peach', () => {
+    const usages = [...nonStandaloneBlock.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
+    expect(usages.length).toBe(1);
+    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />');
   });
 });
 
@@ -85,10 +93,13 @@ describe('QuietBreathing.jsx — standalone branch (/breathe-standalone) is comp
   // own original "neither received an accent prop this phase" was true
   // only of the phase it was written for; standalone's mint identity now
   // extends to these two controls as well, not just the intro icon.
-  it('standalone never renders MusicEntryChoice at all - it uses MusicPreferenceToggle/BreathingPatternRow instead, both explicitly passing accent="anytime"', () => {
+  // Context-aware Breathing/Meditation theming — both now pass the
+  // dynamic accent={journeyTone}, inheriting whichever journey launched
+  // this standalone practice, never a hardcoded literal.
+  it('standalone never renders MusicEntryChoice at all - it uses MusicPreferenceToggle/BreathingPatternRow instead, both passing the dynamic accent={journeyTone}', () => {
     expect(standaloneBlock).not.toMatch(/<MusicEntryChoice/);
-    expect(standaloneBlock).toMatch(/<MusicPreferenceToggle\s*\n\s*isOn=\{musicPreferenceOn\}\s*\n\s*onToggle=\{handleToggleMusicPreference\}\s*\n\s*description="Play gentle music during your breathing practice\."\s*\n\s*accent="anytime"\s*\n\s*\/>/);
-    expect(standaloneBlock).toMatch(/<BreathingPatternRow[\s\S]*?accent="anytime"/);
+    expect(standaloneBlock).toMatch(/<MusicPreferenceToggle\s*\n\s*isOn=\{musicPreferenceOn\}\s*\n\s*onToggle=\{handleToggleMusicPreference\}\s*\n\s*description="Play gentle music during your breathing practice\."\s*\n\s*accent=\{journeyTone\}\s*\n\s*\/>/);
+    expect(standaloneBlock).toMatch(/<BreathingPatternRow[\s\S]*?accent=\{journeyTone\}/);
   });
 });
 

@@ -24,10 +24,10 @@ describe('bottom Home tab route wiring', () => {
 });
 
 describe('Home.jsx daypart greeting wiring', () => {
-  it('calls getGreeting with the matching daypart for each of the three greeted timeState branches', () => {
-    expect(homeSource).toMatch(/getGreeting\('morning', \{ profile, user \}\)/);
-    expect(homeSource).toMatch(/getGreeting\('afternoon', \{ profile, user \}\)/);
-    expect(homeSource).toMatch(/getGreeting\('evening', \{ profile, user \}\)/);
+  it('calls getGreeting with the matching daypart for each of the three greeted timeState branches, passing the caller\'s own local dateKey so the message rotation is driven by the user\'s real local day', () => {
+    expect(homeSource).toMatch(/getGreeting\('morning', \{ profile, user, dateKey: today \}\)/);
+    expect(homeSource).toMatch(/getGreeting\('afternoon', \{ profile, user, dateKey: today \}\)/);
+    expect(homeSource).toMatch(/getGreeting\('evening', \{ profile, user, dateKey: today \}\)/);
   });
 
   it('imports profile and user from useAuth so no additional profile query is introduced', () => {

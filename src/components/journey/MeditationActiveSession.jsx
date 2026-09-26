@@ -6,6 +6,7 @@ import { MeditationProgressRing } from '../MeditationProgressRing';
 import { MEDITATION_SOUNDS } from '../../lib/meditationSounds';
 import { MeditationOptionRow } from './MeditationControls';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
+import { getJourneyToneTokens } from '../../lib/journeyTone';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared active-
@@ -138,14 +139,14 @@ export const MeditationActiveSession = ({
   showHeaderClose = true,
   bottomAction = null,
   onChooseAnother = null,
-  // WakeWise DEV — journey-aware primary action colour (additive, default
-  // 'primary': every existing caller previously passed nothing and got the
-  // generic peach Resume/bottomAction buttons). Resume and bottomAction
-  // (e.g. Morning's "Finish & continue") are this screen's own primary
-  // journey-progress actions and are explicitly named in the approved
-  // colour mapping; Pause and the End/Leave button are transport/escape
-  // controls and stay neutral regardless of this prop.
-  accent = 'primary',
+  // Context-aware Meditation theming — `journeyTone` (renamed from the
+  // earlier `accent`, additive, default 'primary'). Resume and
+  // bottomAction (e.g. Morning's "Finish & continue") are this screen's
+  // own primary journey-progress actions and are explicitly named in the
+  // approved colour mapping, as is the style eyebrow, the progress ring,
+  // and the sound rows below; Pause and the End/Leave button are
+  // transport/escape controls and stay neutral regardless of this prop.
+  journeyTone = 'primary',
   onEndSession = null
 }) => {
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -228,12 +229,13 @@ export const MeditationActiveSession = ({
       />
 
       <div className="flex-1 flex flex-col items-center justify-center gap-8 text-center">
-        <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">{style.label}</span>
+        <span className={`font-label-sm text-xs ${getJourneyToneTokens(journeyTone).text} uppercase tracking-widest font-bold`}>{style.label}</span>
 
         <MeditationProgressRing
           elapsedSeconds={snapshot.elapsedSeconds}
           durationSeconds={snapshot.durationSeconds}
           reducedMotion={reducedMotion}
+          journeyTone={journeyTone}
         />
 
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed min-h-[2.5rem]">{snapshot.promptText}</p>
@@ -248,7 +250,7 @@ export const MeditationActiveSession = ({
           <button
             type="button"
             onClick={onResume}
-            className={`w-full ${getJourneyPrimaryActionClasses(accent)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+            className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
           >
             <span>Resume</span>
             <span className="material-symbols-outlined text-sm" aria-hidden="true">play_arrow</span>
@@ -275,6 +277,7 @@ export const MeditationActiveSession = ({
                 description={sound.description}
                 selected={soundId === sound.id}
                 onSelect={() => onSelectSound(sound.id)}
+                journeyTone={journeyTone}
               />
             ))}
           </div>
@@ -285,7 +288,7 @@ export const MeditationActiveSession = ({
             type="button"
             onClick={() => setBottomActionConfirmOpen(true)}
             aria-label={bottomAction.buttonAriaLabel}
-            className={`w-full ${getJourneyPrimaryActionClasses(accent)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+            className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
           >
             <span>{bottomAction.buttonLabel}</span>
             <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

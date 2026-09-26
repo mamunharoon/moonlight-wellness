@@ -60,8 +60,8 @@ describe('Onboarding.jsx - progress indication and step count', () => {
     expect(onboardingSource).toMatch(/width: `\$\{\(step \/ TOTAL_STEPS\) \* 100\}%`/);
   });
 
-  it('the final button only ever finishes on the real last step', () => {
-    expect(onboardingSource).toMatch(/\{step === TOTAL_STEPS \? 'Start My First Morning' : 'Continue'\}/);
+  it('the final button only ever finishes on the real last step (Welcome alarm-status card: says "Save" instead of "Start My First Morning" when reached via returnTo, since this screen never starts a routine)', () => {
+    expect(onboardingSource).toMatch(/\{step < TOTAL_STEPS \? 'Continue' : returnTo \? 'Save' : 'Start My First Morning'\}/);
   });
 });
 
@@ -78,19 +78,19 @@ describe('Onboarding.jsx - back/forward navigation between the two steps', () =>
   // full coverage of that header wiring.
   it('a Back control returns to step 1 (Welcome) via the shared JourneyHeader, not a step-2-local block any more', () => {
     expect(onboardingSource).toMatch(/const handleBack = \(\) => \{\s*\n\s*if \(step > 1\) setStep\(step - 1\);\s*\n\s*\};/);
-    expect(onboardingSource).toMatch(/<JourneyHeader showBackButton=\{step === 1\} backFallback="\/" onStepBack=\{handleBack\} onClose=\{\(\) => navigate\('\/'\)\} \/>/);
+    expect(onboardingSource).toMatch(/<JourneyHeader showBackButton=\{step === 1\} backFallback=\{homeOrReturnTo\} onStepBack=\{handleBack\} onClose=\{\(\) => navigate\(homeOrReturnTo\)\} \/>/);
     const stepOneBlock = onboardingSource.match(/\{step === 1 && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
     expect(stepOneBlock).not.toMatch(/handleBack/);
   });
 
-  it('completing the schedule step (the real last step) persists wake time, bedtime and timezone exactly as before, then navigates Home', () => {
-    expect(onboardingSource).toMatch(/updateRhythm\(localAlarm, localBed, localTimezone\);\s*\n\s*navigate\('\/'\);/);
+  it('completing the schedule step (the real last step) persists wake time, bedtime, timezone and now also the Welcome alarm-status card\'s enable/disable choice, then navigates Home (or back to Welcome when reached via returnTo)', () => {
+    expect(onboardingSource).toMatch(/updateRhythm\(localAlarm, localBed, localTimezone, localEnabled\);\s*\n\s*navigate\(homeOrReturnTo\);/);
   });
 });
 
 describe('Onboarding.jsx - no persisted partial-onboarding step state exists to migrate', () => {
-  it('step is a plain, always-valid in-memory useState(1) - no localStorage-backed step key of any kind', () => {
-    expect(onboardingSource).toMatch(/const \[step, setStep\] = useState\(1\);/);
+  it('step is a plain, always-valid in-memory useState - 1 by default, or 2 only when the Welcome alarm-status card\'s own returnTo param is present - no localStorage-backed step key of any kind', () => {
+    expect(onboardingSource).toMatch(/const \[step, setStep\] = useState\(\(\) => \(returnTo \? 2 : 1\)\);/);
     expect(onboardingSource).not.toMatch(/localStorage\.getItem\('.*step.*'\)/i);
     expect(onboardingSource).not.toMatch(/localStorage\.setItem\('.*step.*'\)/i);
   });

@@ -27,8 +27,14 @@ describe('MorningFlow — shared heading (both pre-start and active views)', () 
 });
 
 describe('MorningFlow — active view: progress bar, active-card highlight, timer', () => {
-  it('the progress bar fill is a dawn gradient reusing two already-verified tokens (morning-accent gold to primary peach) - never a new colour', () => {
-    expect(source).toMatch(/bg-gradient-to-r from-morning-accent to-primary rounded-full transition-all duration-1000/);
+  // Context-aware Meditation/Breathing theming consistency audit — this
+  // fill previously faded from morning-accent into the peach primary
+  // token, a leftover blend from before "stays gold throughout Morning"
+  // was the rule. Solid gold now, matching every other selected/progress
+  // element on this same Stretch step - never a new colour.
+  it('the progress bar fill is solid morning-accent gold, never blending into the generic peach primary token', () => {
+    expect(source).toMatch(/bg-morning-accent rounded-full transition-all duration-1000/);
+    expect(source).not.toMatch(/bg-gradient-to-r from-morning-accent to-primary/);
   });
 
   it('"Stretching Progress / Movement N of 4" label text is unchanged', () => {
@@ -36,9 +42,17 @@ describe('MorningFlow — active view: progress bar, active-card highlight, time
     expect(source).toMatch(/<span>Movement \{activeStep \+ 1\} of \{orderedActiveSteps\.length\}<\/span>/);
   });
 
-  it('the active movement card border/background/icon-chip all use morning-accent gold, not the generic peach they used before', () => {
-    expect(source).toMatch(/isActive \? 'border-morning-accent\/30 opacity-100 shadow-md shadow-morning-accent\/10 bg-morning-accent\/5'/);
-    expect(source).toMatch(/isActive \? 'bg-morning-accent\/25 text-morning-accent' : 'bg-white\/5 text-on-surface-variant'/);
+  // Context-aware Meditation/Breathing theming consistency audit — found
+  // live: this pinned assertion had actually been encoding the opacity-
+  // on-plain-hex-var bug (JourneyGlow.jsx's own doc comment) - a /<n>
+  // modifier directly on the plain-hex morning-accent token resolves to
+  // fully transparent, so the active movement's own highlighted border/
+  // shadow/background were almost certainly invisible in production, not
+  // gold. Fixed with the alpha-safe -tint RGB-triplet token, same as
+  // everywhere else this session.
+  it('the active movement card border/background/icon-chip all use the alpha-safe morning-accent-tint token, not the broken opacity-on-plain-hex form', () => {
+    expect(source).toMatch(/isActive \? 'border-morning-accent-tint\/30 opacity-100 shadow-md shadow-morning-accent-tint\/10 bg-morning-accent-tint\/5'/);
+    expect(source).toMatch(/isActive \? 'bg-morning-accent-tint\/25 text-morning-accent' : 'bg-white\/5 text-on-surface-variant'/);
   });
 
   it('the active countdown timer text is gold; the completed-checkmark colour (text-secondary) is untouched', () => {

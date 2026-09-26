@@ -47,19 +47,29 @@
 // spec. Measured before this trim: Ready for Sleep's bottom edge sat
 // 26.3px below an 844px viewport, almost entirely attributable to the
 // four real preparation rows' own combined padding.
+// Context-aware Meditation/Breathing theming consistency audit — found
+// live: the selected/unselected background and border below used the
+// plain-hex evening-accent token directly with an opacity modifier, the
+// same "resolves to fully transparent"/near-invisible bug already fixed
+// everywhere else this session (see JourneyGlow.jsx's own doc comment) -
+// fixed with the alpha-safe -tint RGB-triplet token. The row icon was
+// also still the generic peach `text-primary` regardless of selected
+// state or this row's own real Evening identity - now periwinkle,
+// matching the rest of this screen's own already-periwinkle selected-
+// state language (title colour, border, switch track/knob).
 export const PrepareToggleRow = ({ icon, title, support, selected, onToggle }) => (
   <button
     type="button"
     role="switch"
     aria-checked={selected}
     onClick={onToggle}
-    className={`w-full min-h-[56px] px-5 py-3 rounded-2xl border text-left flex items-center gap-4 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] ${
+    className={`w-full min-h-[56px] px-5 py-3 rounded-2xl border text-left flex items-center gap-4 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evening-accent active:scale-[0.98] ${
       selected
-        ? 'bg-evening-accent/10 border-evening-accent shadow-[inset_0_1px_3px_rgba(0,0,0,0.12)]'
-        : 'bg-surface-container border-evening-accent/55 hover:bg-white/10'
+        ? 'bg-evening-accent-tint/10 border-evening-accent shadow-[inset_0_1px_3px_rgba(0,0,0,0.12)]'
+        : 'bg-surface-container border-evening-accent-tint/55 hover:bg-white/10'
     }`}
   >
-    <span className="material-symbols-outlined text-primary text-2xl shrink-0" aria-hidden="true">
+    <span className="material-symbols-outlined text-evening-accent text-2xl shrink-0" aria-hidden="true">
       {icon}
     </span>
     <span className="flex-1 min-w-0">

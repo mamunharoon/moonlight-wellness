@@ -46,13 +46,15 @@ describe('MusicPreferenceToggle — only EveningBreathing.jsx passes accent="eve
     expect(callSite).toMatch(/accent="evening"/);
   });
 
-  // WakeWise DEV — journey-aware primary action colour: QuietBreathing.jsx's
-  // standalone branch now explicitly passes accent="anytime" instead of
-  // omitting the prop and silently getting the generic peach.
-  it('QuietBreathing.jsx (Anytime) passes accent="anytime", never "evening"', () => {
+  // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
+  // standalone branch now passes the dynamic accent={journeyTone},
+  // inheriting whichever journey actually launched it, never a hardcoded
+  // literal of any kind.
+  it('QuietBreathing.jsx (Anytime-family) passes the dynamic accent={journeyTone}, never a hardcoded "evening"/"anytime" literal', () => {
     const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="evening"/);
-    expect(callSite).toMatch(/accent="anytime"/);
+    expect(callSite).not.toMatch(/accent="anytime"/);
+    expect(callSite).toMatch(/accent=\{journeyTone\}/);
   });
 
   it('Breathe.jsx and MorningFlow.jsx (Morning) still pass accent="morning", never "evening"', () => {

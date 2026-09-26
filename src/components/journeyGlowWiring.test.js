@@ -46,25 +46,40 @@ describe('EveningSceneShell.jsx — journey prop, additive and defaulting to tod
 
   it('renders exactly one of AtmosphereManager or JourneyGlow, never both - no consumer can ever show two competing atmospheres', () => {
     const body = eveningSceneShellSource.match(/return \(\s*<>[\s\S]*?<\/>\s*\);/)?.[0] ?? '';
-    expect(body).toMatch(/isAnytime \? \(/);
-    expect(body).toMatch(/<JourneyGlow journey="anytime" \/>/);
+    expect(body).toMatch(/glowJourney \? \(/);
+    expect(body).toMatch(/<JourneyGlow journey=\{glowJourney\} \/>/);
     expect(body).toMatch(/<AtmosphereManager/);
     // Both branches of one ternary, not two independent conditionals that
     // could both be true at once.
-    const atmosphereBlock = body.slice(body.indexOf('{isAnytime ? ('), body.indexOf('{(showBack || showExit)'));
+    const atmosphereBlock = body.slice(body.indexOf('{glowJourney ? ('), body.indexOf('{(showBack || showExit)'));
     expect(atmosphereBlock.match(/<JourneyGlow/g)?.length).toBe(1);
     expect(atmosphereBlock.match(/<AtmosphereManager/g)?.length).toBe(1);
+  });
+
+  // Context-aware Meditation/Breathing theming — 'morning' is a new,
+  // additive glowJourney value alongside the existing 'anytime' one, for
+  // QuietBreathing.jsx's standalone branch alone (see that file's own
+  // dynamically-resolved journeyTone). Neither value ever reaches
+  // AtmosphereManager's own moonlight/periwinkle branch.
+  it('treats journey="morning" the same as journey="anytime" - JourneyGlow, never AtmosphereManager', () => {
+    expect(eveningSceneShellSource).toMatch(
+      /const glowJourney = journey === 'anytime' \|\| journey === 'morning' \? journey : null;/
+    );
   });
 });
 
 describe('Anytime-flavoured EveningSceneShell consumers — each deliberately passes journey="anytime"', () => {
+  // QuietBreathing.jsx deliberately excluded here - see its own describe
+  // block below (Context-aware Meditation/Breathing theming: its
+  // standalone branch now passes a dynamically-resolved journeyTone,
+  // never a hardcoded literal; only its non-standalone/Support branch
+  // still passes the literal "anytime").
   const anytimeConsumers = [
     '../pages/Support.jsx',
     '../pages/SupportComplete.jsx',
     '../pages/PanicMode.jsx',
     '../pages/Grounding.jsx',
-    '../pages/StressRelease.jsx',
-    '../pages/QuietBreathing.jsx'
+    '../pages/StressRelease.jsx'
   ];
 
   it('every one of them passes journey="anytime" on every <EveningSceneShell> it renders', () => {
@@ -77,11 +92,21 @@ describe('Anytime-flavoured EveningSceneShell consumers — each deliberately pa
       }
     }
   });
+});
 
-  it('QuietBreathing.jsx passes it on BOTH its standalone and non-standalone branches (two separate EveningSceneShell call sites)', () => {
-    const source = read('../pages/QuietBreathing.jsx');
-    const occurrences = source.match(/journey="anytime"/g) ?? [];
-    expect(occurrences.length).toBe(2);
+describe('QuietBreathing.jsx — one dynamic journey (standalone), one fixed literal (Support\'s embedded, non-standalone use)', () => {
+  const source = read('../pages/QuietBreathing.jsx');
+
+  it('the standalone branch passes journey={journeyTone} - never a hardcoded literal', () => {
+    const shellOpenTags = source.match(/<EveningSceneShell[^>]*>/g) ?? [];
+    expect(shellOpenTags.length).toBe(2);
+    expect(shellOpenTags[0]).toMatch(/journey=\{journeyTone\}/);
+    expect(shellOpenTags[0]).not.toMatch(/journey="anytime"/);
+  });
+
+  it('the non-standalone (Support-embedded) branch keeps the fixed literal journey="anytime" - it has its own real, unambiguous Anytime identity, unrelated to Home\'s rhythm tabs', () => {
+    const shellOpenTags = source.match(/<EveningSceneShell[^>]*>/g) ?? [];
+    expect(shellOpenTags[1]).toMatch(/journey="anytime"/);
   });
 });
 
@@ -140,10 +165,18 @@ describe('Anytime screens outside EveningSceneShell — each renders the shared 
     expect(source).toMatch(/<JourneyGlow journey="anytime" \/>/);
   });
 
-  it('SelfGuidedMeditation.jsx renders it on all four of its own return branches (countdown, active session, early-ended, setup)', () => {
+  // Context-aware Breathing/Meditation theming — SelfGuidedMeditation.jsx
+  // now renders JourneyGlow with its own dynamically-resolved journeyTone
+  // (see usePracticeJourneyTone.js) on all four return branches, never a
+  // hardcoded "anytime" literal - it inherits whichever journey launched
+  // it (Home's active rhythm tab, or a daypart fallback) rather than
+  // always being mint.
+  it('SelfGuidedMeditation.jsx renders it on all four of its own return branches (countdown, active session, early-ended, setup), each with the dynamic journeyTone', () => {
     const source = read('../pages/SelfGuidedMeditation.jsx');
     expect(source).toMatch(/import \{ JourneyGlow \} from '\.\.\/components\/JourneyGlow';/);
-    const occurrences = source.match(/<JourneyGlow journey="anytime" \/>/g) ?? [];
+    expect(source).toMatch(/import \{ usePracticeJourneyTone \} from '\.\.\/hooks\/usePracticeJourneyTone';/);
+    expect(source).toMatch(/const journeyTone = usePracticeJourneyTone\(\);/);
+    const occurrences = source.match(/<JourneyGlow journey=\{journeyTone\} \/>/g) ?? [];
     expect(occurrences.length).toBe(4);
   });
 });

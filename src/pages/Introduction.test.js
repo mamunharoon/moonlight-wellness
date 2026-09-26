@@ -441,3 +441,39 @@ describe('Journey Embedding — Welcome card optional-meditation context, access
     expect(introductionSource).toMatch(/subtitle: 'Begin Wind-Down · From 10 min'/);
   });
 });
+
+describe('Introduction.jsx — Welcome alarm-status card', () => {
+  it('imports useAlarm and AlarmStatusCard', () => {
+    expect(introductionSource).toMatch(/import \{ useAlarm \} from '\.\.\/context\/AlarmContext';/);
+    expect(introductionSource).toMatch(/import \{ AlarmStatusCard \} from '\.\.\/components\/AlarmStatusCard';/);
+  });
+
+  it('reads alarmTime/isAlarmSet/alarmSoundId/alarmConfigured straight from useAlarm() - no second/local alarm state of its own', () => {
+    expect(introductionSource).toMatch(/const \{ alarmTime, isAlarmSet, alarmSoundId, alarmConfigured \} = useAlarm\(\);/);
+  });
+
+  it('renders exactly one AlarmStatusCard, passing every real field through as props with the correct per-copy-variant flag', () => {
+    const usages = introductionSource.match(/<AlarmStatusCard\b/g) ?? [];
+    expect(usages.length).toBe(1);
+    expect(introductionSource).toMatch(/variant=\{isReturningSignedInUser \? 'returning' : 'first-use'\}/);
+    expect(introductionSource).toMatch(/alarmConfigured=\{alarmConfigured\}/);
+    expect(introductionSource).toMatch(/isAlarmSet=\{isAlarmSet\}/);
+    expect(introductionSource).toMatch(/alarmTime=\{alarmTime\}/);
+    expect(introductionSource).toMatch(/alarmSoundId=\{alarmSoundId\}/);
+  });
+
+  it('sits above the three journey cards (near the Morning choice, the first of the three) - never inside/after them', () => {
+    const cardIndex = introductionSource.indexOf('<AlarmStatusCard');
+    const sectionIndex = introductionSource.indexOf('welcome-cards-heading');
+    expect(cardIndex).toBeGreaterThan(-1);
+    expect(sectionIndex).toBeGreaterThan(cardIndex);
+  });
+
+  it('returnTo threads the automatic-first-use ?auto=1 marker back through, so Save/Close land on the exact same Welcome state the user came from', () => {
+    expect(introductionSource).toMatch(/returnTo=\{isAutomaticFirstUse \? '\/introduction\?auto=1' : '\/introduction'\}/);
+  });
+
+  it('never requests notification permission merely because this screen rendered - no permission call exists anywhere in this file', () => {
+    expect(introductionSource).not.toMatch(/requestPermission/);
+  });
+});

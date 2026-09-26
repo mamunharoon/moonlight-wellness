@@ -49,11 +49,9 @@ describe('BreathingPatternRow — F7 compact structure: duration beside cadence,
     expect(source).toMatch(/w-5 h-5 rounded-full border-2 shrink-0/);
   });
 
-  it('accent tokens (primary/evening/morning) are completely untouched - only the card layout changed', () => {
-    expect(source).toMatch(/const ACCENT_TOKENS = \{/);
-    expect(source).toMatch(/primary: \{/);
-    expect(source).toMatch(/evening: \{/);
-    expect(source).toMatch(/morning: \{/);
+  it('accent tokens (primary/evening/morning) are completely untouched in behaviour - now imported from the shared journeyTone.js file rather than defined inline, but still the same ACCENT_TOKENS binding used below', () => {
+    expect(source).toMatch(/import \{ JOURNEY_TONE_TOKENS \} from '\.\.\/lib\/journeyTone';/);
+    expect(source).toMatch(/const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;/);
   });
 
   // Correction (acceptance review) — live verification showed "56 SEC"/
