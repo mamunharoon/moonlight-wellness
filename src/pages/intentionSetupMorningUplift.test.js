@@ -38,8 +38,13 @@ describe('IntentionSetup — intro phase visual uplift', () => {
     expect(source).not.toMatch(/4–5 min|4-5 min/);
   });
 
-  it('"Begin My Morning" stays the real peach primary CTA (bg-primary/text-on-primary) - the approved canonical tokens keep primary action buttons peach app-wide - with an added sparing glow', () => {
-    expect(source).toMatch(/bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
+  // WakeWise DEV — journey-aware primary action colour: the later
+  // approved journey-colour pass explicitly reversed this phase's own
+  // "primary action buttons stay peach app-wide" decision - "Begin My
+  // Morning" now resolves to the shared journey-action helper with
+  // journey='morning' (bg-morning-accent text-on-morning-accent).
+  it('"Begin My Morning" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the sparing glow kept', () => {
+    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
     expect(source).toMatch(/<span>Begin My Morning<\/span>/);
   });
 });

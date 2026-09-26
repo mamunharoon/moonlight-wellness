@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { supabase } from '../lib/supabaseClient';
@@ -59,13 +59,34 @@ import { completeIntroductionVersion } from '../lib/introductionCompletion';
  *     navigate('/intention-setup') sequence as Home.jsx's own
  *     handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
  *     (see beginRiseAndReset below, a direct copy of that exact shape).
- *   - "Take a calming pause" -> navigate('/quiet-breathing') directly -
- *     Gentle Reset's own real non-standalone route, requiresAuth: false
- *     in routinesCatalog.js/RoutineDetail.jsx, so no sign-in gate here
- *     either (deliberately NOT "Instant Calm", E03 in
- *     betaVideoManifest.js, which is a narrated exercise VIDEO, not a
- *     breathing practice - Gentle Reset is the actual guided-breathing
- *     quick-pause experience in this app).
+ *   - "Take a calming pause" -> navigate('/breathe-standalone') directly -
+ *     the SAME real destination Home's own "Breathe" quick-action tile
+ *     already uses (QuietBreathing.jsx's `standalone` branch), not the
+ *     Gentle Reset non-standalone route this card previously opened.
+ *     requiresAuth: false (matches QuietBreathing's own standalone
+ *     behaviour - no sign-in gate).
+ *     WakeWise DEV — "Repair Take a calming pause": this card previously
+ *     opened /quiet-breathing (QuietBreathing.jsx's non-standalone
+ *     branch, the same embedded experience Support.jsx's own mood picker
+ *     uses), which has no real pre-start pattern choice, no clear Exit
+ *     during the countdown (only an ambiguous always-visible Continue/
+ *     Skip that could reach a "complete" screen before the countdown
+ *     ever finished), and funnelled "Try another exercise" into Support's
+ *     own "How are you feeling?" mood picker - disconnected from what
+ *     this card promised. /breathe-standalone is this app's own
+ *     established, coherent guided-breathing screen instead: a real
+ *     pattern picker (56-76s per pattern, shown before starting - never a
+ *     fabricated duration), a 5-second "get ready" countdown, an active
+ *     phase with only one unambiguous "End early" control (never a
+ *     Continue that could claim completion early), a genuine "Breathing
+ *     complete" screen reached only once the countdown truly finishes,
+ *     and "Breathe again" (same screen's own setup) rather than a detour
+ *     through an unrelated mood picker. Never "Instant Calm" (E03 in
+ *     betaVideoManifest.js, a narrated exercise VIDEO, not a breathing
+ *     practice) either way. Support.jsx's own separate "calm" need
+ *     mapping to /quiet-breathing (RoutineDetail.jsx's dormant Gentle
+ *     Reset entry too) is unchanged - out of this pass's scope; only this
+ *     card's own destination moved.
  *   - "Wind down for sleep" -> navigate('/evening-wind-down') directly,
  *     the same plain navigate Home.jsx's own handleBeginEveningWindDown
  *     uses (EveningWindDown.jsx's own Begin button is what actually
@@ -141,8 +162,9 @@ import { completeIntroductionVersion } from '../lib/introductionCompletion';
  * non-guest user who already had a real, previously-completed
  * introduction_completed_version - a guest (no profile at all) and a
  * genuinely brand-new account (version 0/null) both get the same
- * neutral "Welcome to WakeWise" copy. The signal itself comes from two
- * places, in priority order:
+ * neutral "Start your morning with purpose. End your day with calm."
+ * First Visit copy (approved Stitch design). The signal itself comes from
+ * two places, in priority order:
  *   1. the `?existing=1` query param, set by Auth.jsx's redirectAfterAuth
  *      at the one moment it already has this exact data freshly fetched
  *      - avoiding any dependency on AuthContext's own separately-timed
@@ -173,7 +195,7 @@ const GUEST_ALLOWED_VIDEO_IDS = new Set(['I01']);
 // calming pause, lavender for Evening - each one REUSES an existing
 // design token already established elsewhere in this app rather than
 // inventing a new color:
-//   - morning-accent (--color-gratitude-accent, #f4c56a) - already
+//   - morning-accent (--color-gratitude-accent, #fdba74 dawn gold) - already
 //     Home.jsx's own Morning pill color, itself a warm gold.
 //   - tertiary (--color-tertiary, #7fe4d0) - already used throughout the
 //     app, a mint/teal green.
@@ -214,7 +236,10 @@ const WELCOME_CARDS = [
     iconClass: 'bg-tertiary/15 text-tertiary',
     subtitleClass: 'text-tertiary',
     title: 'Take a calming pause',
-    subtitle: 'Gentle Reset · 1 min guided breathing',
+    // WakeWise DEV — "Repair Take a calming pause": no invented duration
+    // (the real destination's patterns run 56-76s each, shown on that
+    // screen's own pattern picker, never claimed as a flat number here).
+    subtitle: 'A quick guided breathing break.',
     requiresAuth: false
   },
   {
@@ -274,12 +299,29 @@ export const Introduction = () => {
   const isReturningSignedInUser =
     !isGuest && (searchParams.get('existing') === '1' || Boolean(profile?.introduction_completed_version));
   const firstName = isGuest ? null : getFirstName({ profile, user });
+  // WakeWise DEV — approved welcome-screen copy (Stitch "First Visit"/
+  // "Welcome Back" states). A missing first name (getFirstName already
+  // returns null for that case) falls back to the plain 'Welcome back'
+  // heading with no dangling comma/placeholder, exactly as before.
   const welcomeHeading = isReturningSignedInUser
     ? (firstName ? `Welcome back, ${firstName}` : 'Welcome back')
-    : 'Welcome to WakeWise';
+    : 'Start your morning with purpose. End your day with calm.';
+  // WakeWise DEV — First Visit purpose update: describes two real,
+  // already-shipped features, not aspirational copy. The wake-up alarm
+  // is genuinely active by default for every user, on or off native
+  // (AlarmContext.jsx's own background clock observer; a native
+  // background notification is a separate, opt-in layer on top of it -
+  // see nativeMorningReminder.js), adjustable via Profile once signed
+  // in. "About 5-10 minutes" is this app's own already-established
+  // Morning duration claim (see nextStepCard.js's identical phrase,
+  // already shown on Home's own Morning card) - not a new number.
+  // Intention is genuinely the routine's real first step
+  // (sessionConstants.js: Intention -> Stretch -> Breathe -> Meditate
+  // (optional) -> Affirm -> Complete); "other steps" covers the rest
+  // without listing all five and crowding this short explanation.
   const welcomeSubcopy = isReturningSignedInUser
-    ? 'WakeWise has a calmer new way to support your morning, your day and your evening. Where would you like to begin?'
-    : 'What would help you most today?';
+    ? 'What would you like to do today?'
+    : 'Set a gentle wake-up alarm, then follow a guided morning routine - about 5-10 minutes, starting with setting an intention and moving through stretching, breathing and other steps.';
   const [saveError, setSaveError] = useState('');
 
   // Reuses the exact same shared signed-URL/guest-gating mechanism every
@@ -331,7 +373,10 @@ export const Introduction = () => {
   // navigate, matching RoutineDetail.jsx's own gentle-reset handling.
   const CARD_DESTINATIONS = {
     morning: beginRiseAndReset,
-    calm: () => navigate('/quiet-breathing'),
+    // WakeWise DEV — "Repair Take a calming pause": routes to this app's
+    // established, coherent standalone breathing screen (see this file's
+    // own top doc comment) instead of the ambiguous non-standalone flow.
+    calm: () => navigate('/breathe-standalone'),
     sleep: () => navigate('/evening-wind-down')
   };
 
@@ -465,10 +510,14 @@ export const Introduction = () => {
           className="min-h-full flex flex-col px-6 max-w-md mx-auto space-y-8"
           style={{
             paddingTop: 'calc(2rem + env(safe-area-inset-top))',
-            // iPhone home-indicator clearance — this route has no bottom
-            // nav of its own to already reserve that space (unlike
-            // Layout.jsx's content container).
-            paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))'
+            // WakeWise DEV — welcome screens: this route now renders its
+            // own Home/Library/Profile navigation (see the fixed <nav>
+            // below), matching the approved design. 88px covers that
+            // nav's own footprint (72px height + the 1rem gap below it),
+            // on top of the original 2rem/home-indicator clearance, so
+            // "Go to Home" and every card stay reachable above it rather
+            // than sitting behind it.
+            paddingBottom: 'calc(2rem + 88px + env(safe-area-inset-bottom))'
           }}
         >
       {!isAutomaticFirstUse && (
@@ -498,7 +547,7 @@ export const Introduction = () => {
           <button
             type="button"
             onClick={() => handleSelect(introVideo.storageRef)}
-            aria-label="Play one-minute introduction: See how WakeWise can help."
+            aria-label="Play one-minute introduction: Why WakeWise."
             className="inline-flex items-center gap-2 mx-auto px-4 py-2.5 rounded-full glass-panel hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span
@@ -508,7 +557,7 @@ export const Introduction = () => {
             >
               play_circle
             </span>
-            <span className="text-xs font-semibold text-on-surface">See how WakeWise can help · 1 min</span>
+            <span className="text-xs font-semibold text-on-surface">Why WakeWise · 1 min</span>
           </button>
         )}
       </div>
@@ -570,11 +619,16 @@ export const Introduction = () => {
             {saveError}
           </p>
         )}
+        {/* WakeWise DEV — welcome screens: prominent peach primary
+            action, matching the approved design (was a plain text link)
+            and this app's own established primary-button treatment
+            (bg-primary/text-on-primary, the same pill every other primary
+            CTA on this screen and elsewhere already uses). */}
         <button
           type="button"
           onClick={() => persistAndContinue('/')}
           disabled={saving}
-          className="w-full py-3 inline-flex items-center justify-center gap-1.5 text-center text-sm text-on-surface-variant font-semibold hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full disabled:opacity-60"
+          className="w-full py-4 inline-flex items-center justify-center gap-2 bg-primary text-on-primary font-bold text-center rounded-full hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
         >
           <span>{saving ? 'Saving…' : 'Go to Home'}</span>
           {!saving && (
@@ -586,6 +640,44 @@ export const Introduction = () => {
       </div>
         </div>
       </div>
+
+      {/* WakeWise DEV — welcome screens: Home/Library/Profile navigation,
+          matching the approved design (shown on both the First Visit and
+          Welcome Back states). A local, self-contained copy of Layout.jsx's
+          own nav markup rather than an extracted shared component -
+          Layout.jsx and its own dense test suite
+          (Layout.bottomNavVisualUplift.test.js/Layout.safeArea.test.js)
+          pin its exact inline structure byte-for-byte, and this screen
+          renders outside <Layout> entirely (see this file's own top doc
+          comment) - moving it inside <Layout> is out of scope for this
+          pass. `fixed` (not `absolute`, unlike Layout.jsx's own nav)
+          since this screen has no positioned ancestor to anchor to; "Home"
+          is always the active tab here, the only one this screen can ever
+          be reached from within the tabbed frame. */}
+      <nav
+        className="fixed left-4 right-4 z-40 rounded-full h-[72px] backdrop-blur-xl shadow-2xl border border-white/10 flex items-stretch px-2 max-w-md mx-auto"
+        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))', backgroundColor: 'rgba(6, 14, 32, 0.9)' }}
+      >
+        {[
+          { label: 'Home', path: '/', icon: 'home_health', active: true },
+          { label: 'Library', path: '/library', icon: 'video_library', active: false },
+          { label: 'Profile', path: '/profile', icon: 'person', active: false }
+        ].map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            aria-current={item.active ? 'page' : undefined}
+            className={`flex-1 min-w-[44px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-150 active:scale-90 ${
+              item.active ? 'text-primary' : 'text-on-surface hover:text-primary active:bg-white/5'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: item.active ? "'FILL' 1" : "'FILL' 0" }}>
+              {item.icon}
+            </span>
+            <span className={`text-[11px] leading-none ${item.active ? 'font-bold' : 'font-semibold'}`}>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
 
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={closeVideo} />

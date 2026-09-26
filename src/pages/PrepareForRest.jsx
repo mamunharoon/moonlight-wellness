@@ -16,6 +16,7 @@ import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * Phase 3 (Prepare for Rest subphase) — PrepareForRest
@@ -186,7 +187,7 @@ export const PrepareForRest = () => {
     <button
       onClick={handleReadyForSleep}
       disabled={isAdvancing}
-      className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-70"
+      className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[56px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-70`}
     >
       <span>Ready for Sleep</span>
       <span className="material-symbols-outlined text-sm">arrow_forward</span>

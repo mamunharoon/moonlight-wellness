@@ -25,6 +25,7 @@ import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { savePausedExerciseState, loadPausedExerciseState, clearPausedExerciseState } from '../session/timedExercisePause';
 import { getStepLabel } from '../lib/stepLabels';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 
@@ -366,7 +367,7 @@ export const EveningBreathing = () => {
             <button
               type="button"
               onClick={handleBeginBreathing}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
               <span>Begin Breathing</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -442,7 +443,7 @@ export const EveningBreathing = () => {
               {hasFinished && !manuallyPaused && (
                 <button
                   onClick={handleComplete}
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                  className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
                 >
                   <span>Continue</span>
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>

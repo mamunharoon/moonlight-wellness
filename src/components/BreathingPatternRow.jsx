@@ -54,6 +54,26 @@ import { formatCadence, formatBreathingDuration } from '../lib/breathingPatterns
  * breathingPatternRowSharedConsumers.test.js for the regression proof
  * that this stays true.
  */
+// WakeWise DEV — journey-aware primary action colour.
+//
+// Pre-existing bug fixed for 'morning'/'evening', and avoided for the
+// new 'anytime' case: `selectedRow` previously used `bg-morning-accent/10`/
+// `bg-evening-accent/10` directly - the same opacity-on-plain-hex-CSS-var
+// gap JourneyGlow.jsx's own doc comment documents (confirmed live:
+// bg-morning-accent/10 computes to fully transparent) - so the selected
+// pattern row's own tinted background likely rendered invisible on
+// Morning/Evening before this fix. Now uses the alpha-safe `-tint`
+// RGB-triplet tokens. `primary`'s own identical `bg-primary/10` has the
+// same defect (AnytimeResetProgress.jsx's own doc comment already names
+// this exact gap and explicitly defers it as "out of scope" for that
+// phase) - left untouched here too, a pre-existing, separately-scoped
+// issue this pass doesn't otherwise touch.
+//
+// 'anytime' is a NEW accent value: QuietBreathing.jsx's standalone
+// branch and SelfGuidedMeditation.jsx (neither of which render this
+// component today, but may in future) can now pass accent="anytime" for
+// the same mint identity every other Anytime surface already uses,
+// rather than silently falling back to peach.
 const ACCENT_TOKENS = {
   primary: {
     selectedRow: 'bg-primary/10 border-primary',
@@ -65,7 +85,7 @@ const ACCENT_TOKENS = {
     focusRing: 'has-[:focus-visible]:ring-primary'
   },
   evening: {
-    selectedRow: 'bg-evening-accent/10 border-evening-accent',
+    selectedRow: 'bg-evening-accent-tint/10 border-evening-accent',
     unselectedRow: 'bg-surface-container border-evening-accent/55 hover:bg-white/10',
     selectedLabel: 'text-evening-accent font-bold',
     selectedRing: 'border-evening-accent bg-evening-accent',
@@ -74,13 +94,22 @@ const ACCENT_TOKENS = {
     focusRing: 'has-[:focus-visible]:ring-evening-accent'
   },
   morning: {
-    selectedRow: 'bg-morning-accent/10 border-morning-accent',
+    selectedRow: 'bg-morning-accent-tint/10 border-morning-accent',
     unselectedRow: 'bg-surface-container border-morning-accent/55 hover:bg-white/10',
     selectedLabel: 'text-morning-accent font-bold',
     selectedRing: 'border-morning-accent bg-morning-accent',
     unselectedRing: 'border-morning-accent bg-surface-container-lowest',
     dot: 'bg-on-morning-accent',
     focusRing: 'has-[:focus-visible]:ring-morning-accent'
+  },
+  anytime: {
+    selectedRow: 'bg-tertiary-tint/10 border-tertiary',
+    unselectedRow: 'bg-surface-container border-tertiary/55 hover:bg-white/10',
+    selectedLabel: 'text-tertiary font-bold',
+    selectedRing: 'border-tertiary bg-tertiary',
+    unselectedRing: 'border-tertiary bg-surface-container-lowest',
+    dot: 'bg-on-tertiary',
+    focusRing: 'has-[:focus-visible]:ring-tertiary'
   }
 };
 

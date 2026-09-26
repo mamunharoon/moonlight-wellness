@@ -228,7 +228,7 @@ describe('Navigation protection for unsaved Edit drafts', () => {
   });
 
   it('EveningSceneShell forwards onBeforeLeave through to BackButton, optional and defaulting to undefined', () => {
-    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, children/);
+    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children/);
     expect(sceneShellSource).toMatch(/onBeforeLeave=\{onBeforeLeave\}/);
   });
 
@@ -261,14 +261,19 @@ describe('Button hierarchy - EveningComplete.jsx (approved order: Choose a Sleep
     expect(redoIdx).toBeLessThan(homeIdx);
   });
 
+  // WakeWise DEV — journey-aware primary action colour: this button now
+  // resolves to the shared journey-action helper with journey='evening'
+  // (bg-evening-accent text-on-evening-accent) instead of the generic
+  // peach bg-primary - the later approved journey-colour pass explicitly
+  // reversed the earlier "stays peach" state this test used to pin.
   it('Choose a Sleep Experience is the first, primary filled action for every user (guest included) - its real destination is unchanged', () => {
     // Build 15 DEV correction — this destination now also carries the
     // allowlisted `from=evening-summary` entry context (see
     // libraryHomeReturnContext.test.js) so Library shows a "Back to
     // Evening Summary" control; the real category filter is unchanged.
-    const sleepButtonMatch = eveningCompleteSource.match(/onClick=\{\(\) => navigate\('\/library\?category=sleep-soundscapes&from=evening-summary'\)\}\s*\n\s*className="([^"]+)"/);
+    const sleepButtonMatch = eveningCompleteSource.match(/onClick=\{\(\) => navigate\('\/library\?category=sleep-soundscapes&from=evening-summary'\)\}\s*\n\s*className=\{`([^`]+)`\}/);
     expect(sleepButtonMatch).toBeTruthy();
-    expect(sleepButtonMatch[1]).toMatch(/bg-primary text-on-primary/);
+    expect(sleepButtonMatch[1]).toMatch(/getJourneyPrimaryActionClasses\('evening'\)/);
     expect(sleepIdx).toBeLessThan(eveningCompleteSource.indexOf('{!isGuest && ('));
   });
 

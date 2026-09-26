@@ -21,6 +21,7 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -304,7 +305,7 @@ export const QuietBreathing = ({ standalone = false }) => {
 
   if (standalone) {
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive}>
         {isComplete || earlyEnded ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">
@@ -317,7 +318,7 @@ export const QuietBreathing = ({ standalone = false }) => {
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
               >
                 <span>Done</span>
               </button>
@@ -338,6 +339,7 @@ export const QuietBreathing = ({ standalone = false }) => {
             secondsRemaining={countdown.secondsRemaining}
             cue="Find a comfortable, steady position."
             onSkip={countdown.skip}
+            accent="anytime"
           />
         ) : !hasBegun ? (
           <>
@@ -360,6 +362,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 <BreathingPatternRow
                   key={pattern.id}
                   compact
+                  accent="anytime"
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={setSelectedPatternId}
@@ -375,6 +378,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 isOn={musicPreferenceOn}
                 onToggle={handleToggleMusicPreference}
                 description="Play gentle music during your breathing practice."
+                accent="anytime"
               />
             )}
 
@@ -382,7 +386,7 @@ export const QuietBreathing = ({ standalone = false }) => {
               <button
                 type="button"
                 onClick={handleBeginBreathing}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
                 <span>Begin Breathing</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -565,7 +569,7 @@ export const QuietBreathing = ({ standalone = false }) => {
   }
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallback}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback={backFallback}>
       {awaitingMusicChoice && (
         <MusicEntryChoice
           onStartWithMusic={handleStartWithMusic}
@@ -593,7 +597,7 @@ export const QuietBreathing = ({ standalone = false }) => {
       <div className="space-y-3 w-full">
         <button
           onClick={handleAdvance}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span>Continue</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

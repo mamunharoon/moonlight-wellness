@@ -10,6 +10,8 @@ import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '..
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
 import { roleForIndex } from '../lib/intentionSelection';
 import { getMorningCompletionKey } from '../lib/dailyCompletion';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { JourneyGlow } from '../components/JourneyGlow';
 
 export const SessionComplete = () => {
   const navigate = useNavigate();
@@ -78,6 +80,10 @@ export const SessionComplete = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
+          backdrop behind this step's own completion ring/badge. */}
+      <JourneyGlow journey="morning" />
+
       <div className="flex items-center justify-between gap-3">
         {/* Back-navigation repair (Morning canonical map) — Morning is
             finished; there is no "leave this routine" concept left, so
@@ -134,7 +140,7 @@ export const SessionComplete = () => {
       <div className="space-y-3 w-full">
         <button
           onClick={handleReturnHome}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow"
+          className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
         >
           <span>Continue to Today</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

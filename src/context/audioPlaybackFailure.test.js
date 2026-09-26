@@ -112,12 +112,19 @@ describe('the CSP media-src directive stays first-party-only (no external audio 
 describe('AlarmContext.jsx uses the bundled first-party WakeWise chime, with no SoundHelix or Unsplash reference remaining', () => {
   const alarmContextSource = read('./AlarmContext.jsx');
 
-  it('imports ALARM_CHIME_URL/ALARM_CHIME_TITLE from lib/alarmSound', () => {
-    expect(alarmContextSource).toMatch(/import \{ ALARM_CHIME_URL, ALARM_CHIME_TITLE \} from '\.\.\/lib\/alarmSound';/);
+  // WakeWise DEV — alarm wake-up sound picker: AlarmContext.jsx now
+  // resolves the user's own selected sound (alarmSounds.js's
+  // resolvePlayableAlarmSound, which always falls back to the same real
+  // bundled chime for any unavailable/unknown selection) instead of
+  // importing the single ALARM_CHIME_URL/ALARM_CHIME_TITLE constants
+  // directly - the underlying asset for the default/fallback case is
+  // unchanged (still the one bundled, first-party chime).
+  it('imports resolvePlayableAlarmSound from lib/alarmSounds', () => {
+    expect(alarmContextSource).toMatch(/import \{ resolvePlayableAlarmSound, getStoredAlarmSoundId, setStoredAlarmSoundId, DEFAULT_ALARM_SOUND_ID \} from '\.\.\/lib\/alarmSounds';/);
   });
 
-  it('plays the bundled chime with loop:true, and no soundhelix.com or unsplash.com reference remains anywhere in the file', () => {
-    expect(alarmContextSource).toMatch(/playTrack\(\{ title: ALARM_CHIME_TITLE, url: ALARM_CHIME_URL \}, \{ loop: true \}\);/);
+  it('plays the resolved sound with loop:true, and no soundhelix.com or unsplash.com reference remains anywhere in the file', () => {
+    expect(alarmContextSource).toMatch(/const ringingSound = resolvePlayableAlarmSound\(alarmSoundId\);\s*\n\s*playTrack\(\{ title: ringingSound\.title, url: ringingSound\.url \}, \{ loop: true \}\);/);
     expect(alarmContextSource).not.toMatch(/soundhelix\.com/i);
     expect(alarmContextSource).not.toMatch(/unsplash\.com/i);
   });

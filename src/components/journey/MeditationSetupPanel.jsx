@@ -4,6 +4,7 @@ import { MEDITATION_STYLES } from '../../lib/meditationStyles';
 import { MEDITATION_DURATIONS, formatMeditationBeginLabel } from '../../lib/meditationDurations';
 import { MEDITATION_SOUNDS, getMeditationSoundById } from '../../lib/meditationSounds';
 import { MeditationOptionRow, MeditationDurationChip, MeditationStyleCard } from './MeditationControls';
+import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared setup
@@ -61,7 +62,15 @@ export const MeditationSetupPanel = ({
   skipLabel = 'Skip meditation',
   onExploreGuided,
   defaultExpanded = false,
-  onExpandedConsumed
+  onExpandedConsumed,
+  // WakeWise DEV — journey-aware primary action colour (additive, default
+  // 'primary': every existing caller - MorningMeditate.jsx, EveningMeditate.jsx,
+  // SelfGuidedMeditation.jsx - previously passed nothing and got the
+  // generic peach Begin button; each now passes its own real journey
+  // explicitly ('morning'/'evening'/'anytime') so this one shared setup
+  // screen's Begin button matches whichever journey actually launched it,
+  // never guessed from a route name inside this component itself.
+  accent = 'primary'
 }) => {
   // Morning/Evening journey meditation-selection fix — `defaultExpanded`
   // (additive, default false: every existing caller either omits it or
@@ -188,7 +197,7 @@ export const MeditationSetupPanel = ({
         <button
           type="button"
           onClick={onBegin}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          className={`w-full ${getJourneyPrimaryActionClasses(accent)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span>{resolvedBeginLabel}</span>
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

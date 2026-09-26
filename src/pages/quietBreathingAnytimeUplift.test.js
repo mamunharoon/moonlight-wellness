@@ -33,16 +33,25 @@ describe('QuietBreathing.jsx — non-standalone branch found and correctly isola
   });
 });
 
-describe('QuietBreathing.jsx — Start/Begin CTA stays peach (approved requirement)', () => {
-  it('the non-standalone Continue/Skip buttons remain bg-primary, with no accent branching at all', () => {
+// WakeWise DEV — journey-aware primary action colour: the later approved
+// journey-colour pass explicitly reversed this phase's own "the CTA
+// stays peach" decision for Continue specifically (this non-standalone
+// branch is the same shared Gentle Reset/Support "calming breath"
+// experience EveningSceneShell now renders with journey="anytime" - see
+// EveningSceneShell.jsx's own doc comment), while deliberately leaving
+// Skip exactly as it always was (still plain glass-panel/peach-neutral -
+// Skip is one of the explicitly-excluded "stay subdued" controls in the
+// approved brief, never recoloured).
+describe('QuietBreathing.jsx — Continue resolves to the mint journey-action helper; Skip stays neutral, untouched', () => {
+  it('the non-standalone Continue button resolves to the shared journey-action helper with journey=\'anytime\'', () => {
     const continueBlock = nonStandaloneBlock.match(/onClick=\{handleAdvance\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(continueBlock).toMatch(/bg-primary text-on-primary/);
-    expect(continueBlock).not.toMatch(/tertiary|accent/);
+    expect(continueBlock).toMatch(/getJourneyPrimaryActionClasses\('anytime'\)/);
+    expect(continueBlock).not.toMatch(/bg-primary text-on-primary/);
   });
 
-  it('every "Continue"/"Skip" button in the non-standalone branch is unconditionally peach (2 buttons, neither accented)', () => {
-    const buttonMatches = nonStandaloneBlock.match(/className="w-full (?:bg-primary|glass-panel)[^"]*"/g) ?? [];
-    expect(buttonMatches.length).toBeGreaterThanOrEqual(2);
+  it('the non-standalone Skip button is unchanged - still plain glass-panel, never accented', () => {
+    const buttonMatches = nonStandaloneBlock.match(/className="w-full glass-panel[^"]*"/g) ?? [];
+    expect(buttonMatches.length).toBeGreaterThanOrEqual(1);
     for (const cls of buttonMatches) {
       expect(cls).not.toMatch(/tertiary/);
     }
@@ -70,10 +79,16 @@ describe('QuietBreathing.jsx — standalone branch (/breathe-standalone) is comp
     expect(nonStandaloneBlock).toMatch(/text-tertiary text-3xl" aria-hidden="true">air</);
   });
 
-  it('standalone never renders MusicEntryChoice at all - it uses MusicPreferenceToggle/BreathingPatternRow instead, neither of which received an accent prop this phase', () => {
+  // WakeWise DEV — journey-aware primary action colour: MusicPreferenceToggle
+  // and BreathingPatternRow now both explicitly pass accent="anytime"
+  // (added by that later pass) instead of omitting the prop - this test's
+  // own original "neither received an accent prop this phase" was true
+  // only of the phase it was written for; standalone's mint identity now
+  // extends to these two controls as well, not just the intro icon.
+  it('standalone never renders MusicEntryChoice at all - it uses MusicPreferenceToggle/BreathingPatternRow instead, both explicitly passing accent="anytime"', () => {
     expect(standaloneBlock).not.toMatch(/<MusicEntryChoice/);
-    expect(standaloneBlock).toMatch(/<MusicPreferenceToggle\s*\n\s*isOn=\{musicPreferenceOn\}\s*\n\s*onToggle=\{handleToggleMusicPreference\}\s*\n\s*description="Play gentle music during your breathing practice\."\s*\n\s*\/>/);
-    expect(standaloneBlock).not.toMatch(/accent=/);
+    expect(standaloneBlock).toMatch(/<MusicPreferenceToggle\s*\n\s*isOn=\{musicPreferenceOn\}\s*\n\s*onToggle=\{handleToggleMusicPreference\}\s*\n\s*description="Play gentle music during your breathing practice\."\s*\n\s*accent="anytime"\s*\n\s*\/>/);
+    expect(standaloneBlock).toMatch(/<BreathingPatternRow[\s\S]*?accent="anytime"/);
   });
 });
 

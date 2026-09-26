@@ -89,9 +89,13 @@ describe('sign-out sweep clears the handled-occurrence marker (cross-identity hy
 });
 
 describe('the Background Clock Observer effect depends on userId (identity-correct occurrence keys after sign-in/sign-out)', () => {
+  // WakeWise DEV — alarm wake-up sound picker: alarmSoundId was added to
+  // this same dependency array (the ringing effect now also reads it, to
+  // play whichever sound the user selected) - userId's own presence,
+  // which this test protects, is unaffected.
   it('includes userId in checkTime()\'s useEffect dependency array', () => {
     expect(alarmContextSource).toMatch(
-      /\[alarmTime, isAlarmSet, isRinging, playTrack, sessionState\.status, effectiveTimezone, userId\]/
+      /\[alarmTime, isAlarmSet, isRinging, playTrack, sessionState\.status, effectiveTimezone, userId, alarmSoundId\]/
     );
   });
 });

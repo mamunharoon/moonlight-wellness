@@ -67,7 +67,10 @@ describe('EveningMeditate.jsx — context-specific defaults: Quiet Meditation, 5
 
 describe('EveningMeditate.jsx — compact setup: purpose, recommended choice, disclosure, Skip', () => {
   it('renders MeditationSetupPanel in compact mode with a purpose string and a conditional onSkip handler (Evening journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
-    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*purpose=/);
+    // WakeWise DEV — journey-aware primary action colour: accent="evening"
+    // now sits between compact and purpose=, so this regex allows an
+    // optional line in between rather than requiring them adjacent.
+    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n(\s*.*\n)?\s*purpose=/);
     expect(source).toMatch(/onSkip=\{isReviewMode \? undefined : handleSkip\}/);
     expect(source).toMatch(/skipLabel=\{hasStartedThisVisit \? 'Continue to Prepare for Rest' : 'Skip meditation'\}/);
   });

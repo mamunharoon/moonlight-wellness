@@ -40,8 +40,13 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
     expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">You started today with intention\./);
   });
 
-  it('"Continue to Today" stays the real peach primary CTA (bg-primary/text-on-primary) - the approved canonical tokens keep primary action buttons peach app-wide - with an added sparing glow', () => {
-    expect(source).toMatch(/bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
+  // WakeWise DEV — journey-aware primary action colour: the later
+  // approved journey-colour pass explicitly reversed this phase's own
+  // "primary action buttons stay peach app-wide" decision - "Continue to
+  // Today" now resolves to the shared journey-action helper with
+  // journey='morning' (bg-morning-accent text-on-morning-accent).
+  it('"Continue to Today" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the sparing glow kept', () => {
+    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
   });
 });
 

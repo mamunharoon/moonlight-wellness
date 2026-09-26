@@ -2,6 +2,7 @@
 import { AtmosphereManager } from '../stage3/AtmosphereManager';
 import { BackButton } from '../BackButton';
 import { ExitEveningButton } from './ExitEveningButton';
+import { JourneyGlow } from '../JourneyGlow';
 
 /*
  * Stage 4 Batch F2 — EveningSceneShell
@@ -107,9 +108,32 @@ import { ExitEveningButton } from './ExitEveningButton';
  * behind it, and BackButton's normal goBack would otherwise navigate(-1)
  * straight back into that completed step ("do not re-enter a completed
  * journey using browser Back").
+ *
+ * `journey` (WakeWise DEV — colour glow extension, additive: default
+ * `'evening'`, every existing caller omits it and renders byte-identical
+ * to before). This shell is reused by several screens that are NOT
+ * actually part of the Evening wind-down journey (QuietBreathing's shared
+ * Gentle Reset/Support "calming breath" experience, Support.jsx's own
+ * mood picker/recommendation, PanicMode/Grounding/StressRelease,
+ * SupportComplete) - they only ever reused it for its scroll/Back/Exit
+ * plumbing, never for Evening's own identity, and previously had no way
+ * to opt out of the moonlight/periwinkle atmosphere that came bundled
+ * with it. `journey="anytime"` swaps AtmosphereManager out for the exact
+ * same mint JourneyGlow every other Anytime screen already uses
+ * (AnytimeReset.jsx) - never both at once (a page renders exactly one
+ * atmosphere layer, whichever this resolves to), so there is never a
+ * "two competing atmospheres" case. Every real Evening route
+ * (EveningWindDown/Reflection/Gratitude/EveningBreathing/EveningMeditate/
+ * PrepareForRest/EveningComplete/the Review and Edit screens) keeps
+ * calling this with no `journey` prop at all, so nothing about their own
+ * rendering changes. No `'morning'` case exists yet - no current caller
+ * of this shell is a Morning screen (Morning's own screens don't use this
+ * shell at all); add one here if that ever changes, rather than
+ * elsewhere.
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, children }) => {
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
+  const isAnytime = journey === 'anytime';
   const content = panelled ? (
     <div className="glass-panel rounded-3xl p-6">{children}</div>
   ) : (
@@ -133,10 +157,20 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
           become a scroll owner of its own), and rendered with no children
           of its own at all - see Gradient.jsx's own doc comment for the
           matching `position` fix this still needs regardless. */}
-      <AtmosphereManager
-        {...atmosphere}
-        className={`fixed inset-0 z-[100] pointer-events-none ${className}`.trim()}
-      />
+      {isAnytime ? (
+        // WakeWise DEV — colour glow extension: an Anytime-flavoured
+        // caller must not inherit Evening's moonlight/periwinkle
+        // atmosphere just because it happens to reuse this shell - see
+        // the `journey` prop's own doc comment above. JourneyGlow is
+        // self-contained (own `fixed inset-0`) - no wrapping element or
+        // extra classes needed here.
+        <JourneyGlow journey="anytime" />
+      ) : (
+        <AtmosphereManager
+          {...atmosphere}
+          className={`fixed inset-0 z-[100] pointer-events-none ${className}`.trim()}
+        />
+      )}
 
       {/* The one explicit, consistent vertical scroll owner for every
           evening routine page - a genuine sibling of the atmosphere

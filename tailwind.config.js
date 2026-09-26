@@ -84,6 +84,15 @@ export default {
         "evening-tint": "rgb(var(--color-evening-tint) / <alpha-value>)",
         "on-evening-tint": "var(--color-on-evening-tint)",
 
+        // WakeWise DEV — colour glow extension: same opacity-modifier fix
+        // as tertiary-tint/morning-tint/evening-tint above, for
+        // JourneyGlow.jsx's own morning/evening washes specifically (see
+        // src/index.css's matching comment for why morning-tint/
+        // evening-tint above aren't reused - different colours, picked
+        // for a different purpose).
+        "morning-accent-tint": "rgb(var(--color-morning-accent-tint) / <alpha-value>)",
+        "evening-accent-tint": "rgb(var(--color-evening-accent-tint) / <alpha-value>)",
+
         // Morning Visual Uplift (Build 16) — the three real Affirmation.jsx
         // gradient stops, named (see src/index.css's matching comment).
         // Morning-only.
@@ -142,7 +151,10 @@ export default {
         // applied to at most a handful of specific moments (the Morning
         // intro icon, primary CTA buttons, the completion ring) - never a
         // default/ambient shadow on ordinary cards or rows.
-        "morning-glow": "0 0 40px -8px rgba(244, 197, 106, 0.35)",
+        // WakeWise DEV — Morning colour consistency: RGB updated to match
+        // --color-gratitude-accent's new #fdba74 (253, 186, 116) value,
+        // same 0.35 opacity.
+        "morning-glow": "0 0 40px -8px rgba(253, 186, 116, 0.35)",
         // Authentication polish (Build 16) — deliberately a SEPARATE,
         // peach-based glow (the existing primary token, #ffc5b7 at low
         // opacity - never a new colour), not a reuse of morning-glow's

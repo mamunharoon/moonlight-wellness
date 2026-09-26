@@ -4,6 +4,7 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * Stage 4 Batch F3/F4 (fixed in F7 validation) — EveningWindDown
@@ -113,7 +114,7 @@ export const EveningWindDown = () => {
         currentStep && (
           <button
             onClick={() => navigate(routeForStep(currentStep.id))}
-            className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+            className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
           >
             <span>Return to {getStepLabel(currentStep.id)}</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -122,7 +123,7 @@ export const EveningWindDown = () => {
       ) : (
         <button
           onClick={handleBegin}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
         >
           <span>Begin My Wind-Down</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

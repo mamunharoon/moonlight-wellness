@@ -21,6 +21,8 @@ import { BetaVideoRow } from '../components/BetaVideoRow';
 import { MovementCheckboxRow } from '../components/MovementCheckboxRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getStepLabel } from '../lib/stepLabels';
@@ -455,6 +457,14 @@ export const MorningFlow = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: Morning's Stretch step
+          (setup, prep countdown, and active phase all share this one
+          root - see this file's own single-return structure). Rendered
+          inside <Layout> (hideNavigation hides its header/nav, but not
+          Layout's own generic ambient glow underneath) - this sits above
+          that as an additional, more specific Morning-gold layer, not a
+          replacement for it. */}
+      <JourneyGlow journey="morning" />
       <div className="flex items-center gap-3">
         <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
@@ -516,7 +526,7 @@ export const MorningFlow = () => {
               type="button"
               onClick={handleBeginStretching}
               disabled={selectedMovements.size === 0}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50"
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50`}
             >
               <span>{beginLabel}</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -800,7 +810,7 @@ export const MorningFlow = () => {
               {!isInterrupted && (
                 <button
                   onClick={handleNextStep}
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                  className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
                 >
                   <span>{activeStep === orderedActiveSteps.length - 1 ? 'Continue' : 'Next Movement'}</span>
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>

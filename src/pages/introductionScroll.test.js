@@ -52,8 +52,8 @@ describe('Introduction.jsx — iPhone safe-area clearance, both edges', () => {
     expect(source).toMatch(/paddingTop: 'calc\(2rem \+ env\(safe-area-inset-top\)\)'/);
   });
 
-  it('adds bottom safe-area clearance for the home indicator (this route has no bottom nav of its own to already reserve it)', () => {
-    expect(source).toMatch(/paddingBottom: 'calc\(2rem \+ env\(safe-area-inset-bottom\)\)'/);
+  it('adds bottom safe-area clearance for the home indicator, plus clearance for this screen\'s own new fixed Home/Library/Profile nav (WakeWise DEV welcome screens)', () => {
+    expect(source).toMatch(/paddingBottom: 'calc\(2rem \+ 88px \+ env\(safe-area-inset-bottom\)\)'/);
   });
 });
 

@@ -75,9 +75,16 @@
  * switch a correct accessible name before this change and still does -
  * unchanged.
  */
+// WakeWise DEV — journey-aware primary action colour: 'anytime' added
+// alongside the existing 'morning'/'evening' cases, same solid-fill
+// shape (no opacity modifier needed on a bare token, so no -tint
+// counterpart required here). QuietBreathing.jsx's standalone branch and
+// SelfGuidedMeditation.jsx now pass accent="anytime" instead of omitting
+// this prop and getting the generic peach ON state.
 const ACCENT_TOKENS = {
   primary: { track: 'bg-primary', knobBorder: 'border-primary', focusRing: 'focus-visible:ring-primary' },
   morning: { track: 'bg-morning-accent', knobBorder: 'border-morning-accent', focusRing: 'focus-visible:ring-morning-accent' },
+  anytime: { track: 'bg-tertiary', knobBorder: 'border-tertiary', focusRing: 'focus-visible:ring-tertiary' },
   evening: { track: 'bg-evening-accent', knobBorder: 'border-evening-accent', focusRing: 'focus-visible:ring-evening-accent' }
 };
 

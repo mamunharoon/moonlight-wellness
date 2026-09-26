@@ -69,10 +69,21 @@ describe('RecommendationCard.jsx — Anytime Reset Visual Uplift: accent is addi
     expect(source).toMatch(/primary: '',\s*\n\s*anytime: 'shadow-mint-glow'/);
   });
 
-  it('the Start button className has no accent branching at all - it is always bg-primary, regardless of the card accent', () => {
+  // WakeWise DEV — journey-aware primary action colour: the later
+  // approved journey-colour pass explicitly reversed this phase's own
+  // "the Start button stays unconditionally peach" decision - it now
+  // resolves to the shared journey-action helper, which still correctly
+  // falls back to peach for Meditate.jsx's own default 'primary' accent
+  // (see the getJourneyPrimaryActionClasses import test below) and only
+  // turns mint when AnytimeReset.jsx passes accent="anytime".
+  it('the Start button className resolves to the shared journey-action helper, keyed by this card\'s own accent prop', () => {
     const buttonBlock = source.match(/onClick=\{onStart\}[\s\S]*?<\/button>/)?.[0] ?? '';
-    expect(buttonBlock).toMatch(/bg-primary text-on-primary/);
-    expect(buttonBlock).not.toMatch(/accent/);
+    expect(buttonBlock).toMatch(/getJourneyPrimaryActionClasses\(accent\)/);
+    expect(buttonBlock).not.toMatch(/bg-primary text-on-primary/);
+  });
+
+  it('imports the shared journey-action helper', () => {
+    expect(source).toMatch(/import \{ getJourneyPrimaryActionClasses \} from '\.\.\/\.\.\/lib\/journeyAction';/);
   });
 });
 

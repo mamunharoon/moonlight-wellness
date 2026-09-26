@@ -13,6 +13,8 @@ import { AnytimeResetProgress } from '../components/journey/AnytimeResetProgress
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { RecommendationCard } from '../components/journey/RecommendationCard';
+import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 // Build 15 Phase B — Material Symbols icon per need, for the restyled
 // SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
@@ -282,6 +284,12 @@ export const AnytimeReset = () => {
         paddingTop: 'calc(1rem + env(safe-area-inset-top))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: subtle sage/mint ambient
+          backdrop, matching Anytime's own established tertiary/mint
+          identity (the need-selection icons and progress bar already
+          use it). */}
+      <JourneyGlow journey="anytime" />
+
       <JourneyHeader
         showBackButton={step === 'need'}
         backFallback="/"
@@ -371,7 +379,7 @@ export const AnytimeReset = () => {
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
                 <span>Done</span>
               </button>

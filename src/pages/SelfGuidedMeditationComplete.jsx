@@ -4,6 +4,7 @@ import { BackButton } from '../components/BackButton';
 import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationNav';
 import { DEFAULT_MEDITATION_STYLE_ID, getMeditationStyleById } from '../lib/meditationStyles';
 import { DEFAULT_MEDITATION_DURATION_ID, getMeditationDurationById } from '../lib/meditationDurations';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * Self-Guided Meditation — completion screen.
@@ -85,7 +86,7 @@ export const SelfGuidedMeditationComplete = () => {
         <button
           type="button"
           onClick={handleDone}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
         >
           <span>Done</span>
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

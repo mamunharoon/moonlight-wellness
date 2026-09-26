@@ -72,8 +72,13 @@ describe('EveningComplete.jsx — all four real actions are unchanged: order, la
     expect(source).toMatch(/shouldWriteCompletionDate\(localStorage\.getItem\(eveningDoneKey\), attributionDateKey\)/);
   });
 
-  it('the three action buttons that stay peach (bg-primary or glass-panel) are unchanged - only the icon ring and eyebrow moved to evening-accent', () => {
-    expect(source).toMatch(/className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"/);
+  // WakeWise DEV — journey-aware primary action colour: the later
+  // approved journey-colour pass explicitly reversed this phase's own
+  // "the primary button stays peach" decision - it now resolves to the
+  // shared journey-action helper with journey='evening'. The two
+  // glass-panel secondary buttons are genuinely unchanged.
+  it('the primary action resolves to the evening journey-action helper; the two glass-panel secondary actions are unchanged', () => {
+    expect(source).toMatch(/className=\{`w-full \$\{getJourneyPrimaryActionClasses\('evening'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`\}/);
     expect(source).toMatch(/className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white\/10 active:scale-95 transition-all border-white\/10 focus-visible:ring-2 focus-visible:ring-primary"/);
     expect(source).toMatch(/className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white\/10 active:scale-95 transition-all border-white\/10 focus-visible:ring-2 focus-visible:ring-primary"/);
   });

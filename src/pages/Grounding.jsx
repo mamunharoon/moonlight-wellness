@@ -7,6 +7,7 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 // Each { id, blurb } pairs a manifest entry with this page's own short,
 // contextual line, matching the pattern already established for E09
@@ -107,7 +108,7 @@ export const Grounding = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/support">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback="/support">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
         <div
           key={active.id}
@@ -166,7 +167,7 @@ export const Grounding = () => {
           )}
           <button
             onClick={handleNext}
-            className="flex-1 bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            className={`flex-1 ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
           >
             <span>{isLast ? 'Continue' : 'Next'}</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>

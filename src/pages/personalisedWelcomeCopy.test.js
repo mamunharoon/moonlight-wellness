@@ -18,9 +18,9 @@ const introductionSource = read('./Introduction.jsx');
 const greetingSource = read('../lib/greeting.js');
 const introductionCompletionSource = read('../lib/introductionCompletion.js');
 
-describe('1. New guest sees "Welcome to WakeWise"', () => {
-  it('the non-returning-user branch resolves to the exact required heading', () => {
-    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser\s*\n\s*\? \(firstName \? `Welcome back, \$\{firstName\}` : 'Welcome back'\)\s*\n\s*: 'Welcome to WakeWise';/);
+describe('1. New guest sees the First Visit heading', () => {
+  it('the non-returning-user branch resolves to the exact required heading (WakeWise DEV welcome-screen redesign)', () => {
+    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser\s*\n\s*\? \(firstName \? `Welcome back, \$\{firstName\}` : 'Welcome back'\)\s*\n\s*: 'Start your morning with purpose\. End your day with calm\.';/);
   });
 });
 
@@ -61,9 +61,9 @@ describe('4 & 5. Existing version-1 user: "Welcome back, {firstName}" when a val
     expect(introductionSource).toMatch(/: 'Welcome back'\)/);
   });
 
-  it('the returning-user supporting copy is the exact required sentence', () => {
+  it('the returning-user supporting copy is the exact required sentence (WakeWise DEV welcome-screen redesign)', () => {
     expect(introductionSource).toMatch(
-      /'WakeWise has a calmer new way to support your morning, your day and your evening\. Where would you like to begin\?'/
+      /\? 'What would you like to do today\?'/
     );
   });
 });

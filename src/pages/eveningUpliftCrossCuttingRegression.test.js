@@ -54,10 +54,17 @@ describe('Anytime-only screens carry no evening-accent reference introduced by t
 });
 
 describe('Shared components this phase touched keep Morning/Anytime\'s own defaults intact', () => {
-  it('BreathingPatternRow.jsx\'s \'primary\' and \'morning\' accent tokens are byte-identical to before (only a doc comment may change)', () => {
+  // WakeWise DEV — journey-aware primary action colour: 'morning's
+  // selectedRow was later fixed to use the alpha-safe morning-accent-tint
+  // token instead of a `/10` modifier directly on the plain-hex
+  // morning-accent token (the same opacity-on-hex-var gap JourneyGlow.jsx's
+  // own doc comment documents - the original value pinned here was
+  // silently transparent). 'primary' is untouched, still byte-identical -
+  // that identical pre-existing gap is left as a separately-scoped issue.
+  it('BreathingPatternRow.jsx\'s \'primary\' accent token is byte-identical to before; \'morning\' now uses the alpha-safe tint fix', () => {
     const source = read('../components/BreathingPatternRow.jsx');
     expect(source).toMatch(/selectedRow: 'bg-primary\/10 border-primary',/);
-    expect(source).toMatch(/selectedRow: 'bg-morning-accent\/10 border-morning-accent',/);
+    expect(source).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent',/);
   });
 
   it('BreathingRing.jsx (Decision B) has no accent prop and no evening-accent reference - shared peach glow unchanged, no animation touched', () => {

@@ -78,9 +78,12 @@ describe('MusicPreferenceToggle — only Breathe.jsx and MorningFlow.jsx (Mornin
     expect(callSite).toMatch(/accent="evening"/);
   });
 
-  it('QuietBreathing.jsx (Anytime) never passes an accent prop to MusicPreferenceToggle either', () => {
+  // WakeWise DEV — journey-aware primary action colour: QuietBreathing.jsx's
+  // standalone branch now explicitly passes accent="anytime" instead of
+  // omitting the prop and silently getting the generic peach.
+  it('QuietBreathing.jsx (Anytime) passes accent="anytime" to MusicPreferenceToggle, never "morning"', () => {
     const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
-    expect(callSite).not.toMatch(/accent=/);
+    expect(callSite).toMatch(/accent="anytime"/);
   });
 });

@@ -78,12 +78,31 @@ describe('Home.jsx — Morning\'s four card states all render the gold/Playfair 
     expect(source).toMatch(/text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic/);
   });
 
-  it('every Morning primary CTA ("Resume Previous Routine", "Start Today\'s Routine", the not-started/in-progress buttonLabel) still uses bg-primary - the approved canonical tokens keep primary action buttons peach app-wide, gold is reserved for progress/icons/active highlights only', () => {
+  // WakeWise DEV — journey-aware primary action colour: Morning's own
+  // primary progress CTAs (Resume Previous Routine, the not-started/
+  // in-progress buttonLabel) now use the shared getJourneyPrimaryActionClasses
+  // helper resolved to 'morning' (bg-morning-accent text-on-morning-accent)
+  // instead of the generic peach bg-primary - the earlier "primary action
+  // buttons stay peach app-wide" decision this test used to pin is exactly
+  // what the later approved journey-colour pass reversed. Secondary
+  // actions in the same block ("Start Today's Routine", "Start Over") are
+  // untouched - still glass-panel, checked separately below.
+  it('every Morning primary CTA ("Resume Previous Routine", the not-started/in-progress buttonLabel) resolves to the shared journey-action helper with journey=\'morning\'', () => {
     const morningBlock = source.match(/\{activePeriod === 'morning' && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
-    const ctaButtons = morningBlock.match(/onClick=\{handle(ResumeStaleMorning|MorningAction)\}[\s\S]{0,300}?className="[^"]*"/g) ?? [];
+    const ctaButtons = morningBlock.match(/onClick=\{handle(ResumeStaleMorning|MorningAction)\}[\s\S]{0,300}?className=\{`[^`]*`\}/g) ?? [];
     expect(ctaButtons.length).toBeGreaterThanOrEqual(2);
     for (const button of ctaButtons) {
-      expect(button).toMatch(/bg-primary text-on-primary/);
+      expect(button).toMatch(/getJourneyPrimaryActionClasses\('morning'\)/);
+    }
+  });
+
+  it('Morning\'s own secondary actions ("Start Today\'s Routine", "Start Over") stay the original neutral glass-panel treatment, never recoloured', () => {
+    const morningBlock = source.match(/\{activePeriod === 'morning' && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
+    const secondaryButtons = morningBlock.match(/onClick=\{[^}]*(discard-stale|start-over)[^}]*\}[\s\S]{0,300}?className="[^"]*"/g) ?? [];
+    expect(secondaryButtons.length).toBeGreaterThanOrEqual(2);
+    for (const button of secondaryButtons) {
+      expect(button).toMatch(/glass-panel text-on-surface-variant/);
+      expect(button).not.toMatch(/getJourneyPrimaryActionClasses/);
     }
   });
 });

@@ -9,6 +9,7 @@ import { setPendingContent } from '../lib/pendingContent';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * Mobile navigation repair, Phase 3 — Support Hub ("Need a moment?")
@@ -226,7 +227,7 @@ export const Support = () => {
   const optionDuration = option?.kind === 'video' ? (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video') : option?.duration;
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime">
       {mapping ? (
         <div className="flex-1 flex flex-col justify-center space-y-8 py-8">
           <button
@@ -256,7 +257,7 @@ export const Support = () => {
               <button
                 type="button"
                 onClick={handleBegin}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
               >
                 <span>Begin Exercise</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>

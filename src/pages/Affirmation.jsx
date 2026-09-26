@@ -10,6 +10,8 @@ import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { JourneyGlow } from '../components/JourneyGlow';
 
 /*
  * Morning-flow redesign — Affirm step (Journey Embedding correction: now
@@ -104,6 +106,10 @@ export const Affirmation = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
+          backdrop behind this step's own morning-affirmation card. */}
+      <JourneyGlow journey="morning" />
+
       <div className="flex items-center gap-3">
         {/* Journey Embedding — Meditate is now the real preceding step
             (Breathe -> Meditate (optional) -> Affirm), so Back must return
@@ -159,7 +165,7 @@ export const Affirmation = () => {
           <>
             <button
               onClick={handleNext}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
               <span>Continue</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>

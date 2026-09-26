@@ -47,11 +47,25 @@
        peach/coral, already paired with a contrast-verified dark text
        color, already used for every primary CTA) rather than
        introducing a second, barely-different peach. Gratitude has no
-       existing token in this family, so gratitude-accent is new - a
-       warm sunrise gold, paired with a dark amber-brown text color
-       measured at ~9.5:1 contrast (comfortably above the 4.5:1 AA
-       floor for normal text, above the 7:1 AAA floor too). */
-    --color-gratitude-accent: #f4c56a;
+       existing token in this family, so gratitude-accent was created -
+       a warm sunrise gold. Gratitude's own selected state was later
+       migrated onto Reflection's peach instead (see
+       AnswerOptionButton.jsx's own doc comment) - this variable's real,
+       sole consumer today is Morning's own identity colour everywhere
+       ("morning-accent" in tailwind.config.js: Home's Today's Rhythm
+       badge/pill, the Welcome/Introduction morning card, SessionComplete's
+       ring, MorningFlow, Breathe, IntentionSetup, RoutineDetail's dormant
+       Rise & Reset accent, etc.) - the name is legacy and intentionally
+       left alone (renaming it would touch far more files than the value
+       change below needs to).
+       WakeWise DEV — Morning colour consistency: updated from #f4c56a to
+       the approved welcome design's dawn gold #FDBA74 so every one of
+       those Morning surfaces matches the Stitch reference exactly (the
+       live app previously showed a slightly different, more yellow gold).
+       --color-on-gratitude-accent is unchanged (#3a2408 still measures
+       ~8.7:1 contrast against #fdba74, comfortably above the 4.5:1 AA
+       floor) - see AnswerOptionButton.test.js's own recomputed check. */
+    --color-gratitude-accent: #fdba74;
     --color-on-gratitude-accent: #3a2408;
 
     /* Prepare for Rest subphase — the four independent preparation
@@ -135,6 +149,20 @@
     --color-on-morning-tint: #5a3820;
     --color-evening-tint: 18 27 46;
     --color-on-evening-tint: #dae2fd;
+
+    /* WakeWise DEV — colour glow extension. Same fix, same rationale as
+       tertiary-tint above (--color-tertiary itself cannot carry a
+       Tailwind opacity modifier - it's a plain hex string, not the
+       `rgb(var(...) / <alpha-value>)` form Tailwind's /<n> syntax needs).
+       JourneyGlow.jsx needs a low-opacity wash of the Morning and Evening
+       accent colours specifically (morning-tint/evening-tint above are
+       different, unrelated colours picked for a different purpose - a
+       card-background cream and a gradient anchor navy, not these
+       journeys' own badge/icon accent hues) - these two are the exact
+       RGB triplets of --color-gratitude-accent (#fdba74) and
+       --color-evening-accent (#9fb4f0) above, nothing invented. */
+    --color-morning-accent-tint: 253 186 116;
+    --color-evening-accent-tint: 159 180 240;
 
     /* Morning Visual Uplift (Build 16) — formalises Affirmation.jsx's own
        existing inline gradient (`bg-gradient-to-tr from-[#fffdfa]

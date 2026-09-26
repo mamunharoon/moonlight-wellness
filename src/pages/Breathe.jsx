@@ -5,6 +5,8 @@ import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
+import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getStepLabel } from '../lib/stepLabels';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
@@ -354,6 +356,10 @@ export const Breathe = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: Morning's Breathe step
+          (setup, prep countdown, and active phase all share this one
+          root - see this file's own single-return structure). */}
+      <JourneyGlow journey="morning" />
       <div className="flex items-center gap-3">
         <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
       </div>
@@ -425,7 +431,7 @@ export const Breathe = () => {
             <button
               type="button"
               onClick={handleBeginBreathing}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
               <span>Begin Breathing</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -639,7 +645,7 @@ export const Breathe = () => {
               {hasFinished && !isInterrupted && (
                 <button
                   onClick={handleComplete}
-                  className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                  className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
                 >
                   <span>Continue</span>
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>

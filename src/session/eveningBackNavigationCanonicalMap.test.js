@@ -39,7 +39,7 @@ const prepareForRestSource = read('../pages/PrepareForRest.jsx');
 
 describe('EveningSceneShell — alwaysFallback pass-through, additive only', () => {
   it('accepts alwaysFallback (default false) and forwards it straight to the inner BackButton', () => {
-    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, children/);
+    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children/);
     expect(eveningSceneShellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{guardActiveRoute\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
   });
 

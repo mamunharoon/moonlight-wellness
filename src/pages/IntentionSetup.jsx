@@ -18,6 +18,8 @@ import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { JourneyGlow } from '../components/JourneyGlow';
 
 /*
  * Morning-flow redesign — Intention step, now Step 1 of 5 (Journey
@@ -285,6 +287,11 @@ export const IntentionSetup = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
+          backdrop, matching this step's own established morning-accent
+          identity (the intro icon/badge/presets below already use it). */}
+      <JourneyGlow journey="morning" />
+
       <div className="flex items-center gap-3">
         <BackButton fallback="/" />
       </div>
@@ -317,7 +324,7 @@ export const IntentionSetup = () => {
           <div className="space-y-3 w-full">
             <button
               onClick={dismissIntro}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow"
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
             >
               <span>Begin My Morning</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -440,7 +447,7 @@ export const IntentionSetup = () => {
             <button
               onClick={() => handleComplete(true)}
               disabled={isSaving || intentions.length === 0}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40`}
             >
               <span>{isSaving ? 'Saving...' : 'Continue'}</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>

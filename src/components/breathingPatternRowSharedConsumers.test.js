@@ -30,16 +30,31 @@ describe('BreathingPatternRow — default behaviour is genuinely unchanged', () 
     );
   });
 
-  it('the pre-existing \'evening\' token set is also byte-identical to before this phase - the new \'morning\' entry was purely additive', () => {
+  // WakeWise DEV — journey-aware primary action colour: `selectedRow` for
+  // both 'evening' and 'morning' was later fixed to use the alpha-safe
+  // `-tint` RGB-triplet tokens instead of a `/10` opacity modifier
+  // directly on the plain-hex accent token - the original values this
+  // test pinned had the exact same "resolves to fully transparent" bug
+  // JourneyGlow.jsx's own doc comment documents, so this is a genuine
+  // fix, not a regression. `primary`'s own identical `bg-primary/10` is
+  // left untouched (a separately-scoped, pre-existing issue) - see the
+  // 'primary' test above, still byte-identical.
+  it('the \'evening\' token set uses the alpha-safe evening-accent-tint for its selectedRow background, fixing the same opacity-on-hex-var gap the primary token still has', () => {
     expect(componentSource).toMatch(
-      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'\s*\n\s*\}/
+      /evening: \{\s*\n\s*selectedRow: 'bg-evening-accent-tint\/10 border-evening-accent',\s*\n\s*unselectedRow: 'bg-surface-container border-evening-accent\/55 hover:bg-white\/10',\s*\n\s*selectedLabel: 'text-evening-accent font-bold',\s*\n\s*selectedRing: 'border-evening-accent bg-evening-accent',\s*\n\s*unselectedRing: 'border-evening-accent bg-surface-container-lowest',\s*\n\s*dot: 'bg-on-evening-accent',\s*\n\s*focusRing: 'has-\[:focus-visible\]:ring-evening-accent'\s*\n\s*\}/
     );
   });
 
-  it('a genuinely new \'morning\' entry exists, reusing the already-verified morning-accent/on-morning-accent tokens - never a new colour', () => {
+  it('the \'morning\' entry reuses the already-verified morning-accent/on-morning-accent tokens (via the alpha-safe morning-accent-tint for selectedRow) - never a new colour', () => {
     expect(componentSource).toMatch(/morning: \{/);
-    expect(componentSource).toMatch(/selectedRow: 'bg-morning-accent\/10 border-morning-accent'/);
+    expect(componentSource).toMatch(/selectedRow: 'bg-morning-accent-tint\/10 border-morning-accent'/);
     expect(componentSource).toMatch(/dot: 'bg-on-morning-accent'/);
+  });
+
+  it('a genuinely new \'anytime\' entry exists, reusing the already-verified tertiary/on-tertiary mint tokens (via the alpha-safe tertiary-tint for selectedRow) - never a new colour', () => {
+    expect(componentSource).toMatch(/anytime: \{/);
+    expect(componentSource).toMatch(/selectedRow: 'bg-tertiary-tint\/10 border-tertiary'/);
+    expect(componentSource).toMatch(/dot: 'bg-on-tertiary'/);
   });
 });
 
@@ -69,9 +84,14 @@ describe('BreathingPatternRow — only Breathe.jsx (Morning) passes accent="morn
     expect(callSite).toMatch(/accent="evening"/);
   });
 
-  it('QuietBreathing.jsx (Anytime) never passes an accent prop to BreathingPatternRow either - it keeps the default \'primary\' peach', () => {
+  // WakeWise DEV — journey-aware primary action colour: QuietBreathing.jsx's
+  // standalone branch now explicitly passes accent="anytime" (added by
+  // that later pass) instead of omitting the prop and silently getting
+  // the generic peach - this test's own original "keeps the default
+  // 'primary' peach" was true only of the phase it was written for.
+  it('QuietBreathing.jsx (Anytime) passes accent="anytime" to BreathingPatternRow, never "morning"', () => {
     const callSite = quietBreathingSource.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);
-    expect(callSite).not.toMatch(/accent=/);
+    expect(callSite).toMatch(/accent="anytime"/);
   });
 });

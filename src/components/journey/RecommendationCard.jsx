@@ -28,10 +28,14 @@
  * and keeps the exact original glass-panel border, byte-for-byte
  * unchanged - see the borderColor style below for why). 'anytime' is only
  * ever passed by AnytimeReset.jsx's own Step 3 recommendation card,
- * adding a restrained mint border/glow. The Start button stays
- * unconditionally peach (bg-primary) regardless of accent, per the
- * approved brief ("peach Start CTA") - it is never part of the accent map
- * below.
+ * adding a restrained mint border/glow.
+ *
+ * WakeWise DEV — journey-aware primary action colour: the later approved
+ * journey-colour pass explicitly reversed this phase's own "the Start
+ * button stays unconditionally peach" decision - Start now resolves to
+ * the shared journey-action helper (getJourneyPrimaryActionClasses),
+ * which correctly falls back to the original peach for Meditate.jsx's
+ * own 'primary' caller and only turns mint for accent='anytime'.
  *
  * The mint border is applied via inline style, not a Tailwind border-*
  * class: .glass-panel's own `border: 1px solid rgba(255,255,255,0.12)`
@@ -54,6 +58,8 @@
  * caller swap the button's own text (e.g. "Sign in to start"), so the
  * button itself needs no locked-specific branching here.
  */
+import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
+
 const CARD_ACCENT_STYLE = {
   primary: undefined,
   anytime: { borderColor: 'rgba(127, 228, 208, 0.35)' }
@@ -105,7 +111,7 @@ export const RecommendationCard = ({
       type="button"
       onClick={onStart}
       disabled={startDisabled}
-      className="w-full min-h-[44px] bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none"
+      className={`w-full min-h-[44px] ${getJourneyPrimaryActionClasses(accent)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60 disabled:pointer-events-none`}
     >
       <span>{startBusy ? 'Checking…' : startLabel}</span>
       <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>

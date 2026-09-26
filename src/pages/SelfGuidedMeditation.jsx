@@ -12,6 +12,8 @@ import { useMeditationSession } from '../hooks/useMeditationSession';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { BackButton } from '../components/BackButton';
+import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * WakeWise — Self-Guided Meditation (IM01/IM02 Sound Choices)
@@ -158,6 +160,9 @@ export const SelfGuidedMeditation = () => {
   if (countdown.isActive) {
     return (
       <div className="h-dvh overflow-hidden">
+        {/* WakeWise DEV — colour glow extension: standalone Self-Guided
+            Meditation is an Anytime experience. */}
+        <JourneyGlow journey="anytime" />
         <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
           <div
             className="min-h-full max-w-md w-full mx-auto space-y-6 pb-6"
@@ -181,6 +186,7 @@ export const SelfGuidedMeditation = () => {
               secondsRemaining={countdown.secondsRemaining}
               cue="Find a comfortable position and let your shoulders soften."
               onSkip={countdown.skip}
+              accent="anytime"
             />
           </div>
         </div>
@@ -191,7 +197,15 @@ export const SelfGuidedMeditation = () => {
   if (session.phase === 'active' && session.snapshot) {
     return (
       <>
+        {/* WakeWise DEV — colour glow extension: standalone Self-Guided
+            Meditation is an Anytime experience. MeditationActiveSession
+            itself is a shared presentation component (also used by
+            Morning/Evening embedded meditation) with no page-level
+            background of its own by design - each caller owns its own
+            atmosphere, exactly like this. */}
+        <JourneyGlow journey="anytime" />
         <MeditationActiveSession
+          accent="anytime"
           style={session.style}
           snapshot={session.snapshot}
           soundId={session.soundId}
@@ -252,6 +266,9 @@ export const SelfGuidedMeditation = () => {
   if (earlyEnded) {
     return (
       <div className="h-dvh overflow-hidden">
+        {/* WakeWise DEV — colour glow extension: standalone Self-Guided
+            Meditation is an Anytime experience. */}
+        <JourneyGlow journey="anytime" />
         <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
           <div
             className="min-h-full max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-10 animate-in fade-in duration-500"
@@ -272,7 +289,7 @@ export const SelfGuidedMeditation = () => {
               <button
                 type="button"
                 onClick={() => navigate(context.fallback)}
-                className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
               >
                 <span>Done</span>
                 <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
@@ -303,6 +320,9 @@ export const SelfGuidedMeditation = () => {
     // Introduction.jsx/Layout.jsx: this screen now owns its own single
     // scroll container instead of depending on document scroll.
     <div className="h-dvh overflow-hidden">
+      {/* WakeWise DEV — colour glow extension: standalone Self-Guided
+          Meditation is an Anytime experience. */}
+      <JourneyGlow journey="anytime" />
       <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
         <div
           className="min-h-full max-w-md w-full mx-auto space-y-6 animate-in fade-in duration-500 pb-6"
@@ -316,6 +336,7 @@ export const SelfGuidedMeditation = () => {
 
           <MeditationSetupPanel
             compact={false}
+            accent="anytime"
             recommendedDurationId={getRecommendedDurationId()}
             style={session.style}
             duration={session.duration}

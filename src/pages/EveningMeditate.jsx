@@ -177,6 +177,7 @@ export const EveningMeditate = () => {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showExit>
         <MeditationActiveSession
+          accent="evening"
           style={session.style}
           snapshot={session.snapshot}
           soundId={session.soundId}
@@ -226,6 +227,7 @@ export const EveningMeditate = () => {
 
       <MeditationSetupPanel
         compact
+        accent="evening"
         purpose="A quiet pause to settle your mind before you rest."
         recommendedDurationId={getRecommendedDurationId()}
         // Defect fix — beginLabel omitted entirely: it previously

@@ -15,17 +15,20 @@ const routinesCatalogSource = read('../lib/routinesCatalog.js');
 const appSource = read('../App.jsx');
 const profileSource = read('./Profile.jsx');
 
-describe('Introduction.jsx — personalised opening copy (Build 16)', () => {
-  it('new-guest / new-signed-in-user variant has the exact required heading and supporting copy', () => {
-    expect(introductionSource).toMatch(/: 'Welcome to WakeWise';/);
-    expect(introductionSource).toMatch(/: 'What would help you most today\?';/);
+describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-screen redesign)', () => {
+  it('new-guest / new-signed-in-user variant has the exact required First Visit heading and supporting copy', () => {
+    expect(introductionSource).toMatch(/: 'Start your morning with purpose\. End your day with calm\.';/);
+    // WakeWise DEV — First Visit purpose update: describes the real
+    // wake-up alarm and the real ~5-10 minute Morning routine (starting
+    // with Intention) instead of the earlier generic three-journey copy.
+    expect(introductionSource).toMatch(
+      /: 'Set a gentle wake-up alarm, then follow a guided morning routine - about 5-10 minutes, starting with setting an intention and moving through stretching, breathing and other steps\.';/
+    );
   });
 
-  it('existing signed-in version-1 user variant has the exact required heading and supporting copy', () => {
+  it('existing signed-in version-1 user variant has the exact required Welcome Back heading and supporting copy', () => {
     expect(introductionSource).toMatch(/\? `Welcome back, \$\{firstName\}`/);
-    expect(introductionSource).toMatch(
-      /'WakeWise has a calmer new way to support your morning, your day and your evening\. Where would you like to begin\?'/
-    );
+    expect(introductionSource).toMatch(/\? 'What would you like to do today\?'/);
   });
 
   it('an existing user without a valid first name gets the plain "Welcome back" fallback, never a dangling comma/placeholder', () => {
@@ -85,16 +88,17 @@ describe('Introduction.jsx — three tappable destination cards', () => {
     expect(introductionSource).toMatch(/title: 'Wind down for sleep'/);
   });
 
-  it('each card routes directly to a real canonical entry point, traced from Home.jsx\'s own Morning/Evening handlers and RoutineDetail.jsx\'s Gentle Reset handling - not through the (now unrouted) Routines Hub, not an invented destination', () => {
+  it('each card routes directly to a real canonical entry point, traced from Home.jsx\'s own Morning/Evening/Breathe handlers - not through the (now unrouted) Routines Hub, not an invented destination', () => {
     // CARD_DESTINATIONS resolves 'morning' to the real beginRiseAndReset
     // (Session-Engine-initializing, same as Home.jsx's own
-    // handleBeginRiseAndReset), 'calm' to a plain navigate to Gentle
-    // Reset's real non-standalone route, and 'sleep' to a plain navigate
-    // to Evening Wind-Down's real intro route (same as Home.jsx's own
-    // handleBeginEveningWindDown - EveningWindDown.jsx's own Begin button
-    // starts the session, not this navigate).
+    // handleBeginRiseAndReset), 'calm' to a plain navigate to the same
+    // standalone breathing route Home's own "Breathe" quick-action tile
+    // uses, and 'sleep' to a plain navigate to Evening Wind-Down's real
+    // intro route (same as Home.jsx's own handleBeginEveningWindDown -
+    // EveningWindDown.jsx's own Begin button starts the session, not this
+    // navigate).
     expect(introductionSource).toMatch(
-      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,\s*\n\s*calm: \(\) => navigate\('\/quiet-breathing'\),\s*\n\s*sleep: \(\) => navigate\('\/evening-wind-down'\)\s*\n\s*\};/
+      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,[\s\S]*?\s*calm: \(\) => navigate\('\/breathe-standalone'\),\s*\n\s*sleep: \(\) => navigate\('\/evening-wind-down'\)\s*\n\s*\};/
     );
     // beginRiseAndReset itself mirrors Home.jsx's own
     // handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
@@ -103,37 +107,37 @@ describe('Introduction.jsx — three tappable destination cards', () => {
     expect(beginBody).toMatch(/if \(state\.status === 'playing' \|\| state\.status === 'interrupted'\) \{\s*\n\s*resetSession\(\);\s*\n\s*\}/);
     expect(beginBody).toMatch(/startSession\('morning-routine', \{ startIndex: getStepIndex\('morning-routine', MORNING_STEP_IDS\.INTENTION\) \}\);/);
     expect(beginBody).toMatch(/navigate\('\/intention-setup'\);/);
-    // Still the same real routines this app actually has - Gentle Reset's
+    // Still the same real routines this app actually has - Rise & Reset's
     // and Wind-Down's own catalogue entries are unaffected/unmodified.
     expect(routinesCatalogSource).toMatch(/id: 'rise-reset'/);
-    expect(routinesCatalogSource).toMatch(/id: 'gentle-reset'/);
     expect(routinesCatalogSource).toMatch(/id: 'wind-down'/);
   });
 
-  it('"Take a calming pause" opens Gentle Reset (real guided breathing) directly, never "Instant Calm" (a narrated exercise video, not a breathing practice)', () => {
-    expect(introductionSource).toMatch(/calm: \(\) => navigate\('\/quiet-breathing'\)/);
-    // Comments legitimately name "Instant Calm" in prose explaining what
-    // this card deliberately does NOT open - only the real code matters here.
+  it('WakeWise DEV — "Repair Take a calming pause": opens the established, coherent standalone breathing screen directly, never the ambiguous non-standalone /quiet-breathing flow or "Instant Calm" (a narrated exercise video, not a breathing practice)', () => {
+    expect(introductionSource).toMatch(/calm: \(\) => navigate\('\/breathe-standalone'\)/);
+    // Comments legitimately name "Instant Calm"/"/quiet-breathing" in
+    // prose explaining what this card deliberately does NOT open any
+    // more - only the real code matters here.
     const codeOnly = introductionSource.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(codeOnly).not.toMatch(/Instant Calm/);
-    // Gentle Reset's own catalogue description confirms it is genuinely
-    // guided breathing, not music-only - the destination this card's
-    // copy is accountable to.
-    const gentleResetDetail = routinesCatalogSource.match(/id: 'gentle-reset',[\s\S]*?description: '([^']*)'/);
-    expect(gentleResetDetail?.[1]).toMatch(/breathing/i);
-    // requiresAuth: false, matching Gentle Reset's own real
-    // routinesCatalog.js/RoutineDetail.jsx gate - a guest reaches it
-    // directly, never a sign-in prompt.
+    expect(codeOnly).not.toMatch(/navigate\('\/quiet-breathing'\)/);
+    // requiresAuth: false, matching /breathe-standalone's own real gate
+    // (QuietBreathing.jsx's standalone branch never requires sign-in) -
+    // a guest reaches it directly, never a sign-in prompt.
     const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
     expect(calmCard).toMatch(/requiresAuth: false/);
   });
 
-  it('card durations match routinesCatalog.js\'s own real, already-established values - never an invented estimate', () => {
+  it('the calming-pause card names no fabricated duration - the real destination\'s patterns are shown on its own pattern picker (56-76s each), never claimed as a flat number on this card', () => {
+    const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
+    expect(calmCard).toMatch(/subtitle: 'A quick guided breathing break\.'/);
+    expect(calmCard).not.toMatch(/1 min/);
+  });
+
+  it('Morning/Sleep card durations still match routinesCatalog.js\'s own real, already-established values - never an invented estimate', () => {
     const riseReset = routinesCatalogSource.match(/id: 'rise-reset',[\s\S]*?duration: '([^']*)'/)?.[1];
-    const gentleReset = routinesCatalogSource.match(/id: 'gentle-reset',[\s\S]*?duration: '([^']*)'/)?.[1];
     const windDown = routinesCatalogSource.match(/id: 'wind-down',[\s\S]*?duration: '([^']*)'/)?.[1];
     expect(introductionSource).toMatch(new RegExp(`subtitle: '.*${riseReset}.*'`));
-    expect(introductionSource).toMatch(new RegExp(`subtitle: '.*${gentleReset}.*'`));
     expect(introductionSource).toMatch(new RegExp(`subtitle: '.*${windDown}.*'`));
   });
 
@@ -261,14 +265,14 @@ describe('Introduction.jsx — optional "Watch introduction" pill, gated on real
     expect(introductionMediaSource).toMatch(/id: 'why-wakewise',[\s\S]*?available: true/);
   });
 
-  it('its "1 min" duration is the video\'s real, verified duration - present in betaVideoManifest.js, not fabricated here (connection-copy fix: pill text is now "See how WakeWise can help · 1 min", replacing the old product-focused "Watch introduction (1 min) · Why WakeWise works")', () => {
-    expect(introductionSource).toMatch(/See how WakeWise can help · 1 min/);
-    expect(introductionSource).not.toMatch(/Watch introduction \(1 min\) · Why WakeWise works/);
+  it('its "1 min" duration is the video\'s real, verified duration - present in betaVideoManifest.js, not fabricated here (WakeWise DEV welcome-screen redesign: pill text is now "Why WakeWise · 1 min", per the approved Stitch design/spec)', () => {
+    expect(introductionSource).toMatch(/Why WakeWise · 1 min/);
+    expect(introductionSource).not.toMatch(/See how WakeWise can help · 1 min/);
     expect(manifestSource).toMatch(/id: 'I01',[\s\S]*?durationLabel: '1 min'/);
   });
 
   it('carries an explicit accessible label matching the required copy exactly - the pill\'s own play_circle icon is aria-hidden, so this label is the button\'s real accessible name', () => {
-    expect(introductionSource).toMatch(/aria-label="Play one-minute introduction: See how WakeWise can help\."/);
+    expect(introductionSource).toMatch(/aria-label="Play one-minute introduction: Why WakeWise\."/);
   });
 
   it('never autoplays - opens via the same shared BetaVideoModal every other private video uses, which always requires its own explicit Play tap', () => {

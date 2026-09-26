@@ -16,9 +16,15 @@ import { now as devNow } from '../lib/devClock';
 import { sanitizeIntentions } from '../lib/intentionSelection';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
 import { buildAlarmOccurrenceKey, getHandledAlarmOccurrence, markAlarmOccurrenceHandled, clearHandledAlarmOccurrence } from '../lib/alarmOccurrence';
-import { ALARM_CHIME_URL, ALARM_CHIME_TITLE } from '../lib/alarmSound';
+import { resolvePlayableAlarmSound, getStoredAlarmSoundId, setStoredAlarmSoundId, DEFAULT_ALARM_SOUND_ID } from '../lib/alarmSounds';
 
 const AlarmContext = createContext();
+
+// WakeWise DEV — alarm wake-up sound picker. A unique object identity
+// (never `===` to any real userId string or to `null`) used as the
+// initial "not yet synced" sentinel for alarmSoundId's own render-time
+// resync below - see that state's own doc comment.
+const NOT_YET_SYNCED = Symbol('not-yet-synced');
 
 const INTENTIONS_KEY = 'moonlight_intentions';
 const LEGACY_INTENTION_KEY = 'moonlight_today_intention';
@@ -110,6 +116,20 @@ export const AlarmProvider = ({ children }) => {
   const [bedTime, setBedTime] = useState(() => {
     return localStorage.getItem('moonlight_bedtime') || '22:00';
   }); // HH:MM
+  // WakeWise DEV — alarm wake-up sound picker. Local-only (see
+  // alarmSounds.js's own doc comment for why this deliberately has no
+  // Supabase column), read once auth has settled (below) so a registered
+  // user never briefly sees a different identity's - or a guest's -
+  // stored choice on this device before their own scoped value loads.
+  const [alarmSoundId, setAlarmSoundIdState] = useState(DEFAULT_ALARM_SOUND_ID);
+  // A plain state value (not a ref - React's own hooks rules disallow
+  // reading/writing a ref during render, only inside effects/handlers),
+  // matching React's own documented "adjust state during render" pattern
+  // exactly (comparing against a previous-value state, not a ref). The
+  // unique sentinel object (distinct from any real userId string or
+  // null-for-guest) guarantees the very first real authLoading===false
+  // render always re-syncs at least once.
+  const [syncedIdentity, setSyncedIdentity] = useState(NOT_YET_SYNCED);
   // Global timezone correctness: the user's confirmed IANA timezone
   // (mirrors alarmTime/bedTime's own guest-localStorage/registered-
   // Supabase split below). null means "not yet confirmed" - every
@@ -222,6 +242,38 @@ export const AlarmProvider = ({ children }) => {
     if (timezone) localStorage.setItem('moonlight_timezone', timezone);
     else localStorage.removeItem('moonlight_timezone');
   }, [timezone, authLoading, isGuest, userId]);
+
+  // WakeWise DEV — alarm wake-up sound picker. Unlike alarmTime/bedTime/
+  // timezone above, this is local-only for BOTH guests and registered
+  // users (see alarmSounds.js's own doc comment) - so this reads the
+  // current identity's own scoped value once auth has settled, for
+  // either case, rather than splitting on isGuest like the rhythm
+  // effects above do (those split because only guests persist to
+  // localStorage at all; the signed-in half goes to Supabase instead -
+  // this preference has no Supabase half to fall through to).
+  //
+  // React's own documented "adjust state during render" pattern (not a
+  // useEffect) - deliberately, to avoid the react-hooks/set-state-in-effect
+  // violation a plain `useEffect(() => setAlarmSoundIdState(...), [userId])`
+  // would trip (already established elsewhere in this codebase - see
+  // BetaVideoModal.jsx's own doc comment on the same rule). `syncedIdentityRef`
+  // tracks which identity (or `undefined` for "not yet resolved") the
+  // current `alarmSoundId` state actually reflects; a render whose real
+  // identity has moved on from that recorded value adjusts state right
+  // here, synchronously, before paint - React explicitly supports calling
+  // setState during render for exactly this "resync to a changed input"
+  // case, and coalesces it into the same render pass rather than
+  // triggering the effect-timing cascade the lint rule warns about.
+  if (!authLoading && syncedIdentity !== userId) {
+    setSyncedIdentity(userId);
+    const stored = getStoredAlarmSoundId(userId);
+    if (stored !== alarmSoundId) setAlarmSoundIdState(stored);
+  }
+
+  const setAlarmSoundId = (id) => {
+    setAlarmSoundIdState(id);
+    setStoredAlarmSoundId(userId, id);
+  };
 
   // Synchronous cache mirror for plain-JS modules outside React (see
   // src/lib/timezone.js's file header) - kept in sync for BOTH guests and
@@ -473,7 +525,13 @@ export const AlarmProvider = ({ children }) => {
         // keep ringing until the user explicitly resolves it via Begin/
         // Remind/Skip, not stop after one ~8s clip; every resolution path
         // (dismissAlarm/snooze, below) calls stopTrack() to end the loop.
-        playTrack({ title: ALARM_CHIME_TITLE, url: ALARM_CHIME_URL }, { loop: true });
+        // WakeWise DEV — alarm wake-up sound picker: plays whichever real
+        // sound the user selected (NotificationSettings.jsx's own
+        // AlarmSoundSection); resolvePlayableAlarmSound always falls back
+        // to the real default chime for an unavailable/unknown id, so
+        // this can never silently play nothing or a broken URL.
+        const ringingSound = resolvePlayableAlarmSound(alarmSoundId);
+        playTrack({ title: ringingSound.title, url: ringingSound.url }, { loop: true });
 
         // Close Remaining Daily-Journey Limitations: the alarm/reminder
         // firing must only ever display AlarmActive - it must never create
@@ -493,7 +551,7 @@ export const AlarmProvider = ({ children }) => {
     // list, a sign-in/sign-out that doesn't also change one of the other
     // deps in the same render could leave this closure using a stale
     // identity for the occurrence check.
-  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, effectiveTimezone, userId]);
+  }, [alarmTime, isAlarmSet, isRinging, playTrack, sessionState.status, effectiveTimezone, userId, alarmSoundId]);
 
   // Snooze bumps today's alarm by 5 minutes - a temporary, one-off delay,
   // not a change to the user's configured wake-time preference. It must
@@ -644,6 +702,8 @@ export const AlarmProvider = ({ children }) => {
       setAlarmTime,
       bedTime,
       setBedTime,
+      alarmSoundId,
+      setAlarmSoundId,
       isAlarmSet,
       setIsAlarmSet,
       isRinging,

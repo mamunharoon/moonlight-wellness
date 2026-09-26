@@ -54,8 +54,15 @@ describe('Home.jsx — Anytime detail card uses mint accents with an unchanged p
     expect(anytimeBlock).toMatch(/bg-tertiary-tint\/15 border border-tertiary-tint\/30 text-tertiary/);
   });
 
-  it('the "Start Anytime Reset" CTA stays exactly the original peach bg-primary button, untouched by the mint uplift', () => {
-    expect(anytimeBlock).toMatch(/bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary\/10/);
+  // WakeWise DEV — journey-aware primary action colour: the later
+  // approved journey-colour pass explicitly reversed this phase's own
+  // original "the peach CTA stays untouched" decision - "Start Anytime
+  // Reset" now resolves to the shared journey-action helper with
+  // journey='anytime' (bg-tertiary text-on-tertiary), matching the same
+  // mint identity as the rest of this card.
+  it('the "Start Anytime Reset" CTA resolves to the shared journey-action helper with journey=\'anytime\' (mint, not peach)', () => {
+    expect(anytimeBlock).toMatch(/getJourneyPrimaryActionClasses\('anytime'\)/);
+    expect(anytimeBlock).not.toMatch(/bg-primary text-on-primary/);
   });
 
   it('copy, navigation, and the honest "Available anytime" framing are unchanged - no completion state introduced', () => {

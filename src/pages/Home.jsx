@@ -46,6 +46,7 @@ import { setPendingContent } from '../lib/pendingContent';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
 import { clearEveningBreathingPattern } from '../lib/eveningBreathingSelection';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -946,7 +947,7 @@ export const Home = () => {
                 type="button"
                 onClick={handleResumeStaleMorning}
                 aria-label={`Resume previous Morning routine, ${resolveStepLabel(RITUAL_SESSION_IDS.morning, morningStaleSnapshot?.stepIndex ?? 0)}`}
-                className="block w-full min-h-[44px] py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className={`block w-full min-h-[44px] py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
               >
                 Resume Previous Routine
               </button>
@@ -973,7 +974,7 @@ export const Home = () => {
               <button
                 type="button"
                 onClick={handleMorningAction}
-                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+                className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
                 {morningNotStartedCard.buttonLabel}
               </button>
@@ -990,7 +991,7 @@ export const Home = () => {
               <button
                 type="button"
                 onClick={handleMorningAction}
-                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+                className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg`}
               >
                 {morningInProgressCard.buttonLabel}
               </button>
@@ -1057,7 +1058,7 @@ export const Home = () => {
                 type="button"
                 onClick={handleResumeStaleEvening}
                 aria-label={`Resume previous Evening routine, ${resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningStaleSnapshot?.stepIndex ?? 0)}`}
-                className="block w-full min-h-[44px] py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+                className={`block w-full min-h-[44px] py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('evening')} text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2`}
               >
                 Resume Previous Routine
               </button>
@@ -1082,7 +1083,7 @@ export const Home = () => {
               <button
                 type="button"
                 onClick={handleEveningAction}
-                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('evening')} text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md`}
               >
                 {eveningNotStartedCard.buttonLabel}
               </button>
@@ -1099,7 +1100,7 @@ export const Home = () => {
               <button
                 type="button"
                 onClick={handleEveningAction}
-                className="block w-full py-3.5 rounded-xl bg-primary text-on-primary text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md"
+                className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('evening')} text-center font-bold hover:opacity-90 active:scale-95 transition-all shadow-md`}
               >
                 {eveningInProgressCard.buttonLabel}
               </button>
@@ -1154,7 +1155,7 @@ export const Home = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/review/reflection?q=1')}
-                    className="block w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all"
+                    className={`block w-full py-3 rounded-xl ${getJourneyPrimaryActionClasses('evening')} font-bold text-center hover:opacity-90 active:scale-95 transition-all`}
                   >
                     Review or Edit Tonight's Responses
                   </button>
@@ -1225,7 +1226,7 @@ export const Home = () => {
           </div>
           <Link
             to="/anytime-reset"
-            className="block w-full py-3.5 rounded-xl bg-primary text-on-primary font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
+            className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('anytime')} font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg`}
           >
             Start Anytime Reset
           </Link>

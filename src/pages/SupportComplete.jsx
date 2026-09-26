@@ -40,7 +40,7 @@ export const SupportComplete = () => {
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/">
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
         <div className="space-y-4">
           <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">self_improvement</span>

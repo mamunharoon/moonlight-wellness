@@ -12,6 +12,7 @@ import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '..
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
 import { getEveningCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -165,7 +166,7 @@ export const EveningComplete = () => {
             free-form return URL, never an arbitrary destination. */}
         <button
           onClick={() => navigate('/library?category=sleep-soundscapes&from=evening-summary')}
-          className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg"
+          className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
         >
           <span>Choose a Sleep Experience</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

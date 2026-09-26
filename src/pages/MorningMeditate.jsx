@@ -17,6 +17,7 @@ import { PreparationCountdown } from '../components/PreparationCountdown';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
 import { MeditationActiveSession } from '../components/journey/MeditationActiveSession';
 import { MEDITATION_CONTEXTS, getRecommendedDurationId } from '../lib/meditationDurations';
+import { JourneyGlow } from '../components/JourneyGlow';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — Morning embedded
@@ -229,6 +230,9 @@ export const MorningMeditate = () => {
           paddingRight: 'calc(1rem + env(safe-area-inset-right))'
         }}
       >
+        {/* WakeWise DEV — colour glow extension: Morning's own embedded
+            meditation step. */}
+        <JourneyGlow journey="morning" />
         <div className="flex items-center gap-3">
           <BackButton
             fallback="/breathe"
@@ -253,7 +257,14 @@ export const MorningMeditate = () => {
   if (session.phase === 'active' && session.snapshot) {
     return (
       <>
+        {/* WakeWise DEV — colour glow extension: Morning's own embedded
+            meditation step. MeditationActiveSession itself is a shared
+            presentation component with no page-level background of its
+            own by design - each caller (Morning/Anytime/Evening) owns
+            its own atmosphere. */}
+        <JourneyGlow journey="morning" />
         <MeditationActiveSession
+          accent="morning"
           style={session.style}
           snapshot={session.snapshot}
           soundId={session.soundId}
@@ -311,6 +322,9 @@ export const MorningMeditate = () => {
         paddingRight: 'calc(1rem + env(safe-area-inset-right))'
       }}
     >
+      {/* WakeWise DEV — colour glow extension: Morning's own embedded
+          meditation step. */}
+      <JourneyGlow journey="morning" />
       <div className="flex items-center gap-3">
         {/* Back-navigation repair (Morning canonical map) — Meditation
             setup Back returns to Breathe; the whole-routine "Leave this
@@ -327,6 +341,7 @@ export const MorningMeditate = () => {
 
       <MeditationSetupPanel
         compact
+        accent="morning"
         purpose="A short pause to settle your mind before your affirmation."
         recommendedDurationId={getRecommendedDurationId(MEDITATION_CONTEXTS.MORNING_EMBEDDED)}
         // Defect fix — beginLabel omitted entirely: it previously

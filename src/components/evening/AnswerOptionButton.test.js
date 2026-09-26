@@ -144,7 +144,9 @@ describe('AnswerOptionButton - selected state (subtle row tint, never a fully fi
 
 describe('gratitude-accent/on-gratitude-accent tokens - kept, but no longer consumed by Gratitude itself', () => {
   it('index.css still defines gratitude-accent/on-gratitude-accent - not deleted, since Home.jsx\'s Today\'s Rhythm Morning card (`morning-accent`) reuses this exact same CSS variable for its own, unrelated sunrise-gold identity', () => {
-    expect(cssSource).toMatch(/--color-gratitude-accent: #f4c56a;/);
+    // WakeWise DEV — Morning colour consistency: value updated from
+    // #f4c56a to the approved welcome design's dawn gold #fdba74.
+    expect(cssSource).toMatch(/--color-gratitude-accent: #fdba74;/);
     expect(cssSource).toMatch(/--color-on-gratitude-accent: #3a2408;/);
     expect(cssSource).toMatch(/--color-primary: #ffc5b7;/);
     expect(cssSource).toMatch(/--color-on-primary: #5a1c0c;/);
@@ -156,7 +158,7 @@ describe('gratitude-accent/on-gratitude-accent tokens - kept, but no longer cons
     expect(tailwindConfigSource).toMatch(/"morning-accent": "var\(--color-gratitude-accent\)"/);
   });
 
-  it('#f4c56a text on #3a2408 (and vice versa) still measures well above the 4.5:1 AA floor for normal text - kept genuinely computed since Home\'s Morning card still relies on this exact pair', () => {
+  it('#fdba74 text on #3a2408 (and vice versa) still measures well above the 4.5:1 AA floor for normal text - kept genuinely computed since Home\'s Morning card still relies on this exact pair', () => {
     const relLum = (hex) => {
       const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
       const lin = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
@@ -166,7 +168,10 @@ describe('gratitude-accent/on-gratitude-accent tokens - kept, but no longer cons
       const [l1, l2] = [relLum(a), relLum(b)].sort((x, y) => y - x);
       return (l1 + 0.05) / (l2 + 0.05);
     };
-    expect(contrast('#f4c56a', '#3a2408')).toBeGreaterThanOrEqual(4.5);
+    // WakeWise DEV — Morning colour consistency: recomputed for the
+    // approved welcome design's dawn gold #fdba74 (was #f4c56a) - still
+    // ~8.7:1, comfortably above the 4.5:1 AA floor.
+    expect(contrast('#fdba74', '#3a2408')).toBeGreaterThanOrEqual(4.5);
   });
 
   // Build 15 Evening UX correction — required addition: a genuinely
