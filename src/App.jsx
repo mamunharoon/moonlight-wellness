@@ -60,7 +60,6 @@ const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ defa
 const MorningMeditate = lazy(() => import('./pages/MorningMeditate').then((m) => ({ default: m.MorningMeditate })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
-const Stage3Preview = lazy(() => import('./pages/Stage3Preview').then((m) => ({ default: m.Stage3Preview })));
 const SessionRegistryPreview = lazy(() => import('./pages/SessionRegistryPreview').then((m) => ({ default: m.SessionRegistryPreview })));
 const SessionEnginePreview = lazy(() => import('./pages/SessionEnginePreview').then((m) => ({ default: m.SessionEnginePreview })));
 const EveningWindDown = lazy(() => import('./pages/EveningWindDown').then((m) => ({ default: m.EveningWindDown })));
@@ -328,10 +327,16 @@ function App() {
                     see AnytimeReset.jsx's own doc comment. */}
                 <Route path="anytime-reset" element={withFallback(<AnytimeReset />)} />
 
-                {/* MLT-3A-16: Stage 3 internal preview — not linked from any
-                    nav, not part of any Stage 2 flow. Renders outside
-                    <Layout /> so it never touches existing navigation chrome. */}
-                <Route path="stage3-preview" element={withFallback(<Stage3Preview />)} />
+                {/* WakeWise Phase 1 correction — the MLT-3A-16 Stage 3
+                    internal preview route was removed here (dormant-branding
+                    audit): even unlinked from nav, it was still a real,
+                    production-accessible route exposing an incorrect
+                    product name ("Solas, in progress.") to anyone who
+                    guessed the URL. Stage3Preview.jsx and every stage3/*
+                    component file are UNCHANGED and still on disk - only
+                    this route registration was removed, so the experiment
+                    remains available to re-wire later, just not shipped in
+                    the meantime. See Stage3Preview.jsx's own doc comment. */}
 
                 {/* Stage 3C Ticket Group 1: read-only Session Engine registry
                     inspection — same unlinked-route pattern as stage3-preview

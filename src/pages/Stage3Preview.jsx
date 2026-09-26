@@ -7,6 +7,16 @@
  * solely so the additive Stage 3 tokens and components have somewhere to
  * be visually verified as they're built through Phase 3A. Sections below
  * are appended ticket-group by ticket-group as each component lands.
+ *
+ * WakeWise Phase 1 correction (dormant-branding audit) — even though this
+ * route was never linked from navigation, it was still a real,
+ * production-accessible URL (App.jsx registered `stage3-preview`), and its
+ * own heading read an incorrect, retired product name ("Solas"). The route
+ * registration in App.jsx has been removed (this file and every stage3/*
+ * component are otherwise unchanged and still fully available to re-wire
+ * later), and the stray "Solas" text was corrected regardless, so neither
+ * defect can resurface if this route is ever restored without this
+ * comment also being revisited.
  */
 
 import { useState } from 'react';
@@ -86,7 +96,15 @@ export const Stage3Preview = () => {
           <p className="text-[11px] uppercase tracking-[0.14em] text-stage3-moonlight-dim font-bold">
             Stage 3 Preview — internal only, not linked from navigation
           </p>
-          <h1 className="font-serif italic text-3xl mt-3">Solas, in progress.</h1>
+          {/* WakeWise Phase 1 correction (dormant-branding audit) — was
+              "Solas, in progress.": "Solas" is an incorrect, retired
+              product name (this app is WakeWise) that had been sitting in
+              this internal preview's copy. Corrected here for accuracy,
+              even though the route exposing this page was also removed
+              from App.jsx in the same pass (see this file's own top
+              comment) - so it can never resurface if this route is ever
+              re-wired without this line also being revisited. */}
+          <h1 className="font-serif italic text-3xl mt-3">WakeWise, in progress.</h1>
         </header>
 
         {/* Ticket Group 1 — Design Token System (MLT-3A-01, 02, 03, 14, 15) */}

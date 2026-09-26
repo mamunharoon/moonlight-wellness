@@ -32,6 +32,7 @@ import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
+import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -147,6 +148,16 @@ export const Breathe = () => {
   });
   const [breatheState, setBreatheState] = useState(() => trustedSnapshot?.breatheState ?? 'Inhale');
   const [secondsLeft, setSecondsLeft] = useState(() => trustedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
+  // WakeWise Phase 1 correction — same OS-or-manual-preference snapshot
+  // SelfGuidedMeditation.jsx already uses for MeditationProgressRing; the
+  // ring previously never read either signal at all.
+  const [reducedMotion] = useState(() => {
+    try {
+      return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    } catch {
+      return false;
+    }
+  });
   // Morning-flow redesign: set the moment any guided-video row is tapped
   // (from that same click handler, never from an effect), never cleared
   // automatically — only the deliberate "Resume Exercise" tap clears it.
@@ -528,7 +539,7 @@ export const Breathe = () => {
           </div>
 
           {/* Breathing Ring Visualizer — src/components/BreathingRing.jsx */}
-          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="morning" />
+          <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="morning" reducedMotion={reducedMotion} />
 
           <div className="text-center space-y-2">
             <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">

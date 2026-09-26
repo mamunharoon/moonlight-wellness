@@ -18,6 +18,7 @@ import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPrefe
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { loadEveningBreathingPattern, saveEveningBreathingPattern } from '../lib/eveningBreathingSelection';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -129,6 +130,16 @@ export const EveningBreathing = () => {
   });
   const [breatheState, setBreatheState] = useState(() => trustedSnapshot?.breatheState ?? 'Inhale');
   const [secondsLeft, setSecondsLeft] = useState(() => trustedSnapshot?.secondsLeft ?? activePattern.totalSeconds);
+  // WakeWise Phase 1 correction — same OS-or-manual-preference snapshot
+  // SelfGuidedMeditation.jsx already uses for MeditationProgressRing; the
+  // ring previously never read either signal at all.
+  const [reducedMotion] = useState(() => {
+    try {
+      return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    } catch {
+      return false;
+    }
+  });
   const [manuallyPaused, setManuallyPaused] = useState(() => Boolean(trustedSnapshot));
   const musicPlayerRef = useRef(null);
   // Build 16 physical-iPhone correction (F6) — captures whether music was
@@ -399,7 +410,7 @@ export const EveningBreathing = () => {
               </p>
             </div>
 
-            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="evening" />
+            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="evening" reducedMotion={reducedMotion} />
           </div>
         </>
       ))}

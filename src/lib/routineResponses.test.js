@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
 import { getEveningCompletionKey } from './dailyCompletion';
 import { saveEveningBreathingPattern, loadEveningBreathingPattern } from './eveningBreathingSelection';
+import { saveEveningPrepareSelection, loadEveningPrepareSelection } from './eveningPrepareSelection';
 
 const localStorageStore = new Map();
 const localStorageMock = {
@@ -323,6 +324,18 @@ describe('redoEveningWindDown - the ONE shared Redo workflow (Build 15 addendum)
 
     expect(result).toEqual({ ok: true });
     expect(loadEveningBreathingPattern('user-1', '2026-09-22')).toBeNull();
+  });
+
+  it('also clears tonight\'s Prepare for Rest checklist/bedtime-media selection on a successful redo (WakeWise Phase 1 correction) - so a redone journey starts fresh, never silently reusing the old selection', async () => {
+    setResult({ data: [], error: null });
+    localStorage.setItem(getEveningCompletionKey('user-1'), '2026-09-22');
+    saveEveningPrepareSelection('user-1', { prepIds: ['phone', 'water'], bedtimeId: 'SL01' }, '2026-09-22');
+    expect(loadEveningPrepareSelection('user-1', '2026-09-22')).toEqual({ prepIds: ['phone', 'water'], bedtimeId: 'SL01' });
+
+    const result = await redoEveningWindDown({ userId: 'user-1', isGuest: false, localDate: '2026-09-22', resetRoutine: vi.fn() });
+
+    expect(result).toEqual({ ok: true });
+    expect(loadEveningPrepareSelection('user-1', '2026-09-22')).toBeNull();
   });
 
   it('two different users never collide - user A\'s flag/delete never touches user B\'s', async () => {

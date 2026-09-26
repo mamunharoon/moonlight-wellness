@@ -68,16 +68,16 @@ describe('QuietBreathing.jsx — Continue resolves to the mint journey-action he
 // standalone branch (which now has a real journey identity of its own -
 // see usePracticeJourneyTone.js) gained the dynamic prop.
 describe('QuietBreathing.jsx — BreathingRing: standalone is dynamically themed, non-standalone stays peach', () => {
-  it('the standalone branch passes the dynamic journeyTone={journeyTone}', () => {
+  it('the standalone branch passes the dynamic journeyTone={journeyTone} and the Phase 1 reducedMotion prop', () => {
     const usages = [...standaloneBlock.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
     expect(usages.length).toBe(1);
-    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} />');
+    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} />');
   });
 
-  it('the non-standalone (Support-embedded) branch still omits journeyTone entirely - unchanged, still peach', () => {
+  it('the non-standalone (Support-embedded) branch still omits journeyTone entirely - unchanged, still peach - but still passes the Phase 1 reducedMotion prop', () => {
     const usages = [...nonStandaloneBlock.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
     expect(usages.length).toBe(1);
-    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />');
+    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} reducedMotion={reducedMotion} />');
   });
 });
 

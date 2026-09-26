@@ -39,9 +39,18 @@ describe('Four exact approved preparation actions, in order, with their exact su
   });
 });
 
-describe('Checklist state: initially all unselected, genuinely multi-select', () => {
-  it('selectedPrep starts as an empty Set - nothing pre-checked', () => {
-    expect(source).toMatch(/const \[selectedPrep, setSelectedPrep\] = useState\(\(\) => new Set\(\)\);/);
+describe('Checklist state: initially all unselected on a genuinely fresh visit, genuinely multi-select', () => {
+  // WakeWise Phase 1 correction — selectedPrep now seeds from tonight's
+  // persisted selection (eveningPrepareSelection.js) instead of always
+  // starting empty, so it survives reviewing an earlier Evening step and
+  // returning. A genuinely fresh visit (nothing saved yet) still starts
+  // empty either way, since loadEveningPrepareSelection returns null and
+  // `savedSelection?.prepIds ?? []` falls back to []. See
+  // eveningPrepareSelectionPersistence.test.js for the full persistence
+  // behaviour coverage.
+  it('selectedPrep seeds from tonight\'s persisted selection, falling back to an empty Set on a genuinely fresh visit - nothing pre-checked when nothing was saved', () => {
+    expect(source).toMatch(/const \[savedSelection\] = useState\(\(\) => loadEveningPrepareSelection\(userId, today\)\);/);
+    expect(source).toMatch(/const \[selectedPrep, setSelectedPrep\] = useState\(\(\) => new Set\(savedSelection\?\.prepIds \?\? \[\]\)\);/);
   });
 
   it('togglePrep adds/removes from the Set independently - never clears the others (no single-select exclusivity), so multiple switches can be On at once', () => {
@@ -383,8 +392,19 @@ describe('No fabricated claims anywhere on this page', () => {
     expect(code).not.toMatch(/melatonin|nervous system/i);
   });
 
-  it('no wake-time/rest-calculation or alarm wording (out of this page\'s scope, not something this subphase adds)', () => {
-    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  it('no wake-time/rest-calculation or alarm-feature wording in this page\'s own copy (out of this page\'s scope, not something this subphase adds)', () => {
+    // WakeWise Phase 1 correction — this page now imports useAlarm purely
+    // to read effectiveTimezone/userId for tonight's-selection persistence
+    // (eveningPrepareSelection.js), the exact same identifier-only reason
+    // EveningBreathing.jsx already imports it for the same purpose - never
+    // an alarm-clock feature reference. This rule is about user-facing
+    // copy, not internal identifiers, so import lines are stripped
+    // alongside comments before checking.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+      .replace(/^import .*$/gm, '')
+      .replace(/\buseAlarm\b/g, '');
     expect(code).not.toMatch(/wake.?up time|calculate.*rest|alarm/i);
   });
 });

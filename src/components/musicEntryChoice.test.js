@@ -176,7 +176,7 @@ describe('MusicEntryChoice.jsx - Anytime Reset Visual Uplift follow-up: accent i
   it('QuietBreathing.jsx\'s non-standalone intro carries a small decorative mint icon (aria-hidden, no new copy) - BreathingRing immediately below stays unaccented', () => {
     const nonStandaloneBlock = quietBreathingSource.slice(quietBreathingSource.indexOf('\n  return (\n    <EveningSceneShell'));
     expect(nonStandaloneBlock).toMatch(/<span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">air<\/span>/);
-    expect(nonStandaloneBlock).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} \/>/);
+    expect(nonStandaloneBlock).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} reducedMotion=\{reducedMotion\} \/>/);
   });
 });
 

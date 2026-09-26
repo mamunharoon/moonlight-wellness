@@ -193,11 +193,21 @@
   }
 }
 
+/* WakeWise Phase 1 correction — the border was rgba(255,255,255,0.12),
+   which composites to only ~1.35-1.46:1 against every real adjacent
+   surface tone in the palette (background/home-background through
+   surface-highest) - badly failing WCAG 1.4.11's 3:1 non-text floor.
+   0.38 is the smallest bump that clears 3:1 with margin against the
+   lightest surface this shared class ever sits on (surface-highest/
+   surface-variant #2d3449, ~3.18:1) while staying well short of the
+   background/home-background end (~3.5:1) - a single shared value
+   this class needs to keep working everywhere it's used, not two
+   separate outlines. Fill opacity and blur are unchanged. */
 .glass-panel {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.38);
 }
 
 /* Guest access repair: `scroll-hide` was already applied in Layout.jsx's

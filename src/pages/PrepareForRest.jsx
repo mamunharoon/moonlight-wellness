@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { PrepareToggleRow } from '../components/evening/PrepareToggleRow';
@@ -17,6 +18,9 @@ import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
+import { loadEveningPrepareSelection, saveEveningPrepareSelection, clearEveningPrepareSelection } from '../lib/eveningPrepareSelection';
 
 /*
  * Phase 3 (Prepare for Rest subphase) — PrepareForRest
@@ -29,26 +33,29 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
  * collapsed "guidance" row a user might bypass without understanding what
  * it offers.
  *
- * CHECKLIST STATE - plain local React state only, deliberately
- *   Nothing about which preparation actions are toggled is written
- *   anywhere - no Supabase call, no localStorage, no new persistence
- *   layer, no completion event. This is a genuine, disclosed scope
- *   decision: the existing Session Engine/routineProgress.js model has
- *   no notion of "in-step checklist selections" at all, and wiring a new
- *   cross-remount store for it would mean touching SessionContext.jsx's
- *   resetSession/resetRoutine and AuthContext.jsx's signOut (the only
- *   existing places that clear routine-scoped local state) - genuinely
- *   shared infrastructure well outside this subphase's own scope ("this
- *   task covers only... Prepare for Rest"). Plain component state already
- *   satisfies every requirement that matters: switches survive opening
- *   and closing a video/sound (the modal is layered on this same mounted
- *   page, never a real navigation), toggling can never leak between
- *   users or carry a stale selection into a new day (there is nothing
- *   stored to leak or carry), and "Start over" trivially clears it (a
- *   fresh mount has no prior state to begin with). The one thing this
- *   does NOT do is survive a full Back-then-forward ROUND TRIP (leaving
- *   to Evening Breathing and actually returning unmounts and remounts
- *   this page) - disclosed here rather than silently claimed.
+ * CHECKLIST STATE - WakeWise Phase 1 correction
+ *   Previously plain local React state only, which reset on any full
+ *   unmount/remount - including the ordinary case of reviewing an earlier
+ *   Evening step (Back to Evening Breathing/Meditate) and returning here.
+ *   Now backed by eveningPrepareSelection.js, mirroring
+ *   eveningBreathingSelection.js's own already-approved "tonight's
+ *   selection" convention exactly: a userId-scoped localStorage key,
+ *   validated against today's local date so a value from a prior night is
+ *   never silently reused - no Supabase migration, no new persistence
+ *   architecture, reusing the one mechanism this Evening journey already
+ *   has for exactly this "survives leaving and coming back, but is not a
+ *   completed step" shape. Still never written as a Session Engine step
+ *   completion or a routine_responses row - toggling a preparation item
+ *   is not "answering a prompt" and must never be conflated with one.
+ *   Cleared on: reaching /evening-complete (handleReadyForSleep below),
+ *   and Redo Tonight's Wind-Down (redoEveningWindDown in
+ *   routineResponses.js) - both genuine "this specific tonight is over"
+ *   moments. Scoped by userId exactly like the breathing-pattern
+ *   selection, so it can never leak between two different signed-in
+ *   users, and a guest's own key is the separate unscoped base key (the
+ *   same accepted device-shared guest policy already used for completion
+ *   flags) - a user who signs out mid-journey and continues as a guest
+ *   reads that different key, never their own prior selection.
  *
  * advanceStep() is guarded exactly like every other Session-Engine-
  * consuming page in this codebase — see Reflection.jsx's own doc comment
@@ -116,9 +123,12 @@ const buildGuidanceItem = ({ id, blurb }) => {
 export const PrepareForRest = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep } = useSession();
+  const { effectiveTimezone, userId } = useAlarm();
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   // Safe backward navigation ("Review Mode") - static content plus a
-  // local-only checklist, no timer of its own - review-only, no repeat-
-  // confirmation gate needed (see EveningWindDown.jsx's identical block).
+  // checklist backed by eveningPrepareSelection.js, no timer of its own -
+  // review-only, no repeat-confirmation gate needed (see
+  // EveningWindDown.jsx's identical block).
   const { isReviewMode, isLiveStep } = useStepReviewMode('sleepPreparation', 'evening-wind-down');
   const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
   const {
@@ -131,25 +141,38 @@ export const PrepareForRest = () => {
     confirmCreateAccount
   } = useProtectedVideo();
 
-  const [selectedPrep, setSelectedPrep] = useState(() => new Set());
+  // WakeWise Phase 1 correction — seeded from tonight's persisted
+  // selection (see this file's own CHECKLIST STATE doc comment above),
+  // falling back to an empty checklist/no bedtime choice exactly like a
+  // genuinely fresh first visit. `savedSelection` is read once at mount
+  // (a fresh mount is exactly when a stale value would otherwise need
+  // reconciling) rather than re-read on every render.
+  const [savedSelection] = useState(() => loadEveningPrepareSelection(userId, today));
+  const [selectedPrep, setSelectedPrep] = useState(() => new Set(savedSelection?.prepIds ?? []));
   // Build 16 physical-iPhone correction (F10) — the chosen bedtime item
   // (if any) and whether the full-catalogue chooser overlay is open.
-  // Plain local state, same genuine, disclosed scope decision as
-  // `selectedPrep` above (see this file's own CHECKLIST STATE doc
-  // comment): no Supabase call, no localStorage, no new persistence
-  // layer. Survives re-renders and toggling other controls within this
-  // same mounted visit; does not survive a full Back-then-forward round
-  // trip (a fresh mount has no prior state to begin with), exactly like
-  // the preparation checklist.
-  const [selectedBedtimeId, setSelectedBedtimeId] = useState(null);
+  // `selectedBedtimeId` is persisted (see CHECKLIST STATE doc comment);
+  // `chooserOpen` (just whether the overlay is currently showing) is
+  // deliberately left as plain, non-persisted UI state - a remount
+  // reasonably reopens to the compact summary/button, not a re-opened
+  // overlay.
+  const [selectedBedtimeId, setSelectedBedtimeId] = useState(() => savedSelection?.bedtimeId ?? null);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
+
+  // WakeWise Phase 1 correction — the one place both persisted fields are
+  // written together, so a save can never capture one field's new value
+  // alongside the other's stale one.
+  const persistSelection = (nextPrepIds, nextBedtimeId) => {
+    saveEveningPrepareSelection(userId, { prepIds: nextPrepIds, bedtimeId: nextBedtimeId }, today);
+  };
 
   const togglePrep = (id) => {
     setSelectedPrep((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      persistSelection([...next], selectedBedtimeId);
       return next;
     });
   };
@@ -160,6 +183,12 @@ export const PrepareForRest = () => {
     if (state.status === 'playing' && currentStep?.id === 'sleepPreparation') {
       advanceStep();
     }
+    // WakeWise Phase 1 correction — tonight's checklist/bedtime selection
+    // is temporary working state for THIS run of Prepare for Rest, not a
+    // journey answer to keep around - clear it the moment the journey
+    // actually completes, mirroring redoEveningWindDown's identical clear
+    // on a deliberate Redo/Start Over.
+    clearEveningPrepareSelection(userId);
     navigate('/evening-complete');
   };
 
@@ -173,6 +202,7 @@ export const PrepareForRest = () => {
   const handleChooseBedtimeMedia = (id) => {
     setSelectedBedtimeId(id);
     setChooserOpen(false);
+    persistSelection([...selectedPrep], id);
   };
   const selectedBedtimeItem = selectedBedtimeId
     ? [...guidedVideoItems, ...sleepSoundItems].find((item) => item.id === selectedBedtimeId) ?? null
@@ -286,9 +316,10 @@ export const PrepareForRest = () => {
 
       {/* Closing this leaves the user right here on Prepare for Rest —
           already "Evening Wind-down", no navigation needed for a return
-          path - checklist/bedtime selections (plain component state) are
-          completely unaffected, since the modal is only ever layered on
-          top of this same mounted page. */}
+          path - checklist/bedtime selections are unaffected either way,
+          since the modal is only ever layered on top of this same mounted
+          page (and are now persisted via eveningPrepareSelection.js
+          regardless, so even a real navigation away and back survives). */}
       {openVideo && (
         <BetaVideoModal entry={openVideo} onClose={closeVideo} />
       )}

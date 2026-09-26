@@ -69,6 +69,15 @@ const PROMPTS = [
 export const Grounding = () => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
+  // WakeWise Phase 1 correction — the seven optional video rows below used
+  // to render inline, ahead of Previous/Next/Skip, pushing the real
+  // grounding exercise's own primary actions below the initial mobile
+  // viewport. Collapsed by default (mirrors QuietBreathing.jsx's/
+  // Breathe.jsx's identical "Explore guided ... sessions" disclosure over
+  // the same BetaVideoRow shape) so the 5-4-3-2-1 exercise stays the
+  // primary task and a user can complete it without ever opening or
+  // scrolling past these.
+  const [videosOpen, setVideosOpen] = useState(false);
   const {
     openVideo,
     handleSelect,
@@ -126,35 +135,6 @@ export const Grounding = () => {
       </div>
 
       <div className="space-y-3">
-        {GROUNDING_VIDEOS.map(({ id, blurb }) => {
-          const entry = getBetaVideoById(id);
-          if (!entry) return null;
-          return (
-            <BetaVideoRow
-              key={id}
-              title={entry.title}
-              description={blurb}
-              onClick={() => handleSelect(id)}
-            />
-          );
-        })}
-
-        <div className="space-y-3">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Grounding Sessions</h3>
-          {GROUNDING_SESSION_VIDEOS.map(({ id, blurb }) => {
-            const entry = getBetaVideoById(id);
-            if (!entry) return null;
-            return (
-              <BetaVideoRow
-                key={id}
-                title={entry.title}
-                description={blurb}
-                onClick={() => handleSelect(id)}
-              />
-            );
-          })}
-        </div>
-
         <div className="flex gap-3">
           {!isFirst && (
             <button
@@ -179,6 +159,66 @@ export const Grounding = () => {
         >
           Skip
         </button>
+
+        {/* WakeWise Phase 1 correction — same collapsed-by-default
+            disclosure pattern as QuietBreathing.jsx's/Breathe.jsx's own
+            "Explore guided ... sessions" control: real button semantics,
+            aria-expanded/aria-controls, a 44px+ tap target via
+            min-h-[44px], and a visible focus ring. Nothing about the
+            videos themselves (which ids, blurbs, or access rules) changed
+            - only where they render. */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setVideosOpen((v) => !v)}
+            aria-expanded={videosOpen}
+            aria-controls="grounding-support-videos"
+            className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="text-sm font-semibold text-on-surface text-left">Need more support?</span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+              style={{ transform: videosOpen ? 'rotate(180deg)' : 'none' }}
+              aria-hidden="true"
+            >
+              expand_more
+            </span>
+          </button>
+          {videosOpen && (
+            <div id="grounding-support-videos" className="space-y-4">
+              <div className="space-y-3">
+                {GROUNDING_VIDEOS.map(({ id, blurb }) => {
+                  const entry = getBetaVideoById(id);
+                  if (!entry) return null;
+                  return (
+                    <BetaVideoRow
+                      key={id}
+                      title={entry.title}
+                      description={blurb}
+                      onClick={() => handleSelect(id)}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Grounding Sessions</h3>
+                {GROUNDING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                  const entry = getBetaVideoById(id);
+                  if (!entry) return null;
+                  return (
+                    <BetaVideoRow
+                      key={id}
+                      title={entry.title}
+                      description={blurb}
+                      onClick={() => handleSelect(id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Closing this leaves the user right here on Grounding - no

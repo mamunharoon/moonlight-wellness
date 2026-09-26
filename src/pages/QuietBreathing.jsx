@@ -18,6 +18,7 @@ import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT 
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
+import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
@@ -158,6 +159,16 @@ export const QuietBreathing = ({ standalone = false }) => {
 
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(activePattern.totalSeconds);
+  // WakeWise Phase 1 correction — same OS-or-manual-preference snapshot
+  // SelfGuidedMeditation.jsx already uses for MeditationProgressRing; the
+  // ring previously never read either signal at all.
+  const [reducedMotion] = useState(() => {
+    try {
+      return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    } catch {
+      return false;
+    }
+  });
 
   // Legacy entry-choice gate - Support's own existing, byte-for-byte
   // unchanged behaviour (see MusicEntryChoice.jsx's own doc comment).
@@ -579,7 +590,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 Just breathe. There is nowhere else to be.
               </p>
 
-              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} />
+              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} />
             </div>
 
             <div className="space-y-3 w-full">
@@ -713,7 +724,7 @@ export const QuietBreathing = ({ standalone = false }) => {
           Just breathe. There is nowhere else to be.
         </p>
 
-        <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} />
+        <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} reducedMotion={reducedMotion} />
       </div>
 
       <InteractiveAmbientMusic ref={musicPlayerRef} musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID} />

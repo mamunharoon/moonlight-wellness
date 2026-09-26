@@ -31,7 +31,13 @@ export const Feedback = () => {
   const [message, setMessage] = useState('');
   const [reproSteps, setReproSteps] = useState('');
   const [history, setHistory] = useState(getFeedbackHistory);
-  const [submitted, setSubmitted] = useState(false);
+  // WakeWise Phase 1 correction — renamed from `submitted`: this screen
+  // only ever launches a mailto: link (window.location.href), which this
+  // app has no way to confirm actually opened a mail app, let alone that
+  // the user went on to send it - see this file's own top comment. The
+  // name now matches what's actually, verifiably true.
+  const [mailtoLaunched, setMailtoLaunched] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
 
   const canSubmit = message.trim().length > 0;
 
@@ -41,18 +47,36 @@ export const Feedback = () => {
 
     const mailtoUrl = buildMailtoUrl({ category, message: message.trim(), reproSteps: reproSteps.trim() });
     setHistory(recordFeedbackSubmission({ category, message: message.trim(), reproSteps: reproSteps.trim() }));
-    trackEvent('feedback_submitted', { category });
+    trackEvent('feedback_email_opened', { category });
 
     window.location.href = mailtoUrl;
 
     setMessage('');
     setReproSteps('');
-    setSubmitted(true);
+    setMailtoLaunched(true);
+  };
+
+  // WakeWise Phase 1 correction — the visible fallback required whenever
+  // no mail handler opens. There is no reliable way for a web/Capacitor
+  // app to detect whether window.location.href actually opened a mail
+  // client (browsers give no success/failure signal for a mailto:
+  // navigation), so this is shown unconditionally alongside the "should
+  // now be open" message rather than guessed at - the user is in the best
+  // position to know what actually happened on their own device.
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT_INFO.email);
+      setEmailCopied(true);
+      setTimeout(() => setEmailCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable/denied - the address is still visible
+      // as plain selectable text right above this button.
+    }
   };
 
   const rowClass = 'flex items-center justify-between p-4 min-h-[56px]';
 
-  if (submitted) {
+  if (mailtoLaunched) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
@@ -61,14 +85,29 @@ export const Feedback = () => {
         </div>
 
         <div className="glass-panel rounded-2xl p-6 text-center space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-          <span className="material-symbols-outlined text-primary text-4xl">check_circle</span>
-          <h3 className="text-lg font-bold text-on-surface">Thank you for your feedback</h3>
+          <span className="material-symbols-outlined text-primary text-4xl">mail</span>
+          <h3 className="text-lg font-bold text-on-surface">Check your email app</h3>
           <p className="text-sm text-on-surface-variant">
-            Your email app should have opened with your message ready to send. We read every submission.
+            Your email app should now be open. Please review and send the message from there — we haven't received anything until you do.
           </p>
+          <div className="glass-panel rounded-xl p-3 space-y-2 border-white/10">
+            <p className="text-xs text-on-surface-variant">
+              Nothing open, or the wrong app launched? Email us directly:
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-sm font-semibold text-on-surface select-all">{CONTACT_INFO.email}</span>
+              <button
+                type="button"
+                onClick={handleCopyEmail}
+                className="text-xs font-bold uppercase tracking-wide text-primary px-3 py-2 min-h-[44px] rounded-full hover:bg-white/5 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {emailCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
           <div className="flex flex-col gap-2 pt-2">
             <button
-              onClick={() => setSubmitted(false)}
+              onClick={() => setMailtoLaunched(false)}
               className="w-full bg-primary text-on-primary py-3 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all"
             >
               Send another

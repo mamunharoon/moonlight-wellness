@@ -138,20 +138,37 @@ export const Settings = () => {
               <span className="material-symbols-outlined text-on-surface-variant text-xl">motion_photos_off</span>
               Reduced motion
             </span>
+            {/* WakeWise Phase 1 correction — this button's own visible pill
+                measured 48x28px (w-12 h-7), under the 44px tap-target
+                minimum on its shorter axis. Same established fix as
+                MusicPreferenceToggle.jsx (see its own doc comment): the
+                w-12 h-7 pill moves onto a decorative aria-hidden inner
+                span, and the real <button> grows its own hit box via
+                symmetric py-2 padding (28 + 8 + 8 = 44px) with a matching
+                -my-2 negative margin, so the surrounding row's layout
+                height is unaffected. role="switch"/aria-checked/aria-label/
+                onClick and the on/off colour logic are unchanged, just
+                relocated. */}
             <button
+              type="button"
               role="switch"
               aria-checked={reducedMotion}
               aria-label="Reduced motion"
               onClick={handleToggleReducedMotion}
-              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-                reducedMotion ? 'bg-primary' : 'bg-white/10'
-              }`}
+              className="shrink-0 rounded-full -my-2 py-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             >
               <span
-                className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                  reducedMotion ? 'translate-x-5' : 'translate-x-0'
+                aria-hidden="true"
+                className={`block w-12 h-7 rounded-full transition-colors relative ${
+                  reducedMotion ? 'bg-primary' : 'bg-white/10'
                 }`}
-              />
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                    reducedMotion ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </span>
             </button>
           </div>
 

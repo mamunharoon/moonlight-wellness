@@ -41,7 +41,7 @@ describe('BreathingRing — one shared component, four tones, never three separa
     expect(source).toMatch(/RING_TOKENS\[journeyTone\] \|\| RING_TOKENS\.primary/);
   });
 
-  it('the scale/opacity/size/brightness animation timing is completely unchanged - only colour classes were touched', () => {
+  it('the scale/opacity/size/brightness animation timing is completely unchanged when motion is not reduced', () => {
     expect(source).toMatch(/duration-\[4000ms\]/);
     expect(source).toMatch(/breatheState === 'Inhale' \? 'scale-125 opacity-100' : 'scale-95 opacity-50'/);
     expect(source).toMatch(/breatheState === 'Inhale' \? 'w-48 h-48' : breatheState === 'Hold' \? 'w-48 h-48 brightness-110' : 'w-36 h-36'/);
@@ -53,21 +53,68 @@ describe('BreathingRing — one shared component, four tones, never three separa
   });
 });
 
+// WakeWise Phase 1 — BreathingRing label contrast + Reduced Motion.
+describe('BreathingRing — Phase 1 label contrast correction', () => {
+  it('the primary tone gets an opaque label scrim; morning/anytime/evening do not (their on-<accent> pairing already passes)', () => {
+    expect(source).toMatch(/labelScrim:\s*'bg-black\/60'/);
+    const tokensBlock = source.match(/const RING_TOKENS = \{[\s\S]*?\n\};/)?.[0] ?? '';
+    const nonPrimaryBlock = tokensBlock.slice(tokensBlock.indexOf('morning:'));
+    expect((nonPrimaryBlock.match(/labelScrim:\s*null/g) || []).length).toBe(3);
+  });
+
+  it('the label/subtext are wrapped in the scrim only when one is defined for the active tone', () => {
+    expect(source).toMatch(/tokens\.labelScrim \? `\$\{tokens\.labelScrim\} rounded-2xl px-4 py-1\.5 flex flex-col items-center` : 'flex flex-col items-center'/);
+  });
+
+  it('subtext opacity was raised off the previously-failing text-white/60', () => {
+    expect(source).toMatch(/subtext: 'text-white\/80'/);
+    expect(source).not.toMatch(/subtext: 'text-white\/60'/);
+  });
+});
+
+describe('BreathingRing — Phase 1 Reduced Motion correction', () => {
+  it('accepts a reducedMotion prop, defaulting to false (unchanged behaviour when omitted)', () => {
+    expect(source).toMatch(/reducedMotion = false/);
+  });
+
+  it('removes the glow pulse and fixes the orb at a stable middle size when reducedMotion is true', () => {
+    expect(source).toMatch(/glowMotionClasses = reducedMotion\s*\n\s*\? 'opacity-70'/);
+    expect(source).toMatch(/orbSizeClasses = reducedMotion\s*\n\s*\? 'w-44 h-44'/);
+  });
+
+  it('the breathing phase name keeps rendering unconditionally regardless of reducedMotion, so the phase change stays legible from text alone', () => {
+    const orbReturn = source.slice(source.indexOf('return ('));
+    expect(orbReturn).toMatch(/\{breatheState\}/);
+  });
+});
+
 describe('real consumer wiring — each embedded journey passes its own fixed tone; standalone passes its dynamically-resolved one', () => {
-  it('Breathe.jsx (Morning) passes journeyTone="morning"', () => {
-    expect(breatheSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" \/>/);
+  it('Breathe.jsx (Morning) passes journeyTone="morning" and the Phase 1 reducedMotion prop', () => {
+    expect(breatheSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" reducedMotion=\{reducedMotion\} \/>/);
   });
 
-  it('EveningBreathing.jsx passes journeyTone="evening"', () => {
-    expect(eveningBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="evening" \/>/);
+  it('EveningBreathing.jsx passes journeyTone="evening" and the Phase 1 reducedMotion prop', () => {
+    expect(eveningBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="evening" reducedMotion=\{reducedMotion\} \/>/);
   });
 
-  it('QuietBreathing.jsx standalone branch passes the dynamic journeyTone={journeyTone}', () => {
-    expect(quietBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone=\{journeyTone\} \/>/);
+  it('QuietBreathing.jsx standalone branch passes the dynamic journeyTone={journeyTone} and the Phase 1 reducedMotion prop', () => {
+    expect(quietBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone=\{journeyTone\} reducedMotion=\{reducedMotion\} \/>/);
   });
 
-  it('QuietBreathing.jsx non-standalone (Support-embedded) branch omits journeyTone entirely - stays peach, per the existing approved brief this file\'s own doc comment already documents', () => {
+  it('QuietBreathing.jsx non-standalone (Support-embedded) branch omits journeyTone entirely - stays peach, per the existing approved brief this file\'s own doc comment already documents - but still passes the Phase 1 reducedMotion prop', () => {
     const nonStandaloneReturn = quietBreathingSource.slice(quietBreathingSource.lastIndexOf('return (\n    <EveningSceneShell'));
-    expect(nonStandaloneReturn).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} \/>/);
+    expect(nonStandaloneReturn).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} reducedMotion=\{reducedMotion\} \/>/);
+  });
+});
+
+describe('BreathingRing — Phase 1 Reduced Motion consumer wiring', () => {
+  it('each real caller resolves reducedMotion via the same OS-or-manual-preference snapshot SelfGuidedMeditation.jsx already uses', () => {
+    const snapshotPattern = /const \[reducedMotion\] = useState\(\(\) => \{\s*try \{\s*return Boolean\(getReducedMotionPreference\(\) \|\| window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\);\s*\} catch \{\s*return false;\s*\}\s*\}\);/;
+    expect(breatheSource).toMatch(snapshotPattern);
+    expect(breatheSource).toMatch(/import \{ getReducedMotionPreference \} from '..\/lib\/reducedMotionPreference';/);
+    expect(eveningBreathingSource).toMatch(snapshotPattern);
+    expect(eveningBreathingSource).toMatch(/import \{ getReducedMotionPreference \} from '..\/lib\/reducedMotionPreference';/);
+    expect(quietBreathingSource).toMatch(snapshotPattern);
+    expect(quietBreathingSource).toMatch(/import \{ getReducedMotionPreference \} from '..\/lib\/reducedMotionPreference';/);
   });
 });

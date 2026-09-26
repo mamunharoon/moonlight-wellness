@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import { REFLECTION_PROMPTS, GRATITUDE_PROMPTS } from './eveningJourneyQuestions';
 import { getEveningCompletionKey, clearEveningCompletionKey } from './dailyCompletion';
 import { clearEveningBreathingPattern } from './eveningBreathingSelection';
+import { clearEveningPrepareSelection } from './eveningPrepareSelection';
 
 // Client-side counterpart to the routine_responses migration
 // (20260919120000) - Reflection.jsx/Gratitude.jsx's prompt answers, keyed
@@ -204,6 +205,11 @@ export const deleteEveningReflectionGratitudeResponsesForDate = async ({ userId,
  * alongside the completion flag, so a redone journey starts fresh at the
  * established 4-7-8 default rather than silently reusing whatever was
  * selected before Redo.
+ *
+ * WakeWise Phase 1 correction — also clears tonight's Prepare for Rest
+ * checklist/bedtime-media selection (eveningPrepareSelection.js), for the
+ * same reason: a redone journey starts fresh, not silently reusing
+ * whatever was toggled/chosen before Redo.
  */
 export const redoEveningWindDown = async ({ userId, isGuest, localDate, resetRoutine }) => {
   const isEligible = !isGuest && Boolean(userId) && localStorage.getItem(getEveningCompletionKey(userId)) === localDate;
@@ -214,6 +220,7 @@ export const redoEveningWindDown = async ({ userId, isGuest, localDate, resetRou
 
   clearEveningCompletionKey(userId);
   clearEveningBreathingPattern(userId);
+  clearEveningPrepareSelection(userId);
   resetRoutine(EVENING_WIND_DOWN_SESSION_ID);
   return { ok: true };
 };

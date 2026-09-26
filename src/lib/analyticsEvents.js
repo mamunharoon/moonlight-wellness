@@ -21,8 +21,14 @@
 
 export const EVENT_CATALOGUE = {
   // --- Wired this phase ---
-  feedback_submitted: {
-    description: 'A feedback entry was sent via the in-app feedback form.',
+  // WakeWise Phase 1 correction — renamed from `feedback_submitted`: this
+  // app can only ever launch a mailto: link (see Feedback.jsx's own doc
+  // comment) and has no way to confirm the mail app actually sent
+  // anything, so an event named "submitted" was a false claim by
+  // construction. `feedback_email_opened` describes only what actually,
+  // verifiably happened.
+  feedback_email_opened: {
+    description: "The user's mail app was launched via a mailto: link from the in-app feedback form. Does not confirm the email was actually sent.",
     properties: ['category'],
     status: 'wired'
   },

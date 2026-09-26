@@ -453,22 +453,36 @@ export const Home = () => {
 
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
-  // Home redesign — single greeting line, shown once regardless of which
-  // period is selected (Greeting is its own fixed item in the approved
-  // Home order, independent of the Morning/Evening pill). Every timeState
-  // band now maps to one of the three greeted dayparts (see morningDaypart
-  // above for why before-wake/night are folded the way they are).
-  // `dateKey: today` drives getGreeting's own deterministic per-local-day
-  // rotation through its several message variants per daypart - passing
-  // the same local dateKey on every render keeps the chosen message
-  // stable for the whole day and changes it only at local midnight; the
-  // neutral/no-name fallback is otherwise unchanged.
+  // WakeWise Phase 1 correction — root cause: this used to key off
+  // `timeState` directly, completely independent of `activePeriod`/
+  // `selectedPeriod` below it - so a user who manually tapped Morning
+  // could still see "A calm evening to you" if the real clock said
+  // evening, directly contradicting the Morning card selected right
+  // below it. Keying off `activePeriod` instead fixes that by
+  // construction: when the user hasn't manually chosen a period,
+  // `activePeriod` already equals `defaultPeriod` (itself timeState-
+  // derived, see above), so the *unselected* greeting for every real
+  // timeState is byte-identical to before this fix - only the
+  // previously-contradictory *manually-selected* case changes. 'anytime'
+  // reuses the existing, already-approved 'afternoon' copy set (the one
+  // bucket that never claims a specific time of day, e.g. "Hello there"/
+  // "Welcome back") rather than introducing any new rotating-message
+  // system - the exact same bucket the unselected default already shows
+  // whenever activePeriod naturally resolves to 'anytime' (real daytime
+  // hours). Home redesign - single greeting line, shown once regardless
+  // of which period is active (Greeting is its own fixed item in the
+  // approved Home order). `dateKey: today` drives getGreeting's own
+  // deterministic per-local-day rotation through its several message
+  // variants per daypart - passing the same local dateKey on every
+  // render keeps the chosen message stable for the whole day and changes
+  // it only at local midnight; the neutral/no-name fallback is otherwise
+  // unchanged.
   const greetingText =
-    timeState === 'daytime-morning' || timeState === 'before-wake'
+    activePeriod === 'morning'
       ? getGreeting('morning', { profile, user, dateKey: today })
-      : timeState === 'daytime'
-        ? getGreeting('afternoon', { profile, user, dateKey: today })
-        : getGreeting('evening', { profile, user, dateKey: today });
+      : activePeriod === 'evening'
+        ? getGreeting('evening', { profile, user, dateKey: today })
+        : getGreeting('afternoon', { profile, user, dateKey: today });
 
   // Home redesign — the six possible "Your Next Step" card contents,
   // precomputed up front (cheap, pure - resolveNextStepCard does no I/O)
