@@ -435,7 +435,12 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) n
     // Continue-lock/Skip-semantics fix adds hasFinished to Breathe.jsx/
     // EveningBreathing.jsx's own guard too (MorningFlow.jsx/Stretch is
     // untouched by that fix) - see embeddedBreathingContinueLock.test.js.
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
+    // Morning breathing completion correction - Breathe.jsx's guard now
+    // reads isCompleted (the explicit completion state) instead of
+    // hasFinished (a render-time-derived value) - see
+    // breathingCompletionLifecycle.test.js. EveningBreathing.jsx is
+    // unchanged by that later fix.
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted\) return;/);
     expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
   });
 

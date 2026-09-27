@@ -155,8 +155,12 @@ describe('6. Pre-start choice and active-view state remain consistent', () => {
   });
 
   for (const { name, source } of SURFACES) {
-    it(`${name}: hideToggle={!hasBegun} still hands off from the pre-start switch to the same single InteractiveAmbientMusic instance's own toggle the instant Begin is tapped - no separate/duplicate state to fall out of sync`, () => {
-      expect(source).toMatch(/hideToggle=\{!hasBegun\}/);
+    it(`${name}: hideToggle still hands off from the pre-start switch to the same single InteractiveAmbientMusic instance's own toggle the instant Begin is tapped - no separate/duplicate state to fall out of sync`, () => {
+      // Morning breathing completion correction - Breathe.jsx's own
+      // hideToggle also folds in isCompleted (hides the now-meaningless
+      // toggle on the completed panel); the other two surfaces unchanged.
+      const expected = name.startsWith('Breathe.jsx') ? /hideToggle=\{!hasBegun \|\| isCompleted\}/ : /hideToggle=\{!hasBegun\}/;
+      expect(source).toMatch(expected);
     });
   }
 });

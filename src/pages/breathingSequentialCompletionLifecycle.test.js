@@ -20,19 +20,23 @@ const breatheSource = read('./Breathe.jsx');
 const eveningBreathingSource = read('./EveningBreathing.jsx');
 const quietBreathingSource = read('./QuietBreathing.jsx');
 
-describe('Breathe.jsx (Morning) — music stops deterministically on natural completion', () => {
-  it('a dedicated effect calls musicPlayerRef.current?.stop() as soon as hasFinished becomes true, independent of Continue/Back', () => {
-    expect(breatheSource).toMatch(
+// Morning breathing completion correction (superseding the fix above for
+// Breathe.jsx only) — physical-iPhone testing later found even the FIRST
+// pattern could hang at 0s left with no completion panel. Root cause: the
+// dedicated stop() effect above still relied on a render-time-DERIVED
+// hasFinished value, and completion itself was never a single,
+// authoritative decision. Breathe.jsx now uses createBreathingSession
+// (breathingSession.js) - see breathingCompletionLifecycle.test.js for
+// the full, dedicated coverage of that rewrite. EveningBreathing.jsx/
+// QuietBreathing.jsx are unchanged by that later fix (out of its scope),
+// so their own describe blocks below still hold.
+describe('Breathe.jsx (Morning) — superseded by the Morning breathing completion correction, see breathingCompletionLifecycle.test.js', () => {
+  it('no longer has a separate hasFinished-keyed stop effect - music now stops synchronously inside the completion-detecting interval callback itself (see breathingCompletionLifecycle.test.js)', () => {
+    expect(breatheSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
+    expect(breatheSource).not.toMatch(
       /useEffect\(\(\) => \{\s*\n\s*if \(hasFinished\) musicPlayerRef\.current\?\.stop\(\);\s*\n\s*\}, \[hasFinished\]\);/
     );
-  });
-
-  it('this effect is declared before hasBegunOnceRef (i.e. runs for every finish, not gated behind a one-shot ref)', () => {
-    const stopEffectIndex = breatheSource.indexOf('if (hasFinished) musicPlayerRef.current?.stop();');
-    const hasBegunOnceRefIndex = breatheSource.indexOf('const hasBegunOnceRef = useRef(false);');
-    expect(stopEffectIndex).toBeGreaterThan(-1);
-    expect(hasBegunOnceRefIndex).toBeGreaterThan(-1);
-    expect(stopEffectIndex).toBeLessThan(hasBegunOnceRefIndex);
+    expect(breatheSource).toMatch(/const \{ completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState \} = current\.tick\(\);/);
   });
 });
 
@@ -61,10 +65,11 @@ describe('QuietBreathing.jsx (standalone) — sequential-session guard: Breathe 
   });
 });
 
-describe('Cross-file consistency — all three breathing screens (embedded Morning/Evening, standalone) now tie their own stop-on-completion to the SAME derived completion signal, no bespoke variant per file', () => {
-  it('Breathe.jsx and EveningBreathing.jsx key off hasFinished (secondsLeft <= 0); QuietBreathing.jsx keys off its own isComplete (which already folds in hasBegun/standalone) - both ultimately gated on the timer genuinely reaching 0', () => {
-    expect(breatheSource).toMatch(/const hasFinished = secondsLeft <= 0;/);
+describe('Cross-file consistency — EveningBreathing.jsx/QuietBreathing.jsx still key off their own derived completion signal; Breathe.jsx alone was upgraded to the explicit, authoritative isCompleted state (Morning breathing completion correction)', () => {
+  it('EveningBreathing.jsx keys off hasFinished (secondsLeft <= 0); QuietBreathing.jsx keys off its own isComplete (which already folds in hasBegun/standalone); Breathe.jsx now keys off the explicit isCompleted state set inside its own completion-detecting interval callback', () => {
     expect(eveningBreathingSource).toMatch(/const hasFinished = secondsLeft <= 0;/);
     expect(quietBreathingSource).toMatch(/const isComplete = standalone && hasBegun && secondsLeft <= 0;/);
+    expect(breatheSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
+    expect(breatheSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
   });
 });

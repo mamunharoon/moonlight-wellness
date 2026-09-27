@@ -45,13 +45,22 @@ describe.each([
     expect(source).toMatch(/skipStep/);
   });
 
-  it('derives hasFinished from secondsLeft <= 0', () => {
-    expect(source).toMatch(/const hasFinished = secondsLeft <= 0;/);
+  it('derives/reaches a completion signal without ever auto-navigating at the boundary (hasFinished for EveningBreathing.jsx; the explicit isCompleted state, driven by createBreathingSession, for Breathe.jsx - Morning breathing completion correction)', () => {
+    if (name === 'Breathe.jsx (Morning)') {
+      expect(source).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
+      expect(source).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
+    } else {
+      expect(source).toMatch(/const hasFinished = secondsLeft <= 0;/);
+    }
   });
 
-  it('the countdown effect stops (no interval, no navigation) once hasFinished - it no longer auto-navigates at 0', () => {
+  it('the countdown effect stops (no interval, no navigation) once completion is reached - it no longer auto-navigates at 0', () => {
     expect(source).not.toMatch(new RegExp(`if \\(secondsLeft <= 0\\) \\{\\s*\\n[\\s\\S]{0,200}navigate\\(${nextRoute}\\);`));
-    expect(source).toMatch(/\|\| hasFinished\) return;/);
+    if (name === 'Breathe.jsx (Morning)') {
+      expect(source).toMatch(/\|\| isCompleted\) return;/);
+    } else {
+      expect(source).toMatch(/\|\| hasFinished\) return;/);
+    }
   });
 
   it('Skip calls skipStep(), never the completion-mirror/advanceStep path', () => {
@@ -70,13 +79,11 @@ describe.each([
 });
 
 describe('Breathe.jsx (Morning) — render gate', () => {
-  it('Continue is rendered only when hasFinished && !isInterrupted (previously !isInterrupted alone - the exact reported defect)', () => {
-    // Mobile correction (honest positive acknowledgement) - the button is
-    // now wrapped alongside an acknowledgement <p> in a fragment under the
-    // same gate, rather than being the immediate next element.
-    const gated = breatheSource.match(/\{hasFinished && !isInterrupted && \(\s*\n\s*<>[\s\S]*?\n\s*<\/>\s*\n\s*\)\}/)?.[0] ?? '';
-    expect(gated).not.toBe('');
-    expect(gated).toMatch(/onClick=\{handleComplete\}/);
+  it('Continue to Meditate is rendered only within the isCompleted branch of the completed-panel ternary (previously !isInterrupted alone - the exact reported defect; then hasFinished && !isInterrupted; now the explicit isCompleted state - see breathingCompletionLifecycle.test.js for the full completion-panel coverage)', () => {
+    const completedBranch = breatheSource.match(/\{isCompleted \? \(([\s\S]*?)\n\s*\) : \(/)?.[1] ?? '';
+    expect(completedBranch).not.toBe('');
+    expect(completedBranch).toMatch(/onClick=\{handleComplete\}/);
+    expect(completedBranch).toMatch(/Continue to Meditate/);
   });
 });
 

@@ -138,6 +138,91 @@ const BREATHING_ACKNOWLEDGEMENT_FALLBACK = 'Thank you for taking this moment for
 export const getBreathingAcknowledgement = (journey) =>
   BREATHING_ACKNOWLEDGEMENT[journey] ?? BREATHING_ACKNOWLEDGEMENT_FALLBACK;
 
+// Breathing completed state (mobile correction) — rotating, journey-
+// SCOPED pools of short, warm, uplifting acknowledgements (3-8 words, no
+// clinical/instructional language, per the approved copy revision) for
+// the new dedicated completion panel. Three separate pools (never one
+// shared pool with a journey-agnostic pick) so a Morning message can
+// never appear during Evening/Anytime, and vice versa. Distinct from
+// getBreathingAcknowledgement's single fixed line above (that line is
+// still used, unchanged, by EveningBreathing.jsx/QuietBreathing.jsx's own
+// inline acknowledgement - out of scope for this fix). Same module, same
+// journey/outcome vocabulary, never a competing system: this is purely an
+// additive export.
+const BREATHING_COMPLETION_GREETINGS = {
+  morning: [
+    'A brighter morning starts now.',
+    'Carry this calm into your day.',
+    'You’re ready for what’s ahead.',
+    'A steady start makes a difference.',
+    'You showed up for yourself.'
+  ],
+  anytime: [
+    'You gave yourself a moment.',
+    'A short reset can change things.',
+    'Carry this calm with you.',
+    'You made space to breathe.',
+    'Feeling steadier? Keep it close.'
+  ],
+  evening: [
+    'Let the day soften now.',
+    'You’re ready to slow down.',
+    'Carry this calm into rest.',
+    'The day can wait until tomorrow.',
+    'Breathe out. It’s time to unwind.'
+  ]
+};
+
+// localStorage (not sessionStorage) - deliberately survives across days,
+// not just this app session, since "avoid yesterday's greeting" and
+// "avoid the immediately-previous greeting" are the same requirement in
+// the common case of one breathing completion per journey per day. One
+// key PER JOURNEY (never shared across pools, so Morning's last-shown
+// index can never affect Evening's own rotation). Still just a single
+// lightweight index per journey, never a persisted history/statistics
+// table and never a database write (explicitly out of scope for this
+// fix). Read/write failures (e.g. localStorage unavailable) degrade
+// gracefully to a plain random pick with no repeat-avoidance for that
+// one call - never a crash.
+const breathingLastGreetingKey = (journey) => `moonlight_breathing_last_greeting_index_${journey}`;
+
+/**
+ * Picks one greeting for a single naturally-completed breathing session,
+ * from the pool that matches the ACTUAL journey context - never a
+ * Morning message during Evening/Anytime or vice versa. Callers must
+ * call this exactly once per completion (e.g. via a lazy useState
+ * initializer keyed to entering the completed state) and hold the
+ * returned string for as long as the completion screen stays mounted -
+ * this function itself does not memoize; calling it again picks again.
+ * An unrecognised/missing journey falls back to the 'anytime' pool
+ * (matching this module's own existing getOutcomeMessage default),
+ * never a crash and never a Morning/Evening-specific claim for an
+ * unknown context.
+ * @param {'morning'|'anytime'|'evening'} [journey]
+ * @returns {string}
+ */
+export const getBreathingCompletionGreeting = (journey) => {
+  const pool = BREATHING_COMPLETION_GREETINGS[journey] ?? BREATHING_COMPLETION_GREETINGS.anytime;
+  const storageKey = breathingLastGreetingKey(BREATHING_COMPLETION_GREETINGS[journey] ? journey : 'anytime');
+  let lastIndex = -1;
+  try {
+    const stored = localStorage.getItem(storageKey);
+    lastIndex = stored !== null ? Number(stored) : -1;
+  } catch {
+    lastIndex = -1;
+  }
+  let nextIndex = Math.floor(Math.random() * pool.length);
+  if (pool.length > 1 && nextIndex === lastIndex) {
+    nextIndex = (nextIndex + 1) % pool.length;
+  }
+  try {
+    localStorage.setItem(storageKey, String(nextIndex));
+  } catch {
+    // best-effort only - a completion still gets a real greeting either way
+  }
+  return pool[nextIndex];
+};
+
 export const getOutcomeMessage = (outcome, journey = JOURNEY.ANYTIME, dateKey) => {
   const rotatingSet = ROTATING_MESSAGES[journey]?.[outcome];
   if (rotatingSet) return pickVariant(rotatingSet, dateKey);

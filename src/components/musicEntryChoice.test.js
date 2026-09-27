@@ -191,12 +191,20 @@ describe.each([
   ['Breathe.jsx', breatheSource]
 ])('%s - ExercisePausedPanel no longer gated on a music entry choice (Build 15)', (name, source) => {
   it('renders whenever interrupted and no video is open (only once genuinely begun), with no musicChoiceMade/awaitingMusicChoice concept left in the file', () => {
-    expect(source).toMatch(/\{hasBegun && !isRepeatGated && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
+    // Morning breathing completion correction - Breathe.jsx's own gate
+    // also excludes the new completed state; MorningFlow.jsx untouched.
+    const expected = name === 'Breathe.jsx'
+      ? /\{hasBegun && !isRepeatGated && !isCompleted && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/
+      : /\{hasBegun && !isRepeatGated && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/;
+    expect(source).toMatch(expected);
     expect(source).not.toMatch(/musicChoiceMade|awaitingMusicChoice/);
   });
 
   it('the ordinary manual controls (Pause/Continue or Next Movement/Next Step) are hidden only while genuinely interrupted, not while awaiting any choice (there is none)', () => {
-    expect(source).toMatch(/\{hasBegun && !isRepeatGated && !isInterrupted && !openVideo && \(/);
+    const expected = name === 'Breathe.jsx'
+      ? /\{hasBegun && !isRepeatGated && !isCompleted && !isInterrupted && !openVideo && \(/
+      : /\{hasBegun && !isRepeatGated && !isInterrupted && !openVideo && \(/;
+    expect(source).toMatch(expected);
   });
 });
 

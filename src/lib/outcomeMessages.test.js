@@ -1,6 +1,6 @@
 // WakeWise Phase 2 (B4/B6) — outcomeMessages.js.
 import { describe, it, expect } from 'vitest';
-import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement } from './outcomeMessages';
+import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement, getBreathingCompletionGreeting } from './outcomeMessages';
 
 describe('OUTCOME / JOURNEY enums', () => {
   it('OUTCOME has exactly the four required values', () => {
@@ -115,6 +115,112 @@ describe('getOutcomeMessage - defaults and defensiveness', () => {
     expect(() => getOutcomeMessage('not-a-real-outcome', 'not-a-real-journey')).not.toThrow();
     const fallback = getOutcomeMessage('not-a-real-outcome', 'not-a-real-journey');
     expect(fallback.headline.toLowerCase()).not.toMatch(/complete/);
+  });
+});
+
+describe('getBreathingCompletionGreeting - three separate, journey-scoped rotating pools for the breathing completed panel (Morning breathing completion correction)', () => {
+  // localStorage (not sessionStorage) - deliberately survives across
+  // days, so "avoid yesterday's greeting" and "avoid the immediately-
+  // previous greeting" are satisfied by the one same mechanism.
+  const withMockLocalStorage = (fn) => {
+    const store = new Map();
+    const mock = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => store.set(key, String(value)),
+      removeItem: (key) => store.delete(key)
+    };
+    const previous = globalThis.localStorage;
+    globalThis.localStorage = mock;
+    try {
+      return fn(mock);
+    } finally {
+      if (previous === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = previous;
+    }
+  };
+
+  const POOLS = {
+    morning: [
+      'A brighter morning starts now.',
+      'Carry this calm into your day.',
+      'You’re ready for what’s ahead.',
+      'A steady start makes a difference.',
+      'You showed up for yourself.'
+    ],
+    anytime: [
+      'You gave yourself a moment.',
+      'A short reset can change things.',
+      'Carry this calm with you.',
+      'You made space to breathe.',
+      'Feeling steadier? Keep it close.'
+    ],
+    evening: [
+      'Let the day soften now.',
+      'You’re ready to slow down.',
+      'Carry this calm into rest.',
+      'The day can wait until tomorrow.',
+      'Breathe out. It’s time to unwind.'
+    ]
+  };
+
+  it.each(Object.entries(POOLS))('%s: always returns one of that journey\'s own approved greetings - never a placeholder, never another journey\'s pool', (journey, pool) => {
+    for (let i = 0; i < 20; i += 1) {
+      const greeting = getBreathingCompletionGreeting(journey);
+      expect(pool).toContain(greeting);
+      for (const [otherJourney, otherPool] of Object.entries(POOLS)) {
+        if (otherJourney === journey) continue;
+        expect(otherPool).not.toContain(greeting);
+      }
+    }
+  });
+
+  it('every greeting in every pool is short (3-8 words) and free of clinical/instructional language (a casual "Breathe out" is warm phrasing, not an instruction - "inhale/exhale for N seconds" would be)', () => {
+    const CLINICAL_WORDS = /\b(exercise|session|practice|inhale|exhale|protocol|technique)\b/i;
+    for (const pool of Object.values(POOLS)) {
+      for (const greeting of pool) {
+        const wordCount = greeting.trim().split(/\s+/).length;
+        expect(wordCount).toBeGreaterThanOrEqual(3);
+        expect(wordCount).toBeLessThanOrEqual(8);
+        expect(greeting).not.toMatch(CLINICAL_WORDS);
+      }
+    }
+  });
+
+  it('never repeats the immediately-previous greeting for the SAME journey across consecutive completed sessions, when localStorage is available (also covers "avoid yesterday\'s greeting" - same mechanism, since localStorage survives across days)', () => {
+    withMockLocalStorage(() => {
+      let previous = getBreathingCompletionGreeting('morning');
+      for (let i = 0; i < 30; i += 1) {
+        const next = getBreathingCompletionGreeting('morning');
+        expect(next).not.toBe(previous);
+        previous = next;
+      }
+    });
+  });
+
+  it('each journey\'s own rotation is tracked independently - completing Evening in between two Morning completions never affects Morning\'s own non-repeat memory', () => {
+    withMockLocalStorage(() => {
+      const morningFirst = getBreathingCompletionGreeting('morning');
+      // Exhaust many Evening picks in between - must never influence Morning's own key.
+      for (let i = 0; i < 10; i += 1) getBreathingCompletionGreeting('evening');
+      const morningSecond = getBreathingCompletionGreeting('morning');
+      expect(morningSecond).not.toBe(morningFirst); // still correctly avoids ITS OWN immediately-previous
+      expect(POOLS.morning).toContain(morningSecond);
+    });
+  });
+
+  it('an unrecognised or missing journey falls back to the anytime pool - never crashes, never a Morning/Evening-specific claim for an unknown context', () => {
+    expect(() => getBreathingCompletionGreeting()).not.toThrow();
+    expect(POOLS.anytime).toContain(getBreathingCompletionGreeting('not-a-real-journey'));
+    expect(POOLS.anytime).toContain(getBreathingCompletionGreeting(undefined));
+  });
+
+  it('degrades gracefully with no localStorage at all (this repo\'s own test environment) - never throws, still returns a real greeting', () => {
+    expect(() => getBreathingCompletionGreeting('morning')).not.toThrow();
+    expect(typeof getBreathingCompletionGreeting('morning')).toBe('string');
+  });
+
+  it('does not claim completion language is tied to any outcome constant - a plain string pool, callers gate when it is shown (never for ended-early/skipped/interrupted)', () => {
+    expect(typeof getBreathingCompletionGreeting('morning')).toBe('string');
   });
 });
 

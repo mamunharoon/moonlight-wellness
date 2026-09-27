@@ -261,13 +261,13 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
 // music; music can stop without resetting the exercise.
 // ---------------------------------------------------------------------
 describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything', () => {
-  it('hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - see backNavigationCanonicalMap.test.js for the isLiveStep gate) and gates the countdown effect entirely, which now also stops (rather than auto-navigating) once hasFinished - Continue-lock/Skip-semantics fix, see embeddedBreathingContinueLock.test.js', () => {
+  it('hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - see backNavigationCanonicalMap.test.js for the isLiveStep gate) and gates the interval-management effect entirely, which now also stops once isCompleted (the explicit completion state) - Morning breathing completion correction, see breathingCompletionLifecycle.test.js', () => {
     expect(breatheSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted\) return;/);
   });
 
   it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and nothing calls .start() outside handleBeginBreathing/handleResumeWithMusic', () => {
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (breatheSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = breatheSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
@@ -293,19 +293,26 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback resets secondsLeft/breatheState, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+  it('the countdown\'s onComplete callback creates a fresh createBreathingSession controller for the currently-selected pattern, begins it, seeds secondsLeft/breatheState from it, resets isCompleted/completionGreeting, sets hasBegun, and starts music only if eligible+preferred (Morning breathing completion correction)', () => {
     const countdownBlock = breatheSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
-    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
-    expect(countdownBlock).toMatch(/setBreatheState\('Inhale'\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current\.begin\(\);/);
+    expect(countdownBlock).toMatch(/setSecondsLeft\(sessionRef\.current\.getSecondsLeft\(\)\);/);
+    expect(countdownBlock).toMatch(/setBreatheState\(sessionRef\.current\.getBreatheState\(\)\);/);
+    expect(countdownBlock).toMatch(/setIsCompleted\(false\);/);
+    expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
     expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
-  it('the active countdown effect drives breatheState from the selected pattern via the shared resolveBreathPhase - never a second, hand-rolled modulo', () => {
-    expect(breatheSource).toMatch(/setBreatheState\(resolveBreathPhase\(activePattern, nextSec\)\);/);
+  it('breatheState is driven by the shared resolveBreathPhase, via createBreathingSession (breathingSession.js) - never a second, hand-rolled modulo inline in this file', () => {
+    expect(breatheSource).toMatch(/import \{ createBreathingSession \} from '\.\.\/lib\/breathingSession';/);
+    expect(breatheSource).toMatch(/createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\)/);
+    expect(breatheSource).toMatch(/setBreatheState\(sessionRef\.current\.getBreatheState\(\)\);/);
+    expect(breatheSource).toMatch(/setBreatheState\(nextBreatheState\);/);
     expect(breatheSource).not.toMatch(/cycleTime/);
   });
 

@@ -33,7 +33,8 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
-import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
+import { getBreathingCompletionGreeting } from '../lib/outcomeMessages';
+import { createBreathingSession } from '../lib/breathingSession';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -243,48 +244,78 @@ export const Breathe = () => {
     };
   }, [state.status, currentStep, advanceStep]);
 
-  // Continue-lock/Skip-semantics fix, found live: natural timer
-  // completion used to auto-navigate immediately (identical to a manual
-  // Continue tap), and the pre-start "Continue" button itself was
-  // tappable at any point while active/unpaused - not gated on the timer
-  // actually finishing. Now: reaching 0 only STOPS the countdown (no
-  // navigation) and hasFinished (below) unlocks the Continue button -
-  // Continue itself, tapped afterward, is what records completion and
-  // advances. Skip remains the only early-exit action while still
-  // running, and now calls the canonical, separately-validated
-  // skipStep() (see handleSkip) instead of sharing this completion path.
-  const hasFinished = secondsLeft <= 0;
-  useEffect(() => {
-    // Build 15: nothing runs until hasBegun (or a genuine resume from a
-    // paused snapshot, which already implies hasBegun=true). Pause-
-    // during-review fix - freeze the countdown the instant the
-    // confirmation dialog opens, not only after the user confirms.
-    if (!hasBegun || isInterrupted || isRepeatGated || isConfirming || hasFinished) return;
+  // Morning breathing completion correction — physical-iPhone defect:
+  // after reaching 0s left, the screen stayed in the active exercise
+  // state (ring still visible, no completion panel, no Continue). Root
+  // cause: completion was a render-time-DERIVED value (secondsLeft <= 0,
+  // computed fresh every render) rather than a single, authoritative
+  // decision made the instant the timer actually reaches the boundary -
+  // whether that render-then-effect round trip ever completed in time on
+  // a real device could not be verified or guaranteed. Replaced with the
+  // exact proven shape useMeditationSession.js/meditationSession.js
+  // already use: a pure, synchronous createBreathingSession controller
+  // (breathingSession.js, real-execution tested with no fake timers -
+  // see breathingSession.test.js) driven by ONE real interval, whose own
+  // callback is the single place that detects the final tick AND
+  // synchronously stops itself, stops music, and flips isCompleted -
+  // zero renders/effects in between. isCompleted is explicit React state
+  // (never re-derived), so "reached 0" and "app decided completion
+  // happened" are the same instant, not two separately-timed events.
+  const sessionRef = useRef(null);
+  const intervalRef = useRef(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  // Picked exactly once, the instant natural completion is detected
+  // (inside the interval callback below) - never recomputed on
+  // re-render, and never touched by Skip/Exit/interruption, which never
+  // set isCompleted at all.
+  const [completionGreeting, setCompletionGreeting] = useState(null);
 
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        const nextSec = prev - 1;
-        setBreatheState(resolveBreathPhase(activePattern, nextSec));
-        return nextSec;
-      });
+  const stopBreathingInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  // Covers unmount and any navigation away from this screen (Continue/
+  // Skip/Exit/Back) - the one place that guarantees the interval is
+  // never left running behind a screen the user is no longer on.
+  useEffect(() => () => stopBreathingInterval(), []);
+
+  useEffect(() => {
+    // Nothing runs until hasBegun (or a genuine resume from a paused
+    // snapshot, which already implies hasBegun=true), and never again
+    // once isCompleted - a completed session's own controller is
+    // terminal (breathingSession.js's tick() is a permanent no-op after
+    // completion), so this guard is defence-in-depth, not the primary
+    // idempotency mechanism. Pause-during-review fix - freeze the
+    // countdown the instant the confirmation dialog opens, not only
+    // after the user confirms.
+    if (!hasBegun || isInterrupted || isRepeatGated || isConfirming || isCompleted) return;
+    const session = sessionRef.current;
+    if (!session) return;
+
+    intervalRef.current = setInterval(() => {
+      const current = sessionRef.current;
+      if (!current) return;
+      const { completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState } = current.tick();
+      setSecondsLeft(nextSecondsLeft);
+      setBreatheState(nextBreatheState);
+      if (completed) {
+        // All three completion side-effects happen synchronously, in
+        // this same callback, the instant the boundary is reached -
+        // stop the interval (so a stray extra tick can never fire),
+        // stop the music, and enter the completed state, all in one
+        // step, exactly once per real completion.
+        stopBreathingInterval();
+        musicPlayerRef.current?.stop();
+        setCompletionGreeting(getBreathingCompletionGreeting('morning'));
+        setIsCompleted(true);
+      }
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [hasFinished, hasBegun, isInterrupted, isRepeatGated, isConfirming, activePattern]);
-
-  // Mobile correction (sequential breathing-pattern completion lifecycle)
-  // — found live: music kept looping after a SECOND pattern's natural
-  // completion in the same visit. Root cause: music was only ever stopped
-  // as a SIDE EFFECT of the next explicit action (Continue's navigate()
-  // unmounting InteractiveAmbientMusic, or Back's own explicit stop() in
-  // handleBackFromActive below) - never directly tied to the timer
-  // actually reaching 0. This mirrors QuietBreathing.jsx's own proven
-  // `isComplete` -> stop() effect, so natural completion deterministically
-  // stops audio exactly once regardless of what the user does next, and
-  // behaves identically the 1st, 2nd or later time through in one mount.
-  useEffect(() => {
-    if (hasFinished) musicPlayerRef.current?.stop();
-  }, [hasFinished]);
+    return () => stopBreathingInterval();
+  }, [hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted]);
 
   // Double-tap protection: a ref, checked and set before anything else
   // runs - see MorningFlow.jsx's identical rationale.
@@ -297,8 +328,19 @@ export const Breathe = () => {
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
-      setSecondsLeft(activePattern.totalSeconds);
-      setBreatheState('Inhale');
+      // Sequential-pattern correctness — the one true "start a fresh
+      // session" entry point: always creates a BRAND NEW controller for
+      // whichever pattern is currently selected, never reusing a
+      // previous instance. This is what guarantees the 2nd/3rd pattern
+      // completed in the same mounted visit behaves identically to the
+      // 1st - no leftover elapsed time, no leftover COMPLETED status,
+      // from whichever pattern finished last.
+      sessionRef.current = createBreathingSession({ pattern: activePattern, resolveBreathPhase });
+      sessionRef.current.begin();
+      setSecondsLeft(sessionRef.current.getSecondsLeft());
+      setBreatheState(sessionRef.current.getBreatheState());
+      setIsCompleted(false);
+      setCompletionGreeting(null);
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
         musicPlayerRef.current?.start();
@@ -315,8 +357,8 @@ export const Breathe = () => {
     countdown.start();
   };
 
-  // Only reachable once hasFinished (Continue is hidden until then, see
-  // render below) - records genuine completion and advances.
+  // Only reachable once isCompleted (Continue to Meditate is hidden until
+  // then, see render below) - records genuine completion and advances.
   const handleComplete = () => {
     setJourneyStep('meditate');
     navigate('/morning-meditate');
@@ -378,8 +420,12 @@ export const Breathe = () => {
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);
+    stopBreathingInterval();
+    sessionRef.current = null;
     setBreatheState('Inhale');
     setSecondsLeft(activePattern.totalSeconds);
+    setIsCompleted(false);
+    setCompletionGreeting(null);
     setHasBegun(false);
     musicPlayerRef.current?.stop();
     return false;
@@ -557,6 +603,31 @@ export const Breathe = () => {
             )}
           </div>
         </>
+      ) : isCompleted ? (
+        // Morning breathing completion correction — a genuine dedicated
+        // completed panel, replacing the active exercise interface
+        // entirely (ring, the active screen's own heading copy, pattern-
+        // label pill are ALL gone here, not just overlaid) so there is
+        // never any doubt
+        // the exercise is over. Warm-gold visual language reused from
+        // this app's own existing tokens (IntentionSetup.jsx/
+        // SessionComplete.jsx's own bg-morning-accent/10 + border-
+        // morning-accent-tint/25 + shadow-morning-glow badge shape) -
+        // never a new colour, never a literal Stitch copy.
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center">
+            <span className="material-symbols-outlined text-morning-accent text-4xl" aria-hidden="true">check_circle</span>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Exercise Completed</span>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              {completionGreeting}
+            </h2>
+            <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              Take this steadiness with you as you continue your morning.
+            </p>
+          </div>
+        </div>
       ) : (
         <>
           <div className="text-center space-y-2">
@@ -587,16 +658,20 @@ export const Breathe = () => {
         <InteractiveAmbientMusic
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
-          suspended={hasBegun ? (Boolean(openVideo) || manuallyPaused) : false}
-          hideToggle={!hasBegun}
+          suspended={hasBegun ? (isCompleted || Boolean(openVideo) || manuallyPaused) : false}
+          hideToggle={!hasBegun || isCompleted}
         />
       )}
 
-      {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
+      {hasBegun && !isRepeatGated && !isCompleted && isInterrupted && !openVideo && (
         <ExercisePausedPanel onResume={handleResume} journeyTone="morning" />
       )}
 
-      {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (
+      {/* Morning breathing completion correction — Pause Exercise
+          previously had no !isCompleted guard at all, so it kept
+          rendering (nonsensically - pausing a finished exercise) right
+          where the completion panel now takes over instead. */}
+      {hasBegun && !isRepeatGated && !isCompleted && !isInterrupted && !openVideo && (
         <button
           type="button"
           onClick={handlePauseExercise}
@@ -614,8 +689,10 @@ export const Breathe = () => {
           the pre-start branch above already renders its own copy while
           !hasBegun. Still reachable mid-exercise, preserving the
           existing interrupt-to-watch affordance handleSelectVideo
-          already provides. */}
-      {hasBegun && !isRepeatGated && (
+          already provides. Gated on !isCompleted - the completed panel
+          below has its own, optional "Explore guided breathing" entry
+          point instead, reusing this same guidedSessionsOpen state. */}
+      {hasBegun && !isRepeatGated && !isCompleted && (
         <div className="space-y-2">
           <button
             type="button"
@@ -682,37 +759,93 @@ export const Breathe = () => {
               the same reason - reviewing never exposes them). */}
           {!isReviewMode && (
             <>
-              {hasFinished && !isInterrupted && (
+              {isCompleted ? (
                 <>
-                  {/* Mobile correction (honest positive acknowledgement) —
-                      only ever shown for a genuine natural completion, the
-                      exact same gate Continue itself uses; never for
-                      Skip/interrupted. Reuses the shared Phase 2
-                      outcome-messaging module rather than a second model. */}
-                  <p className="text-sm text-center text-on-surface-variant" role="status">
-                    {getBreathingAcknowledgement('morning')}
-                  </p>
+                  {/* Morning breathing completion correction — the
+                      required primary action, gated purely on the new
+                      explicit isCompleted state (never derived, never
+                      shown for Skip/Exit/interrupted). Tapping it is the
+                      one place completion is ever mirrored into the
+                      Session Engine (handleComplete, unchanged) - exactly
+                      once, guarded by hasMirroredExitRef. */}
                   <button
                     onClick={handleComplete}
                     className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
                   >
-                    <span>Continue</span>
+                    <span>Continue to Meditate</span>
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                  {/* Optional secondary action (approved brief) - reuses
+                      the exact same guidedSessionsOpen state/disclosure
+                      content as the active screen's own entry point,
+                      just rendered inline here instead, so opening it
+                      never competes with Continue to Meditate for
+                      attention above the fold. */}
+                  <button
+                    type="button"
+                    onClick={() => setGuidedSessionsOpen((v) => !v)}
+                    aria-expanded={guidedSessionsOpen}
+                    aria-controls="breathe-guided-sessions-completed"
+                    className="w-full glass-panel text-on-surface-variant py-3.5 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                  >
+                    Explore guided breathing
+                  </button>
+                  {guidedSessionsOpen && (
+                    <div id="breathe-guided-sessions-completed" className="space-y-4 pt-1">
+                      <div className="space-y-3">
+                        {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                          const entry = getBetaVideoById(id);
+                          if (!entry) return null;
+                          return (
+                            <BetaVideoRow
+                              key={id}
+                              title={entry.title}
+                              description={blurb}
+                              onClick={() => handleSelectVideo(id)}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-3">
+                        <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                        {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                          const entry = getBetaVideoById(id);
+                          if (!entry) return null;
+                          return (
+                            <BetaVideoRow
+                              key={id}
+                              title={entry.title}
+                              description={blurb}
+                              onClick={() => handleSelectVideo(id)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleExitRoutine}
+                    className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+                  >
+                    Exit routine
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleSkip}
+                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                  >
+                    Skip this step
+                  </button>
+                  <button
+                    onClick={handleExitRoutine}
+                    className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+                  >
+                    Exit routine
                   </button>
                 </>
               )}
-              <button
-                onClick={handleSkip}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-              >
-                Skip this step
-              </button>
-              <button
-                onClick={handleExitRoutine}
-                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
-              >
-                Exit routine
-              </button>
             </>
           )}
         </div>
