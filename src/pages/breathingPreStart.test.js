@@ -261,17 +261,17 @@ describe('Breathe.jsx - real pattern choices before Start, single-select radio s
 // music; music can stop without resetting the exercise.
 // ---------------------------------------------------------------------
 describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything', () => {
-  it('hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - see backNavigationCanonicalMap.test.js for the isLiveStep gate) and gates the interval-management effect entirely, which now also stops once isCompleted (the explicit completion state) - Morning breathing completion correction, see breathingCompletionLifecycle.test.js', () => {
+  it('hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - see backNavigationCanonicalMap.test.js for the isLiveStep gate) and gates the interval-management effect entirely, which now also stops once isCompleted or backConfirmOpen (Morning breathing completion + Back/early-exit corrections, see breathingCompletionLifecycle.test.js)', () => {
     expect(breatheSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted\) return;/);
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and nothing calls .start() outside handleBeginBreathing/handleResumeWithMusic', () => {
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and .start() is only called from the three legitimate resume/begin points (handleBeginBreathing/handleResume/keepBreathing - Morning breathing Back/early-exit correction added the third)', () => {
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (breatheSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = breatheSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    expect(startCalls.length).toBe(2);
+    expect(startCalls.length).toBe(3);
   });
 
   // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now

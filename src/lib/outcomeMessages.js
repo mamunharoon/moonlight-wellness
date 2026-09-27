@@ -223,6 +223,41 @@ export const getBreathingCompletionGreeting = (journey) => {
   return pool[nextIndex];
 };
 
+// Morning breathing Back/early-exit correction — a short, honest,
+// non-celebratory acknowledgement shown on the pre-start/selection screen
+// after the user confirms "Leave Exercise" from the active-exercise Back
+// confirmation. Deliberately a separate, single Morning-only pool (per
+// the approved brief) rather than overloading getOutcomeMessage's own
+// existing SINGLE_MESSAGES.morning.ended_early (a differently-shaped,
+// already-tested headline+body pair used elsewhere) - same module,
+// same honest "never claims completion" spirit, still not a competing
+// architecture. No non-repeat/localStorage tracking here (not requested
+// for this pool, unlike the natural-completion greetings above) - a
+// plain random pick, selected once per early-exit event by the caller.
+const MORNING_BREATHING_EARLY_EXIT_MESSAGES = [
+  'A short pause still matters.',
+  'You still made time to breathe.',
+  'Every mindful moment counts.',
+  'Return when it feels right.',
+  'Choose what supports you now.'
+];
+
+/**
+ * Picks one short, Morning-appropriate supportive message for a
+ * confirmed early exit from an active breathing exercise (Back -> Leave
+ * Exercise). Callers must call this exactly once per early-exit event
+ * and hold the returned string for as long as it stays displayed - this
+ * function itself does not memoize; calling it again picks again. Never
+ * claims completion, never celebratory - distinct from
+ * getBreathingCompletionGreeting's own pool, which is reserved for
+ * genuine natural completion only.
+ * @returns {string}
+ */
+export const getMorningBreathingEarlyExitMessage = () => {
+  const pool = MORNING_BREATHING_EARLY_EXIT_MESSAGES;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
 export const getOutcomeMessage = (outcome, journey = JOURNEY.ANYTIME, dateKey) => {
   const rotatingSet = ROTATING_MESSAGES[journey]?.[outcome];
   if (rotatingSet) return pickVariant(rotatingSet, dateKey);

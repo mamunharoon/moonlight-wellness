@@ -34,7 +34,7 @@ describe('Breathe.jsx — completion is an explicit, authoritative state, never 
   });
 
   it('the interval callback is the ONE place that detects completion and synchronously stops itself, stops music, picks the greeting, and sets isCompleted - all in the same callback invocation, not spread across a render+effect round trip', () => {
-    const intervalEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*\/\/ Nothing runs until hasBegun[\s\S]*?\n\s*return \(\) => stopBreathingInterval\(\);\s*\n\s*\}, \[hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted\]\);/)?.[0] ?? '';
+    const intervalEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*\/\/ Nothing runs until hasBegun[\s\S]*?\n\s*return \(\) => stopBreathingInterval\(\);\s*\n\s*\}, \[hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen\]\);/)?.[0] ?? '';
     expect(intervalEffect).not.toBe('');
     const callbackBody = intervalEffect.match(/intervalRef\.current = setInterval\(\(\) => \{([\s\S]*?)\n\s*\}, 1000\);/)?.[1] ?? '';
     expect(callbackBody).not.toBe('');
@@ -48,7 +48,7 @@ describe('Breathe.jsx — completion is an explicit, authoritative state, never 
   });
 
   it('0s left cannot remain indefinitely in the active state - the interval effect re-runs and refuses to start a new interval once isCompleted, and the active ring branch is only reachable while !isCompleted', () => {
-    expect(source).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted\) return;/);
+    expect(source).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
     expect(source).toMatch(/\) : isCompleted \? \(/);
   });
 });
@@ -60,7 +60,7 @@ describe('Breathe.jsx — idempotent completion (breathingSession.js\'s own tick
   });
 
   it('a fresh createBreathingSession is only ever created from countdown.onComplete (the one true "start a fresh session" entry point) - never re-created by the interval effect itself', () => {
-    const intervalEffectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*\/\/ Nothing runs until hasBegun[\s\S]*?\n\s*return \(\) => stopBreathingInterval\(\);\s*\n\s*\}, \[hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted\]\);/)?.[0] ?? '';
+    const intervalEffectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*\/\/ Nothing runs until hasBegun[\s\S]*?\n\s*return \(\) => stopBreathingInterval\(\);\s*\n\s*\}, \[hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen\]\);/)?.[0] ?? '';
     expect(intervalEffectBody).not.toMatch(/createBreathingSession/);
     expect(source).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);\s*\n\s*sessionRef\.current\.begin\(\);/);
   });
@@ -150,8 +150,12 @@ describe('Breathe.jsx — ended-early/skipped/interrupted never record completio
 });
 
 describe('Breathe.jsx — repeated-pattern use in one mounted visit (sequential-completion guard)', () => {
-  it('handleBackFromActive (the only in-place path back to pattern selection) fully tears down the interval/session and resets isCompleted/completionGreeting, so a second pattern starts genuinely clean', () => {
-    const fn = source.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+  // Morning breathing Back/early-exit correction — the actual teardown
+  // moved from handleBackFromActive into leaveExercise (the confirmed
+  // early-exit path); see breathingBackEarlyExit.test.js for the full
+  // dedicated coverage of the confirmation flow itself.
+  it('leaveExercise (the only in-place path back to pattern selection, now gated behind confirmation) fully tears down the interval/session and resets isCompleted/completionGreeting, so a second pattern starts genuinely clean', () => {
+    const fn = source.match(/const leaveExercise = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(fn).toMatch(/stopBreathingInterval\(\);/);
     expect(fn).toMatch(/sessionRef\.current = null;/);
     expect(fn).toMatch(/setIsCompleted\(false\);/);

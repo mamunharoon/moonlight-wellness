@@ -57,7 +57,9 @@ describe.each([
   it('the countdown effect stops (no interval, no navigation) once completion is reached - it no longer auto-navigates at 0', () => {
     expect(source).not.toMatch(new RegExp(`if \\(secondsLeft <= 0\\) \\{\\s*\\n[\\s\\S]{0,200}navigate\\(${nextRoute}\\);`));
     if (name === 'Breathe.jsx (Morning)') {
-      expect(source).toMatch(/\|\| isCompleted\) return;/);
+      // Morning breathing Back/early-exit correction also added
+      // backConfirmOpen to this same guard.
+      expect(source).toMatch(/\|\| isCompleted \|\| backConfirmOpen\) return;/);
     } else {
       expect(source).toMatch(/\|\| hasFinished\) return;/);
     }

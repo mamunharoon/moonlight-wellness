@@ -248,7 +248,10 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
     // also fold in isCompleted (defensive: music is already stop()'d at
     // completion, this additionally prevents any auto-resume attempt and
     // hides the now-meaningless toggle on the completed panel).
-    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
+    // Morning breathing Back/early-exit correction - suspended now also
+    // folds in backConfirmOpen (pauses music while "Leave this breathing
+    // exercise?" is open, without stopping/destroying it).
+    expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (breatheSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
   });

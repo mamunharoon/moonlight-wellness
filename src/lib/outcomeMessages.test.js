@@ -1,6 +1,6 @@
 // WakeWise Phase 2 (B4/B6) — outcomeMessages.js.
 import { describe, it, expect } from 'vitest';
-import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement, getBreathingCompletionGreeting } from './outcomeMessages';
+import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement, getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage } from './outcomeMessages';
 
 describe('OUTCOME / JOURNEY enums', () => {
   it('OUTCOME has exactly the four required values', () => {
@@ -235,5 +235,40 @@ describe('getBreathingAcknowledgement - honest positive acknowledgement after a 
     expect(getBreathingAcknowledgement(undefined)).toBe('Thank you for taking this moment for yourself.');
     expect(getBreathingAcknowledgement('not-a-real-journey')).toBe('Thank you for taking this moment for yourself.');
     expect(() => getBreathingAcknowledgement()).not.toThrow();
+  });
+});
+
+describe('getMorningBreathingEarlyExitMessage - honest, non-celebratory acknowledgement for a confirmed Back -> Leave Exercise early exit (Morning breathing Back/early-exit correction)', () => {
+  const POOL = [
+    'A short pause still matters.',
+    'You still made time to breathe.',
+    'Every mindful moment counts.',
+    'Return when it feels right.',
+    'Choose what supports you now.'
+  ];
+
+  it('always returns one of the approved short messages - never empty, never a placeholder', () => {
+    for (let i = 0; i < 20; i += 1) {
+      expect(POOL).toContain(getMorningBreathingEarlyExitMessage());
+    }
+  });
+
+  it('never uses completion/celebration language - genuinely distinct from the natural-completion greeting pool', () => {
+    const completionPool = [
+      'A brighter morning starts now.',
+      'Carry this calm into your day.',
+      'You’re ready for what’s ahead.',
+      'A steady start makes a difference.',
+      'You showed up for yourself.'
+    ];
+    for (const message of POOL) {
+      expect(completionPool).not.toContain(message);
+      expect(message.toLowerCase()).not.toMatch(/complete|congrat|well done|finished/);
+    }
+  });
+
+  it('never throws, always returns a string', () => {
+    expect(() => getMorningBreathingEarlyExitMessage()).not.toThrow();
+    expect(typeof getMorningBreathingEarlyExitMessage()).toBe('string');
   });
 });

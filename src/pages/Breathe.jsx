@@ -33,7 +33,7 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
-import { getBreathingCompletionGreeting } from '../lib/outcomeMessages';
+import { getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
@@ -270,6 +270,20 @@ export const Breathe = () => {
   // set isCompleted at all.
   const [completionGreeting, setCompletionGreeting] = useState(null);
 
+  // Morning breathing Back/early-exit correction — pressing the top Back
+  // button during an active exercise previously reset everything
+  // immediately with ZERO confirmation (found live). backConfirmOpen
+  // gates the same interval-management effect below and
+  // InteractiveAmbientMusic's own `suspended` prop, exactly like the
+  // pre-existing "Review an earlier step?" dialog (isConfirming) already
+  // does - so the timer/animation/music all genuinely pause the instant
+  // this dialog opens, not just visually. earlyExitMessage is picked
+  // exactly once when the user confirms "Leave Exercise" and shown on
+  // the pre-start/selection screen - never blocking, never touched by
+  // natural completion or Skip.
+  const [backConfirmOpen, setBackConfirmOpen] = useState(false);
+  const [earlyExitMessage, setEarlyExitMessage] = useState(null);
+
   const stopBreathingInterval = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -291,7 +305,10 @@ export const Breathe = () => {
     // idempotency mechanism. Pause-during-review fix - freeze the
     // countdown the instant the confirmation dialog opens, not only
     // after the user confirms.
-    if (!hasBegun || isInterrupted || isRepeatGated || isConfirming || isCompleted) return;
+    // Morning breathing Back/early-exit correction - backConfirmOpen
+    // freezes the timer the same way while the new "Leave this breathing
+    // exercise?" dialog is open.
+    if (!hasBegun || isInterrupted || isRepeatGated || isConfirming || isCompleted || backConfirmOpen) return;
     const session = sessionRef.current;
     if (!session) return;
 
@@ -315,7 +332,7 @@ export const Breathe = () => {
     }, 1000);
 
     return () => stopBreathingInterval();
-  }, [hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted]);
+  }, [hasBegun, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
 
   // Double-tap protection: a ref, checked and set before anything else
   // runs - see MorningFlow.jsx's identical rationale.
@@ -417,18 +434,64 @@ export const Breathe = () => {
       return false;
     }
     if (!hasBegun || isRepeatGated) return;
+    // Morning breathing Back/early-exit correction — Back from the
+    // COMPLETED panel is ordinary navigation, never an early exit: the
+    // exercise already finished, so this must never open the "Leave this
+    // breathing exercise?" dialog or touch isCompleted/completionGreeting
+    // (leaving after completing must not change the completed outcome to
+    // ended_early). Falls through to BackButton's own normal navigation.
+    if (isCompleted) return;
+    // Repeated-Back-tap guard — if the dialog is already open, do
+    // nothing: in particular, never re-capture wasMusicPlayingRef (it
+    // would now read false, since the music is already suspended for
+    // the open dialog, wrongly clobbering the real pre-dialog value) and
+    // never open a second dialog.
+    if (backConfirmOpen) return false;
+    // Previously: reset everything immediately with ZERO confirmation
+    // (found live). Now: capture whether music was genuinely playing
+    // BEFORE the dialog suspends it (same pattern as
+    // handlePauseExercise/handleSelectVideo above), then just open the
+    // dialog - the timer/animation/music all pause via the interval
+    // effect's/InteractiveAmbientMusic's own backConfirmOpen gate above,
+    // never reset, until the user actually chooses Leave Exercise.
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setBackConfirmOpen(true);
+    return false;
+  };
+
+  // "Keep Breathing" — dismiss the dialog and resume from the exact
+  // remaining time (nothing was ever reset), restoring music only if it
+  // was genuinely playing before the dialog opened.
+  const keepBreathing = () => {
+    setBackConfirmOpen(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
+  };
+
+  // "Leave Exercise" — the one true confirmed-early-exit path: stops and
+  // disposes of the timer/session/music, records nothing (never calls
+  // mirrorBreathingExitRef/advanceStep - this is Skip's canonical
+  // completion-mirror path, not this one's), and shows one stable,
+  // honest, non-celebratory message on the pre-start screen the user
+  // lands back on.
+  const leaveExercise = () => {
+    setBackConfirmOpen(false);
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);
     stopBreathingInterval();
+    sessionRef.current?.end();
     sessionRef.current = null;
     setBreatheState('Inhale');
     setSecondsLeft(activePattern.totalSeconds);
     setIsCompleted(false);
     setCompletionGreeting(null);
+    setEarlyExitMessage(getMorningBreathingEarlyExitMessage());
     setHasBegun(false);
     musicPlayerRef.current?.stop();
-    return false;
+    wasMusicPlayingRef.current = false;
   };
 
   return (
@@ -481,6 +544,17 @@ export const Breathe = () => {
               Choose a breathing rhythm, then begin when you&rsquo;re ready.
             </p>
           </div>
+
+          {/* Morning breathing Back/early-exit correction — a short,
+              honest, non-celebratory acknowledgement after a confirmed
+              early exit (Back -> Leave Exercise). Purely informational,
+              never blocking: every control below (pattern choice, Begin,
+              Skip, Exit) remains immediately usable underneath it. */}
+          {earlyExitMessage && (
+            <p className="text-xs text-center text-on-surface-variant glass-panel rounded-2xl py-2.5 px-4" role="status">
+              {earlyExitMessage}
+            </p>
+          )}
 
           {/* Build 16 physical-iPhone correction (F5) — compact 2-column
               grid (4-4-6 | 4-7-8 / 4-4-8 | Box / Coherent full-width),
@@ -658,7 +732,7 @@ export const Breathe = () => {
         <InteractiveAmbientMusic
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
-          suspended={hasBegun ? (isCompleted || Boolean(openVideo) || manuallyPaused) : false}
+          suspended={hasBegun ? (isCompleted || Boolean(openVideo) || manuallyPaused || backConfirmOpen) : false}
           hideToggle={!hasBegun || isCompleted}
         />
       )}
@@ -878,6 +952,22 @@ export const Breathe = () => {
         mildDestructive
         onConfirm={confirmExitRoutine}
         onDismiss={() => setExitRoutineConfirmOpen(false)}
+      />
+      {/* Morning breathing Back/early-exit correction — mild warning
+          (temporary, resumable progress lost; no saved history erased),
+          matching every other "exit an active session" dialog in this
+          app's own approved severity tier. Keep Breathing dismisses with
+          zero state change (nothing was ever reset); Leave Exercise is
+          the one confirmed early-exit path (leaveExercise, above). */}
+      <ConfirmDialog
+        open={backConfirmOpen}
+        title="Leave this breathing exercise?"
+        message="Your progress in this exercise won’t be completed."
+        confirmLabel="Leave Exercise"
+        cancelLabel="Keep Breathing"
+        mildDestructive
+        onConfirm={leaveExercise}
+        onDismiss={keepBreathing}
       />
     </div>
   );

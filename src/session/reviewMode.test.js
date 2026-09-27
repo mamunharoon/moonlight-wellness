@@ -440,7 +440,9 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) n
     // hasFinished (a render-time-derived value) - see
     // breathingCompletionLifecycle.test.js. EveningBreathing.jsx is
     // unchanged by that later fix.
-    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted\) return;/);
+    // Morning breathing Back/early-exit correction also added
+    // backConfirmOpen to this same guard.
+    expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
     expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
   });
 
