@@ -62,7 +62,12 @@ describe('BetaVideoModal.jsx — event wiring: iOS\'s own proprietary event pair
     // added (read inside handleEnded to decide whether to pick a
     // completion message); hasEnded itself is read via a ref
     // (hasEndedProcessedRef), not this effect's own dependency array.
-    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl, onEnded, completionContext\]\);/)?.[0] ?? '';
+    // Physical-iPhone completion-overlay defect fix — fallbackFullscreen
+    // added too (read inside the new exitFullscreenAfterCompletion helper,
+    // itself called from handleEnded) - isFullscreen deliberately is not,
+    // since it's only ever read via live DOM checks there, never the
+    // closed-over state value (see that helper's own doc comment).
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl, onEnded, completionContext, fallbackFullscreen\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/video\.removeEventListener\('webkitbeginfullscreen', handleBeginFullscreen\);/);
     expect(body).toMatch(/video\.removeEventListener\('webkitendfullscreen', handleEndFullscreen\);/);
@@ -135,8 +140,17 @@ describe('BetaVideoModal.jsx — only one <video> element ever exists, even for 
     expect((body.match(/object-contain/g) ?? []).length).toBe(2);
   });
 
-  it('retains native playback controls (the controls attribute) regardless of fullscreen state', () => {
-    expect(source).toMatch(/<video\s*\n\s*ref=\{videoRef\}\s*\n\s*key=\{videoUrl\}\s*\n\s*src=\{videoUrl\}\s*\n\s*controls\s*\n/);
+  // Physical-iPhone completion-overlay defect fix — native controls are
+  // now disabled once hasEnded (regardless of fullscreen state), for
+  // every caller: a completed video's own built-in ended-state replay
+  // affordance must never remain live underneath either completion
+  // overlay. During ordinary, non-ended playback this is unchanged from
+  // before (controls stay on) - only the post-completion state differs.
+  it('retains native playback controls during ordinary playback, but disables them once hasEnded (both overlays already fully cover the frame with their own buttons by then)', () => {
+    const videoTag = source.match(/<video\s*\n\s*ref=\{videoRef\}[\s\S]*?\n\s*>/)?.[0] ?? '';
+    expect(videoTag).not.toBe('');
+    expect(videoTag).toMatch(/controls=\{!hasEnded\}/);
+    expect(videoTag).not.toMatch(/\n\s*controls\s*\n/);
   });
 
   it('the fallback exit control only exits fallback fullscreen, never closes the video', () => {

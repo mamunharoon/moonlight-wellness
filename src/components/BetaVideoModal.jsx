@@ -315,6 +315,53 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       setIsFullscreen(active);
       if (!active) setFallbackFullscreen(false);
     };
+    // Physical-iPhone completion-overlay defect fix — natural `ended`
+    // used to call setIsFullscreen(false) directly, which desyncs React
+    // state from reality: iOS's native webkitEnterFullscreen() layer is a
+    // system-level presentation that keeps covering the whole screen
+    // until it is actually told to exit (webkitExitFullscreen()) or the
+    // user dismisses it themselves - a React setState never touches it.
+    // The completion overlay's own render guard (!isFullscreen) trusted
+    // that premature `false` and rendered underneath the still-visible
+    // native layer (reported: invisible until the user manually exited
+    // fullscreen) - and by then, the underlying <video> element (still
+    // fully native-interactive; see `controls={!hasEnded}` below) is what
+    // actually caught the user's next tap and restarted playback via its
+    // own built-in ended-state replay affordance, entirely outside any of
+    // this component's own handlers. Fixed by actually asking the real
+    // fullscreen mechanism (whichever one is genuinely active) to exit,
+    // and letting its own real, asynchronous exit event - not a synchronous
+    // guess - be what clears isFullscreen and reveals the overlay.
+    const exitFullscreenAfterCompletion = () => {
+      if (fallbackFullscreen) {
+        // No native API is involved for this platform - nothing else
+        // will ever clear this state, so it must happen synchronously
+        // here for the overlay to ever appear.
+        setFallbackFullscreen(false);
+        return;
+      }
+      const webkitActive = Boolean(video.webkitDisplayingFullscreen);
+      const standardActive = document.fullscreenElement === video;
+      if (!webkitActive && !standardActive) {
+        // Nothing is actually presenting fullscreen right now (e.g. the
+        // user had already manually exited before the video reached its
+        // end) - correct any stale isFullscreen state ourselves, since no
+        // native exit event will ever fire to do it for us.
+        setIsFullscreen(false);
+        return;
+      }
+      // Genuinely still presenting fullscreen - ask the browser/OS to
+      // exit it (capability-detected inside exitVideoFullscreen itself:
+      // webkitExitFullscreen where supported, else the standards-track
+      // document.exitFullscreen()). isFullscreen is deliberately left
+      // untouched here; the real webkitendfullscreen/fullscreenchange
+      // listener above updates it asynchronously once the native
+      // presentation has actually finished tearing down, so the
+      // completion overlay only ever renders once it can genuinely be
+      // seen - never before, and automatically, with no further user
+      // action required.
+      exitVideoFullscreen(video);
+    };
     const handleEnded = () => {
       // Shared guided-media completion correction — idempotent by
       // construction, via a REF checked/set synchronously (immune to
@@ -322,13 +369,16 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       // here would be): a second `ended` event for the same instance -
       // the browser event contract doesn't strictly forbid it, even
       // though a real natural end fires it once - is a genuine no-op,
-      // never re-picking a message or calling onEnded twice for the same
-      // completion.
+      // never re-picking a message, never re-triggering a fullscreen exit
+      // and never calling onEnded twice for the same completion.
       if (hasEndedProcessedRef.current) return;
       hasEndedProcessedRef.current = true;
-      setIsFullscreen(false);
-      setFallbackFullscreen(false);
+      // Explicit, defensive stop - `ended` already implies playback has
+      // stopped, but this guarantees no residual audio/frame advance
+      // survives whatever fullscreen teardown follows.
+      video.pause();
       setHasEnded(true);
+      exitFullscreenAfterCompletion();
       // Picked exactly once, in this same callback, the instant natural
       // completion is detected - only when a caller actually opted into
       // the new shared overlay (completionContext). Callers that omit it
@@ -352,7 +402,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       document.removeEventListener('fullscreenchange', handleStandardFullscreenChange);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [videoUrl, onEnded, completionContext]);
+  }, [videoUrl, onEnded, completionContext, fallbackFullscreen]);
 
   // Escape only closes the whole modal from the small preview state.
   // While the standards-track Fullscreen API is active (isFullscreen),
@@ -450,14 +500,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
   }, []);
 
   // Moves focus to the new completion overlay's own primary action button
-  // the instant it appears (hasEnded transitions true with a completionContext
-  // present) - a screen-reader user lands directly on "Session Complete...
-  // {primaryLabel}" rather than staying wherever focus was during
-  // playback (typically nowhere in particular, since native <video>
-  // controls own their own focus during playback).
+  // the instant it actually appears - which, per the physical-iPhone
+  // completion-overlay defect fix above, is only once isFullscreen/
+  // fallbackFullscreen have genuinely cleared (the same guard the overlay's
+  // own render condition uses), not merely once hasEnded/completionContext
+  // are true - a real native fullscreen exit is asynchronous, so this must
+  // re-run again once that real exit event lands, not just once at the
+  // moment `ended` fires while still fullscreen. A screen-reader user then
+  // lands directly on "Session Complete... {primaryLabel}" rather than
+  // staying wherever focus was during playback (typically nowhere in
+  // particular, since native <video> controls own their own focus during
+  // playback).
   useEffect(() => {
-    if (hasEnded && completionContext) completionPrimaryButtonRef.current?.focus();
-  }, [hasEnded, completionContext]);
+    if (hasEnded && completionContext && !isFullscreen && !fallbackFullscreen) completionPrimaryButtonRef.current?.focus();
+  }, [hasEnded, completionContext, isFullscreen, fallbackFullscreen]);
 
   const handleVideoError = () => {
     // A playback error once a URL is already loaded most likely means the
@@ -614,7 +670,19 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                 ref={videoRef}
                 key={videoUrl}
                 src={videoUrl}
-                controls
+                // Physical-iPhone completion-overlay defect fix — native
+                // controls are disabled once hasEnded, for every caller
+                // (not just completionContext ones): a completed video's
+                // own built-in ended-state chrome (including its native
+                // "replay" affordance) must never remain live and tappable
+                // underneath either completion overlay - both already
+                // fully cover this frame with their own buttons, so this
+                // removes zero user-visible affordance while closing the
+                // one native surface that could otherwise restart
+                // playback outside any of this component's own handlers.
+                // Sleep Soundscapes never set hasEnded (loop never fires
+                // `ended`), so this is always `true` for them, unaffected.
+                controls={!hasEnded}
                 playsInline
                 loop={isSleepSound}
                 preload="metadata"

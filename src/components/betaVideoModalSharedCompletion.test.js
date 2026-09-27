@@ -108,9 +108,15 @@ describe('BetaVideoModal.jsx — safe focus handling and restoration', () => {
     expect(source).toMatch(/previouslyFocusedRef\.current\?\.focus\?\.\(\);/);
   });
 
-  it('moves focus to the completion overlay\'s own primary action button the instant it appears (hasEnded && completionContext)', () => {
-    expect(source).toMatch(/if \(hasEnded && completionContext\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
-    expect(source).toMatch(/\}, \[hasEnded, completionContext\]\);/);
+  // Physical-iPhone completion-overlay defect fix — focus now only moves
+  // once the overlay has actually become visible (isFullscreen/
+  // fallbackFullscreen both clear too), not merely once hasEnded/
+  // completionContext are true - a real native fullscreen exit is
+  // asynchronous, so this effect must re-run again once that real exit
+  // event lands, matching the overlay's own render guard exactly.
+  it('moves focus to the completion overlay\'s own primary action button only once it is actually visible (hasEnded && completionContext && !isFullscreen && !fallbackFullscreen)', () => {
+    expect(source).toMatch(/if \(hasEnded && completionContext && !isFullscreen && !fallbackFullscreen\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
+    expect(source).toMatch(/\}, \[hasEnded, completionContext, isFullscreen, fallbackFullscreen\]\);/);
   });
 
   it('the primary button carries the completionPrimaryButtonRef', () => {
