@@ -185,18 +185,28 @@ const COMPLETION_GREETINGS = {
       'Take this calm and confidence with you.'
     ]
   },
-  // Anytime only has a breathing pool today - stretching/meditation/
-  // routine for Anytime are explicitly out of scope for this pass (Evening
-  // Breathing/Meditation completion correction). getCompletionGreeting's
-  // own fallback below (never reaching into another journey's pool) is
-  // what keeps this safe rather than a placeholder entry here.
+  // Anytime completion correction — breathing's own wording replaced with
+  // the exact copy approved for this pass (the earlier pool was never
+  // wired to any live UI yet - QuietBreathing.jsx/SelfGuidedMeditation.jsx
+  // still called the older single getBreathingAcknowledgement('anytime')/
+  // getOutcomeMessage('anytime') strings until this pass); meditation is
+  // a new pool. Anytime's own stretching/routine equivalents don't exist
+  // (Anytime has no Stretch step and no dedicated whole-routine-completion
+  // screen of its own) - out of scope, not merely deferred.
   anytime: {
     breathing: [
       'You gave yourself a moment.',
-      'A short reset can change things.',
       'Carry this calm with you.',
+      'A short reset can shift your day.',
       'You made space to breathe.',
-      'Feeling steadier? Keep it close.'
+      'You’re ready for what comes next.'
+    ],
+    meditation: [
+      'You made room for yourself.',
+      'Let this calm stay with you.',
+      'A few quiet minutes matter.',
+      'Carry this clearer feeling forward.',
+      'You chose a moment of stillness.'
     ]
   },
   // Evening Breathing/Meditation completion correction — breathing's own

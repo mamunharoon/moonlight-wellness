@@ -82,8 +82,14 @@ describe('QuietBreathing.jsx — BreathingRing: standalone is dynamically themed
 });
 
 describe('QuietBreathing.jsx — standalone branch (/breathe-standalone) is completely unaffected', () => {
-  it('the mint intro icon only exists in the non-standalone block, never inside the standalone block', () => {
-    expect(standaloneBlock).not.toMatch(/text-tertiary/);
+  it('the non-standalone block\'s own mint intro icon (bare "air" glyph) is never duplicated inside the standalone block', () => {
+    // Anytime Breathing completion correction — the standalone block now
+    // legitimately uses text-tertiary of its own (the new completed/check
+    // badge + "Breathing Completed" label, Anytime-tone only) - a
+    // genuinely different, later, intentional addition from this exact
+    // "air" intro-icon glyph, which still only ever exists in the
+    // non-standalone block.
+    expect(standaloneBlock).not.toMatch(/text-tertiary text-3xl" aria-hidden="true">air</);
     expect(nonStandaloneBlock).toMatch(/text-tertiary text-3xl" aria-hidden="true">air</);
   });
 

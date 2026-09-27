@@ -14,8 +14,8 @@ describe('SelfGuidedMeditationComplete.jsx — outcome-aware messaging correctio
     expect(source).not.toMatch(/>Take this steadiness with you\.</);
   });
 
-  it('renders the derived headline/body directly', () => {
-    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\{completionHeadline\}<\/h1>/);
+  it('renders the derived headline/body directly for non-Anytime tones (Anytime Meditation completion correction: journeyTone === \'anytime\' instead renders the new rotating completionGreeting - see the dedicated Anytime-only describe block below)', () => {
+    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface" role="status">\{journeyTone === 'anytime' \? completionGreeting : completionHeadline\}<\/h1>/);
     expect(source).toMatch(/\{completionBody\}/);
   });
 });
@@ -112,10 +112,10 @@ describe('SelfGuidedMeditationComplete.jsx — touch targets', () => {
 // reached any other way (Home/Library's Meditate tiles), journeyTone
 // isn't 'anytime' and the trio above is completely unchanged.
 describe('SelfGuidedMeditationComplete.jsx — Anytime-only completion gating', () => {
-  it('renders "Choose another quick reset" / "Return to Home" only when journeyTone === \'anytime\', the generic trio only otherwise', () => {
+  it('renders "Choose Another Reset" / "Return Home" only when journeyTone === \'anytime\', the generic trio only otherwise (Anytime Meditation completion correction renamed both buttons to match Morning/Evening/Anytime\'s exact wording)', () => {
     expect(source).toMatch(/\{journeyTone === 'anytime' \? \(/);
-    expect(source).toMatch(/<span>Choose another quick reset<\/span>/);
-    expect(source).toMatch(/>\s*Return to Home\s*</);
+    expect(source).toMatch(/<span>Choose Another Reset<\/span>/);
+    expect(source).toMatch(/>\s*Return Home\s*</);
   });
 
   it('"Choose another quick reset" restores the exact need/duration this practice was entered with, via the same allowlisted ?need=&duration= restore AnytimeReset.jsx already uses after sign-in - never a bare navigate that would restart the wizard from step 1', () => {

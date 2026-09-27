@@ -26,7 +26,8 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
 import { getJourneyToneTokens } from '../lib/journeyTone';
-import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
+import { getBreathingAcknowledgement, getCompletionGreeting } from '../lib/outcomeMessages';
+import { createBreathingSession } from '../lib/breathingSession';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -230,8 +231,19 @@ export const QuietBreathing = ({ standalone = false }) => {
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
-      setSecondsLeft(activePattern.totalSeconds);
-      setBreatheState('Inhale');
+      // Anytime Breathing completion correction — standalone-only: the
+      // one true "start a fresh session" entry point, always creating a
+      // BRAND NEW controller for whichever pattern is currently selected
+      // (never reusing a previous instance across patterns/visits).
+      // Non-standalone (Support) never reaches this countdown at all
+      // (see handleBeginBreathing above), so sessionRef stays untouched
+      // for that branch.
+      sessionRef.current = createBreathingSession({ pattern: activePattern, resolveBreathPhase });
+      sessionRef.current.begin();
+      setSecondsLeft(sessionRef.current.getSecondsLeft());
+      setBreatheState(sessionRef.current.getBreatheState());
+      setIsCompleted(false);
+      setCompletionGreeting(null);
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
         musicPlayerRef.current?.unmute();
@@ -266,35 +278,94 @@ export const QuietBreathing = ({ standalone = false }) => {
   // confirmed. See the fuller doc comment further down, by handleEndEarly.
   const [earlyEnded, setEarlyEnded] = useState(false);
 
-  // The single gate the countdown effect uses: standalone waits for
-  // hasBegun, and stops the instant an early end is confirmed (earlyEnded)
-  // so the countdown can never keep ticking behind the result panel;
-  // non-standalone (Support) preserves its exact original gate
-  // (awaitingMusicChoice alone) - never affected by hasBegun/earlyEnded.
-  const canRun = standalone ? (hasBegun && !earlyEnded) : !awaitingMusicChoice;
+  // Back/early-exit pause correction — declared here (ahead of the
+  // completion-controller effect below, which reads endConfirmOpen as
+  // part of its own run-gate) so it can never be accessed before
+  // declaration. See handleEndEarly/handleBackFromActive further down for
+  // the full doc comment on why this now exists.
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [endConfirmSource, setEndConfirmSource] = useState('back');
 
-  // Standalone completion redesign — found live: "Continue" was tappable
-  // at any time (premature exit, misleadingly implying real completion)
-  // and both natural completion and Skip/Continue converged on an
-  // immediate, silent navigate('/') with no distinct completion state at
-  // all. isComplete is a plain derived value (never its own state, so
-  // there is nothing to keep in sync) - true only once the countdown has
-  // genuinely reached 0 during an active standalone run. Never true for
-  // non-standalone, which keeps navigating away exactly as before.
-  const isComplete = standalone && hasBegun && secondsLeft <= 0;
-  useEffect(() => {
-    if (isComplete) musicPlayerRef.current?.stop();
-  }, [isComplete]);
+  // Anytime Breathing completion correction — reuses Breathe.jsx's
+  // approved, physical-iPhone-tested architecture exactly. The previous
+  // "Standalone completion redesign" replaced the immediate silent
+  // navigate() with a distinct completion state, but that state
+  // (isComplete) was still a render-time-DERIVED value (secondsLeft <=
+  // 0) - the same defect class Morning/Evening breathing had before their
+  // own fixes. Fix: a pure, synchronous createBreathingSession controller
+  // (breathingSession.js, already journey-agnostic and real-execution
+  // tested - see breathingSession.test.js) driven by ONE real interval,
+  // whose own callback is the single place that detects the final tick
+  // AND synchronously stops itself, stops music, picks the completion
+  // greeting (Anytime tone only - see below), and flips the explicit
+  // isCompleted state. Non-standalone (Support's embedded usage) is
+  // completely unaffected - it keeps its own separate, unchanged interval
+  // effect below, never touching sessionRef/isCompleted at all.
+  const sessionRef = useRef(null);
+  const intervalRef = useRef(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionGreeting, setCompletionGreeting] = useState(null);
+  // Back/early-exit pause correction — found live: endConfirmOpen never
+  // gated the timer/music at all, so both kept running behind "End this
+  // breathing session?" (the same "doesn't pause behind the dialog"
+  // defect class Morning/Evening's own Back dialogs had before their
+  // fixes). Captured the instant the dialog opens (handleBackFromActive/
+  // handleEndEarly, below), so "Keep Breathing" can restore exactly what
+  // was genuinely playing before, never a guess.
+  const wasMusicPlayingRef = useRef(false);
+
+  const stopBreathingInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+  useEffect(() => () => stopBreathingInterval(), []);
 
   useEffect(() => {
-    if (!canRun) return;
+    if (!standalone) return;
+    if (!hasBegun || earlyEnded || isCompleted || endConfirmOpen) return;
+    const session = sessionRef.current;
+    if (!session) return;
+
+    intervalRef.current = setInterval(() => {
+      const current = sessionRef.current;
+      if (!current) return;
+      const { completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState } = current.tick();
+      setSecondsLeft(nextSecondsLeft);
+      setBreatheState(nextBreatheState);
+      if (completed) {
+        // All completion side-effects happen synchronously, in this same
+        // callback, the instant the boundary is reached - stop the
+        // interval (so a stray extra tick can never fire), stop the
+        // music, and enter the completed state, all in one step, exactly
+        // once per real completion. The new rotating greeting/mint panel
+        // is Anytime-specific (see item 3 of this pass) - a standalone
+        // visit tagged with a different journeyTone (e.g. Home's own
+        // time-of-day-based quick action) keeps the original single
+        // getBreathingAcknowledgement string and Done/Breathe again
+        // pair, completely unchanged.
+        stopBreathingInterval();
+        musicPlayerRef.current?.stop();
+        if (journeyTone === 'anytime') {
+          setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'breathing' }));
+        }
+        setIsCompleted(true);
+      }
+    }, 1000);
+
+    return () => stopBreathingInterval();
+  }, [standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, journeyTone]);
+
+  // Non-standalone (Support's embedded usage) - completely unchanged: the
+  // exact original naive interval, keyed off plain secondsLeft state,
+  // immediately navigating away at 0 with no distinct completion state.
+  useEffect(() => {
+    if (standalone) return;
+    if (awaitingMusicChoice) return;
 
     if (secondsLeft <= 0) {
-      // Standalone completion redesign — natural end now surfaces the new
-      // "Breathing complete" state (isComplete, above) instead of
-      // silently navigating away; non-standalone (Support) keeps its
-      // exact original behaviour.
-      if (!standalone) navigate(completionRoute);
+      navigate(completionRoute);
       return;
     }
 
@@ -307,7 +378,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft, navigate, canRun, activePattern, completionRoute, standalone]);
+  }, [secondsLeft, navigate, awaitingMusicChoice, activePattern, completionRoute, standalone]);
 
   const handleAdvance = () => {
     navigate(completionRoute);
@@ -318,12 +389,12 @@ export const QuietBreathing = ({ standalone = false }) => {
   // distinct result state, unlike natural completion's own "Breathing
   // complete" screen. Now opens the same confirm dialog Back already
   // uses (ending this breathing session means the same thing regardless
-  // of which control asked), tracked via `endConfirmSource` so the two
-  // controls can still resolve differently on confirm: Back -> straight
-  // to setup (unchanged), End early -> the new `earlyEnded` result panel.
-  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
-  const [endConfirmSource, setEndConfirmSource] = useState('back');
+  // of which control asked), tracked via `endConfirmSource` (declared
+  // above, alongside endConfirmOpen) so the two controls can still resolve
+  // differently on confirm: Back -> straight to setup (unchanged), End
+  // early -> the new `earlyEnded` result panel.
   const handleEndEarly = () => {
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
     setEndConfirmSource('button');
     setEndConfirmOpen(true);
   };
@@ -347,6 +418,8 @@ export const QuietBreathing = ({ standalone = false }) => {
     // for this screen and must never rely on that ordering elsewhere.
     setSecondsLeft(activePattern.totalSeconds);
     setBreatheState('Inhale');
+    setIsCompleted(false);
+    setCompletionGreeting(null);
   };
 
   // Standalone Home quick-action correction — Back while active, found
@@ -373,7 +446,7 @@ export const QuietBreathing = ({ standalone = false }) => {
       hasBegunOnceRef.current = false;
       return false;
     }
-    if (!hasBegun || isComplete || earlyEnded) {
+    if (!hasBegun || isCompleted || earlyEnded) {
       // Context-aware Breathing/Meditation theming — Back from the
       // pre-start setup screen, or from the "Breathing complete"/"Session
       // ended early" result screen, is a real exit to Home. This function
@@ -384,16 +457,35 @@ export const QuietBreathing = ({ standalone = false }) => {
       clearPracticeJourneyTone();
       return;
     }
+    // Repeated-Back-tap guard — never re-capture wasMusicPlayingRef (it
+    // would now read false, since the music is already suspended for the
+    // open dialog) and never open a second dialog.
+    if (endConfirmOpen) return false;
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
     setEndConfirmSource('back');
     setEndConfirmOpen(true);
     return false;
   };
+  // "Keep Breathing" — dismiss the dialog and resume from the exact
+  // remaining time (nothing was ever reset), restoring music only if it
+  // was genuinely playing before the dialog opened.
+  const keepBreathing = () => {
+    setEndConfirmOpen(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
+  };
   // Shared confirm handler for both sources (see `endConfirmSource` above):
   // Back always resolves straight to setup, unchanged; the bottom "End
   // early" button resolves to the new truthful `earlyEnded` result panel.
+  // Neither ever records completion (never calls advanceStep/mirrors
+  // anything - this screen has no Session Engine coupling at all, see this
+  // file's own top doc comment).
   const handleConfirmEndSession = () => {
     setEndConfirmOpen(false);
     musicPlayerRef.current?.stop();
+    wasMusicPlayingRef.current = false;
     if (endConfirmSource === 'button') {
       setEarlyEnded(true);
     } else {
@@ -419,27 +511,49 @@ export const QuietBreathing = ({ standalone = false }) => {
   if (standalone) {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive} alwaysFallback={anytimeOrigin}>
-        {isComplete || earlyEnded ? (
+        {isCompleted || earlyEnded ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+            {/* Anytime Breathing completion correction — the required
+                completed/check visual, mint (tertiary) tokens matching
+                every other Anytime card shell (bg-tertiary/10 + border-
+                tertiary-tint/25 + shadow-mint-glow) - never Morning gold
+                or Evening periwinkle. Early exit never shows this badge
+                or "BREATHING COMPLETED" - "Session ended early" keeps its
+                exact existing honest wording/icon-less layout below. */}
+            {isCompleted && journeyTone === 'anytime' && (
+              <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center">
+                <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+              </div>
+            )}
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-on-surface">{earlyEnded ? 'Session ended early' : 'Breathing complete'}</h2>
-              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                {earlyEnded ? `Your ${activePattern.label} session ended before the timer finished.` : getBreathingAcknowledgement(journeyTone)}
-              </p>
+              {isCompleted && journeyTone === 'anytime' && (
+                <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed</span>
+              )}
+              <h2 className="text-2xl font-bold text-on-surface" role={isCompleted ? 'status' : undefined}>
+                {earlyEnded ? 'Session ended early' : (journeyTone === 'anytime' ? completionGreeting : 'Breathing complete')}
+              </h2>
+              {earlyEnded ? (
+                <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                  Your {activePattern.label} session ended before the timer finished.
+                </p>
+              ) : journeyTone !== 'anytime' ? (
+                <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                  {getBreathingAcknowledgement(journeyTone)}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-3 w-full">
               {/* WakeWise DEV — Anytime completion correction: a practice
                   reached through Anytime's own quick-reset context
                   (journeyTone === 'anytime') gets the two Anytime-
                   specific actions instead of Done/Breathe again - "Choose
-                  another quick reset" returns to the real Anytime Reset
+                  Another Reset" returns to the real Anytime Reset
                   recommendation/options screen (never auto-starts a new
-                  exercise), "Return to Home" clears the temporary
-                  practice context exactly like the Done button always
-                  has. Morning/Evening-themed and primary/default
-                  standalone completions (journeyTone !== 'anytime') are
-                  completely untouched - same Done/Breathe again pair as
-                  before. */}
+                  exercise), "Return Home" clears the temporary practice
+                  context exactly like the Done button always has.
+                  Morning/Evening-themed and primary/default standalone
+                  completions (journeyTone !== 'anytime') are completely
+                  untouched - same Done/Breathe again pair as before. */}
               {journeyTone === 'anytime' ? (
                 <>
                   <button
@@ -447,14 +561,14 @@ export const QuietBreathing = ({ standalone = false }) => {
                     onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
                     className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
                   >
-                    <span>Choose another quick reset</span>
+                    <span>Choose Another Reset</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => exitPracticeToHome(navigate, '/')}
                     className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    Return to Home
+                    Return Home
                   </button>
                 </>
               ) : (
@@ -682,8 +796,8 @@ export const QuietBreathing = ({ standalone = false }) => {
         <InteractiveAmbientMusic
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
-          suspended={false}
-          hideToggle={!hasBegun || isComplete}
+          suspended={endConfirmOpen}
+          hideToggle={!hasBegun || isCompleted}
         />
 
         {openVideo && (
@@ -704,11 +818,11 @@ export const QuietBreathing = ({ standalone = false }) => {
           open={endConfirmOpen}
           title="End this breathing session?"
           message="Your current breathing session will end."
-          confirmLabel="End Session"
+          confirmLabel="Leave Exercise"
           cancelLabel="Keep Breathing"
           mildDestructive
           onConfirm={handleConfirmEndSession}
-          onDismiss={() => setEndConfirmOpen(false)}
+          onDismiss={keepBreathing}
         />
       </EveningSceneShell>
     );

@@ -66,19 +66,28 @@ describe('QuietBreathing.jsx (standalone) — sequential-session guard: Breathe 
     expect(fn).toMatch(/setBreatheState\('Inhale'\);/);
   });
 
-  it('the existing isComplete -> stop() effect (the pattern the embedded fix above mirrors) is unchanged', () => {
-    expect(quietBreathingSource).toMatch(
+  // Anytime Breathing completion correction — superseded: QuietBreathing.jsx's
+  // own former isComplete -> stop() effect is gone, along with isComplete
+  // itself. Music now stops synchronously inside the new completion-
+  // detecting interval callback (standalone only) - see
+  // quietBreathingAnytimeCompletionLifecycle.test.js for the full,
+  // dedicated coverage of that rewrite.
+  it('no longer has a separate isComplete-keyed stop effect for standalone - music now stops synchronously inside the completion-detecting interval callback itself', () => {
+    expect(quietBreathingSource).not.toMatch(/const isComplete = standalone && hasBegun && secondsLeft <= 0;/);
+    expect(quietBreathingSource).not.toMatch(
       /useEffect\(\(\) => \{\s*\n\s*if \(isComplete\) musicPlayerRef\.current\?\.stop\(\);\s*\n\s*\}, \[isComplete\]\);/
     );
+    expect(quietBreathingSource).toMatch(/const \{ completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState \} = current\.tick\(\);/);
   });
 });
 
-describe('Cross-file consistency — QuietBreathing.jsx (Anytime/standalone) still keys off its own derived completion signal; Breathe.jsx and EveningBreathing.jsx were both upgraded to the explicit, authoritative isCompleted state (Morning breathing completion correction, then Evening Breathing completion correction)', () => {
-  it('QuietBreathing.jsx keys off its own isComplete (which already folds in hasBegun/standalone) - unchanged, out of scope for both passes; Breathe.jsx and EveningBreathing.jsx now key off the explicit isCompleted state set inside their own completion-detecting interval callback', () => {
-    expect(quietBreathingSource).toMatch(/const isComplete = standalone && hasBegun && secondsLeft <= 0;/);
+describe('Cross-file consistency — Breathe.jsx, EveningBreathing.jsx and QuietBreathing.jsx (standalone) all key off the explicit, authoritative isCompleted state (Morning, then Evening, then Anytime Breathing completion corrections)', () => {
+  it('all three now key off isCompleted, set inside their own completion-detecting interval callback - never the old render-time-derived isComplete/hasFinished', () => {
     expect(breatheSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
     expect(breatheSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
     expect(eveningBreathingSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
     expect(eveningBreathingSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
+    expect(quietBreathingSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
+    expect(quietBreathingSource).not.toMatch(/const isComplete = standalone && hasBegun && secondsLeft <= 0;/);
   });
 });

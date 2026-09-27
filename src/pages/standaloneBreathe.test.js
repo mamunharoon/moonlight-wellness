@@ -67,9 +67,10 @@ describe('Support\'s own embedded (non-standalone) usage is preserved exactly', 
     expect(source).toMatch(/const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';/);
   });
 
-  it('hasBegun starts (and, for non-standalone, stays) true - Support\'s own screen never gates on it; its own effect gate is !awaitingMusicChoice alone via the shared canRun', () => {
+  it('hasBegun starts (and, for non-standalone, stays) true - Support\'s own screen never gates on it; its own effect gate is !awaitingMusicChoice alone, in its own dedicated non-standalone effect', () => {
     expect(source).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => !standalone\);/);
-    expect(source).toMatch(/const canRun = standalone \? \(hasBegun && !earlyEnded\) : !awaitingMusicChoice;/);
+    const nonStandaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(standalone\) return;\s*\n\s*if \(awaitingMusicChoice\) return;[\s\S]*?\n\s*\}, \[[^\]]*\]\);/)?.[0] ?? '';
+    expect(nonStandaloneEffect).not.toBe('');
   });
 
   it('"Just breathe. There is nowhere else to be." remains the exact copy for Support\'s own usage', () => {
@@ -143,10 +144,15 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback resets the countdown, sets hasBegun, and only unmutes the already-playing (muted) music if eligible+preferred - never a second start() call (Build 18: guest no longer excluded - IB01 is server-allowlisted)', () => {
+  it('the countdown\'s onComplete callback creates the pure breathing session controller, resets secondsLeft/breatheState from it, sets hasBegun, and only unmutes the already-playing (muted) music if eligible+preferred - never a second start() call (Build 18: guest no longer excluded - IB01 is server-allowlisted; Anytime Breathing completion correction: also creates a fresh createBreathingSession and clears isCompleted/completionGreeting)', () => {
     const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
-    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current\.begin\(\);/);
+    expect(countdownBlock).toMatch(/setSecondsLeft\(sessionRef\.current\.getSecondsLeft\(\)\);/);
+    expect(countdownBlock).toMatch(/setBreatheState\(sessionRef\.current\.getBreatheState\(\)\);/);
+    expect(countdownBlock).toMatch(/setIsCompleted\(false\);/);
+    expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
     expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.unmute\(\);/);
@@ -154,11 +160,11 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start (or once complete) via hideToggle, never suspended (no guided-video concept on this screen)', () => {
+  it('InteractiveAmbientMusic is ONE stable instance in the standalone branch, hidden pre-start (or once complete) via hideToggle, suspended only while the Back/End-early confirmation dialog is open (no guided-video concept on this screen)', () => {
     const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
     const mountCount = (standaloneReturn.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
-    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isComplete\}\s*\n\s*\/>/);
+    expect(standaloneReturn).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{endConfirmOpen\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
   });
 
   // Standalone completion redesign — found live: Continue/Skip were both
@@ -196,7 +202,12 @@ describe('Standalone Home quick-action correction — Back while active is a loc
 
   it('handleBackFromActive only intercepts while genuinely active (hasBegun, not yet complete, not already earlyEnded) - setup and either result screen let Back proceed to Home normally, clearing the captured practice journey tone first (Context-aware Breathing/Meditation theming - a real exit-to-Home)', () => {
     const body = source.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(!hasBegun \|\| isComplete \|\| earlyEnded\) \{\s*\n[\s\S]*?clearPracticeJourneyTone\(\);\s*\n\s*return;\s*\n\s*\}/);
+    expect(body).toMatch(/if \(!hasBegun \|\| isCompleted \|\| earlyEnded\) \{\s*\n[\s\S]*?clearPracticeJourneyTone\(\);\s*\n\s*return;\s*\n\s*\}/);
+    // Back/early-exit pause correction - captures whether music was
+    // genuinely playing before opening the dialog, and guards against
+    // re-opening/re-capturing on a repeated tap.
+    expect(body).toMatch(/if \(endConfirmOpen\) return false;/);
+    expect(body).toMatch(/wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;/);
     expect(body).toMatch(/setEndConfirmSource\('back'\);/);
     expect(body).toMatch(/setEndConfirmOpen\(true\);/);
     expect(body).toMatch(/return false;/);
@@ -209,11 +220,12 @@ describe('Standalone Home quick-action correction — Back while active is a loc
     expect(body).not.toMatch(/navigate/);
   });
 
-  it('the confirmation dialog describes ending THIS session, never leaving the whole Breathe feature - matches the approved wording exactly, shared by both Back and the bottom End early button', () => {
+  it('the confirmation dialog describes ending THIS session, never leaving the whole Breathe feature - matches the approved wording exactly, shared by both Back and the bottom End early button (Anytime Breathing completion correction renamed the confirm button "End Session" -> "Leave Exercise" to match Morning/Evening\'s exact wording; onDismiss now restores music via keepBreathing rather than a bare setEndConfirmOpen(false))', () => {
     expect(source).toMatch(/title="End this breathing session\?"/);
     expect(source).toMatch(/message="Your current breathing session will end\."/);
-    expect(source).toMatch(/confirmLabel="End Session"/);
+    expect(source).toMatch(/confirmLabel="Leave Exercise"/);
     expect(source).toMatch(/cancelLabel="Keep Breathing"/);
+    expect(source).toMatch(/onDismiss=\{keepBreathing\}/);
   });
 });
 
@@ -233,21 +245,23 @@ describe('Early-end result correction — "End early" no longer silently duplica
     expect(source).toMatch(/onClick=\{handleEndEarly\}/);
   });
 
-  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) rather than a hardcoded string', () => {
-    expect(source).toMatch(/\{isComplete \|\| earlyEnded \? \(/);
-    expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : 'Breathing complete'\}/);
-    expect(source).toMatch(/earlyEnded \? `Your \$\{activePattern\.label\} session ended before the timer finished\.` : getBreathingAcknowledgement\(journeyTone\)/);
+  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) for non-Anytime tones (Anytime Breathing completion correction: anytime tone instead shows the new rotating completionGreeting, checked below)', () => {
+    expect(source).toMatch(/\{isCompleted \|\| earlyEnded \? \(/);
+    expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : \(journeyTone === 'anytime' \? completionGreeting : 'Breathing complete'\)\}/);
+    expect(source).toMatch(/getBreathingAcknowledgement\(journeyTone\)/);
   });
 
-  it('Done and "Breathe again" are shared by both result states - Breathe again also clears earlyEnded so it works identically from either', () => {
+  it('Done and "Breathe again" are shared by both result states - Breathe again also clears earlyEnded (and, Anytime Breathing completion correction, isCompleted/completionGreeting) so it works identically from either', () => {
     const body = source.match(/const handleBreatheAgain = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
     expect(body).toMatch(/setHasBegun\(false\);/);
     expect(body).toMatch(/setEarlyEnded\(false\);/);
+    expect(body).toMatch(/setIsCompleted\(false\);/);
+    expect(body).toMatch(/setCompletionGreeting\(null\);/);
   });
 
-  it('confirming an early end stops the countdown immediately (canRun folds in !earlyEnded) so it can never keep ticking behind the result panel', () => {
-    expect(source).toMatch(/const canRun = standalone \? \(hasBegun && !earlyEnded\) : !awaitingMusicChoice;/);
+  it('confirming an early end stops the countdown immediately (the standalone completion-controller effect folds in !earlyEnded in its own guard) so it can never keep ticking behind the result panel', () => {
+    expect(source).toMatch(/if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;/);
   });
 });
 

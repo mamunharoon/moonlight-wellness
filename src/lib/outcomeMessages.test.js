@@ -147,12 +147,16 @@ describe('getBreathingCompletionGreeting - three separate, journey-scoped rotati
       'A steady start makes a difference.',
       'You showed up for yourself.'
     ],
+    // Anytime completion correction - exact copy approved for this pass,
+    // replacing the earlier placeholder pool (never wired to any live UI
+    // yet - QuietBreathing.jsx still called the older single
+    // getBreathingAcknowledgement('anytime') string until this pass).
     anytime: [
       'You gave yourself a moment.',
-      'A short reset can change things.',
       'Carry this calm with you.',
+      'A short reset can shift your day.',
       'You made space to breathe.',
-      'Feeling steadier? Keep it close.'
+      'You’re ready for what comes next.'
     ],
     // Evening Breathing/Meditation completion correction - exact copy
     // approved for this pass, replacing the earlier placeholder pool

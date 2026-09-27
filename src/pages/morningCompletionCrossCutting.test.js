@@ -86,14 +86,15 @@ describe('Each of the four Morning completion surfaces requests its own, correct
   });
 });
 
-describe('Anytime was not touched by this Morning pass (Evening was later touched by its own separate pass - see eveningCompletionCrossCutting.test.js)', () => {
-  it('COMPLETION_GREETINGS still defines only a breathing pool for anytime - no stretching/meditation/routine pool was added; evening now has both breathing and meditation (Evening Breathing/Meditation completion correction), still no stretching/routine pool of its own', () => {
+describe('Anytime/Evening have no Stretch step and no dedicated whole-routine-completion screen of their own (Evening Breathing/Meditation, then Anytime Breathing/Meditation completion corrections - see eveningCompletionCrossCutting.test.js/quietBreathingAnytimeCompletionLifecycle.test.js for their own full coverage)', () => {
+  it('COMPLETION_GREETINGS: anytime and evening both now have breathing AND meditation pools - neither has ever had a stretching/routine pool of its own', () => {
     const completionGreetingsBlock = outcomeMessagesSource.match(/const COMPLETION_GREETINGS = \{([\s\S]*?)\n\};/)?.[1] ?? '';
     expect(completionGreetingsBlock).not.toBe('');
     const anytimeBlock = completionGreetingsBlock.match(/anytime: \{([\s\S]*?)\n {2}\},/)?.[1] ?? '';
     const eveningBlock = completionGreetingsBlock.match(/evening: \{([\s\S]*?)\n {2}\}\s*$/)?.[1] ?? '';
     expect(anytimeBlock).toMatch(/breathing:/);
-    expect(anytimeBlock).not.toMatch(/stretching:|meditation:|routine:/);
+    expect(anytimeBlock).toMatch(/meditation:/);
+    expect(anytimeBlock).not.toMatch(/stretching:|routine:/);
     expect(eveningBlock).toMatch(/breathing:/);
     expect(eveningBlock).toMatch(/meditation:/);
     expect(eveningBlock).not.toMatch(/stretching:|routine:/);

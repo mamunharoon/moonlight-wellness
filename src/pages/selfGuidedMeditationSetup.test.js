@@ -211,11 +211,11 @@ describe('SelfGuidedMeditation.jsx — Anytime Back-navigation correction: expli
     expect(countdownBlock).not.toMatch(/fallback=\{context\.fallback\}/);
   });
 
-  it('the earlyEnded panel shows "Choose another quick reset"/"Return to Home" (restoring the preserved need/duration) only when anytimeOrigin, the original Done/Meditate Again pair only otherwise - exactly the same two-branch shape QuietBreathing.jsx\'s own early-ended panel already uses', () => {
+  it('the earlyEnded panel shows "Choose Another Reset"/"Return Home" (restoring the preserved need/duration) only when anytimeOrigin, the original Done/Meditate Again pair only otherwise - exactly the same two-branch shape QuietBreathing.jsx\'s own early-ended panel already uses (Anytime Meditation completion correction renamed both buttons to match Morning/Evening/Anytime\'s exact wording)', () => {
     const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
     expect(panelBlock).toMatch(/\{anytimeOrigin \? \(/);
-    expect(panelBlock).toMatch(/<span>Choose another quick reset<\/span>/);
-    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return to Home/);
+    expect(panelBlock).toMatch(/<span>Choose Another Reset<\/span>/);
+    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return Home/);
     const ifIndex = panelBlock.indexOf('anytimeOrigin ? (');
     const elseIndex = panelBlock.indexOf(') : (');
     const doneIndex = panelBlock.indexOf('<span>Done</span>');

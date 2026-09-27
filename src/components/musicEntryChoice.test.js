@@ -104,10 +104,11 @@ describe.each([
     expect(source).toMatch(/const awaitingMusicChoice = musicEligible && !musicChoiceMade;/);
   });
 
-  it("the countdown effect's own guard is derived from awaitingMusicChoice (via the shared canRun gate, Build 15 - QuietBreathing.jsx also supports a standalone mode with its own separate hasBegun gate, so canRun = standalone ? hasBegun : !awaitingMusicChoice - non-standalone's own effective behaviour is unchanged: !awaitingMusicChoice alone), and canRun is in that effect's dependency array", () => {
-    expect(source).toMatch(/const canRun = standalone \? \(hasBegun && !earlyEnded\) : !awaitingMusicChoice;/);
-    expect(source).toMatch(/if \(!canRun\) return;/);
-    const depsWithFlag = source.match(/\}, \[[^\]]*canRun[^\]]*\]\);/g) ?? [];
+  it("the non-standalone (Support) interval effect's own guard is derived from awaitingMusicChoice directly (Anytime Breathing completion correction split the former shared canRun-gated effect into two separate effects - standalone now uses its own authoritative createBreathingSession controller, entirely unrelated to awaitingMusicChoice; non-standalone's own effective behaviour - !awaitingMusicChoice alone - is completely unchanged), and awaitingMusicChoice is in that effect's dependency array", () => {
+    const nonStandaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(standalone\) return;\s*\n\s*if \(awaitingMusicChoice\) return;[\s\S]*?\n\s*\}, \[[^\]]*\]\);/)?.[0] ?? '';
+    expect(nonStandaloneEffect).not.toBe('');
+    expect(nonStandaloneEffect).toMatch(/if \(awaitingMusicChoice\) return;/);
+    const depsWithFlag = nonStandaloneEffect.match(/\}, \[[^\]]*awaitingMusicChoice[^\]]*\]\);/g) ?? [];
     expect(depsWithFlag.length).toBeGreaterThan(0);
   });
 

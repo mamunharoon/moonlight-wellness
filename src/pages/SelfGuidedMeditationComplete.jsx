@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BackButton } from '../components/BackButton';
 import { resolveSelfGuidedMeditationContext } from '../lib/selfGuidedMeditationNav';
@@ -8,7 +9,7 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
 import { getJourneyToneTokens } from '../lib/journeyTone';
-import { OUTCOME, getOutcomeMessage } from '../lib/outcomeMessages';
+import { OUTCOME, getOutcomeMessage, getCompletionGreeting } from '../lib/outcomeMessages';
 import { useAlarm } from '../context/AlarmContext';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
@@ -55,8 +56,25 @@ export const SelfGuidedMeditationComplete = () => {
   // (morning/anytime/evening - see usePracticeJourneyTone.js's own
   // fallback chain), so this is a direct, safe reuse rather than a
   // guess.
+  //
+  // Anytime Meditation completion correction — journeyTone === 'anytime'
+  // (the primary, in-scope path this screen exists for) now uses the same
+  // shared getCompletionGreeting({journey, practice}) architecture as
+  // every other Morning/Evening/Anytime completion panel this pass and
+  // the two before it added, instead of the older per-calendar-day
+  // getOutcomeMessage headline/body pair. A direct/Home-launched visit
+  // whose journeyTone resolves to morning/evening (an unrelated daypart-
+  // based colour skin, not the Session Engine's own Morning/Evening
+  // routine) keeps the original getOutcomeMessage rotation completely
+  // unchanged - out of scope for this pass, matching QuietBreathing.jsx's
+  // own identical anytime-only gate.
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { headline: completionHeadline, body: completionBody } = getOutcomeMessage(OUTCOME.COMPLETED, journeyTone, today);
+  // Picked exactly once (lazy useState initializer - getCompletionGreeting
+  // has real side effects: localStorage read/write + Math.random - never
+  // safe to call on every render) and held stable for as long as this
+  // screen stays mounted.
+  const [completionGreeting] = useState(() => (journeyTone === 'anytime' ? getCompletionGreeting({ journey: 'anytime', practice: 'meditation' }) : null));
 
   const style = getMeditationStyleById(session?.styleId) || getMeditationStyleById(DEFAULT_MEDITATION_STYLE_ID);
   const duration = getMeditationDurationById(session?.durationId) || getMeditationDurationById(DEFAULT_MEDITATION_DURATION_ID);
@@ -159,9 +177,26 @@ export const SelfGuidedMeditationComplete = () => {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-        <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">{completionHeadline}</h1>
-        <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
+        {/* Anytime Meditation completion correction — the required
+            completed/check visual, mint (tertiary) tokens matching every
+            other Anytime card shell (bg-tertiary/10 + border-tertiary-
+            tint/25 + shadow-mint-glow) - never Morning gold or Evening
+            periwinkle. Non-Anytime tones keep the original bare icon,
+            unchanged. */}
+        {journeyTone === 'anytime' ? (
+          <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center">
+            <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+          </div>
+        ) : (
+          <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
+        )}
+        {journeyTone === 'anytime' && (
+          <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Meditation Completed</span>
+        )}
+        <h1 className="font-serif italic text-3xl text-on-surface" role="status">{journeyTone === 'anytime' ? completionGreeting : completionHeadline}</h1>
+        {journeyTone !== 'anytime' && (
+          <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
+        )}
         {session && (
           <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
             <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
@@ -178,14 +213,14 @@ export const SelfGuidedMeditationComplete = () => {
               onClick={handleChooseAnotherQuickReset}
               className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
             >
-              <span>Choose another quick reset</span>
+              <span>Choose Another Reset</span>
             </button>
             <button
               type="button"
               onClick={handleReturnToHome}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Return to Home
+              Return Home
             </button>
           </>
         ) : (

@@ -348,14 +348,14 @@ export const SelfGuidedMeditation = () => {
                     onClick={() => exitPracticeToHome(navigate, exitDestination)}
                     className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
                   >
-                    <span>Choose another quick reset</span>
+                    <span>Choose Another Reset</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => exitPracticeToHome(navigate, '/')}
                     className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    Return to Home
+                    Return Home
                   </button>
                 </>
               ) : (
