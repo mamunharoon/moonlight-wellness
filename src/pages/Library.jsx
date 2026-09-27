@@ -351,7 +351,11 @@ export const Library = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'library', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
       )}
 
       <SignInPromptDialog

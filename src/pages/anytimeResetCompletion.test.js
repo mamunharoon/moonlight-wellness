@@ -25,8 +25,8 @@ const modalSource = read('../components/BetaVideoModal.jsx');
 const source = read('./AnytimeReset.jsx');
 
 describe('BetaVideoModal.jsx — new onEnded callback, additive', () => {
-  it('accepts an optional onEnded prop, defaulting to undefined', () => {
-    expect(modalSource).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded \}\) => \{/);
+  it('accepts an optional onEnded prop, defaulting to undefined (plus the later, equally additive completionContext = null - guided-media completion phase)', () => {
+    expect(modalSource).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded, completionContext = null \}\) => \{/);
   });
 
   it('calls onEnded from the real native `ended` event handler, alongside the existing setHasEnded(true) - never from onClose', () => {
@@ -38,12 +38,13 @@ describe('BetaVideoModal.jsx — new onEnded callback, additive', () => {
   });
 });
 
-describe('AnytimeReset.jsx — isComplete is set only by genuine natural end, never by closing', () => {
-  it('BetaVideoModal is passed onEnded={() => setIsComplete(true)}, and handleVideoClose (early/manual close) never itself SETS isComplete - it only reads it (WakeWise Phase 2, B4: to raise the honest justEndedEarly acknowledgement when NOT already complete)', () => {
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setIsComplete\(true\)\} \/>/);
+describe('AnytimeReset.jsx — isComplete is set true only by genuine natural end, never by closing', () => {
+  it('BetaVideoModal is passed onEnded={() => setIsComplete(true)}, and handleVideoClose (early/manual close) never itself sets isComplete TRUE - it only reads it to raise the honest justEndedEarly acknowledgement when NOT already complete (WakeWise Phase 2, B4), and (guided-media completion phase) always clears it back to false once the modal\'s own overlay has been dismissed either way', () => {
+    expect(source).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{handleVideoClose\}\s*\n\s*onEnded=\{\(\) => setIsComplete\(true\)\}\s*\n\s*completionContext=\{\{\s*\n\s*journey: 'anytime',/);
     const closeBody = source.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(closeBody).not.toMatch(/setIsComplete/);
+    expect(closeBody).not.toMatch(/setIsComplete\(true\)/);
     expect(closeBody).toMatch(/if \(!isComplete\) setJustEndedEarly\(true\);/);
+    expect(closeBody).toMatch(/setIsComplete\(false\);/);
   });
 
   it('isComplete starts false and is reset to false by every action that changes the recommendation (need, duration, chosen alternative, change-need, change-time) - WakeWise Phase 2 (B5) renamed the old handleChooseAnother (a blind cycle) to handleToggleAlternatives/handleSelectAlternativeItem (a real progressive-disclosure toggle + direct selection, see anytimeResetEarlyExitAcknowledgement.test.js), both of which also reset isComplete', () => {
@@ -56,27 +57,34 @@ describe('AnytimeReset.jsx — isComplete is set only by genuine natural end, ne
 });
 
 describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required copy and actions', () => {
-  const recommendStep = source.slice(source.indexOf("step === 'recommend' &&"));
+  // Bounded to end just before the openVideo/BetaVideoModal block (a
+  // sibling render, not part of the recommend step's own JSX) so this
+  // slice never accidentally picks up that block's own doc comments -
+  // see the guided-media completion phase's own completionContext wiring
+  // there instead, checked separately below.
+  const recommendStep = source.slice(source.indexOf("step === 'recommend' &&"), source.indexOf('{openVideo && ('));
 
-  it('the heading/subtext now rotate via the shared outcomeMessages.js model when isComplete (WakeWise Phase 2, B6 - "Reset complete"/"Take a moment to notice how you feel." is preserved as that set\'s first variant, see outcomeMessages.test.js) - "Recommended for you" is the one fixed string for the ordinary, non-outcome state', () => {
+  // WakeWise guided-media completion phase — the isComplete-driven
+  // headline/body branch and the distinct "Reset complete" screen it used
+  // to render on this page are both gone: a genuine natural completion is
+  // now acknowledged entirely inside BetaVideoModal's own shared overlay
+  // (completionContext, journey: 'anytime' - see AnytimeReset.jsx's own
+  // BetaVideoModal wiring and anytimeResetCompletion.test.js's sibling
+  // describe block above). This headline now only ever distinguishes the
+  // real early-close acknowledgement (justEndedEarly, unchanged) from the
+  // ordinary "Recommended for you" state.
+  it('the heading/subtext now only ever resolve the honest early-close acknowledgement (justEndedEarly) or the ordinary "Recommended for you" state - never a completed-branch of its own any more', () => {
     expect(recommendStep).toMatch(/\{outcomeMessage \? outcomeMessage\.headline : 'Recommended for you'\}/);
-    expect(source).toMatch(/const outcomeMessage = isComplete\s*\n\s*\? getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.ANYTIME, today\)\s*\n\s*: justEndedEarly\s*\n\s*\? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\)\s*\n\s*: null;/);
+    expect(source).toMatch(/const outcomeMessage = justEndedEarly \? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\) : null;/);
+    expect(source).not.toMatch(/OUTCOME\.COMPLETED/);
   });
 
-  // WakeWise DEV — Anytime completion correction: exactly two actions
-  // now, matching the same required pair QuietBreathing.jsx's own
-  // anytime-tone completion shows - "Choose another quick reset"
-  // un-completes this same screen (same needId/durationId, so the
-  // recommendation + quick-reset alternatives reappear immediately,
-  // never a forced fresh need/duration pick or an auto-started new
-  // exercise); "Return to Home" is a plain navigate('/'). "Play again"/
-  // the old always-available "Choose another"/"Change need"/"Change
-  // time" trio are no longer shown alongside the completion screen - see
-  // the next two tests for what replaced them.
-  it('primary "Choose another quick reset" un-completes this screen, secondary "Return to Home" navigates Home - rendered only when isComplete, replacing the ordinary RecommendationCard', () => {
-    const completionBlock = recommendStep.slice(recommendStep.indexOf('{isComplete ? ('), recommendStep.indexOf(') : current ? ('));
-    expect(completionBlock).toMatch(/onClick=\{\(\) => setIsComplete\(false\)\}[\s\S]*?Choose another quick reset/);
-    expect(completionBlock).toMatch(/onClick=\{\(\) => navigate\('\/'\)\}[\s\S]*?Return to Home/);
+  it('the recommend step never renders a second, page-level completion panel any more - it always falls straight to the RecommendationCard (or the no-match state); the actual completion acknowledgement is BetaVideoModal\'s own overlay\'s "Choose Another Session"/"Return Home" pair', () => {
+    expect(recommendStep).toMatch(/\{current \? \(\s*\n\s*<RecommendationCard/);
+    expect(recommendStep).not.toMatch(/isComplete \? \(/);
+    const completionContextBlock = source.match(/completionContext=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
+    expect(completionContextBlock).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
+    expect(completionContextBlock).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\}/);
   });
 
   it('handlePlayAgain no longer exists - replaced by the plain setIsComplete(false) above, which reuses handleBegin\'s own guest/auth-verified path implicitly by simply re-showing the same RecommendationCard, never auto-starting anything', () => {

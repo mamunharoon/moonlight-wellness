@@ -58,15 +58,29 @@ describe('Grounding.jsx — Skip now honestly distinct from finishing (previousl
 describe('Support.jsx — the "Instant Calm" video path (and every other video option) now distinguishes a genuine natural end from an early close', () => {
   const source = read('./Support.jsx');
 
-  it('adds a real videoEndedNaturally flag, set only by BetaVideoModal\'s onEnded - mirrors AnytimeReset.jsx\'s own proven pattern for the identical gap', () => {
-    expect(source).toMatch(/const \[videoEndedNaturally, setVideoEndedNaturally\] = useState\(false\);/);
-    expect(source).toMatch(/onEnded=\{\(\) => setVideoEndedNaturally\(true\)\}/);
+  // WakeWise guided-media completion phase — the videoEndedNaturally flag
+  // and its unconditional navigate('/support-complete', ...) are gone: a
+  // genuine natural end is now acknowledged entirely inside BetaVideoModal's
+  // own shared completion overlay (completionContext, journey: 'anytime' -
+  // Support.jsx's own already-explicit tone); an early close now correctly
+  // just closes the modal and returns to this exact recommendation view.
+  // SupportComplete.jsx itself is untouched (still tested above) - only
+  // unreachable from this particular video-close flow now (Grounding.jsx's
+  // own separate, non-video exercise still routes there).
+  it('no more videoEndedNaturally tracking or navigation to /support-complete from a video close', () => {
+    expect(source).not.toMatch(/videoEndedNaturally/);
+    expect(source).not.toMatch(/handleVideoClose[\s\S]{0,40}\/support-complete/);
   });
 
-  it('handleVideoClose passes the real outcome through router state and resets the flag for the next video', () => {
-    const fn = source.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(fn).toMatch(/outcome: videoEndedNaturally \? 'completed' : 'ended_early'/);
-    expect(fn).toMatch(/setVideoEndedNaturally\(false\);/);
+  it('handleVideoClose is now a plain, one-line close - no outcome branching of its own (that lives in BetaVideoModal)', () => {
+    expect(source).toMatch(/const handleVideoClose = \(\) => setOpenVideoId\(null\);/);
+  });
+
+  it('BetaVideoModal carries completionContext with the anytime tone this page already uses, and both actions are real, valid destinations', () => {
+    expect(source).toMatch(/completionContext=\{\{\s*\n\s*journey: 'anytime',/);
+    const block = source.match(/completionContext=\{\{[\s\S]*?\n\s*\}\}/)?.[0] ?? '';
+    expect(block).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*if \(mapping\.options\.length > 1\) handleChooseAnother\(\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
+    expect(block).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\}/);
   });
 });
 

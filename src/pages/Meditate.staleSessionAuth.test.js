@@ -103,7 +103,8 @@ describe('Meditate.jsx — sign-in restores the exact same allowlisted need/dura
 describe('Meditate.jsx — server-side security surface is completely untouched by this remediation', () => {
   it('BetaVideoModal is still the same, only component, reused unchanged', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setVideoEndedNaturally\(true\)\} \/>/);
+    expect(source.match(/<BetaVideoModal/g)?.length).toBe(1);
+    expect(source).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{handleVideoClose\}[\s\S]*?\n\s*onEnded=\{[\s\S]*?\n\s*completionContext=\{\{\s*\n\s*journey: 'direct',/);
   });
 
   it('this remediation never imports or references get-beta-video-url, storage, or any Supabase table/function beyond the read-only auth.getUser() call', () => {

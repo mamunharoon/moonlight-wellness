@@ -1,6 +1,6 @@
 // WakeWise Phase 2 (B4/B6) — outcomeMessages.js.
 import { describe, it, expect } from 'vitest';
-import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement, getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage, getCompletionGreeting } from './outcomeMessages';
+import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement, getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage, getCompletionGreeting, getMediaCompletionMessage } from './outcomeMessages';
 
 describe('OUTCOME / JOURNEY enums', () => {
   it('OUTCOME has exactly the four required values', () => {
@@ -494,5 +494,116 @@ describe('getMorningBreathingEarlyExitMessage - honest, non-celebratory acknowle
   it('never throws, always returns a string', () => {
     expect(() => getMorningBreathingEarlyExitMessage()).not.toThrow();
     expect(typeof getMorningBreathingEarlyExitMessage()).toBe('string');
+  });
+});
+
+// Shared guided-media completion correction - the ten-message shuffled-
+// bag cycle for BetaVideoModal.jsx's own natural-completion overlay. Real
+// execution (no mocked Math.random - the shuffle's genuine randomness is
+// exactly what's under test), matching the preference for executable
+// behavioural tests over source-string assertions.
+describe('getMediaCompletionMessage - shuffled-bag rotation (shared guided-media completion correction)', () => {
+  const withMockLocalStorage = (fn) => {
+    const store = new Map();
+    const mock = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => store.set(key, String(value)),
+      removeItem: (key) => store.delete(key)
+    };
+    const previous = globalThis.localStorage;
+    globalThis.localStorage = mock;
+    try {
+      return fn(mock);
+    } finally {
+      if (previous === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = previous;
+    }
+  };
+
+  const POOL = [
+    'Thank you for taking this time.',
+    'You made space for yourself.',
+    'A mindful moment well spent.',
+    'We hope this brought you some calm.',
+    'You gave yourself time to reset.',
+    'Carry what felt helpful with you.',
+    'Come back whenever you need.',
+    'You showed up for yourself today.',
+    'Even a few mindful minutes matter.',
+    'Take this feeling into what comes next.'
+  ];
+
+  it('always returns one of the ten approved messages - never a placeholder, never fabricated text', () => {
+    withMockLocalStorage(() => {
+      for (let i = 0; i < 30; i += 1) {
+        expect(POOL).toContain(getMediaCompletionMessage());
+      }
+    });
+  });
+
+  it('shows all ten messages before any one repeats, when storage is available - a genuine shuffled-bag cycle, not simple unrestricted random selection', () => {
+    withMockLocalStorage(() => {
+      const seenInFirstTen = new Set();
+      for (let i = 0; i < 10; i += 1) seenInFirstTen.add(getMediaCompletionMessage());
+      // All ten distinct messages appeared exactly once each in the first
+      // ten calls - if selection were simple unrestricted random, this
+      // would almost never hold (a repeat within 10 draws from a 10-item
+      // pool is overwhelmingly likely under plain Math.random()).
+      expect(seenInFirstTen.size).toBe(10);
+      expect([...seenInFirstTen].sort()).toEqual([...POOL].sort());
+    });
+  });
+
+  it('never repeats the immediately-previous message across consecutive calls, including across a bag boundary (the new bag\'s own first pick is swapped if it would repeat the old bag\'s last pick)', () => {
+    withMockLocalStorage(() => {
+      let previous = getMediaCompletionMessage();
+      for (let i = 0; i < 50; i += 1) {
+        const next = getMediaCompletionMessage();
+        expect(next).not.toBe(previous);
+        previous = next;
+      }
+    });
+  });
+
+  it('cycles indefinitely - the 21st call (two full cycles plus one) still returns a real pool message, never undefined or a crash', () => {
+    withMockLocalStorage(() => {
+      let last;
+      for (let i = 0; i < 21; i += 1) last = getMediaCompletionMessage();
+      expect(POOL).toContain(last);
+    });
+  });
+
+  it('persists the bag/last-message across calls via the documented localStorage keys - never a database write, never sensitive data', () => {
+    withMockLocalStorage((mock) => {
+      getMediaCompletionMessage();
+      expect(mock.getItem('moonlight_media_completion_bag')).not.toBeNull();
+      expect(mock.getItem('moonlight_media_completion_last_message')).not.toBeNull();
+      // Genuinely just plain UI copy/index bookkeeping - never a user
+      // identifier, email, token, or free-text field.
+      expect(mock.getItem('moonlight_media_completion_last_message')).toMatch(/^[A-Za-z .,'’]+$/);
+    });
+  });
+
+  it('a stale/corrupted persisted bag (e.g. malformed JSON, or a bag containing text this pool no longer has) never crashes and still returns a real message', () => {
+    withMockLocalStorage((mock) => {
+      mock.setItem('moonlight_media_completion_bag', 'not valid json{{{');
+      expect(() => getMediaCompletionMessage()).not.toThrow();
+      expect(POOL).toContain(getMediaCompletionMessage());
+
+      mock.setItem('moonlight_media_completion_bag', JSON.stringify(['A message this pool never had']));
+      expect(() => getMediaCompletionMessage()).not.toThrow();
+      expect(POOL).toContain(getMediaCompletionMessage());
+    });
+  });
+
+  it('degrades gracefully with no localStorage at all (this repo\'s own test environment) - never throws, still returns a real message every call, with no cross-call repeat-avoidance guarantee required in that mode', () => {
+    expect(() => getMediaCompletionMessage()).not.toThrow();
+    for (let i = 0; i < 10; i += 1) {
+      expect(POOL).toContain(getMediaCompletionMessage());
+    }
+  });
+
+  it('is a plain string pool with no completion-state coupling of its own - callers (BetaVideoModal.jsx) decide when it is ever called, never automatically for an early close', () => {
+    expect(typeof getMediaCompletionMessage()).toBe('string');
   });
 });

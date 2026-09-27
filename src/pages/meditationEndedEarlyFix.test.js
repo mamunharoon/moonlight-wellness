@@ -1,12 +1,23 @@
-// WakeWise Phase 2 (B4) — real found defect: Meditate.jsx's handleVideoClose
-// routed to /meditation-complete unconditionally, with no natural-end
-// check at all (unlike AnytimeReset.jsx's onEnded-driven isComplete or
-// QuietBreathing.jsx's earlyEnded), so closing a guided meditation video
-// early was indistinguishable from finishing it - MeditationComplete.jsx
-// showed "Meditation complete" and wrote the daily completion flag either
-// way. Fixed: a real videoEndedNaturally flag (BetaVideoModal's onEnded),
-// carried through router state as `endedEarly`, gates both the honest
-// headline/body and whether completion is ever recorded.
+// WakeWise Phase 2 (B4) — original found defect: Meditate.jsx's
+// handleVideoClose routed to /meditation-complete unconditionally, with no
+// natural-end check at all, so closing a guided meditation video early was
+// indistinguishable from finishing it. Fixed then via a videoEndedNaturally
+// flag carried through router state to a separate completion page.
+//
+// WakeWise guided-media completion phase — that separate-page architecture
+// is now superseded: a genuine natural end is acknowledged entirely inside
+// BetaVideoModal's own shared completion overlay (completionContext,
+// journey: 'direct'); a real early close now correctly does nothing more
+// than close the modal and return to this exact recommend step, matching
+// every other migrated call site. videoEndedNaturally/endedEarly/the
+// /meditation-complete navigation are gone from this file entirely.
+// onEnded is still wired (fired only from BetaVideoModal's own real
+// native `ended` event, same as before) purely to preserve the
+// pre-existing "meditated today" daily-completion flag Home.jsx reads
+// (isMeditatedToday) - previously written only from the now-bypassed
+// MeditationComplete.jsx's own button handlers, on a genuine natural end
+// only. MeditationComplete.jsx itself is untouched (still exists, still
+// tested below) - only unreachable from this particular flow now.
 //
 // No DOM/component rendering is available in this repo's Vitest - source-
 // level checks, matching every other regression guard in this codebase.
@@ -17,22 +28,34 @@ import { fileURLToPath } from 'node:url';
 const meditateSource = readFileSync(fileURLToPath(new URL('./Meditate.jsx', import.meta.url)), 'utf-8');
 const completeSource = readFileSync(fileURLToPath(new URL('./MeditationComplete.jsx', import.meta.url)), 'utf-8');
 
-describe('Meditate.jsx — real natural-end vs early-close distinction', () => {
-  it('videoEndedNaturally starts false and is reset before opening a new video (handleBegin)', () => {
-    expect(meditateSource).toMatch(/const \[videoEndedNaturally, setVideoEndedNaturally\] = useState\(false\);/);
-    const beginBody = meditateSource.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(beginBody).toMatch(/setVideoEndedNaturally\(false\);/);
+describe('Meditate.jsx — natural end is acknowledged in-modal, never a separate page or flag', () => {
+  it('no more videoEndedNaturally/endedEarly tracking, and no navigation to /meditation-complete from this file', () => {
+    expect(meditateSource).not.toMatch(/videoEndedNaturally|endedEarly/);
+    expect(meditateSource).not.toMatch(/navigate\('\/meditation-complete'/);
   });
 
-  it('BetaVideoModal is wired with a real onEnded callback, exactly like AnytimeReset.jsx\'s own onEnded={() => setIsComplete(true)}', () => {
-    expect(meditateSource).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setVideoEndedNaturally\(true\)\} \/>/);
+  it('handleVideoClose is now a plain, one-line close - no natural-end branching of its own (that lives in BetaVideoModal)', () => {
+    expect(meditateSource).toMatch(/const handleVideoClose = \(\) => setOpenVideoId\(null\);/);
   });
 
-  it('handleVideoClose computes endedEarly as the inverse of videoEndedNaturally, resets the flag, and forwards endedEarly through router state to /meditation-complete', () => {
-    const body = meditateSource.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/const endedEarly = !videoEndedNaturally;/);
-    expect(body).toMatch(/setVideoEndedNaturally\(false\);/);
-    expect(body).toMatch(/navigate\('\/meditation-complete', \{\s*\n\s*state: \{\s*\n\s*id: entry\.id,\s*\n\s*title: entry\.title,\s*\n\s*durationSeconds: entry\.meditation\?\.durationSeconds \?\? null,\s*\n\s*endedEarly/);
+  it('BetaVideoModal is wired with completionContext (journey: \'direct\')', () => {
+    expect(meditateSource).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{handleVideoClose\}[\s\S]*?\n\s*onEnded=\{[\s\S]*?\n\s*completionContext=\{\{\s*\n\s*journey: 'direct',/);
+  });
+
+  it('onEnded still writes the exact same "meditated today" localStorage flag (same key, same user-scoped mechanism, same local dateKey) that MeditationComplete.jsx used to write on a genuine natural end - Home.jsx\'s isMeditatedToday indicator must survive this migration unchanged', () => {
+    expect(meditateSource).toMatch(/import \{ getZonedParts \} from '\.\.\/lib\/timezone';/);
+    expect(meditateSource).toMatch(/import \{ now as devNow \} from '\.\.\/lib\/devClock';/);
+    expect(meditateSource).toMatch(/import \{ getMeditationCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+    expect(meditateSource).toMatch(/const \{ effectiveTimezone, userId \} = useAlarm\(\);/);
+    const onEndedBody = meditateSource.match(/onEnded=\{\(\) => \{[\s\S]*?\n\s*\}\}/)?.[0] ?? '';
+    expect(onEndedBody).toMatch(/const today = getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
+    expect(onEndedBody).toMatch(/localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/);
+  });
+
+  it('the primary action just closes the modal (stays right here); the secondary "Explore Another Session" only cycles when a genuinely different item exists (items.length > 1)', () => {
+    const block = meditateSource.match(/completionContext=\{\{[\s\S]*?\n\s*\}\}/)?.[0] ?? '';
+    expect(block).toMatch(/onPrimaryAction: \(\) => setOpenVideoId\(null\),/);
+    expect(block).toMatch(/onSecondaryAction: items\.length > 1\s*\n\s*\? \(\) => \{\s*\n\s*handleChooseAnother\(\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\}\s*\n\s*: undefined/);
   });
 });
 

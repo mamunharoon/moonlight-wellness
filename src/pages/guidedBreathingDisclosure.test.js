@@ -76,7 +76,7 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
   });
 
   it('closing the video returns to this same Breathe screen - the existing closeVideo handler, no route change', () => {
-    expect(breatheSource).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>/);
+    expect(breatheSource).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{closeVideo\}\s*\n\s*completionContext=\{\{ journey: 'morning', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo \}\}\s*\n\s*\/>/);
   });
 });
 
@@ -116,7 +116,7 @@ describe('QuietBreathing.jsx - standalone-only guided-breathing disclosure', () 
   });
 
   it('closing the video returns to this same screen via the existing closeVideo handler, no route change', () => {
-    expect(standaloneReturn).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>/);
+    expect(standaloneReturn).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{closeVideo\}\s*\n\s*completionContext=\{\{ journey: 'direct', onPrimaryAction: closeVideo \}\}\s*\n\s*\/>/);
   });
 
   it('a guest tap opens the shared SignInPromptDialog, consistent with every other protected-video row in the app', () => {

@@ -232,7 +232,11 @@ export const Grounding = () => {
           navigation needed for a return path. The 5-4-3-2-1 stepper and
           Previous/Next/Skip above are entirely unaffected. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'direct', onPrimaryAction: closeVideo }}
+        />
       )}
       <SignInPromptDialog
         open={promptOpen}

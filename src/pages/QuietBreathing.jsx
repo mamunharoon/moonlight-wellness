@@ -801,7 +801,11 @@ export const QuietBreathing = ({ standalone = false }) => {
         />
 
         {openVideo && (
-          <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+          <BetaVideoModal
+            entry={openVideo}
+            onClose={closeVideo}
+            completionContext={{ journey: 'direct', onPrimaryAction: closeVideo }}
+          />
         )}
         <SignInPromptDialog
           open={promptOpen}

@@ -178,9 +178,10 @@ describe('AnytimeReset.jsx — guest / post-sign-in restore, allowlisted and str
 });
 
 describe('AnytimeReset.jsx — BetaVideoModal integration, unchanged component', () => {
-  it('reuses BetaVideoModal directly - never a second/alternate player. Anytime Reset completion fix adds the new, optional onEnded callback (BetaVideoModal.jsx itself defaults it to undefined - every other caller is unaffected)', () => {
+  it('reuses BetaVideoModal directly - never a second/alternate player. Still wired with the real onEnded={() => setIsComplete(true)} callback, plus (guided-media completion phase) a completionContext so the natural-completion acknowledgement now lives in BetaVideoModal\'s own shared overlay', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setIsComplete\(true\)\} \/>/);
+    expect(source.match(/<BetaVideoModal/g)?.length).toBe(1);
+    expect(source).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{handleVideoClose\}\s*\n\s*onEnded=\{\(\) => setIsComplete\(true\)\}\s*\n\s*completionContext=\{\{\s*\n\s*journey: 'anytime',/);
   });
 });
 

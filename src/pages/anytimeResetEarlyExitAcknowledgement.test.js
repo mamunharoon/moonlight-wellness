@@ -51,9 +51,15 @@ describe('AnytimeReset.jsx — justEndedEarly is cleared by every action that al
 });
 
 describe('AnytimeReset.jsx — rendering: three mutually-exclusive states, never a false completion claim', () => {
-  it('outcomeMessage resolves completed first, then ended_early, else null (ordinary state) - both dateKey-rotated via the caller\'s own local "today"', () => {
+  // WakeWise guided-media completion phase — outcomeMessage no longer has
+  // a completed branch of its own: a genuine natural completion is now
+  // acknowledged entirely inside BetaVideoModal's own shared overlay
+  // (completionContext, journey: 'anytime'), never by this page's own
+  // headline. This is the honest early-close acknowledgement or nothing.
+  it('outcomeMessage resolves ended_early, else null (ordinary state) - dateKey-rotated via the caller\'s own local "today" - never a completed branch of its own any more', () => {
     expect(source).toMatch(/const today = getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
-    expect(source).toMatch(/const outcomeMessage = isComplete\s*\n\s*\? getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.ANYTIME, today\)\s*\n\s*: justEndedEarly\s*\n\s*\? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\)\s*\n\s*: null;/);
+    expect(source).toMatch(/const outcomeMessage = justEndedEarly \? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\) : null;/);
+    expect(source).not.toMatch(/OUTCOME\.COMPLETED/);
   });
 
   it('the heading/body fall back to "Recommended for you"/the need+duration summary only when outcomeMessage is null', () => {
@@ -61,12 +67,10 @@ describe('AnytimeReset.jsx — rendering: three mutually-exclusive states, never
     expect(source).toMatch(/\{outcomeMessage\s*\n\s*\? outcomeMessage\.body\s*\n\s*: `\$\{ANYTIME_RESET_NEEDS\.find/);
   });
 
-  it('an early-exit acknowledgement is shown inline alongside the still-functional recommendation (RecommendationCard/Start remain reachable) - never a blocking modal, per the non-completed branch of the isComplete render ternary being unaffected by justEndedEarly', () => {
-    const recommendStep = source.slice(source.indexOf("step === 'recommend' &&"));
-    // The block that swaps in the two-action "Choose another quick
-    // reset"/"Return to Home" panel is still keyed on isComplete alone -
-    // justEndedEarly never triggers that panel, only the heading copy.
-    expect(recommendStep).toMatch(/\{isComplete \? \(/);
+  it('an early-exit acknowledgement is shown inline alongside the still-functional recommendation (RecommendationCard/Start remain reachable) - never a blocking modal; justEndedEarly only ever affects the heading copy above, never the recommendation view itself (there is no page-level completion panel of any kind any more - guided-media completion phase)', () => {
+    const recommendStep = source.slice(source.indexOf("step === 'recommend' &&"), source.indexOf('{openVideo && ('));
+    expect(recommendStep).toMatch(/\{current \? \(/);
+    expect(recommendStep).not.toMatch(/isComplete \? \(/);
     expect(recommendStep).not.toMatch(/justEndedEarly \? \(/);
   });
 });

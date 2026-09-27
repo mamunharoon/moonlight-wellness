@@ -288,7 +288,7 @@ describe('No duplicate completion when reviewing across the Reflection/Gratitude
 
 describe('Guidance video Close restores the exact question and response', () => {
   it('BetaVideoModal is mounted once inside PromptStepper, layered on top - closing it (closeVideo) only clears openVideoId, never touches activeIndex or answers', () => {
-    expect(promptStepperSource).toMatch(/\{openVideo && \(\s*\n\s*<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>\s*\n\s*\)\}/);
+    expect(promptStepperSource).toMatch(/\{openVideo && \(\s*\n\s*<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{closeVideo\}\s*\n\s*completionContext=\{\{ journey: journeyTone, onPrimaryAction: closeVideo, onSecondaryAction: closeVideo \}\}\s*\n\s*\/>\s*\n\s*\)\}/);
     expect(promptStepperSource).not.toMatch(/onClose=\{closeVideo\}[\s\S]{0,200}(setAnswers|setActiveIndex|onAdvance|onComplete)/);
   });
 });

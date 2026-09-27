@@ -46,6 +46,12 @@ describe('Meditate.jsx — Phase A is a container-only change: recommendation lo
 
   it('BetaVideoModal is still reused unchanged - no second/alternate player introduced', () => {
     expect(source).toMatch(/import \{ BetaVideoModal \} from '\.\.\/components\/BetaVideoModal';/);
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{handleVideoClose\} onEnded=\{\(\) => setVideoEndedNaturally\(true\)\} \/>/);
+    // WakeWise guided-media completion phase — onEnded/videoEndedNaturally
+    // was replaced by the shared completionContext (natural end is now
+    // acknowledged entirely inside BetaVideoModal's own overlay); still
+    // exactly one BetaVideoModal render, still the same entry/onClose wiring.
+    expect(source.match(/<BetaVideoModal/g)?.length).toBe(1);
+    expect(source).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{handleVideoClose\}[\s\S]*?\n\s*onEnded=\{[\s\S]*?\n\s*completionContext=\{\{\s*\n\s*journey: 'direct',/);
+    expect(source).not.toMatch(/videoEndedNaturally/);
   });
 });

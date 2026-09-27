@@ -336,6 +336,96 @@ export const getMorningBreathingEarlyExitMessage = () => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
+// Shared guided-media completion — one general-purpose pool, used
+// identically regardless of launch context (Morning/Anytime/Evening/
+// Library/Direct all show the SAME message text; only the surrounding
+// visual tone and actions vary by context - see
+// mediaCompletionPresentation.js and BetaVideoModal.jsx's own
+// `completionContext` prop). Deliberately general enough to apply across
+// Breathing/Stretching/Meditation/Grounding/Reflection/Affirmations/Calm &
+// Support and every other genuine guided wellness video - never shown for
+// Sleep Soundscapes (looping media never fires the natural `ended` event
+// this pool is gated on) or onboarding/QA/admin content (BetaVideoModal's
+// callers there never pass a completionContext at all).
+const MEDIA_COMPLETION_MESSAGES = [
+  'Thank you for taking this time.',
+  'You made space for yourself.',
+  'A mindful moment well spent.',
+  'We hope this brought you some calm.',
+  'You gave yourself time to reset.',
+  'Carry what felt helpful with you.',
+  'Come back whenever you need.',
+  'You showed up for yourself today.',
+  'Even a few mindful minutes matter.',
+  'Take this feeling into what comes next.'
+];
+
+// Fisher-Yates - a genuinely random ORDER each cycle, not just a random
+// pick each call (which is what getCompletionGreeting's own simpler
+// avoid-immediate-repeat mechanism does, and is not strong enough for "show
+// all ten before a new cycle").
+const shuffle = (list) => {
+  const shuffled = [...list];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+const MEDIA_MESSAGE_BAG_KEY = 'moonlight_media_completion_bag';
+const MEDIA_MESSAGE_LAST_KEY = 'moonlight_media_completion_last_message';
+
+/**
+ * Picks one message for a genuine natural completion of a guided media
+ * item (BetaVideoModal.jsx's own shared completion overlay). A small
+ * shuffled-bag cycle, not simple unrestricted random selection: draws
+ * messages one at a time from a locally-persisted, pre-shuffled "bag"
+ * (localStorage, never sensitive data, never a database write) so all ten
+ * messages are shown before any one repeats, and reshuffles a fresh bag
+ * only once the current one is exhausted - guarding against the new bag's
+ * own first pick repeating the immediately-previous message shown at the
+ * old bag's end. Callers must call this exactly once per genuine natural
+ * completion (never during render, never twice for the same completion -
+ * BetaVideoModal.jsx guards this via its own hasEnded transition) and hold
+ * the returned string for as long as the completion overlay stays
+ * mounted. Degrades safely with no localStorage: still returns a real,
+ * freshly-shuffled pick every call, just without the "no repeat until
+ * exhausted" guarantee across calls.
+ * @returns {string}
+ */
+export const getMediaCompletionMessage = () => {
+  const pool = MEDIA_COMPLETION_MESSAGES;
+  let bag = [];
+  let lastMessage = null;
+  try {
+    const storedBag = localStorage.getItem(MEDIA_MESSAGE_BAG_KEY);
+    bag = storedBag ? JSON.parse(storedBag) : [];
+    lastMessage = localStorage.getItem(MEDIA_MESSAGE_LAST_KEY);
+  } catch {
+    bag = [];
+    lastMessage = null;
+  }
+  // Defensive against a stale persisted bag no longer matching this pool
+  // (e.g. the pool itself was ever edited) - never crashes, never shows a
+  // message this pool doesn't actually contain.
+  bag = Array.isArray(bag) ? bag.filter((message) => pool.includes(message)) : [];
+  if (bag.length === 0) {
+    bag = shuffle(pool);
+    if (bag.length > 1 && bag[0] === lastMessage) {
+      [bag[0], bag[1]] = [bag[1], bag[0]];
+    }
+  }
+  const [next, ...rest] = bag;
+  try {
+    localStorage.setItem(MEDIA_MESSAGE_BAG_KEY, JSON.stringify(rest));
+    localStorage.setItem(MEDIA_MESSAGE_LAST_KEY, next);
+  } catch {
+    // best-effort only - a completion still gets a real message either way
+  }
+  return next;
+};
+
 export const getOutcomeMessage = (outcome, journey = JOURNEY.ANYTIME, dateKey) => {
   const rotatingSet = ROTATING_MESSAGES[journey]?.[outcome];
   if (rotatingSet) return pickVariant(rotatingSet, dateKey);

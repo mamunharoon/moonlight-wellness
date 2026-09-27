@@ -321,7 +321,11 @@ export const PrepareForRest = () => {
           page (and are now persisted via eveningPrepareSelection.js
           regardless, so even a real navigation away and back survives). */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'evening', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
       )}
       <SignInPromptDialog
         open={promptOpen}

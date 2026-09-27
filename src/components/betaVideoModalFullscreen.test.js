@@ -58,7 +58,11 @@ describe('BetaVideoModal.jsx — event wiring: iOS\'s own proprietary event pair
   it('every listener is symmetrically removed in the same effect\'s cleanup', () => {
     // Anytime Reset completion fix — onEnded added to this effect's own
     // dependency array (it's read inside handleEnded) alongside videoUrl.
-    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl, onEnded\]\);/)?.[0] ?? '';
+    // Shared guided-media completion correction — completionContext also
+    // added (read inside handleEnded to decide whether to pick a
+    // completion message); hasEnded itself is read via a ref
+    // (hasEndedProcessedRef), not this effect's own dependency array.
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*const video = videoRef\.current;\s*\n\s*if \(!video\) return;\s*\n\s*\n\s*const handleBeginFullscreen[\s\S]*?\n {2}\}, \[videoUrl, onEnded, completionContext\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/video\.removeEventListener\('webkitbeginfullscreen', handleBeginFullscreen\);/);
     expect(body).toMatch(/video\.removeEventListener\('webkitendfullscreen', handleEndFullscreen\);/);
@@ -103,9 +107,9 @@ describe('BetaVideoModal.jsx — Begin requests fullscreen synchronously, within
 });
 
 describe('BetaVideoModal.jsx — Play Again restarts from zero; Resume continues where it was', () => {
-  it('handleResumeOrReplay only rewinds currentTime and clears hasEnded when hasEnded is true', () => {
+  it('handleResumeOrReplay only rewinds currentTime and clears hasEnded (and, Shared guided-media completion correction, completionMessage/hasEndedProcessedRef) when hasEnded is true', () => {
     const body = source.match(/const handleResumeOrReplay = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(hasEnded\) \{\s*\n\s*video\.currentTime = 0;\s*\n\s*setHasEnded\(false\);\s*\n\s*\}/);
+    expect(body).toMatch(/if \(hasEnded\) \{\s*\n\s*video\.currentTime = 0;\s*\n\s*setHasEnded\(false\);\s*\n\s*setCompletionMessage\(null\);\s*\n\s*hasEndedProcessedRef\.current = false;\s*\n\s*\}/);
   });
 });
 
@@ -144,14 +148,14 @@ describe('BetaVideoModal.jsx — only one <video> element ever exists, even for 
 });
 
 describe('BetaVideoModal.jsx — the returned-to-preview overlay', () => {
-  it('renders only once playback has started AND neither fullscreen mode is active, and only for non-Sleep-Soundscape entries', () => {
+  it('renders only once playback has started AND neither fullscreen mode is active, and only for non-Sleep-Soundscape entries (Shared guided-media completion correction: also excluded once hasEnded && completionContext - the new shared overlay takes over that exact case instead)', () => {
     expect(source).toMatch(
-      /\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && \(/
+      /\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !\(hasEnded && completionContext\) && \(/
     );
   });
 
-  it('offers Play Again + Close Video on natural completion, Resume + Close Video otherwise', () => {
-    const body = source.match(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && \([\s\S]*?\n {14}\)\}/)?.[0] ?? '';
+  it('offers Play Again + Close Video on natural completion, Resume + Close Video otherwise - unchanged for the case this overlay still covers (no completionContext)', () => {
+    const body = source.match(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !\(hasEnded && completionContext\) && \([\s\S]*?\n {14}\)\}/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/\{hasEnded \? 'Play Again' : 'Resume'\}/);
     expect(body).toMatch(/Close Video/);

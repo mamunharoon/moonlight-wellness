@@ -926,7 +926,11 @@ export const Breathe = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'morning', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
       )}
       <SignInPromptDialog
         open={promptOpen}

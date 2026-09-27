@@ -1027,7 +1027,11 @@ export const MorningFlow = () => {
           (videoOpenedDuringExercise) until a deliberate Resume Exercise
           tap - see the doc comment above. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'morning', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
       )}
       <SignInPromptDialog
         open={promptOpen}

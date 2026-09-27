@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useAlarm } from '../context/AlarmContext';
 import { supabase } from '../lib/supabaseClient';
 import {
   MEDITATION_DURATION_GROUPS,
@@ -10,6 +11,9 @@ import {
 } from '../lib/mediaCatalog';
 import { recommendMeditations } from '../lib/meditationRecommendations';
 import { setPendingContent } from '../lib/pendingContent';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
+import { getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
@@ -65,6 +69,7 @@ const NEED_ICONS = {
 export const Meditate = () => {
   const navigate = useNavigate();
   const { isGuest, loading: authLoading } = useAuth();
+  const { effectiveTimezone, userId } = useAlarm();
   const [searchParams, setSearchParams] = useSearchParams();
   // Build 15 Phase B remediation — the same stale-session gap
   // AnytimeReset.jsx's own verifyingAuth/handleBegin already closed:
@@ -110,17 +115,6 @@ export const Meditate = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
-  // WakeWise Phase 2 (B4) — root cause: handleVideoClose used to navigate
-  // to /meditation-complete unconditionally, with no natural-end check at
-  // all (unlike AnytimeReset.jsx's own onEnded-driven isComplete, or
-  // QuietBreathing.jsx's earlyEnded) - so closing a guided video early was
-  // indistinguishable from actually finishing it, and MeditationComplete.jsx
-  // would show "Meditation complete" (and record the daily completion
-  // flag) either way. True only once the real native `ended` event fires
-  // (BetaVideoModal's onEnded callback, below) - reset whenever a new
-  // video opens so a prior session's natural end can never leak into a
-  // fresh one.
-  const [videoEndedNaturally, setVideoEndedNaturally] = useState(false);
 
   // Strips the now-consumed params so they can't re-trigger on a later
   // re-render or a browser back/forward — touches only router state.
@@ -194,7 +188,6 @@ export const Meditate = () => {
       setSignInPromptOpen(true);
       return;
     }
-    setVideoEndedNaturally(false);
     verifyAndOpenVideo(current.id);
   };
 
@@ -235,25 +228,18 @@ export const Meditate = () => {
     navigate('/auth?tab=signup');
   };
 
-  const handleVideoClose = () => {
-    const entry = getCatalogEntryById(openVideoId);
-    // WakeWise Phase 2 (B4) — carries the real natural-end/early-close
-    // distinction through to MeditationComplete.jsx, which now uses it to
-    // show an honest ended_early acknowledgement (never claiming
-    // completion, never writing the daily completion flag) instead of
-    // unconditionally treating every close as "Meditation complete".
-    const endedEarly = !videoEndedNaturally;
-    setOpenVideoId(null);
-    setVideoEndedNaturally(false);
-    navigate('/meditation-complete', {
-      state: {
-        id: entry.id,
-        title: entry.title,
-        durationSeconds: entry.meditation?.durationSeconds ?? null,
-        endedEarly
-      }
-    });
-  };
+  // WakeWise guided-media completion phase — this used to navigate to a
+  // separate /meditation-complete page unconditionally (natural end and
+  // early close alike). A genuine natural end is now acknowledged entirely
+  // inside BetaVideoModal's own shared overlay (completionContext below);
+  // an early close now correctly does nothing more than close the modal
+  // and return to this exact recommend step, per the same "early close
+  // returns to the exact origin" requirement every other call site now
+  // follows. MeditationComplete.jsx itself is untouched - it still exists
+  // for Grounding.jsx's own separate, non-video 5-4-3-2-1 exercise (that
+  // route is /support-complete, a different page, but the same
+  // don't-delete-the-page rule applies here).
+  const handleVideoClose = () => setOpenVideoId(null);
 
   // Build 15 Phase B — "Back/Close alignment" per the approved design:
   // Anytime Reset's header already carries a Close control that returns
@@ -386,7 +372,35 @@ export const Meditate = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setVideoEndedNaturally(true)} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={handleVideoClose}
+          // Preserves the pre-existing "meditated today" daily-completion
+          // flag Home.jsx reads (isMeditatedToday) - previously written
+          // only from the now-bypassed MeditationComplete.jsx's own
+          // Return/Choose-another handlers, gated identically on a real
+          // natural end (never an early close). Same key, same user-scoped
+          // localStorage mechanism, same local dateKey - just written at
+          // the actual moment of natural completion instead of via a
+          // separate page's own button tap.
+          onEnded={() => {
+            const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
+            localStorage.setItem(getMeditationCompletionKey(userId), today);
+          }}
+          completionContext={{
+            journey: 'direct',
+            onPrimaryAction: () => setOpenVideoId(null),
+            // "Explore Another Session" only when a genuinely different
+            // session is actually available to cycle to - matching the
+            // Direct/unknown row's own "only when valid" allowance.
+            onSecondaryAction: items.length > 1
+              ? () => {
+                  handleChooseAnother();
+                  setOpenVideoId(null);
+                }
+              : undefined
+          }}
+        />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

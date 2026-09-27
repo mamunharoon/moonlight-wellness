@@ -18,7 +18,6 @@ import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { RecommendationCard } from '../components/journey/RecommendationCard';
 import { JourneyGlow } from '../components/JourneyGlow';
-import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 // Build 15 Phase B — Material Symbols icon per need, for the restyled
 // SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
@@ -182,14 +181,14 @@ export const AnytimeReset = () => {
   const items = recommendation?.items || [];
   const current = items.length > 0 ? items[optionIndex % items.length] : null;
   const openVideo = openVideoId ? getCatalogEntryById(openVideoId) : null;
-  // WakeWise Phase 2 (B4/B6) — computed once per render rather than twice
-  // (once for the headline, once for the body) - getOutcomeMessage is
-  // pure/cheap either way, this is purely to avoid the redundant call.
-  const outcomeMessage = isComplete
-    ? getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.ANYTIME, today)
-    : justEndedEarly
-      ? getOutcomeMessage(OUTCOME.ENDED_EARLY, JOURNEY.ANYTIME, today)
-      : null;
+  // WakeWise guided-media completion phase — the natural-completion
+  // acknowledgement now lives entirely inside BetaVideoModal's own shared
+  // overlay (completionContext below), never here; isComplete is kept
+  // purely so handleVideoClose can still tell a genuine natural end apart
+  // from a real early close (it no longer drives any of this page's own
+  // rendering). outcomeMessage is therefore only ever the early-close
+  // acknowledgement now.
+  const outcomeMessage = justEndedEarly ? getOutcomeMessage(OUTCOME.ENDED_EARLY, JOURNEY.ANYTIME, today) : null;
 
   const handleSelectNeed = (id) => {
     setNeedId(id);
@@ -351,6 +350,11 @@ export const AnytimeReset = () => {
   // touches this flag either way.
   const handleVideoClose = () => {
     if (!isComplete) setJustEndedEarly(true);
+    // The modal's own completion overlay was the only representation of a
+    // natural completion; once it's dismissed (via its own X/backdrop, or
+    // via one of its own action buttons below), this screen never shows a
+    // second, duplicate completion state of its own.
+    setIsComplete(false);
     setOpenVideoId(null);
   };
 
@@ -469,16 +473,13 @@ export const AnytimeReset = () => {
       {step === 'recommend' && (
         <div className="space-y-6">
           <div className="space-y-1">
-            {/* WakeWise Phase 2 (B4/B6) — three real, distinct states: a
-                genuine natural completion (isComplete, rotating headline/
-                body via outcomeMessages.js), a real acknowledgement of
-                stopping early (justEndedEarly - the actual defect this
-                phase fixes: closing early used to silently fall through to
-                the ordinary state below with no acknowledgement at all),
-                and the ordinary pre-completion recommendation view.
-                Neither of the first two is ever shown at the same time as
-                the other (handleVideoClose/handleBegin/onEnded keep them
-                mutually exclusive). */}
+            {/* A genuine natural completion is now acknowledged entirely
+                inside BetaVideoModal's own shared overlay (completionContext
+                below) - it never reaches this headline any more. This is
+                only ever the real early-close acknowledgement
+                (justEndedEarly - closing early still shows an honest "A
+                short pause still matters" here, unchanged from before), or
+                the ordinary pre-completion recommendation view. */}
             <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">
               {outcomeMessage ? outcomeMessage.headline : 'Recommended for you'}
             </h1>
@@ -489,31 +490,7 @@ export const AnytimeReset = () => {
             </p>
           </div>
 
-          {isComplete ? (
-            // WakeWise DEV — Anytime completion correction: exactly two
-            // actions, matching the same pair QuietBreathing.jsx now
-            // shows for an anytime-tone completion. "Choose another quick
-            // reset" un-completes this same screen (keeps needId/
-            // durationId, so the full recommendation + alternatives below
-            // reappears immediately) rather than forcing a fresh need/
-            // duration pick or auto-starting anything new.
-            <div className="space-y-3 w-full">
-              <button
-                type="button"
-                onClick={() => setIsComplete(false)}
-                className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-              >
-                <span>Choose another quick reset</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                Return to Home
-              </button>
-            </div>
-          ) : current ? (
+          {current ? (
             <RecommendationCard
               title={current.title}
               durationLabel={formatDuration(current.anytimeReset.durationSeconds)}
@@ -627,7 +604,27 @@ export const AnytimeReset = () => {
       )}
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setIsComplete(true)} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={handleVideoClose}
+          onEnded={() => setIsComplete(true)}
+          completionContext={{
+            journey: 'anytime',
+            // "Choose Another Session" - un-completes this same screen
+            // (needId/durationId untouched) so the full recommendation +
+            // alternatives reappears immediately, exactly like the former
+            // "Choose another quick reset" button this overlay replaces.
+            onPrimaryAction: () => {
+              setIsComplete(false);
+              setOpenVideoId(null);
+            },
+            onSecondaryAction: () => {
+              setIsComplete(false);
+              setOpenVideoId(null);
+              navigate('/');
+            }
+          }}
+        />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

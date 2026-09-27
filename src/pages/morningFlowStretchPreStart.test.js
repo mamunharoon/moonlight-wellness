@@ -248,7 +248,7 @@ describe('Guided-session media never advances or completes the timed routine', (
   });
 
   it('closing the video (BetaVideoModal onClose) is the existing closeVideo handler - it returns to this same Stretch screen, no route change', () => {
-    expect(source).toMatch(/<BetaVideoModal entry=\{openVideo\} onClose=\{closeVideo\} \/>/);
+    expect(source).toMatch(/<BetaVideoModal\s*\n\s*entry=\{openVideo\}\s*\n\s*onClose=\{closeVideo\}\s*\n\s*completionContext=\{\{ journey: 'morning', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo \}\}\s*\n\s*\/>/);
   });
 });
 

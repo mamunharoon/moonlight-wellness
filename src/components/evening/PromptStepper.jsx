@@ -515,7 +515,11 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
       </button>
 
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={closeVideo} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: journeyTone, onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
       )}
       <SignInPromptDialog
         open={videoPromptOpen}

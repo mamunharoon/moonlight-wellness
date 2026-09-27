@@ -26,7 +26,13 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
     // completed panel's "Continue to Breathe" primary action.
     ['../pages/MorningFlow.jsx', 'morning', 3],
     ['../pages/Breathe.jsx', 'morning', 2],
-    ['../pages/AnytimeReset.jsx', 'anytime', 1],
+    // AnytimeReset.jsx no longer calls getJourneyPrimaryActionClasses
+    // directly (guided-media completion phase) - its former "Choose
+    // another quick reset" completion panel was migrated to
+    // BetaVideoModal's shared completion overlay, which now resolves the
+    // anytime tone itself via mediaCompletionPresentation.js -> the same
+    // getJourneyPrimaryActionClasses helper, just one layer removed from
+    // this page's own source. See mediaCompletionPresentation.test.js.
     // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
     // standalone branch now passes the dynamic journeyTone (see the
     // describe block below), not a hardcoded 'anytime' literal; only its

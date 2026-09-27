@@ -212,23 +212,16 @@ export const Support = () => {
     navigate('/auth?tab=signup');
   };
 
-  // Outcome-aware messaging correction — previously always navigated the
-  // same way regardless of HOW the video ended, so SupportComplete.jsx
-  // could never distinguish a genuine finish (e.g. the "Instant Calm"
-  // video playing to its end) from an early close - identical to the gap
-  // AnytimeReset.jsx's own video path already fixed once; this mirrors
-  // that exact pattern (onEnded sets a real "ended naturally" flag,
-  // checked here) rather than guessing from onClose alone.
-  const [videoEndedNaturally, setVideoEndedNaturally] = useState(false);
-
-  // Closing the video (finished, or the user closed it early) is the
-  // signal this moment is done — advances to the shared Completion
-  // screen, matching the requested Play -> Completion step exactly.
-  const handleVideoClose = () => {
-    setOpenVideoId(null);
-    navigate('/support-complete', { state: { outcome: videoEndedNaturally ? 'completed' : 'ended_early' } });
-    setVideoEndedNaturally(false);
-  };
+  // WakeWise guided-media completion phase — this used to always advance
+  // to a separate /support-complete screen regardless of how the video
+  // ended. A genuine natural end is now acknowledged entirely inside
+  // BetaVideoModal's own shared overlay (completionContext below); an
+  // early close now correctly just closes the modal and returns to this
+  // exact recommendation view, per the same "early close returns to the
+  // exact origin" requirement every other call site now follows.
+  // SupportComplete.jsx itself is untouched - Grounding.jsx's own
+  // separate, non-video 5-4-3-2-1 exercise still uses it.
+  const handleVideoClose = () => setOpenVideoId(null);
 
   const videoEntry = option?.kind === 'video' ? getCatalogEntryById(option.id) : null;
   const cachedMinutes = videoEntry ? getCachedDurationMinutes(videoEntry.id) : null;
@@ -324,11 +317,22 @@ export const Support = () => {
         </div>
       )}
 
-      {/* Unlike every other BetaVideoModal caller on this page's prior
-          version, closing this modal navigates to /support-complete
-          rather than just clearing local state — see handleVideoClose. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setVideoEndedNaturally(true)} />
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={handleVideoClose}
+          completionContext={{
+            journey: 'anytime',
+            onPrimaryAction: () => {
+              if (mapping.options.length > 1) handleChooseAnother();
+              setOpenVideoId(null);
+            },
+            onSecondaryAction: () => {
+              setOpenVideoId(null);
+              navigate('/');
+            }
+          }}
+        />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

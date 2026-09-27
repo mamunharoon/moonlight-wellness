@@ -6,6 +6,8 @@ import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { resolvePlaybackId, shouldShowMusicToggle } from '../lib/backgroundMusicSelection';
 import { useAuth } from '../context/AuthContext';
+import { getMediaCompletionMessage } from '../lib/outcomeMessages';
+import { getMediaCompletionPresentation } from '../lib/mediaCompletionPresentation';
 
 // Sleep Soundscapes timer options, minutes only - release-blocking fix:
 // the previous no-auto-stop option is removed entirely, no indefinite-
@@ -56,8 +58,38 @@ const formatRemaining = (ms) => {
  * Hub / Evening Wind-down journeys are meant to feel like a normal part
  * of those flows, not a QA artifact - Beta.jsx passes true explicitly to
  * keep the label on its own standalone admin/QA catalogue.
+ *
+ * Shared guided-media completion correction — `completionContext`
+ * (additive, optional; every existing caller that omits it keeps the
+ * exact original generic "Done" / "Play Again" / "Close Video" overlay,
+ * byte-for-byte unchanged) is the ONE reusable natural-completion
+ * experience for genuine end-user guided sessions, replacing what used to
+ * be three separate ad-hoc architectures (AnytimeReset.jsx's own inline
+ * isComplete state, Meditate.jsx/Support.jsx's own separate full-page
+ * navigation to /meditation-complete or /support-complete). Shape:
+ * `{ journey: 'morning'|'anytime'|'evening'|'library'|'direct',
+ * onPrimaryAction: () => void, onSecondaryAction?: () => void }`. `journey`
+ * is an explicit, allowlisted marker the CALLER already resolved from its
+ * own real navigation/journey state (never guessed from time of day or
+ * browser history here) - getMediaCompletionPresentation.js turns it into
+ * the exact approved tone + action labels for that context, an
+ * unrecognised value safely falling back to the neutral 'direct'
+ * treatment. `onPrimaryAction`/`onSecondaryAction` are the caller's own
+ * one-line handlers for what those labelled buttons actually do (closing
+ * this modal, and/or navigating) - this component itself never imports
+ * react-router or the Session Engine, so it can never record a host
+ * exercise's completion or navigate on its own; omitting
+ * `onSecondaryAction` hides that button entirely (the "only when a valid
+ * destination exists" case). Only ever shown once the video has reached
+ * its own genuine natural `ended` event (hasEnded, below) - an early
+ * close/backdrop-click/Escape never reaches this overlay, never picks or
+ * consumes a completion message, and never touches `onEnded`. Sleep
+ * Soundscapes (`loop` on the underlying <video>) never fire `ended` at
+ * all, so this overlay is structurally unreachable for them regardless of
+ * whether a caller passes `completionContext` - their own existing
+ * timerEnded/"Play again" contract, below, is completely unaffected.
  */
-export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded }) => {
+export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded, completionContext = null }) => {
   const { isGuest } = useAuth();
   const isSleepSound = entry.category === 'Sleep Soundscapes';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
@@ -117,8 +149,34 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [hasEnded, setHasEnded] = useState(false);
+  // Shared guided-media completion correction — picked exactly once per
+  // genuine natural completion, inside the same handleEnded callback that
+  // sets hasEnded true (see that handler's own doc comment for the
+  // idempotency guard) - never re-picked on re-render, never consumed by
+  // an early close. Reset to null alongside hasEnded whenever a fresh
+  // fetch starts (a different entry, or "Play Again"/Retry), so a second
+  // completion in the same mounted instance always gets its own fresh
+  // pick, never a stale leftover string.
+  const [completionMessage, setCompletionMessage] = useState(null);
   const expiresAtRef = useRef(null);
   const videoRef = useRef(null);
+  // Shared guided-media completion correction — safe focus handling: the
+  // element focused immediately before this modal opened (restored on
+  // unmount), and the new completion overlay's own primary action button
+  // (focused the instant it appears, mirroring ConfirmDialog.jsx's own
+  // established initial-focus/return-focus pattern - the one dialog
+  // convention this app already has, extended here rather than
+  // reinvented).
+  const previouslyFocusedRef = useRef(null);
+  const completionPrimaryButtonRef = useRef(null);
+  // Shared guided-media completion correction — a REF, not derived from
+  // the hasEnded state closure, so the idempotency guard in handleEnded
+  // below is immune to stale-closure timing (a ref is read/written
+  // synchronously, never one render behind) - genuinely "at most once per
+  // completion," not just "usually once in practice." Reset alongside
+  // hasEnded/completionMessage in the fetch effect's own per-entry reset
+  // block.
+  const hasEndedProcessedRef = useRef(false);
 
   // Immersive fullscreen, Defect 2 fix — the supported iPhone path is
   // HTMLVideoElement.webkitEnterFullscreen(), a WKWebView/iOS-native API
@@ -191,6 +249,8 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
       setIsFullscreen(false);
       setFallbackFullscreen(false);
       setHasEnded(false);
+      setCompletionMessage(null);
+      hasEndedProcessedRef.current = false;
       try {
         const { url, expiresAt } = await requestBetaVideoUrl(playbackId);
         if (cancelled) return;
@@ -256,9 +316,24 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
       if (!active) setFallbackFullscreen(false);
     };
     const handleEnded = () => {
+      // Shared guided-media completion correction — idempotent by
+      // construction, via a REF checked/set synchronously (immune to
+      // stale-closure timing, unlike reading the hasEnded state directly
+      // here would be): a second `ended` event for the same instance -
+      // the browser event contract doesn't strictly forbid it, even
+      // though a real natural end fires it once - is a genuine no-op,
+      // never re-picking a message or calling onEnded twice for the same
+      // completion.
+      if (hasEndedProcessedRef.current) return;
+      hasEndedProcessedRef.current = true;
       setIsFullscreen(false);
       setFallbackFullscreen(false);
       setHasEnded(true);
+      // Picked exactly once, in this same callback, the instant natural
+      // completion is detected - only when a caller actually opted into
+      // the new shared overlay (completionContext). Callers that omit it
+      // keep the old generic "Done" overlay and never consume a message.
+      if (completionContext) setCompletionMessage(getMediaCompletionMessage());
       // Anytime Reset completion fix — optional, additive callback for the
       // real natural-end event, distinct from onClose (which also fires on
       // an early/manual close and must never be mistaken for completion).
@@ -277,7 +352,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
       document.removeEventListener('fullscreenchange', handleStandardFullscreenChange);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [videoUrl, onEnded]);
+  }, [videoUrl, onEnded, completionContext]);
 
   // Escape only closes the whole modal from the small preview state.
   // While the standards-track Fullscreen API is active (isFullscreen),
@@ -359,6 +434,30 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
     exitVideoFullscreen(video);
     video.pause();
   }, [isGuest]);
+
+  // Shared guided-media completion correction — safe focus handling.
+  // Mirrors ConfirmDialog.jsx's own established initial-focus/return-focus
+  // pattern (the one dialog convention this app already has), extended
+  // here rather than reinvented: captures whatever had focus immediately
+  // before this modal mounted, and restores it the instant this modal
+  // unmounts (Close/Escape/backdrop/navigation away - any path that tears
+  // this component down). Runs once per mount, not per render.
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement;
+    return () => {
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, []);
+
+  // Moves focus to the new completion overlay's own primary action button
+  // the instant it appears (hasEnded transitions true with a completionContext
+  // present) - a screen-reader user lands directly on "Session Complete...
+  // {primaryLabel}" rather than staying wherever focus was during
+  // playback (typically nowhere in particular, since native <video>
+  // controls own their own focus during playback).
+  useEffect(() => {
+    if (hasEnded && completionContext) completionPrimaryButtonRef.current?.focus();
+  }, [hasEnded, completionContext]);
 
   const handleVideoError = () => {
     // A playback error once a URL is already loaded most likely means the
@@ -456,6 +555,8 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
     if (hasEnded) {
       video.currentTime = 0;
       setHasEnded(false);
+      setCompletionMessage(null);
+      hasEndedProcessedRef.current = false;
     }
     if (!isSleepSound) requestVideoFullscreen(video);
     video.play().catch(() => {
@@ -597,6 +698,60 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
                 </div>
               )}
 
+              {/* Shared guided-media completion correction — the ONE
+                  reusable natural-completion overlay, shown only once the
+                  video has genuinely reached its own natural `ended`
+                  event AND the caller opted in via `completionContext`.
+                  Fully replaces the generic "Done"/"Play Again"/"Close
+                  Video" trio below for this case (never both at once) -
+                  never rendered while still in fullscreen, matching that
+                  trio's own existing guard. `overflow-y-auto` on the
+                  inner content lets a short viewport (320x568) scroll
+                  safely within this frame rather than clipping the
+                  actions - required per the approved brief. */}
+              {hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && (() => {
+                const presentation = getMediaCompletionPresentation(completionContext.journey);
+                return (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6">
+                    <div
+                      role="status"
+                      className="w-full max-h-full overflow-y-auto flex flex-col items-center text-center gap-4 py-2"
+                    >
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 ${presentation.badgeClasses}`}>
+                        <span className={`material-symbols-outlined text-3xl ${presentation.iconClasses}`} aria-hidden="true">check_circle</span>
+                      </div>
+                      <div className="space-y-2">
+                        <span className={`font-label-sm text-xs uppercase tracking-widest font-bold ${presentation.labelClasses}`}>Session Complete</span>
+                        <p className="text-sm text-white font-semibold max-w-xs mx-auto leading-relaxed">{completionMessage}</p>
+                        <p className="text-xs text-white/70">What would you like to do next?</p>
+                      </div>
+                      <div className="flex flex-col gap-2 w-full max-w-[240px]">
+                        <button
+                          ref={completionPrimaryButtonRef}
+                          type="button"
+                          onClick={completionContext.onPrimaryAction}
+                          className={`min-h-[44px] px-5 py-2.5 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${presentation.primaryButtonClasses}`}
+                        >
+                          {presentation.primaryLabel}
+                        </button>
+                        {/* "only when a valid destination exists" - a
+                            caller that omits onSecondaryAction hides this
+                            button entirely, for any journey. */}
+                        {completionContext.onSecondaryAction && (
+                          <button
+                            type="button"
+                            onClick={completionContext.onSecondaryAction}
+                            className="min-h-[44px] px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            {presentation.secondaryLabel}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Returned-to-preview state, Defect 2 fix: shown once
                   playback has started AND fullscreen (native or fallback)
                   is no longer active - i.e. the native Done button was
@@ -607,8 +762,13 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded 
                   regardless). Deliberately excluded for Sleep
                   Soundscapes, which never enter fullscreen in the first
                   place and already have their own timerEnded "Play
-                  again" state above. */}
-              {hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && (
+                  again" state above. Shared guided-media completion
+                  correction — also excluded once hasEnded && completionContext
+                  (the new overlay above takes over that exact case
+                  instead); a plain hasEnded with no completionContext
+                  still falls through to this original "Done"/"Play
+                  Again" pair, byte-for-byte unchanged. */}
+              {hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !(hasEnded && completionContext) && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm text-center px-6">
                   <span className="material-symbols-outlined text-3xl text-white/80">
                     {hasEnded ? 'check_circle' : 'pause_circle'}
