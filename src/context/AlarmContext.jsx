@@ -210,6 +210,21 @@ export const AlarmProvider = ({ children }) => {
     !mismatchSnoozedThisSession
   );
   const askTimezoneLater = () => setMismatchSnoozedThisSession(true);
+  // Timezone persistence correction — real found defect: both
+  // useCurrentTimezone and updateRhythm's own timezone handling used to
+  // call setTimezoneState synchronously and fire saveRhythm off
+  // unawaited, with no check of whether it actually succeeded. The
+  // banner/Settings screen both treated that immediate local state change
+  // as "confirmed" and dismissed themselves right away - but if the
+  // Supabase upsert then failed (network error, an unapplied migration,
+  // an RLS/constraint issue), the user never saw any of that: the local
+  // UI already looked confirmed, then the NEXT sign-in's fetchRhythm read
+  // back the still-NULL row and re-asked, with no way to tell why. These
+  // two pieces of state let confirmTimezone (below) show an honest
+  // saving/error state instead, and gate the actual "confirmed" local
+  // state change on a real, awaited success.
+  const [timezoneSaving, setTimezoneSaving] = useState(false);
+  const [timezoneSaveError, setTimezoneSaveError] = useState(null);
   const [isAlarmSet, setIsAlarmSet] = useState(getInitialAlarmEnabled);
   // Welcome alarm-status card — see ALARM_CONFIGURED_KEY's own doc
   // comment above for why this can't be derived from alarmTime alone.
@@ -699,26 +714,42 @@ export const AlarmProvider = ({ children }) => {
   // caller below - the upsert always sends the full row, same as every
   // other field here, so there is no "leave unchanged" concept for these
   // either (unlike newTimezone's own optional-omit convention).
+  //
+  // Timezone persistence correction — returns a real boolean (was
+  // previously void/fire-and-forget from every caller) and now catches a
+  // thrown/rejected call too (a network failure, not just a Postgrest
+  // {error} response, previously had no catch here at all and could
+  // reject silently). confirmTimezone below is the one caller that
+  // actually awaits and acts on this - every other existing caller
+  // (updateRhythm) is completely unaffected by a function that now
+  // resolves to a value it simply never reads.
   const saveRhythm = async (newAlarm, newBed, newTimezone, newEnabled, newConfigured) => {
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) return false;
 
-    const { error } = await supabase
-      .from('rhythms')
-      .upsert(
-        {
-          user_id: userId,
-          wake_up_time: newAlarm,
-          bedtime: newBed,
-          timezone: newTimezone ?? null,
-          alarm_enabled: newEnabled,
-          alarm_configured: newConfigured,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'user_id' }
-      );
+    try {
+      const { error } = await supabase
+        .from('rhythms')
+        .upsert(
+          {
+            user_id: userId,
+            wake_up_time: newAlarm,
+            bedtime: newBed,
+            timezone: newTimezone ?? null,
+            alarm_enabled: newEnabled,
+            alarm_configured: newConfigured,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'user_id' }
+        );
 
-    if (error) {
-      console.error('Error saving rhythm:', error.message);
+      if (error) {
+        console.error('Error saving rhythm:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('Error saving rhythm:', e?.message);
+      return false;
     }
   };
 
@@ -769,19 +800,47 @@ export const AlarmProvider = ({ children }) => {
     }
   };
 
+  // Timezone persistence correction — the one, shared, DURABLE
+  // confirmation path for both the "Use current timezone" banner action
+  // and Settings' "Save timezone" (confirmTimezone(selected)) - the exact
+  // "stored timezone and confirmed state are separate but only one
+  // persists" root-cause case this correction targets, now unified into
+  // one atomic, verified operation instead of two independent optimistic
+  // writers. A guest has no cloud round-trip at all - the guest-only
+  // localStorage persist effect above (keyed on `timezone` state) is
+  // itself the durable source of truth for that case, so there is
+  // nothing to await or fail; local state is set immediately, exactly as
+  // before. A registered user's local "confirmed" state (and therefore
+  // the banner/Settings' own dismissal) now only ever changes AFTER
+  // saveRhythm genuinely resolves true - a failure leaves `timezone`
+  // completely untouched (never falsely marked confirmed) and surfaces
+  // timezoneSaveError for an honest retry state; tapping the same action
+  // again simply re-runs this function.
+  const confirmTimezone = async (newTimezone) => {
+    if (!isValidTimezone(newTimezone)) return false;
+    setTimezoneSaveError(null);
+    if (authLoading || isGuest || !userId) {
+      setTimezoneState(newTimezone);
+      return true;
+    }
+    setTimezoneSaving(true);
+    const saved = await saveRhythm(alarmTime, bedTime, newTimezone, isAlarmSet, alarmConfigured);
+    setTimezoneSaving(false);
+    if (saved) {
+      setTimezoneState(newTimezone);
+    } else {
+      setTimezoneSaveError("Couldn't save your timezone. Please try again.");
+    }
+    return saved;
+  };
+
   // Global timezone correctness: resolves the "Your timezone appears to
   // have changed" banner (and the equivalent first-time confirmation when
   // timezone is still null) by adopting the live device zone as the
-  // user's confirmed timezone. A pure timezone confirmation, not a
-  // deliberate alarm-setup save - passes the CURRENT isAlarmSet/
-  // alarmConfigured through unchanged (never resets a real "configured"
-  // flag back to false, never silently re-enables a disabled alarm).
-  const useCurrentTimezone = () => {
-    setTimezoneState(deviceTimezone);
-    if (!authLoading && !isGuest && userId) {
-      saveRhythm(alarmTime, bedTime, deviceTimezone, isAlarmSet, alarmConfigured);
-    }
-  };
+  // user's confirmed timezone. A thin, name-preserving wrapper around
+  // confirmTimezone (every existing caller - TimezoneBanner.jsx - is
+  // unaffected by the rename underneath).
+  const useCurrentTimezone = () => confirmTimezone(deviceTimezone);
 
   // Keeps the already-saved timezone, but remembers this specific device
   // zone so the banner doesn't re-nag on every subsequent app open while
@@ -823,6 +882,9 @@ export const AlarmProvider = ({ children }) => {
       timezoneMismatch,
       timezoneUnconfirmed,
       useCurrentTimezone,
+      confirmTimezone,
+      timezoneSaving,
+      timezoneSaveError,
       keepSavedTimezone,
       askTimezoneLater
     }}>

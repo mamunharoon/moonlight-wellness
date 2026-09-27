@@ -17,7 +17,15 @@ import { COMMON_TIMEZONES, detectDeviceTimezone, isValidTimezone } from '../lib/
  * invalid can ever be written to rhythms.timezone.
  */
 export const TimezoneSettings = () => {
-  const { effectiveTimezone, updateRhythm, alarmTime, bedTime } = useAlarm();
+  // Timezone persistence correction — confirmTimezone (not updateRhythm)
+  // is now the one shared, verified confirmation path this screen shares
+  // with the TimezoneBanner's own "Use current timezone" action: it only
+  // marks the change confirmed once the Supabase upsert has genuinely
+  // resolved (never optimistically), and surfaces timezoneSaveError
+  // instead of silently doing nothing on failure. updateRhythm itself is
+  // untouched - Onboarding.jsx's own bundled wake/bed/timezone/enabled
+  // save is a separate, pre-existing flow this correction doesn't touch.
+  const { effectiveTimezone, confirmTimezone, timezoneSaving, timezoneSaveError } = useAlarm();
   const [selected, setSelected] = useState(effectiveTimezone);
   const [customInput, setCustomInput] = useState('');
   const [query, setQuery] = useState('');
@@ -45,10 +53,11 @@ export const TimezoneSettings = () => {
     if (isValidTimezone(value)) setSelected(value);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isValidTimezone(selected)) return;
-    updateRhythm(alarmTime, bedTime, selected);
-    setSaved(true);
+    setSaved(false);
+    const succeeded = await confirmTimezone(selected);
+    if (succeeded) setSaved(true);
   };
 
   const customIsInvalid = customInput.trim().length > 0 && !isValidTimezone(customInput.trim());
@@ -129,14 +138,23 @@ export const TimezoneSettings = () => {
         </div>
       </div>
 
+      {/* Timezone persistence correction — an honest failure state
+          instead of the previous silent optimistic write: "Saved" only
+          ever shows once confirmTimezone's own save has genuinely
+          resolved. Tapping Save again is the retry - no separate
+          control needed. */}
+      {timezoneSaveError && (
+        <p role="alert" className="text-xs text-red-400 font-medium text-center">{timezoneSaveError}</p>
+      )}
+
       <button
         type="button"
         onClick={handleSave}
-        disabled={!isValidTimezone(selected)}
+        disabled={!isValidTimezone(selected) || timezoneSaving}
         className="w-full bg-primary text-on-primary py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-40"
       >
-        <span>{saved ? 'Saved' : 'Save timezone'}</span>
-        <span className="material-symbols-outlined text-sm">{saved ? 'check' : 'arrow_forward'}</span>
+        <span>{timezoneSaving ? 'Saving…' : saved ? 'Saved' : 'Save timezone'}</span>
+        <span className="material-symbols-outlined text-sm">{saved && !timezoneSaving ? 'check' : 'arrow_forward'}</span>
       </button>
     </div>
   );

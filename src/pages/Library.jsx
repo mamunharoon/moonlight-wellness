@@ -8,6 +8,7 @@ import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
+import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
 const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -97,18 +98,66 @@ export const Library = () => {
   // Purely decorative (pointer-events-none, aria-hidden) - it never
   // intercepts touch/click, and every chip stays a real, keyboard-
   // reachable <button> underneath it exactly as before.
+  //
+  // Physical-device correction — Library category navigation: on a real
+  // phone, the row clips at "ALL / MORNING / POSITIVE ENERGY & CONFIDENCE
+  // / [cut off]" with no obvious way to reach the rest besides an
+  // undiscoverable swipe. canScrollLeft/canScrollRight (below) now also
+  // drive real Previous/Next arrow controls, not just the decorative
+  // fade - swipe/drag is completely unchanged, this only adds an
+  // additional, more discoverable way to move the same scroll position.
   const categoryScrollRef = useRef(null);
   const [showCategoryFade, setShowCategoryFade] = useState(false);
-  const updateCategoryFade = () => {
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  // Same established OS-detection + manual-override combination
+  // Breathe.jsx's own reducedMotion already uses (see that file's
+  // identical lazy initializer) - a real preference, never guessed.
+  const [reducedMotion] = useState(() => {
+    try {
+      return Boolean(getReducedMotionPreference() || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    } catch {
+      return false;
+    }
+  });
+  // Keyed by the same value used for `key={category}` below (a real
+  // category string, `MEDITATION_FILTER`, or 'all') - used only to bring
+  // a just-selected chip fully into view; never read for anything else.
+  const chipRefs = useRef({});
+  const updateCategoryScrollState = () => {
     const el = categoryScrollRef.current;
     if (!el) return;
-    setShowCategoryFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    setCanScrollLeft(el.scrollLeft > 1);
+    const hasMoreToTheRight = el.scrollWidth - el.clientWidth - el.scrollLeft > 1;
+    setCanScrollRight(hasMoreToTheRight);
+    setShowCategoryFade(hasMoreToTheRight);
   };
   useEffect(() => {
-    updateCategoryFade();
-    window.addEventListener('resize', updateCategoryFade);
-    return () => window.removeEventListener('resize', updateCategoryFade);
+    updateCategoryScrollState();
+    window.addEventListener('resize', updateCategoryScrollState);
+    return () => window.removeEventListener('resize', updateCategoryScrollState);
   }, []);
+  // A direct/refreshed visit carrying a restored ?category= (initialCategory,
+  // captured in useState above) can land on a chip that's already scrolled
+  // past on mount - bring it into view once, the same as a live selection
+  // does, without animating (a page load is never a "scroll" the user
+  // should visually track).
+  useEffect(() => {
+    chipRefs.current[initialCategory ?? 'all']?.scrollIntoView({ behavior: 'auto', inline: 'nearest', block: 'nearest' });
+    updateCategoryScrollState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const scrollCategoriesBy = (direction) => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.85, behavior: reducedMotion ? 'auto' : 'smooth' });
+    // The `scroll` event covers real swipes/drags; this is a same-tick
+    // defensive update for environments where a programmatic scrollBy
+    // doesn't itself dispatch one (or dispatches it only once the smooth
+    // animation settles) - either way, the effect above/onScroll below
+    // will correct this again once the real scroll position lands.
+    updateCategoryScrollState();
+  };
 
   // Strips the now-consumed `from` marker so it can't linger in the URL
   // while the user browses/filters within Library, or reappear on a
@@ -167,6 +216,16 @@ export const Library = () => {
       next.delete('category');
     }
     setSearchParams(next);
+    // Selecting a category (chip tap, or the initial ?category= restore
+    // on mount) always brings that exact chip fully into view - never
+    // left off-screen just because it happened to be scrolled past.
+    // inline: 'nearest'/block: 'nearest' keep this to the row's own
+    // horizontal scroll only, never the page's vertical scroll.
+    chipRefs.current[category ?? 'all']?.scrollIntoView({
+      behavior: reducedMotion ? 'auto' : 'smooth',
+      inline: 'nearest',
+      block: 'nearest'
+    });
   };
 
   return (
@@ -205,58 +264,87 @@ export const Library = () => {
       {/* Category filter chips. scroll-hide keeps this row's own
           horizontal scroll visually clean; Layout.jsx's content
           container (overflow-x-hidden) is what stops it from causing a
-          document-level horizontal scrollbar. Wrapped in a relative
-          container so the trailing fade (R11) can sit on top without
-          affecting the row's own layout. */}
-      <div className="relative">
-        <div
-          ref={categoryScrollRef}
-          onScroll={updateCategoryFade}
-          className="flex gap-2 overflow-x-auto scroll-hide -mx-4 px-4 pb-1"
+          document-level horizontal scrollbar. Swipe/drag is completely
+          unchanged; the two arrow buttons flanking the row are an
+          additional, more discoverable way to move the same scroll
+          position - required after the physical-device finding that
+          nothing visibly indicated the row could be scrolled at all.
+          snap-x/snap-mandatory + each chip's own snap-start is what makes
+          "approximately one category group" land cleanly on a real chip
+          boundary regardless of label length, rather than an arbitrary
+          pixel amount that could stop mid-chip. */}
+      <div className="relative flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => scrollCategoriesBy(-1)}
+          disabled={!canScrollLeft}
+          aria-label="Previous categories"
+          className="shrink-0 w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:pointer-events-none"
         >
-          <button
-            type="button"
-            onClick={() => handleSelectCategory(null)}
-            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-              !activeCategory ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
-            }`}
+          <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">chevron_left</span>
+        </button>
+        <div className="relative flex-1 min-w-0">
+          <div
+            ref={categoryScrollRef}
+            onScroll={updateCategoryScrollState}
+            className="flex gap-2 overflow-x-auto scroll-hide snap-x snap-mandatory px-1 pb-1"
           >
-            All
-          </button>
-          {CATALOG_CATEGORIES.map((category) => (
             <button
-              key={category}
+              ref={(el) => { chipRefs.current.all = el; }}
               type="button"
-              onClick={() => handleSelectCategory(category)}
-              className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-                activeCategory === category ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+              onClick={() => handleSelectCategory(null)}
+              className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+                !activeCategory ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
               }`}
             >
-              {category}
+              All
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => handleSelectCategory(MEDITATION_FILTER)}
-            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
-              activeCategory === MEDITATION_FILTER ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
-            }`}
-          >
-            {MEDITATION_FILTER}
-          </button>
+            {CATALOG_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                ref={(el) => { chipRefs.current[category] = el; }}
+                type="button"
+                onClick={() => handleSelectCategory(category)}
+                className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+                  activeCategory === category ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+            <button
+              ref={(el) => { chipRefs.current[MEDITATION_FILTER] = el; }}
+              type="button"
+              onClick={() => handleSelectCategory(MEDITATION_FILTER)}
+              className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px] ${
+                activeCategory === MEDITATION_FILTER ? 'bg-primary text-on-primary' : 'glass-panel text-on-surface-variant hover:bg-white/5'
+              }`}
+            >
+              {MEDITATION_FILTER}
+            </button>
+          </div>
+          {/* Trailing edge fade (R11) — signals more categories are
+              scrollable past the visible edge. Decorative only: aria-hidden
+              and pointer-events-none so it never blocks touch/click on the
+              chip underneath, and disappears once genuinely scrolled to the
+              end (see updateCategoryScrollState above). No motion/transition
+              here to respect Reduced Motion - it simply mounts/unmounts. */}
+          {showCategoryFade && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-background to-transparent"
+            />
+          )}
         </div>
-        {/* Trailing edge fade (R11) — signals more categories are
-            scrollable past the visible edge. Decorative only: aria-hidden
-            and pointer-events-none so it never blocks touch/click on the
-            chip underneath, and disappears once genuinely scrolled to the
-            end (see updateCategoryFade above). No motion/transition here
-            to respect Reduced Motion - it simply mounts/unmounts. */}
-        {showCategoryFade && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-background to-transparent"
-          />
-        )}
+        <button
+          type="button"
+          onClick={() => scrollCategoriesBy(1)}
+          disabled={!canScrollRight}
+          aria-label="Next categories"
+          className="shrink-0 w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">chevron_right</span>
+        </button>
       </div>
 
       {/* Content sections */}

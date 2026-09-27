@@ -43,10 +43,19 @@ describe('Phase 3A (R7) — Morning completed-card CTA matches Evening/Anytime\'
 });
 
 describe('Phase 3A (R11) — Library category row has a decorative, non-blocking trailing scroll-fade cue', () => {
+  // Physical-device correction — Library category navigation: the fade
+  // cue's own tracking state (canScrollLeft/canScrollRight) now also
+  // drives real Previous/Next arrow controls; the onScroll handler was
+  // renamed updateCategoryFade -> updateCategoryScrollState to reflect
+  // that it does more than just the fade now, but the underlying
+  // mechanism (a ref + real onScroll listener, never a static overlay)
+  // is unchanged. See mediaCompletionCallSiteCoverage-style dedicated
+  // coverage in libraryCategoryNavigation.test.js for the new arrows
+  // themselves.
   it('tracks real scroll position via a ref + onScroll handler, not a static always-on overlay', () => {
     expect(librarySource).toMatch(/const categoryScrollRef = useRef\(null\);/);
     expect(librarySource).toMatch(/const \[showCategoryFade, setShowCategoryFade\] = useState\(false\);/);
-    expect(librarySource).toMatch(/onScroll=\{updateCategoryFade\}/);
+    expect(librarySource).toMatch(/onScroll=\{updateCategoryScrollState\}/);
   });
 
   it('the fade element is aria-hidden and pointer-events-none, so it never blocks touch/click or appears to assistive tech', () => {
@@ -56,7 +65,7 @@ describe('Phase 3A (R11) — Library category row has a decorative, non-blocking
   });
 
   it('every category chip is still a real <button>, unaffected by the fade overlay', () => {
-    expect(librarySource).toMatch(/<button\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => handleSelectCategory\(null\)\}/);
+    expect(librarySource).toMatch(/<button\s*\n\s*ref=\{\(el\) => \{ chipRefs\.current\.all = el; \}\}\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => handleSelectCategory\(null\)\}/);
   });
 });
 

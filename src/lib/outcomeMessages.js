@@ -231,6 +231,30 @@ const COMPLETION_GREETINGS = {
       'You’ve made room for rest.',
       'The day can wait until tomorrow.',
       'Ease gently into your evening.'
+    ],
+    // Rotating 100% Evening completion messages correction — real found
+    // defect: EveningComplete.jsx (this journey's own whole-routine
+    // completion screen, distinct from a single breathing/meditation
+    // practice) still used the OLDER getOutcomeMessage/ROTATING_MESSAGES
+    // architecture, whose day-of-year-based rotation (pickVariant, top of
+    // this file) only ever changes once every 5 calendar days per user -
+    // indistinguishable from "stuck" across any single test session,
+    // unlike this shared architecture's own per-completion, session-
+    // stable, avoid-immediate-repeat rotation every other practice
+    // already uses. This 'routine' pool is EveningComplete.jsx's exact
+    // Morning/Anytime counterpart - there is no Morning/Anytime
+    // 'routine' pool yet (Morning's own SessionComplete.jsx and Anytime
+    // have no equivalent shared-architecture migration in this pass),
+    // but the key shape (journey, practice) is the same one this whole
+    // module already uses everywhere else.
+    routine: [
+      'You’ve made space to unwind.',
+      'Let the day settle now.',
+      'You’re ready to rest.',
+      'Carry this calm into the night.',
+      'The day can wait until tomorrow.',
+      'You showed up for yourself tonight.',
+      'Rest gently. You’ve done enough today.'
     ]
   }
 };

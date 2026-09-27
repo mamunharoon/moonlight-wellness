@@ -87,7 +87,12 @@ describe('Each of the four Morning completion surfaces requests its own, correct
 });
 
 describe('Anytime/Evening have no Stretch step and no dedicated whole-routine-completion screen of their own (Evening Breathing/Meditation, then Anytime Breathing/Meditation completion corrections - see eveningCompletionCrossCutting.test.js/quietBreathingAnytimeCompletionLifecycle.test.js for their own full coverage)', () => {
-  it('COMPLETION_GREETINGS: anytime and evening both now have breathing AND meditation pools - neither has ever had a stretching/routine pool of its own', () => {
+  // Rotating 100% Evening completion messages correction — Evening now
+  // ALSO has a 'routine' pool (its own whole-routine-completion screen,
+  // EveningComplete.jsx, migrated onto this shared architecture); Anytime
+  // still has no Stretch step and no dedicated whole-routine-completion
+  // screen of its own, so it correctly still has neither.
+  it('COMPLETION_GREETINGS: anytime has breathing AND meditation pools, no stretching/routine pool; evening has breathing, meditation AND routine pools, no stretching pool', () => {
     const completionGreetingsBlock = outcomeMessagesSource.match(/const COMPLETION_GREETINGS = \{([\s\S]*?)\n\};/)?.[1] ?? '';
     expect(completionGreetingsBlock).not.toBe('');
     const anytimeBlock = completionGreetingsBlock.match(/anytime: \{([\s\S]*?)\n {2}\},/)?.[1] ?? '';
@@ -97,6 +102,7 @@ describe('Anytime/Evening have no Stretch step and no dedicated whole-routine-co
     expect(anytimeBlock).not.toMatch(/stretching:|routine:/);
     expect(eveningBlock).toMatch(/breathing:/);
     expect(eveningBlock).toMatch(/meditation:/);
-    expect(eveningBlock).not.toMatch(/stretching:|routine:/);
+    expect(eveningBlock).toMatch(/routine:/);
+    expect(eveningBlock).not.toMatch(/stretching:/);
   });
 });

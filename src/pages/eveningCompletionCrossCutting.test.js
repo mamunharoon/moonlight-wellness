@@ -30,9 +30,14 @@ describe('outcomeMessages.js — Evening\'s two completion pools are genuinely d
   const morningBlock = completionGreetingsBlock.match(/morning: \{([\s\S]*?)\n {2}\},/)?.[1] ?? '';
   const eveningBlock = completionGreetingsBlock.match(/evening: \{([\s\S]*?)\n {2}\}\s*$/)?.[1] ?? '';
 
+  // Rotating 100% Evening completion messages correction — 'routine' added
+  // (EveningComplete.jsx's own whole-routine-completion screen, migrated
+  // onto this shared architecture); Evening still has no 'stretching' pool
+  // (no Stretch step of its own).
   const eveningPools = {
     breathing: extractPool(eveningBlock, 'breathing'),
-    meditation: extractPool(eveningBlock, 'meditation')
+    meditation: extractPool(eveningBlock, 'meditation'),
+    routine: extractPool(eveningBlock, 'routine')
   };
   const morningPools = {
     breathing: extractPool(morningBlock, 'breathing'),
@@ -41,10 +46,10 @@ describe('outcomeMessages.js — Evening\'s two completion pools are genuinely d
     routine: extractPool(morningBlock, 'routine')
   };
 
-  it('each Evening pool has exactly 5 approved messages', () => {
-    for (const [practice, pool] of Object.entries(eveningPools)) {
-      expect(pool.length, `evening.${practice} should have 5 messages`).toBe(5);
-    }
+  it('breathing and meditation each have exactly 5 approved messages; routine (Rotating 100% Evening completion messages correction) has exactly 7', () => {
+    expect(eveningPools.breathing.length, 'evening.breathing should have 5 messages').toBe(5);
+    expect(eveningPools.meditation.length, 'evening.meditation should have 5 messages').toBe(5);
+    expect(eveningPools.routine.length, 'evening.routine should have 7 messages').toBe(7);
   });
 
   it('no message is shared between evening.breathing and evening.meditation', () => {
@@ -60,8 +65,9 @@ describe('outcomeMessages.js — Evening\'s two completion pools are genuinely d
     }
   });
 
-  it('Evening still has no stretching/routine pool of its own - out of scope for this pass (no Stretch step, no dedicated 100%-completion screen wired to this architecture yet)', () => {
-    expect(eveningBlock).not.toMatch(/stretching:|routine:/);
+  it('Evening still has no stretching pool of its own (no Stretch step) - but does now have a routine pool (Rotating 100% Evening completion messages correction, EveningComplete.jsx)', () => {
+    expect(eveningBlock).not.toMatch(/stretching:/);
+    expect(eveningBlock).toMatch(/routine:/);
   });
 });
 

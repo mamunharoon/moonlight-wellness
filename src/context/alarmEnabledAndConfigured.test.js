@@ -91,9 +91,18 @@ describe('saveRhythm — upserts both new columns explicitly, never omitted', ()
 });
 
 describe('useCurrentTimezone — a pure timezone confirmation, never a silent alarm re-enable or de-configure', () => {
-  it('passes the CURRENT isAlarmSet/alarmConfigured through unchanged, never a hardcoded true/false', () => {
-    const fn = source.match(/const useCurrentTimezone = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(fn).toMatch(/saveRhythm\(alarmTime, bedTime, deviceTimezone, isAlarmSet, alarmConfigured\);/);
+  // Timezone persistence correction — useCurrentTimezone is now a thin,
+  // name-preserving wrapper around the shared confirmTimezone (also used
+  // by TimezoneSettings.jsx's Save button); the underlying
+  // isAlarmSet/alarmConfigured-unchanged guarantee this describe block
+  // exists to protect now lives inside confirmTimezone itself.
+  it('is a thin wrapper delegating to confirmTimezone(deviceTimezone)', () => {
+    expect(source).toMatch(/const useCurrentTimezone = \(\) => confirmTimezone\(deviceTimezone\);/);
+  });
+
+  it('confirmTimezone passes the CURRENT isAlarmSet/alarmConfigured through unchanged, never a hardcoded true/false', () => {
+    const fn = source.match(/const confirmTimezone = async \(newTimezone\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fn).toMatch(/saveRhythm\(alarmTime, bedTime, newTimezone, isAlarmSet, alarmConfigured\);/);
   });
 });
 

@@ -13,7 +13,7 @@ import { shouldWriteCompletionDate } from '../lib/routineCardState';
 import { getEveningCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
-import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
+import { getCompletionGreeting } from '../lib/outcomeMessages';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -62,16 +62,23 @@ export const EveningComplete = () => {
   const [isRedoing, setIsRedoing] = useState(false);
   const [redoError, setRedoError] = useState(false);
 
-  // WakeWise Phase 2 (B6) — this screen is reached ONLY on a genuine
-  // natural completion (the mount effect below gates completeSession() on
-  // state.status==='playing'; a direct/refreshed visit, or one after the
-  // engine has already reset to idle, still renders this same static
-  // screen, unaffected - see this file's own top comment). The headline/
-  // body now rotate through 5 curated, reassuring variants keyed to the
-  // user's own local calendar day, same technique greeting.js/
-  // SessionComplete.jsx already use.
+  // Rotating 100% Evening completion messages correction — this screen is
+  // reached ONLY on a genuine natural completion (the mount effect below
+  // gates completeSession() on state.status==='playing'; a direct/
+  // refreshed visit, or one after the engine has already reset to idle,
+  // still renders this same static screen, unaffected - see this file's
+  // own top comment). The headline now uses the shared journey/practice
+  // completion-greeting architecture (getCompletionGreeting) already
+  // approved for every other Morning/Anytime/Evening exercise completion,
+  // migrated cleanly off the older getOutcomeMessage/day-of-year rotation
+  // (which only changed once every 5 calendar days per user -
+  // indistinguishable from "stuck" within any single test session). Picked
+  // exactly once via this lazy initializer, so it stays stable through
+  // every re-render this same mounted screen goes through afterward - a
+  // revisit/refresh of this already-completed screen naturally picks
+  // again, exactly like every other completion-greeting call site.
+  const [headline] = useState(() => getCompletionGreeting({ journey: 'evening', practice: 'routine' }));
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
-  const { headline, body } = getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.EVENING, today);
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
@@ -155,7 +162,7 @@ export const EveningComplete = () => {
         <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7</span>
         <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          {body}
+          You've reflected, appreciated the day and prepared for rest.
         </p>
       </div>
 

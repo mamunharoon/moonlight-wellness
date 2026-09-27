@@ -50,30 +50,47 @@ const ACCENT_TONES = {
   primary: { text: 'text-primary', border: 'border-primary/40', glow: 'shadow-welcome-glow', fill: 'bg-primary/15' }
 };
 
+// Physical-device correction — the number badge above was its own small
+// circle floating on the bare page background, with the "Starting in…"
+// text/cue/button sitting directly on that same bare background below it
+// - reported as reading weak/undefined against the page rather than as
+// one clear countdown card. The whole presentation (number, Seconds
+// label, "Starting in…", cue, Start now) now lives inside ONE near-square
+// card carrying the dark surface/border/glow instead - deliberately no
+// forced aspect-square (height stays auto, driven by real content) so a
+// short viewport (320x568) can never clip it; max-w keeps it visually
+// square-ish and centred rather than stretching edge-to-edge on a wider
+// phone. Every prop/behaviour this component's own contract depends on
+// (secondsRemaining/cue/onSkip/accent, the exact "Starting in N…"/"Seconds"
+// copy, role="status") is unchanged - this is a container restructure only.
 export const PreparationCountdown = ({ secondsRemaining, cue, onSkip, accent = 'primary' }) => {
   const tone = ACCENT_TONES[accent] ?? ACCENT_TONES.primary;
 
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-6 select-none px-4" role="status" aria-live="polite">
-      <div className={`w-36 h-36 rounded-full bg-surface-container border-2 ${tone.border} ${tone.glow} flex flex-col items-center justify-center`}>
-        <span className={`text-6xl font-extrabold leading-none ${tone.text}`}>{secondsRemaining}</span>
-        {secondsRemaining > 0 && (
-          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1.5">Seconds</span>
-        )}
-      </div>
-      <div className="space-y-2 px-6">
-        <p className="text-lg font-bold text-on-surface">
-          {secondsRemaining > 0 ? `Starting in ${secondsRemaining}…` : 'Starting now…'}
-        </p>
-        {cue && <p className="text-sm text-on-surface-variant max-w-xs mx-auto">{cue}</p>}
-      </div>
-      <button
-        type="button"
-        onClick={onSkip}
-        className={`${tone.fill} ${tone.text} px-8 py-3.5 rounded-full font-bold text-sm border-2 ${tone.border} hover:bg-white/10 active:scale-95 transition-all min-h-[44px]`}
+    <div className="min-h-[60vh] flex flex-col items-center justify-center px-4" role="status" aria-live="polite">
+      <div
+        className={`w-full max-w-[300px] mx-auto rounded-[2rem] bg-surface-container border ${tone.border} ${tone.glow} flex flex-col items-center text-center gap-5 px-6 py-8 select-none`}
       >
-        Start now
-      </button>
+        <div className="flex flex-col items-center">
+          <span className={`text-7xl font-extrabold leading-none ${tone.text}`}>{secondsRemaining}</span>
+          {secondsRemaining > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1.5">Seconds</span>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-lg font-bold text-on-surface">
+            {secondsRemaining > 0 ? `Starting in ${secondsRemaining}…` : 'Starting now…'}
+          </p>
+          {cue && <p className="text-xs text-on-surface-variant max-w-[220px] mx-auto">{cue}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={onSkip}
+          className={`${tone.fill} ${tone.text} px-8 py-3.5 rounded-full font-bold text-sm border ${tone.border} hover:bg-white/10 active:scale-95 transition-all min-h-[44px] w-full`}
+        >
+          Start now
+        </button>
+      </div>
     </div>
   );
 };

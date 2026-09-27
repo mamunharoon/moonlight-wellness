@@ -29,6 +29,8 @@ export const TimezoneBanner = () => {
     deviceTimezone,
     timezone,
     useCurrentTimezone,
+    timezoneSaving,
+    timezoneSaveError,
     keepSavedTimezone,
     askTimezoneLater
   } = useAlarm();
@@ -63,13 +65,23 @@ export const TimezoneBanner = () => {
         </div>
       </div>
 
+      {/* Timezone persistence correction — an honest failure state
+          instead of the previous silent optimistic write: "Use current
+          timezone" no longer marks anything confirmed (or dismisses this
+          banner) unless the save has genuinely succeeded. Tapping the
+          same button again is the retry - no separate control needed. */}
+      {timezoneSaveError && (
+        <p role="alert" className="text-xs text-red-400 font-medium">{timezoneSaveError}</p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={useCurrentTimezone}
-          className="px-4 py-2.5 rounded-full bg-primary text-on-primary text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all"
+          disabled={timezoneSaving}
+          className="px-4 py-2.5 rounded-full bg-primary text-on-primary text-xs font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
         >
-          Use current timezone
+          {timezoneSaving ? 'Saving…' : 'Use current timezone'}
         </button>
 
         {timezoneMismatch && (

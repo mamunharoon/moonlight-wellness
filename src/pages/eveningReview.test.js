@@ -45,8 +45,14 @@ describe('Completed Evening actions - authenticated vs guest (items 1-4)', () =>
     expect(eveningCompleteSource).toMatch(/Return Home/);
   });
 
-  it('approved heading/supporting copy now rotates via the shared outcomeMessages.js model (WakeWise Phase 2, B6), no medical/physiological/guaranteed-sleep claim anywhere in that set', () => {
-    expect(eveningCompleteSource).toMatch(/const \{ headline, body \} = getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.EVENING, today\);/);
+  // Rotating 100% Evening completion messages correction — the heading now
+  // rotates via the shared journey/practice completion-greeting
+  // architecture (getCompletionGreeting, evening/routine pool), migrated
+  // cleanly off the older getOutcomeMessage/day-of-year rotation - see
+  // eveningCompleteOutcomeMessages.test.js for the full dedicated coverage
+  // of that migration itself.
+  it('approved heading/supporting copy - no medical/physiological/guaranteed-sleep claim anywhere in that set', () => {
+    expect(eveningCompleteSource).toMatch(/const \[headline\] = useState\(\(\) => getCompletionGreeting\(\{ journey: 'evening', practice: 'routine' \}\)\);/);
     expect(eveningCompleteSource).not.toMatch(/nervous system|melatonin|guarantee|cure|treat(s|ment)?\b/i);
   });
 
