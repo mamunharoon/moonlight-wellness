@@ -57,16 +57,16 @@ describe('At most one meditation audio instance plays at a time', () => {
 });
 
 describe('Skip starts no audio', () => {
-  // Morning Meditation completion correction — MorningMeditate.jsx's own
-  // handleComplete was split into advanceToAffirmation (the real
-  // mirror+navigate step) and handleNaturalCompletion (shows the new
-  // completed panel, never calls .begin()); EveningMeditate.jsx is
-  // untouched this pass and keeps its original handleComplete name.
+  // Morning/Evening Meditation completion corrections — both pages' own
+  // handleComplete was split into a real mirror+navigate step
+  // (advanceToAffirmation for Morning, advanceToPrepareForRest for
+  // Evening) and handleNaturalCompletion (shows the new completed panel,
+  // never calls .begin()).
   it('handleSkip in both embedded pages calls their real mirror+navigate step, which never calls session.begin() - the only function that ever constructs an audio-capable controller', () => {
     expect(morningMeditateSource).toMatch(/const handleSkip = \(\) => advanceToAffirmation\(\);/);
-    expect(eveningMeditateSource).toMatch(/const handleSkip = \(\) => handleComplete\(\);/);
+    expect(eveningMeditateSource).toMatch(/const handleSkip = \(\) => advanceToPrepareForRest\(\);/);
     const morningCompleteBody = morningMeditateSource.match(/const advanceToAffirmation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    const eveningCompleteBody = eveningMeditateSource.match(/const handleComplete = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const eveningCompleteBody = eveningMeditateSource.match(/const advanceToPrepareForRest = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(morningCompleteBody).not.toMatch(/\.begin\(\)/);
     expect(eveningCompleteBody).not.toMatch(/\.begin\(\)/);
   });

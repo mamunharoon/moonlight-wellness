@@ -29,7 +29,8 @@ import { getStepLabel } from '../lib/stepLabels';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
-import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
+import { getCompletionGreeting } from '../lib/outcomeMessages';
+import { createBreathingSession } from '../lib/breathingSession';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md).
@@ -194,42 +195,73 @@ export const EveningBreathing = () => {
     };
   }, [state.status, currentStep, advanceStep]);
 
-  // Continue-lock/Skip-semantics fix, found live: "Continue was tappable
-  // with 50 seconds still remaining, and doing so marked the step as
-  // completed." Natural timer completion used to auto-navigate
-  // immediately (identical to a manual Continue tap), and Continue itself
-  // was tappable at any point while active/unpaused - not gated on the
-  // timer actually finishing. Now: reaching 0 only STOPS the countdown
-  // (no navigation) and hasFinished (below) unlocks the Continue button -
-  // Continue itself, tapped afterward, is what records completion and
-  // advances. Skip remains the only early-exit action while still
-  // running, and now calls the canonical, separately-validated
-  // skipStep() (see handleSkip) instead of sharing this completion path -
-  // previously Continue and Skip were the exact same handler.
-  const hasFinished = secondsLeft <= 0;
-  useEffect(() => {
-    // Build 15: nothing runs until hasBegun. Pause-during-review fix -
-    // freeze the countdown the instant the confirmation dialog opens.
-    if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming || hasFinished) return;
+  // Evening Breathing completion correction — reuses Breathe.jsx's
+  // approved, physical-iPhone-tested architecture exactly: completion was
+  // previously a render-time-DERIVED value (secondsLeft <= 0, "Continue-
+  // lock/Skip-semantics fix" below) rather than a single, authoritative
+  // decision made the instant the timer actually reaches the boundary -
+  // and reaching 0 left the screen showing the still-active ring
+  // indefinitely, with an inline acknowledgement/Continue button rather
+  // than a dedicated completion panel. Fix: a pure, synchronous
+  // createBreathingSession controller (breathingSession.js, already
+  // journey-agnostic and real-execution tested - see
+  // breathingSession.test.js) driven by ONE real interval; the interval's
+  // own callback is the single place that detects the final tick AND
+  // synchronously stops itself, stops music, picks the completion
+  // greeting, and flips the explicit isCompleted state - zero renders/
+  // effects in between.
+  const sessionRef = useRef(null);
+  const intervalRef = useRef(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionGreeting, setCompletionGreeting] = useState(null);
+  // Evening Breathing Back/early-exit correction (reusing Breathe.jsx's
+  // proven pattern) — gates the same interval-management effect and
+  // InteractiveAmbientMusic's own `suspended` prop that isConfirming/
+  // isCompleted already use, so the timer/animation/music all genuinely
+  // pause the instant this dialog opens, never reset.
+  const [backConfirmOpen, setBackConfirmOpen] = useState(false);
 
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        const nextSec = prev - 1;
-        setBreatheState(resolveBreathPhase(activePattern, nextSec));
-        return nextSec;
-      });
+  const stopBreathingInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  // Covers unmount and any navigation away from this screen (Continue/
+  // Skip/Exit/Back) - the one place that guarantees the interval is
+  // never left running behind a screen the user is no longer on.
+  useEffect(() => () => stopBreathingInterval(), []);
+
+  useEffect(() => {
+    // Build 15: nothing runs until hasBegun, and never again once
+    // isCompleted or backConfirmOpen. Pause-during-review fix - freeze
+    // the countdown the instant a confirmation dialog opens.
+    if (!hasBegun || manuallyPaused || isRepeatGated || isConfirming || isCompleted || backConfirmOpen) return;
+    const session = sessionRef.current;
+    if (!session) return;
+
+    intervalRef.current = setInterval(() => {
+      const current = sessionRef.current;
+      if (!current) return;
+      const { completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState } = current.tick();
+      setSecondsLeft(nextSecondsLeft);
+      setBreatheState(nextBreatheState);
+      if (completed) {
+        // All completion side-effects happen synchronously, in this same
+        // callback, the instant the boundary is reached - stop the
+        // interval (so a stray extra tick can never fire), stop the
+        // music, and enter the completed state, all in one step, exactly
+        // once per real completion.
+        stopBreathingInterval();
+        musicPlayerRef.current?.stop();
+        setCompletionGreeting(getCompletionGreeting({ journey: 'evening', practice: 'breathing' }));
+        setIsCompleted(true);
+      }
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [hasFinished, hasBegun, manuallyPaused, isRepeatGated, isConfirming, activePattern]);
-
-  // Mobile correction (sequential breathing-pattern completion lifecycle)
-  // — see Breathe.jsx's identical effect/rationale: stops audio the
-  // moment natural completion is detected, deterministically, rather than
-  // only as a side effect of the next explicit action.
-  useEffect(() => {
-    if (hasFinished) musicPlayerRef.current?.stop();
-  }, [hasFinished]);
+    return () => stopBreathingInterval();
+  }, [hasBegun, manuallyPaused, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
 
   // Double-tap protection - see Breathe.jsx's identical rationale. Also
   // where the selected pattern is effectively "locked" for the active
@@ -244,8 +276,17 @@ export const EveningBreathing = () => {
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
-      setSecondsLeft(activePattern.totalSeconds);
-      setBreatheState('Inhale');
+      // Sequential-pattern correctness — the one true "start a fresh
+      // session" entry point: always creates a BRAND NEW controller for
+      // whichever pattern is currently selected, never reusing a
+      // previous instance, so a 2nd/3rd pattern completed in the same
+      // mounted visit behaves identically to the 1st.
+      sessionRef.current = createBreathingSession({ pattern: activePattern, resolveBreathPhase });
+      sessionRef.current.begin();
+      setSecondsLeft(sessionRef.current.getSecondsLeft());
+      setBreatheState(sessionRef.current.getBreatheState());
+      setIsCompleted(false);
+      setCompletionGreeting(null);
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
         musicPlayerRef.current?.start();
@@ -262,9 +303,8 @@ export const EveningBreathing = () => {
     countdown.start();
   };
 
-  // Only reachable once hasFinished (Continue is hidden until then, see
-  // render below) or from the pre-start Skip-equivalent Skip button -
-  // records genuine completion and advances.
+  // Only reachable once isCompleted (Continue to Meditate is hidden until
+  // then, see render below) - records genuine completion and advances.
   const handleComplete = () => {
     navigate('/evening-meditate');
     mirrorExitRef.current();
@@ -300,13 +340,60 @@ export const EveningBreathing = () => {
       return false;
     }
     if (!hasBegun || isRepeatGated) return;
+    // Evening Breathing Back/early-exit correction (reusing Breathe.jsx's
+    // proven pattern) — Back from the COMPLETED panel is ordinary
+    // navigation, never an early exit: the exercise already finished, so
+    // this must never open the confirmation or touch isCompleted/
+    // completionGreeting.
+    if (isCompleted) return;
+    // Repeated-Back-tap guard — never re-capture wasMusicPlayingRef (it
+    // would now read false, since the music is already suspended for
+    // the open dialog) and never open a second dialog.
+    if (backConfirmOpen) return false;
+    // Previously: reset everything immediately with ZERO confirmation
+    // (found live - identical defect class to Breathe.jsx/MorningFlow.jsx
+    // before their own fixes). Now: capture whether music was genuinely
+    // playing before the dialog suspends it, then just open the dialog -
+    // the timer/animation/music all pause via the interval effect's/
+    // InteractiveAmbientMusic's own backConfirmOpen gate, never reset,
+    // until the user actually chooses Leave Exercise.
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setBackConfirmOpen(true);
+    return false;
+  };
+
+  // "Keep Breathing" — dismiss the dialog and resume from the exact
+  // remaining time (nothing was ever reset), restoring music only if it
+  // was genuinely playing before the dialog opened.
+  const keepBreathing = () => {
+    setBackConfirmOpen(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
+  };
+
+  // "Leave Exercise" — the one true confirmed-early-exit path: stops and
+  // disposes of the timer/session/music, records nothing (never calls
+  // mirrorExitRef/advanceStep), and returns to the pre-start/pattern-
+  // selection screen. No early-exit banner message is shown here - the
+  // task defining this correction gave exact approved copy only for
+  // natural completion, not for an Evening Breathing early exit, so none
+  // is invented (see the final report's honest-outcomes note).
+  const leaveExercise = () => {
+    setBackConfirmOpen(false);
     hasBegunOnceRef.current = false;
     setManuallyPaused(false);
+    stopBreathingInterval();
+    sessionRef.current?.end();
+    sessionRef.current = null;
     setBreatheState('Inhale');
     setSecondsLeft(activePattern.totalSeconds);
+    setIsCompleted(false);
+    setCompletionGreeting(null);
     setHasBegun(false);
     musicPlayerRef.current?.stop();
-    return false;
+    wasMusicPlayingRef.current = false;
   };
 
   return (
@@ -409,6 +496,29 @@ export const EveningBreathing = () => {
             )}
           </div>
         </>
+      ) : isCompleted ? (
+        // Evening Breathing completion correction — a genuine dedicated
+        // completed panel, replacing the active exercise interface
+        // entirely (ring and its own heading copy are gone here, not just
+        // overlaid) so there is never any doubt the exercise is over.
+        // Periwinkle visual language reused from this app's own existing
+        // tokens (EveningComplete.jsx's own bg-evening-accent/10 +
+        // border-evening-accent-tint/25 + shadow-evening-glow badge
+        // shape) - never the Morning gold or Anytime mint treatment.
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+          <div className="w-20 h-20 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
+            <span className="material-symbols-outlined text-evening-accent text-4xl" aria-hidden="true">check_circle</span>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-sm text-xs text-evening-accent uppercase tracking-widest font-bold">Breathing Completed</span>
+            <h2 className="font-serif italic text-2xl text-on-surface max-w-xs mx-auto" role="status">
+              {completionGreeting}
+            </h2>
+            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              Carry this calm with you as your evening continues.
+            </p>
+          </div>
+        </div>
       ) : (
         <>
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
@@ -433,16 +543,18 @@ export const EveningBreathing = () => {
         <InteractiveAmbientMusic
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_BREATHING_MUSIC_ID}
-          suspended={hasBegun ? manuallyPaused : false}
-          hideToggle={!hasBegun}
+          suspended={hasBegun ? (isCompleted || manuallyPaused || backConfirmOpen) : false}
+          hideToggle={!hasBegun || isCompleted}
         />
       )}
 
-      {hasBegun && !isRepeatGated && manuallyPaused && (
+      {hasBegun && !isRepeatGated && !isCompleted && manuallyPaused && (
         <ExercisePausedPanel onResume={handleResume} journeyTone="evening" />
       )}
 
-      {hasBegun && !isRepeatGated && !manuallyPaused && (
+      {/* Evening Breathing completion correction — gated on !isCompleted
+          too (pausing a finished exercise is nonsensical). */}
+      {hasBegun && !isRepeatGated && !isCompleted && !manuallyPaused && (
         <button
           type="button"
           onClick={handlePauseExercise}
@@ -460,28 +572,28 @@ export const EveningBreathing = () => {
               covers this; nothing replaces this branch while reviewing. */}
           {!isReviewMode && (
             <>
-              {hasFinished && !manuallyPaused && (
-                <>
-                  {/* Mobile correction (honest positive acknowledgement) —
-                      see Breathe.jsx's identical gate/rationale. */}
-                  <p className="text-sm text-center text-on-surface-variant" role="status">
-                    {getBreathingAcknowledgement('evening')}
-                  </p>
-                  <button
-                    onClick={handleComplete}
-                    className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-                  >
-                    <span>Continue</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
-                </>
+              {isCompleted ? (
+                // Evening Breathing completion correction — the required
+                // primary action, gated purely on the new explicit
+                // isCompleted state. Tapping it is the one place
+                // completion is ever mirrored into the Session Engine
+                // (handleComplete, unchanged) - exactly once, guarded by
+                // hasMirroredExitRef.
+                <button
+                  onClick={handleComplete}
+                  className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                >
+                  <span>Continue to Meditate</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSkip}
+                  className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
+                >
+                  Skip
+                </button>
               )}
-              <button
-                onClick={handleSkip}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/40"
-              >
-                Skip
-              </button>
             </>
           )}
         </div>
@@ -495,6 +607,22 @@ export const EveningBreathing = () => {
         cancelLabel="Cancel"
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
+      />
+      {/* Evening Breathing Back/early-exit correction — mild warning
+          (temporary, resumable progress lost; no saved history erased),
+          matching Breathe.jsx's own identical severity/hierarchy for the
+          same class of action. Keep Breathing dismisses with zero state
+          change (nothing was ever reset); Leave Exercise is the one
+          confirmed early-exit path (leaveExercise, above). */}
+      <ConfirmDialog
+        open={backConfirmOpen}
+        title="Leave this breathing exercise?"
+        message="Your progress in this exercise won’t be completed."
+        confirmLabel="Leave Exercise"
+        cancelLabel="Keep Breathing"
+        mildDestructive
+        onConfirm={leaveExercise}
+        onDismiss={keepBreathing}
       />
     </EveningSceneShell>
   );

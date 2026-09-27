@@ -86,8 +86,8 @@ describe('Each of the four Morning completion surfaces requests its own, correct
   });
 });
 
-describe('Anytime/Evening were not touched by this pass', () => {
-  it('COMPLETION_GREETINGS still defines only a breathing pool for anytime/evening - no stretching/meditation/routine pool was added to either', () => {
+describe('Anytime was not touched by this Morning pass (Evening was later touched by its own separate pass - see eveningCompletionCrossCutting.test.js)', () => {
+  it('COMPLETION_GREETINGS still defines only a breathing pool for anytime - no stretching/meditation/routine pool was added; evening now has both breathing and meditation (Evening Breathing/Meditation completion correction), still no stretching/routine pool of its own', () => {
     const completionGreetingsBlock = outcomeMessagesSource.match(/const COMPLETION_GREETINGS = \{([\s\S]*?)\n\};/)?.[1] ?? '';
     expect(completionGreetingsBlock).not.toBe('');
     const anytimeBlock = completionGreetingsBlock.match(/anytime: \{([\s\S]*?)\n {2}\},/)?.[1] ?? '';
@@ -95,6 +95,7 @@ describe('Anytime/Evening were not touched by this pass', () => {
     expect(anytimeBlock).toMatch(/breathing:/);
     expect(anytimeBlock).not.toMatch(/stretching:|meditation:|routine:/);
     expect(eveningBlock).toMatch(/breathing:/);
-    expect(eveningBlock).not.toMatch(/stretching:|meditation:|routine:/);
+    expect(eveningBlock).toMatch(/meditation:/);
+    expect(eveningBlock).not.toMatch(/stretching:|routine:/);
   });
 });

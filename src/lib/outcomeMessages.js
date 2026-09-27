@@ -185,12 +185,11 @@ const COMPLETION_GREETINGS = {
       'Take this calm and confidence with you.'
     ]
   },
-  // Anytime/Evening only have a breathing pool today - stretching/
-  // meditation/routine for those journeys are explicitly out of scope for
-  // this pass (handled separately after Morning passes physical-device
-  // testing). getCompletionGreeting's own fallback below (never reaching
-  // into another journey's pool) is what keeps this safe rather than a
-  // placeholder entry here.
+  // Anytime only has a breathing pool today - stretching/meditation/
+  // routine for Anytime are explicitly out of scope for this pass (Evening
+  // Breathing/Meditation completion correction). getCompletionGreeting's
+  // own fallback below (never reaching into another journey's pool) is
+  // what keeps this safe rather than a placeholder entry here.
   anytime: {
     breathing: [
       'You gave yourself a moment.',
@@ -200,13 +199,28 @@ const COMPLETION_GREETINGS = {
       'Feeling steadier? Keep it close.'
     ]
   },
+  // Evening Breathing/Meditation completion correction — breathing's own
+  // wording replaced with the exact copy approved for this pass (the
+  // earlier placeholder pool was never wired to any UI yet - EveningBreathing.jsx
+  // still called the older single getBreathingAcknowledgement('evening')
+  // string until this pass); meditation is a new pool. Evening's own
+  // stretching/routine equivalents don't exist (Evening has no Stretch
+  // step and no dedicated 100%-completion screen of its own) - out of
+  // scope, not merely deferred.
   evening: {
     breathing: [
       'Let the day soften now.',
-      'You’re ready to slow down.',
-      'Carry this calm into rest.',
+      'Breathe out. You can slow down.',
+      'Carry this calm toward rest.',
+      'You’ve made space to unwind.',
+      'The day can begin to fade.'
+    ],
+    meditation: [
+      'Your mind can settle now.',
+      'Let this stillness stay with you.',
+      'You’ve made room for rest.',
       'The day can wait until tomorrow.',
-      'Breathe out. It’s time to unwind.'
+      'Ease gently into your evening.'
     ]
   }
 };

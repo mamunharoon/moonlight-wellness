@@ -434,18 +434,17 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) n
     // Morning Stretch completion correction also added isCompleted/
     // backConfirmOpen to this same guard.
     expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
-    // Continue-lock/Skip-semantics fix adds hasFinished to Breathe.jsx/
-    // EveningBreathing.jsx's own guard too (MorningFlow.jsx/Stretch is
-    // untouched by that fix) - see embeddedBreathingContinueLock.test.js.
     // Morning breathing completion correction - Breathe.jsx's guard now
     // reads isCompleted (the explicit completion state) instead of
-    // hasFinished (a render-time-derived value) - see
-    // breathingCompletionLifecycle.test.js. EveningBreathing.jsx is
-    // unchanged by that later fix.
-    // Morning breathing Back/early-exit correction also added
-    // backConfirmOpen to this same guard.
+    // hasFinished (a render-time-derived value), plus backConfirmOpen
+    // (Morning breathing Back/early-exit correction) - see
+    // breathingCompletionLifecycle.test.js.
     expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
-    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
+    // Evening Breathing completion correction - EveningBreathing.jsx's
+    // guard is now upgraded identically (isCompleted instead of the old
+    // render-time-derived hasFinished, plus backConfirmOpen) - see
+    // eveningBreathingCompletionLifecycle.test.js.
+    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
   it('no "Repeat this exercise" affordance exists anywhere in these three files any more - reviewing an earlier step now shows the real setup screen (all pattern/movement/music choices) directly, matching Meditation/Affirmation/Intention\'s own already-correct review-mode behaviour (each file\'s own doc comment legitimately names the old copy in prose, explaining the fix - comments stripped first)', () => {

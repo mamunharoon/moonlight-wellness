@@ -218,9 +218,9 @@ describe('Guests genuinely control playback - no authentication UI intercepts th
 });
 
 describe('Shared by every structurally-similar interactive timed screen', () => {
-  it('EveningBreathing.jsx renders ONE shared, stable player with IB01 (Build 15: never two separate mount points across the pre-start/active transition - see MorningFlow.jsx\'s own fix comment), suspended={manuallyPaused} only once genuinely begun', () => {
+  it('EveningBreathing.jsx renders ONE shared, stable player with IB01 (Build 15: never two separate mount points across the pre-start/active transition - see MorningFlow.jsx\'s own fix comment); suspended/hideToggle now also fold in isCompleted/backConfirmOpen (Evening Breathing completion correction, mirroring Breathe.jsx\'s own identical fix)', () => {
     expect(eveningBreathingSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
-    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? manuallyPaused : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (eveningBreathingSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
   });

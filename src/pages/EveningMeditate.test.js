@@ -77,8 +77,14 @@ describe('EveningMeditate.jsx — compact setup: purpose, recommended choice, di
 });
 
 describe('EveningMeditate.jsx — Skip and Complete both continue to Prepare for Rest, exactly once', () => {
-  it('handleComplete mirrors the Session Engine transition then navigates to /prepare-for-rest - never to the standalone completion route', () => {
-    const body = source.match(/const handleComplete = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+  // Evening Meditation completion correction — handleComplete was split
+  // into advanceToPrepareForRest (the real mirror+navigate step, reached
+  // by Skip, Finish & continue, and the new completed panel's Continue
+  // action) and handleNaturalCompletion (which only shows the completed
+  // panel - see eveningMeditationCompletionLifecycle.test.js for its own
+  // dedicated coverage).
+  it('advanceToPrepareForRest mirrors the Session Engine transition then navigates to /prepare-for-rest - never to the standalone completion route', () => {
+    const body = source.match(/const advanceToPrepareForRest = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/mirrorMeditateExitRef\.current\(\);/);
     expect(body).toMatch(/navigate\('\/prepare-for-rest'\);/);
     // Comments stripped first - this file's own doc comment legitimately
@@ -88,8 +94,8 @@ describe('EveningMeditate.jsx — Skip and Complete both continue to Prepare for
     expect(codeOnly).not.toMatch(/self-guided-meditation-complete/);
   });
 
-  it('handleSkip reuses handleComplete verbatim - one real transition path, not two', () => {
-    expect(source).toMatch(/const handleSkip = \(\) => handleComplete\(\);/);
+  it('handleSkip reuses advanceToPrepareForRest verbatim - one real transition path, not two', () => {
+    expect(source).toMatch(/const handleSkip = \(\) => advanceToPrepareForRest\(\);/);
   });
 
   it('the Session Engine mirror is guarded by a one-shot ref AND currentStep.id === \'meditation\' - the exact same double-guard pattern EveningBreathing.jsx already established, preventing a double advanceStep()', () => {

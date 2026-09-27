@@ -373,17 +373,17 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(body).toMatch(/saveEveningBreathingPattern\(userId, patternId, today\);/);
   });
 
-  it('nothing starts on mount - hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - isLiveStep gate, see backNavigationCanonicalMap.test.js), gating the countdown entirely (which now also stops rather than auto-navigating once hasFinished - see embeddedBreathingContinueLock.test.js)', () => {
+  it('nothing starts on mount - hasBegun defaults to false (true only when resuming a TRUSTED paused snapshot - isLiveStep gate, see backNavigationCanonicalMap.test.js), gating the countdown entirely (which now also stops rather than auto-navigating once isCompleted - Evening Breathing completion correction, see eveningBreathingCompletionLifecycle.test.js)', () => {
     expect(eveningBreathingSource).toMatch(/const \[hasBegun, setHasBegun\] = useState\(\(\) => Boolean\(trustedSnapshot\)\);/);
-    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| hasFinished\) return;/);
+    expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle, and Begin is the only place (besides Resume with Music) that starts it', () => {
-    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? manuallyPaused : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle (Evening Breathing completion correction also folds in isCompleted/backConfirmOpen), and .start() is only called from the three legitimate resume/begin points (handleBeginBreathing/handleResume/keepBreathing)', () => {
+    expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (eveningBreathingSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = eveningBreathingSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    expect(startCalls.length).toBe(2);
+    expect(startCalls.length).toBe(3);
   });
 
   // Build 16 physical-iPhone correction (F3/F4) — see breathingPreStart
@@ -398,10 +398,15 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback locks the selected pattern by resetting the countdown to its real total, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded)', () => {
+  it('the countdown\'s onComplete callback locks the selected pattern, creates the pure breathing session controller, resets secondsLeft/breatheState from it, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded; Evening Breathing completion correction: also creates a fresh createBreathingSession and clears isCompleted/completionGreeting)', () => {
     const countdownBlock = eveningBreathingSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
-    expect(countdownBlock).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current\.begin\(\);/);
+    expect(countdownBlock).toMatch(/setSecondsLeft\(sessionRef\.current\.getSecondsLeft\(\)\);/);
+    expect(countdownBlock).toMatch(/setBreatheState\(sessionRef\.current\.getBreatheState\(\)\);/);
+    expect(countdownBlock).toMatch(/setIsCompleted\(false\);/);
+    expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
@@ -420,8 +425,8 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(activeViewOnly).not.toMatch(/role="radiogroup"/);
   });
 
-  it('uses the shared resolveBreathPhase, driven by the locked activePattern, for its own countdown - never a hand-rolled modulo', () => {
-    expect(eveningBreathingSource).toMatch(/setBreatheState\(resolveBreathPhase\(activePattern, nextSec\)\);/);
+  it('uses the shared resolveBreathPhase, driven by the locked activePattern, via createBreathingSession (breathingSession.js) - never a second, hand-rolled modulo inline in this file (Evening Breathing completion correction)', () => {
+    expect(eveningBreathingSource).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
     expect(eveningBreathingSource).not.toMatch(/cycleTime/);
   });
 

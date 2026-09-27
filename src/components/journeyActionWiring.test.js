@@ -35,6 +35,10 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
     ['../pages/QuietBreathing.jsx', 'anytime', 1],
     ['../pages/EveningWindDown.jsx', 'evening', 2],
     ['../pages/EveningBreathing.jsx', 'evening', 2],
+    // Evening Meditation completion correction — the new completed
+    // panel's "Continue to Prepare for Rest" primary action, the first
+    // call site in this file.
+    ['../pages/EveningMeditate.jsx', 'evening', 1],
     ['../pages/PrepareForRest.jsx', 'evening', 1],
     ['../pages/EveningComplete.jsx', 'evening', 1]
   ];

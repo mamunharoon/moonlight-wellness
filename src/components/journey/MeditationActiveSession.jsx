@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { JourneyHeader } from './JourneyHeader';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MeditationProgressRing } from '../MeditationProgressRing';
@@ -113,6 +113,28 @@ import { getJourneyToneTokens } from '../../lib/journeyTone';
  * this prop). When `endSessionCopy` is omitted (every caller before this
  * fix), the bottom button falls back to sharing `copy` exactly as before
  * - byte-identical to before this prop existed.
+ *
+ * Meditation-dialog pause correction (Evening Breathing/Meditation
+ * completion pass) — found live and previously disclosed as a known gap:
+ * none of this component's own four confirm dialogs (leaveConfirmOpen/
+ * bottomActionConfirmOpen/endSessionConfirmOpen/chooseAnotherConfirmOpen)
+ * paused the timer or audio while open, so a meditation kept running
+ * silently behind "End this meditation?"/"Finish meditation?"/"Change
+ * meditation?" until the user actually confirmed or cancelled.
+ * pauseForDialog()/resumeAfterDialogDismiss() below fix this once, shared
+ * by every caller (standalone/Morning/Evening): opening any dialog
+ * captures whether the session was genuinely running (never surprise-
+ * resuming one the user had already manually paused) and calls the real
+ * onPause() (session.pause() - meditationSessionController.js's own
+ * reconcileAudio() stops the actual audio element too, not just the
+ * elapsed-time counter); dismissing (Cancel/Keep Meditating/Continue
+ * Meditation) restores that exact state via onResume() only if it was
+ * captured as playing. Confirm handlers are untouched - every confirm
+ * path ends or leaves the session anyway, so there is nothing to resume.
+ * pause()/resume() are idempotent (meditationSession.js's own status
+ * guards), and each open-handler also no-ops if its own dialog is already
+ * open, so a repeated tap can never pause twice or open a duplicate
+ * dialog.
  */
 const DEFAULT_END_COPY = {
   buttonLabel: 'End Session',
@@ -157,21 +179,72 @@ export const MeditationActiveSession = ({
   // F4 — see this file's own top doc comment for `endSessionCopy`.
   const endSessionActiveCopy = endSessionCopy ? { ...DEFAULT_END_COPY, ...endSessionCopy } : copy;
 
+  // Meditation-dialog pause correction — see this file's own top doc
+  // comment. Shared by all four dialogs below (only one is ever open at
+  // once), so one ref is enough.
+  const wasPlayingBeforeDialogRef = useRef(false);
+  const pauseForDialog = () => {
+    wasPlayingBeforeDialogRef.current = snapshot.status !== 'paused';
+    if (wasPlayingBeforeDialogRef.current) onPause();
+  };
+  const resumeAfterDialogDismiss = () => {
+    if (wasPlayingBeforeDialogRef.current) {
+      wasPlayingBeforeDialogRef.current = false;
+      onResume();
+    }
+  };
+
+  const handleOpenLeaveConfirm = () => {
+    if (leaveConfirmOpen) return;
+    pauseForDialog();
+    setLeaveConfirmOpen(true);
+  };
+  const handleDismissLeaveConfirm = () => {
+    setLeaveConfirmOpen(false);
+    resumeAfterDialogDismiss();
+  };
   const handleConfirmLeave = () => {
     setLeaveConfirmOpen(false);
     onRequestLeave();
   };
 
+  const handleOpenEndSessionConfirm = () => {
+    if (endSessionConfirmOpen) return;
+    pauseForDialog();
+    setEndSessionConfirmOpen(true);
+  };
+  const handleDismissEndSessionConfirm = () => {
+    setEndSessionConfirmOpen(false);
+    resumeAfterDialogDismiss();
+  };
   const handleConfirmEndSession = () => {
     setEndSessionConfirmOpen(false);
     onEndSession();
   };
 
+  const handleOpenBottomActionConfirm = () => {
+    if (bottomActionConfirmOpen) return;
+    pauseForDialog();
+    setBottomActionConfirmOpen(true);
+  };
+  const handleDismissBottomActionConfirm = () => {
+    setBottomActionConfirmOpen(false);
+    resumeAfterDialogDismiss();
+  };
   const handleConfirmBottomAction = () => {
     setBottomActionConfirmOpen(false);
     bottomAction?.onConfirm();
   };
 
+  const handleOpenChooseAnotherConfirm = () => {
+    if (chooseAnotherConfirmOpen) return;
+    pauseForDialog();
+    setChooseAnotherConfirmOpen(true);
+  };
+  const handleDismissChooseAnotherConfirm = () => {
+    setChooseAnotherConfirmOpen(false);
+    resumeAfterDialogDismiss();
+  };
   const handleConfirmChooseAnother = () => {
     setChooseAnotherConfirmOpen(false);
     onChooseAnother();
@@ -223,8 +296,8 @@ export const MeditationActiveSession = ({
     >
       <JourneyHeader
         showBackButton={false}
-        onStepBack={() => setLeaveConfirmOpen(true)}
-        onClose={onRequestClose ?? (() => setLeaveConfirmOpen(true))}
+        onStepBack={handleOpenLeaveConfirm}
+        onClose={onRequestClose ?? handleOpenLeaveConfirm}
         showCloseButton={showHeaderClose}
       />
 
@@ -286,7 +359,7 @@ export const MeditationActiveSession = ({
         {bottomAction ? (
           <button
             type="button"
-            onClick={() => setBottomActionConfirmOpen(true)}
+            onClick={handleOpenBottomActionConfirm}
             aria-label={bottomAction.buttonAriaLabel}
             className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
           >
@@ -296,7 +369,7 @@ export const MeditationActiveSession = ({
         ) : (
           <button
             type="button"
-            onClick={() => (onEndSession ? setEndSessionConfirmOpen(true) : setLeaveConfirmOpen(true))}
+            onClick={onEndSession ? handleOpenEndSessionConfirm : handleOpenLeaveConfirm}
             aria-label={onEndSession ? endSessionActiveCopy.buttonAriaLabel : copy.buttonAriaLabel}
             className="w-full py-4 rounded-full font-semibold text-center min-h-[44px] bg-[#b3555f]/15 text-[#b3555f] border border-[#b3555f]/40 hover:bg-[#b3555f]/25 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#b3555f] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
           >
@@ -307,7 +380,7 @@ export const MeditationActiveSession = ({
         {onChooseAnother && (
           <button
             type="button"
-            onClick={() => setChooseAnotherConfirmOpen(true)}
+            onClick={handleOpenChooseAnotherConfirm}
             className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
           >
             Choose another meditation
@@ -323,7 +396,7 @@ export const MeditationActiveSession = ({
         cancelLabel={copy.cancelLabel}
         mildDestructive
         onConfirm={handleConfirmLeave}
-        onDismiss={() => setLeaveConfirmOpen(false)}
+        onDismiss={handleDismissLeaveConfirm}
       />
 
       {bottomAction && (
@@ -334,7 +407,7 @@ export const MeditationActiveSession = ({
           confirmLabel={bottomAction.confirmLabel}
           cancelLabel={bottomAction.cancelLabel}
           onConfirm={handleConfirmBottomAction}
-          onDismiss={() => setBottomActionConfirmOpen(false)}
+          onDismiss={handleDismissBottomActionConfirm}
         />
       )}
 
@@ -347,7 +420,7 @@ export const MeditationActiveSession = ({
           cancelLabel={endSessionActiveCopy.cancelLabel}
           mildDestructive
           onConfirm={handleConfirmEndSession}
-          onDismiss={() => setEndSessionConfirmOpen(false)}
+          onDismiss={handleDismissEndSessionConfirm}
         />
       )}
 
@@ -360,7 +433,7 @@ export const MeditationActiveSession = ({
           cancelLabel="Keep meditating"
           mildDestructive
           onConfirm={handleConfirmChooseAnother}
-          onDismiss={() => setChooseAnotherConfirmOpen(false)}
+          onDismiss={handleDismissChooseAnotherConfirm}
         />
       )}
     </div>

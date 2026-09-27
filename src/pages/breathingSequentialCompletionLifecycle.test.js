@@ -27,9 +27,15 @@ const quietBreathingSource = read('./QuietBreathing.jsx');
 // hasFinished value, and completion itself was never a single,
 // authoritative decision. Breathe.jsx now uses createBreathingSession
 // (breathingSession.js) - see breathingCompletionLifecycle.test.js for
-// the full, dedicated coverage of that rewrite. EveningBreathing.jsx/
-// QuietBreathing.jsx are unchanged by that later fix (out of its scope),
-// so their own describe blocks below still hold.
+// the full, dedicated coverage of that rewrite.
+//
+// Evening Breathing completion correction — EveningBreathing.jsx is now
+// upgraded identically (the exact same defect class, found live, fixed
+// the exact same way - stopBreathingInterval() called synchronously
+// inside the completion-detecting interval callback itself, see
+// eveningBreathingCompletionLifecycle.test.js for the full, dedicated
+// coverage). QuietBreathing.jsx (Anytime/standalone) is unchanged, out of
+// scope for both passes - its own describe block below still holds.
 describe('Breathe.jsx (Morning) — superseded by the Morning breathing completion correction, see breathingCompletionLifecycle.test.js', () => {
   it('no longer has a separate hasFinished-keyed stop effect - music now stops synchronously inside the completion-detecting interval callback itself (see breathingCompletionLifecycle.test.js)', () => {
     expect(breatheSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
@@ -40,11 +46,13 @@ describe('Breathe.jsx (Morning) — superseded by the Morning breathing completi
   });
 });
 
-describe('EveningBreathing.jsx (Evening) — same deterministic stop-on-completion effect', () => {
-  it('a dedicated effect calls musicPlayerRef.current?.stop() as soon as hasFinished becomes true', () => {
-    expect(eveningBreathingSource).toMatch(
+describe('EveningBreathing.jsx (Evening) — superseded by the Evening Breathing completion correction, see eveningBreathingCompletionLifecycle.test.js', () => {
+  it('no longer has a separate hasFinished-keyed stop effect - music now stops synchronously inside the completion-detecting interval callback itself', () => {
+    expect(eveningBreathingSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
+    expect(eveningBreathingSource).not.toMatch(
       /useEffect\(\(\) => \{\s*\n\s*if \(hasFinished\) musicPlayerRef\.current\?\.stop\(\);\s*\n\s*\}, \[hasFinished\]\);/
     );
+    expect(eveningBreathingSource).toMatch(/const \{ completed, secondsLeft: nextSecondsLeft, breatheState: nextBreatheState \} = current\.tick\(\);/);
   });
 });
 
@@ -65,11 +73,12 @@ describe('QuietBreathing.jsx (standalone) — sequential-session guard: Breathe 
   });
 });
 
-describe('Cross-file consistency — EveningBreathing.jsx/QuietBreathing.jsx still key off their own derived completion signal; Breathe.jsx alone was upgraded to the explicit, authoritative isCompleted state (Morning breathing completion correction)', () => {
-  it('EveningBreathing.jsx keys off hasFinished (secondsLeft <= 0); QuietBreathing.jsx keys off its own isComplete (which already folds in hasBegun/standalone); Breathe.jsx now keys off the explicit isCompleted state set inside its own completion-detecting interval callback', () => {
-    expect(eveningBreathingSource).toMatch(/const hasFinished = secondsLeft <= 0;/);
+describe('Cross-file consistency — QuietBreathing.jsx (Anytime/standalone) still keys off its own derived completion signal; Breathe.jsx and EveningBreathing.jsx were both upgraded to the explicit, authoritative isCompleted state (Morning breathing completion correction, then Evening Breathing completion correction)', () => {
+  it('QuietBreathing.jsx keys off its own isComplete (which already folds in hasBegun/standalone) - unchanged, out of scope for both passes; Breathe.jsx and EveningBreathing.jsx now key off the explicit isCompleted state set inside their own completion-detecting interval callback', () => {
     expect(quietBreathingSource).toMatch(/const isComplete = standalone && hasBegun && secondsLeft <= 0;/);
     expect(breatheSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
     expect(breatheSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
+    expect(eveningBreathingSource).toMatch(/const \[isCompleted, setIsCompleted\] = useState\(false\);/);
+    expect(eveningBreathingSource).not.toMatch(/const hasFinished = secondsLeft <= 0;/);
   });
 });

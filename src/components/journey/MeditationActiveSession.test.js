@@ -10,15 +10,15 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./MeditationActiveSession.jsx', import.meta.url)), 'utf-8');
 
 describe('MeditationActiveSession — Back always routes through this component\'s own local leave-confirmation; Close does too UNLESS the caller provides onRequestClose', () => {
-  it('JourneyHeader\'s onStepBack always opens the local confirm dialog directly - never overridable', () => {
+  it('JourneyHeader\'s onStepBack always opens the local confirm dialog directly (via handleOpenLeaveConfirm, which also pauses the session - see the dialog-pause describe block below) - never overridable', () => {
     const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
     expect(block).toMatch(/showBackButton=\{false\}/);
-    expect(block).toMatch(/onStepBack=\{\(\) => setLeaveConfirmOpen\(true\)\}/);
+    expect(block).toMatch(/onStepBack=\{handleOpenLeaveConfirm\}/);
   });
 
   it('onClose falls back to the same local dialog only when the caller omits onRequestClose - a caller-provided onRequestClose bypasses the local dialog entirely (Morning\'s own separate "Leave this routine?" flow)', () => {
     const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/onClose=\{onRequestClose \?\? \(\(\) => setLeaveConfirmOpen\(true\)\)\}/);
+    expect(block).toMatch(/onClose=\{onRequestClose \?\? handleOpenLeaveConfirm\}/);
   });
 
   it('never navigates itself - onRequestLeave is only ever called from the confirm dialog\'s own onConfirm, after the caller decides what "leaving" means', () => {
@@ -51,12 +51,12 @@ describe('MeditationActiveSession — onRequestClose (additive, optional; standa
 
   it('onStepBack is unaffected by onRequestClose - it always opens the local dialog regardless', () => {
     const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/onStepBack=\{\(\) => setLeaveConfirmOpen\(true\)\}/);
+    expect(block).toMatch(/onStepBack=\{handleOpenLeaveConfirm\}/);
   });
 
   it('the big bottom button only falls back to the same local leave dialog when the caller omits onEndSession too (see the dedicated onEndSession describe block below for the split behaviour)', () => {
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(codeOnly).toMatch(/onClick=\{\(\) => \(onEndSession \? setEndSessionConfirmOpen\(true\) : setLeaveConfirmOpen\(true\)\)\}\s*\n\s*aria-label=\{onEndSession \? endSessionActiveCopy\.buttonAriaLabel : copy\.buttonAriaLabel\}/);
+    expect(codeOnly).toMatch(/onClick=\{onEndSession \? handleOpenEndSessionConfirm : handleOpenLeaveConfirm\}\s*\n\s*aria-label=\{onEndSession \? endSessionActiveCopy\.buttonAriaLabel : copy\.buttonAriaLabel\}/);
   });
 
   it('End Meditation preserving only-meditation semantics: neither this component nor its local dialog ever calls leaveActiveRoutine/interruptSession - only onRequestClose (a caller-supplied function this file never defines) can reach a whole-journey exit', () => {
@@ -115,7 +115,7 @@ describe('MeditationActiveSession — onEndSession (additive, optional; makes th
 
   it('onStepBack/Back is completely untouched by this prop - still always opens the original leaveConfirmOpen dialog via onRequestLeave, regardless of whether onEndSession is provided', () => {
     const block = source.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
-    expect(block).toMatch(/onStepBack=\{\(\) => setLeaveConfirmOpen\(true\)\}/);
+    expect(block).toMatch(/onStepBack=\{handleOpenLeaveConfirm\}/);
     expect(source).toMatch(/const handleConfirmLeave = \(\) => \{\s*\n\s*setLeaveConfirmOpen\(false\);\s*\n\s*onRequestLeave\(\);\s*\n\s*\};/);
   });
 });
@@ -180,5 +180,49 @@ describe('MeditationActiveSession — safe-area insets, matching this app\'s est
     expect(source).toMatch(/env\(safe-area-inset-left\)/);
     expect(source).toMatch(/env\(safe-area-inset-right\)/);
     expect(source).toMatch(/env\(safe-area-inset-top\)/);
+  });
+});
+
+// Meditation-dialog pause correction (Evening Breathing/Meditation
+// completion pass) — the previously disclosed gap: none of this
+// component's own four confirm dialogs paused the timer/audio while
+// open. Fixed once, shared by every caller (standalone/Morning/Evening).
+describe('MeditationActiveSession — every confirm dialog now genuinely pauses the session while open, and restores it correctly on dismiss (shared fix, previously disclosed gap)', () => {
+  it('pauseForDialog captures whether the session was genuinely running (never a manually-paused one) and calls the real onPause - reconcileAudio (meditationSessionController.js) stops the actual audio, not just the elapsed-time counter', () => {
+    const fn = source.match(/const pauseForDialog = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fn).toMatch(/wasPlayingBeforeDialogRef\.current = snapshot\.status !== 'paused';/);
+    expect(fn).toMatch(/if \(wasPlayingBeforeDialogRef\.current\) onPause\(\);/);
+  });
+
+  it('resumeAfterDialogDismiss only calls onResume when the session was captured as genuinely playing - a session the user had already manually paused before opening a dialog is never surprise-resumed', () => {
+    const fn = source.match(/const resumeAfterDialogDismiss = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fn).toMatch(/if \(wasPlayingBeforeDialogRef\.current\) \{/);
+    expect(fn).toMatch(/onResume\(\);/);
+  });
+
+  it('all four open-handlers pause before opening, and no-op if their own dialog is already open (repeated taps can never pause twice or open a duplicate dialog)', () => {
+    for (const name of ['handleOpenLeaveConfirm', 'handleOpenEndSessionConfirm', 'handleOpenBottomActionConfirm', 'handleOpenChooseAnotherConfirm']) {
+      const fn = source.match(new RegExp(`const ${name} = \\(\\) => \\{[\\s\\S]*?\\n {2}\\};`))?.[0] ?? '';
+      expect(fn, `${name} should exist`).not.toBe('');
+      expect(fn).toMatch(/if \([a-zA-Z]+ConfirmOpen\) return;/);
+      expect(fn).toMatch(/pauseForDialog\(\);/);
+    }
+  });
+
+  it('all four dialogs\' onDismiss now resumes (via the matching dismiss-handler) instead of only closing the dialog - onConfirm is untouched (every confirm path ends or leaves the session anyway, so there is nothing to resume)', () => {
+    expect(source).toMatch(/onDismiss=\{handleDismissLeaveConfirm\}/);
+    expect(source).toMatch(/onDismiss=\{handleDismissBottomActionConfirm\}/);
+    expect(source).toMatch(/onDismiss=\{handleDismissEndSessionConfirm\}/);
+    expect(source).toMatch(/onDismiss=\{handleDismissChooseAnotherConfirm\}/);
+    // Confirm handlers still byte-identical to before this fix.
+    expect(source).toMatch(/const handleConfirmLeave = \(\) => \{\s*\n\s*setLeaveConfirmOpen\(false\);\s*\n\s*onRequestLeave\(\);\s*\n\s*\};/);
+    expect(source).toMatch(/const handleConfirmBottomAction = \(\) => \{\s*\n\s*setBottomActionConfirmOpen\(false\);\s*\n\s*bottomAction\?\.onConfirm\(\);\s*\n\s*\};/);
+    expect(source).toMatch(/const handleConfirmEndSession = \(\) => \{\s*\n\s*setEndSessionConfirmOpen\(false\);\s*\n\s*onEndSession\(\);\s*\n\s*\};/);
+    expect(source).toMatch(/const handleConfirmChooseAnother = \(\) => \{\s*\n\s*setChooseAnotherConfirmOpen\(false\);\s*\n\s*onChooseAnother\(\);\s*\n\s*\};/);
+    for (const dismissFn of ['handleDismissLeaveConfirm', 'handleDismissBottomActionConfirm', 'handleDismissEndSessionConfirm', 'handleDismissChooseAnotherConfirm']) {
+      const fn = source.match(new RegExp(`const ${dismissFn} = \\(\\) => \\{[\\s\\S]*?\\n {2}\\};`))?.[0] ?? '';
+      expect(fn, `${dismissFn} should exist`).not.toBe('');
+      expect(fn).toMatch(/resumeAfterDialogDismiss\(\);/);
+    }
   });
 });

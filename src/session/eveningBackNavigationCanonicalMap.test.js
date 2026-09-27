@@ -105,15 +105,27 @@ describe('Canonical map — Active Breathing Back safely stops the exercise and 
     expect(body).toMatch(/if \(!hasBegun \|\| isRepeatGated\) return;/);
   });
 
-  it('while active, it resets the double-tap guard, clears the pause flag and phase/countdown, flips hasBegun off, stops any playing music, and cancels this tap\'s navigation', () => {
+  // Evening Breathing Back/early-exit correction (reusing Breathe.jsx's
+  // proven pattern) — Back during an active exercise no longer resets
+  // anything immediately with zero confirmation. It now only captures
+  // music state and opens a "Leave this breathing exercise?" dialog;
+  // leaveExercise (below) does the actual teardown, only once confirmed.
+  it('while active, it only captures whether music was playing and opens the confirmation dialog - it never itself resets hasBegun/breatheState/secondsLeft or stops music', () => {
     const body = eveningBreathingSource.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;/);
+    expect(body).toMatch(/setBackConfirmOpen\(true\);/);
+    expect(body).toMatch(/return false;/);
+    expect(body).not.toMatch(/setHasBegun\(false\);|musicPlayerRef\.current\?\.stop\(\);/);
+  });
+
+  it('leaveExercise (the confirmed early-exit path) resets the double-tap guard, clears the pause flag and phase/countdown, flips hasBegun off, and stops any playing music', () => {
+    const body = eveningBreathingSource.match(/const leaveExercise = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
     expect(body).toMatch(/setManuallyPaused\(false\);/);
     expect(body).toMatch(/setBreatheState\('Inhale'\);/);
     expect(body).toMatch(/setSecondsLeft\(activePattern\.totalSeconds\);/);
     expect(body).toMatch(/setHasBegun\(false\);/);
     expect(body).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(body).toMatch(/return false;/);
   });
 });
 

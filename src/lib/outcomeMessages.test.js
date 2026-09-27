@@ -154,12 +154,15 @@ describe('getBreathingCompletionGreeting - three separate, journey-scoped rotati
       'You made space to breathe.',
       'Feeling steadier? Keep it close.'
     ],
+    // Evening Breathing/Meditation completion correction - exact copy
+    // approved for this pass, replacing the earlier placeholder pool
+    // (never wired to any UI - see outcomeMessages.js's own doc comment).
     evening: [
       'Let the day soften now.',
-      'You’re ready to slow down.',
-      'Carry this calm into rest.',
-      'The day can wait until tomorrow.',
-      'Breathe out. It’s time to unwind.'
+      'Breathe out. You can slow down.',
+      'Carry this calm toward rest.',
+      'You’ve made space to unwind.',
+      'The day can begin to fade.'
     ]
   };
 
@@ -315,7 +318,7 @@ describe('getCompletionGreeting - shared, journey+practice-keyed completion arch
     });
   });
 
-  it('Morning messages can never be selected for an Anytime/Evening request - those practices don\'t exist yet for those journeys, so the honest generic fallback is returned instead of silently borrowing Morning\'s copy', () => {
+  it('Morning messages can never be selected for an Anytime/Evening request - Evening Breathing/Meditation completion correction: evening.meditation is now a real pool of its own distinct copy; every other combination below still has no pool at all and returns the honest generic fallback - neither case ever silently borrows Morning\'s copy', () => {
     const allMorningMessages = Object.values(MORNING_POOLS).flat();
     for (const journey of ['anytime', 'evening']) {
       for (const practice of ['stretching', 'meditation', 'routine']) {
@@ -342,6 +345,101 @@ describe('getCompletionGreeting - shared, journey+practice-keyed completion arch
       for (let i = 0; i < 10; i += 1) {
         expect(MORNING_POOLS.breathing).toContain(getBreathingCompletionGreeting('morning'));
       }
+    });
+  });
+});
+
+// Evening Breathing/Meditation completion correction - mirrors the
+// MORNING_POOLS describe block above exactly, for Evening's own two
+// pools.
+describe('getCompletionGreeting - Evening Breathing/Meditation pools (Evening Breathing/Meditation completion correction)', () => {
+  const withMockLocalStorage = (fn) => {
+    const store = new Map();
+    const mock = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => store.set(key, String(value)),
+      removeItem: (key) => store.delete(key)
+    };
+    const previous = globalThis.localStorage;
+    globalThis.localStorage = mock;
+    try {
+      return fn(mock);
+    } finally {
+      if (previous === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = previous;
+    }
+  };
+
+  const EVENING_POOLS = {
+    breathing: [
+      'Let the day soften now.',
+      'Breathe out. You can slow down.',
+      'Carry this calm toward rest.',
+      'You’ve made space to unwind.',
+      'The day can begin to fade.'
+    ],
+    meditation: [
+      'Your mind can settle now.',
+      'Let this stillness stay with you.',
+      'You’ve made room for rest.',
+      'The day can wait until tomorrow.',
+      'Ease gently into your evening.'
+    ]
+  };
+  // Duplicated (not imported) from the Morning describe block above - kept
+  // deliberately local so this block has no scope dependency on it.
+  const ALL_MORNING_MESSAGES = [
+    'A brighter morning starts now.', 'Carry this calm into your day.', 'You’re ready for what’s ahead.', 'A steady start makes a difference.', 'You showed up for yourself.',
+    'Your body is awake and ready.', 'Carry this energy into your morning.', 'A little movement makes a difference.', 'You’ve made a strong start.', 'Your morning is already in motion.',
+    'Your mind has room to breathe.', 'Carry this clarity with you.', 'You made space for stillness.', 'Hold onto this quiet moment.', 'A calmer morning continues here.',
+    'Step into your day with confidence.', 'Carry this positive energy forward.', 'Your morning has a clear direction.', 'You’re ready for the day ahead.', 'Take this calm and confidence with you.'
+  ];
+
+  it.each(Object.entries(EVENING_POOLS))('evening/%s: always returns one of that pool\'s own messages - never the other Evening practice\'s pool, never a Morning/Anytime message', (practice, pool) => {
+    for (let i = 0; i < 20; i += 1) {
+      const greeting = getCompletionGreeting({ journey: 'evening', practice });
+      expect(pool).toContain(greeting);
+      for (const [otherPractice, otherPool] of Object.entries(EVENING_POOLS)) {
+        if (otherPractice === practice) continue;
+        expect(otherPool).not.toContain(greeting);
+      }
+      expect(ALL_MORNING_MESSAGES).not.toContain(greeting);
+    }
+  });
+
+  it('no message is shared between the two Evening pools', () => {
+    const overlap = EVENING_POOLS.breathing.filter((m) => EVENING_POOLS.meditation.includes(m));
+    expect(overlap).toEqual([]);
+  });
+
+  it('every message in every Evening pool is short (3-8 words)', () => {
+    for (const pool of Object.values(EVENING_POOLS)) {
+      for (const message of pool) {
+        const wordCount = message.trim().split(/\s+/).length;
+        expect(wordCount).toBeGreaterThanOrEqual(3);
+        expect(wordCount).toBeLessThanOrEqual(8);
+      }
+    }
+  });
+
+  it('never repeats the immediately-previous message for evening/meditation, when localStorage is available', () => {
+    withMockLocalStorage(() => {
+      let previous = getCompletionGreeting({ journey: 'evening', practice: 'meditation' });
+      for (let i = 0; i < 30; i += 1) {
+        const next = getCompletionGreeting({ journey: 'evening', practice: 'meditation' });
+        expect(next).not.toBe(previous);
+        previous = next;
+      }
+    });
+  });
+
+  it('evening/breathing and evening/meditation are tracked with their own independent storage keys - exhausting one\'s picks never affects the other\'s own non-repeat memory', () => {
+    withMockLocalStorage(() => {
+      const breathingFirst = getCompletionGreeting({ journey: 'evening', practice: 'breathing' });
+      for (let i = 0; i < 10; i += 1) getCompletionGreeting({ journey: 'evening', practice: 'meditation' });
+      const breathingSecond = getCompletionGreeting({ journey: 'evening', practice: 'breathing' });
+      expect(breathingSecond).not.toBe(breathingFirst); // still correctly avoids ITS OWN immediately-previous
+      expect(EVENING_POOLS.breathing).toContain(breathingSecond);
     });
   });
 });
