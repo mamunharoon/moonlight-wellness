@@ -1,6 +1,9 @@
-// WakeWise Phase 2 (B6) — SessionComplete.jsx sources its rotating
-// headline/body from the shared outcomeMessages.js model instead of one
-// fixed string. Source-level regression guard (no DOM rendering is
+// WakeWise DEV — full Morning routine completion correction:
+// SessionComplete.jsx now sources its rotating completion message from the
+// same shared getCompletionGreeting({journey, practice}) architecture as
+// Morning Breathing/Stretch/Meditation (outcomeMessages.js), instead of
+// its own separate headline/body pair keyed to the calendar day
+// (getOutcomeMessage). Source-level regression guard (no DOM rendering is
 // available in this repo's Vitest).
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -9,20 +12,26 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./SessionComplete.jsx', import.meta.url)), 'utf-8');
 
 describe('SessionComplete.jsx — rotating completion message wiring', () => {
-  it('imports the shared outcome-message model', () => {
-    expect(source).toMatch(/import \{ OUTCOME, JOURNEY, getOutcomeMessage \} from '\.\.\/lib\/outcomeMessages';/);
+  it('imports the shared getCompletionGreeting API - never the old per-day getOutcomeMessage model', () => {
+    expect(source).toMatch(/import \{ getCompletionGreeting \} from '\.\.\/lib\/outcomeMessages';/);
+    expect(source).not.toMatch(/getOutcomeMessage|OUTCOME\.COMPLETED|JOURNEY\.MORNING/);
   });
 
-  it('resolves headline/body via getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.MORNING, today) - this screen is only ever reached on a genuine completion (see the unchanged mount-effect guard)', () => {
-    expect(source).toMatch(/const \{ headline, body \} = getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.MORNING, today\);/);
+  it('resolves the completion greeting via getCompletionGreeting({journey: \'morning\', practice: \'routine\'}) - a dedicated, non-repeating pool of its own, never borrowed from Breathing/Stretch/Meditation', () => {
+    expect(source).toMatch(/const \[completionGreeting\] = useState\(\(\) => getCompletionGreeting\(\{ journey: 'morning', practice: 'routine' \}\)\);/);
   });
 
-  it('today is the caller\'s own local dateKey (getZonedParts(effectiveTimezone, devNow())), the same technique every other daily-completion flag in this file already uses - never UTC, never a fixed offset', () => {
-    expect(source).toMatch(/const today = getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/);
+  it('the greeting is picked exactly once (lazy useState initializer), held stable, never re-picked on re-render', () => {
+    const setterCalls = source.match(/getCompletionGreeting\(/g) ?? [];
+    expect(setterCalls.length).toBe(1);
   });
 
-  it('renders {headline} and {body} directly, not a hardcoded string', () => {
-    expect(source).toMatch(/<h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{headline\}<\/h2>/);
-    expect(source).toMatch(/<p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">\s*\n\s*\{body\}\s*\n\s*<\/p>/);
+  it('renders {completionGreeting} directly as the headline - not a hardcoded string, and no separate {body} paragraph any more', () => {
+    expect(source).toMatch(/<h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{completionGreeting\}<\/h2>/);
+    expect(source).not.toMatch(/\{body\}/);
+  });
+
+  it('shows the required "Morning Complete" eyebrow label, reusing the same warm-gold token as Breathe.jsx/MorningFlow.jsx/MorningMeditate.jsx\'s own completion panels - never a new colour', () => {
+    expect(source).toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
   });
 });

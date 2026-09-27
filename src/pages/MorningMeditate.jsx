@@ -18,6 +18,8 @@ import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel
 import { MeditationActiveSession } from '../components/journey/MeditationActiveSession';
 import { MEDITATION_CONTEXTS, getRecommendedDurationId } from '../lib/meditationDurations';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { getCompletionGreeting } from '../lib/outcomeMessages';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — Morning embedded
@@ -117,17 +119,41 @@ export const MorningMeditate = () => {
   // read during render can silently miss a re-render entirely).
   const [hasStartedThisVisit, setHasStartedThisVisit] = useState(false);
 
-  const handleComplete = () => {
+  // Morning Meditation completion correction — reuses Breathe.jsx/
+  // MorningFlow.jsx's approved, physical-iPhone-tested completion-panel
+  // architecture. useMeditationSession.js's own timer already runs the
+  // ONE real interval and already decides completion authoritatively
+  // (see its own doc comment) — cleanupSession()/setPhase('setup') have
+  // already run by the time onComplete fires, so the only new work here
+  // is intercepting that exact moment to show a dedicated completion
+  // panel instead of silently falling through to the setup screen.
+  // advanceToAffirmation is the real mirror+navigate step (previously
+  // named handleComplete) — now reached only once the user taps Continue
+  // on the completed panel, or via the pre-existing Finish & continue/
+  // Skip paths, which are left entirely unchanged.
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionGreeting, setCompletionGreeting] = useState(null);
+
+  const advanceToAffirmation = () => {
     mirrorMeditateExitRef.current();
     setJourneyStep('affirmation');
     navigate('/affirmation');
+  };
+
+  // The natural-completion path only: picks the rotating greeting and
+  // shows the completed panel. Deliberately does NOT navigate or mirror
+  // yet — that only happens once the user taps Continue to Affirmation,
+  // mirroring Breathe.jsx/MorningFlow.jsx's own "Continue-lock" pattern.
+  const handleNaturalCompletion = () => {
+    setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'meditation' }));
+    setIsCompleted(true);
   };
 
   const session = useMeditationSession({
     initialStyleId: 'mindful-pause',
     initialDurationId: '2min',
     initialSoundId: 'IM01',
-    onComplete: handleComplete
+    onComplete: handleNaturalCompletion
   });
 
   // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
@@ -139,7 +165,13 @@ export const MorningMeditate = () => {
   // this is the real fix for "music starts late."
   const countdown = usePreparationCountdown({
     seconds: 5,
-    onComplete: () => session.begin()
+    onComplete: () => {
+      // Sequential-run correctness (mirrors Breathe.jsx/MorningFlow.jsx) —
+      // a fresh Begin always clears any stale completed state.
+      setIsCompleted(false);
+      setCompletionGreeting(null);
+      session.begin();
+    }
   });
 
   const handleBegin = () => {
@@ -152,16 +184,18 @@ export const MorningMeditate = () => {
   // correction) — a deliberate EARLY finish, genuinely distinct from
   // natural completion: stops the timer/audio first (session.endSession(),
   // the exact same cleanup Back -> End Meditation already uses), then
-  // reuses handleComplete() verbatim, so it goes through the identical
-  // mirror-to-Session-Engine-exactly-once guard (hasMirroredExitRef) and
-  // navigation as natural completion and Skip - never a second, divergent
-  // advance-to-Affirmation path. Never claims the full selected duration
-  // elapsed (no completion summary is fabricated); the Morning progress
-  // checkmark for Meditate means "consciously moved past," not "every
-  // selected minute ran."
+  // reuses advanceToAffirmation() verbatim, so it goes through the
+  // identical mirror-to-Session-Engine-exactly-once guard
+  // (hasMirroredExitRef) and navigation as natural completion's Continue
+  // action and Skip - never a second, divergent advance-to-Affirmation
+  // path. Never claims the full selected duration elapsed (no completion
+  // summary is fabricated); the Morning progress checkmark for Meditate
+  // means "consciously moved past," not "every selected minute ran." This
+  // is a deliberate early finish, not a natural completion, so it never
+  // shows the completed panel — unchanged, out of this correction's scope.
   const handleFinishAndContinue = () => {
     session.endSession();
-    handleComplete();
+    advanceToAffirmation();
   };
 
   // "Choose another meditation" (active-screen secondary action, Morning
@@ -200,7 +234,7 @@ export const MorningMeditate = () => {
     hasUnsavedProgress: session.phase === 'active'
   });
 
-  const handleSkip = () => handleComplete();
+  const handleSkip = () => advanceToAffirmation();
 
   // Dialog-severity correction — see Breathe.jsx's identical fix/
   // rationale. Distinct state from exitConfirmOpen above (that one is the
@@ -259,6 +293,79 @@ export const MorningMeditate = () => {
           onSkip={countdown.skip}
           accent="morning"
         />
+      </div>
+    );
+  }
+
+  // Morning Meditation completion correction — a genuine dedicated
+  // completed panel, checked BEFORE the active-session branch below.
+  // useMeditationSession.js's own onComplete fires only after it has
+  // already flipped phase back to 'setup' (see its own doc comment), so
+  // without this explicit isCompleted branch the render would silently
+  // fall through to the ordinary setup screen with no acknowledgement at
+  // all. Warm-gold visual language reused verbatim from Breathe.jsx/
+  // MorningFlow.jsx's own completed panels - never a new colour.
+  if (isCompleted) {
+    return (
+      <div className="h-dvh overflow-hidden">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+      <div
+        className="min-h-full flex flex-col pb-6 max-w-xl mx-auto"
+        style={{
+          paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+          paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+          paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
+        }}
+      >
+        <JourneyGlow journey="morning" />
+        <div className="flex items-center gap-3">
+          {/* Back-after-completion is ordinary navigation (mirrors
+              Breathe.jsx/MorningFlow.jsx) - the exercise already finished,
+              so this is never an early-exit confirmation. */}
+          <BackButton fallback="/breathe" guardActiveRoute={false} />
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center">
+            <span className="material-symbols-outlined text-morning-accent text-4xl" aria-hidden="true">check_circle</span>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Meditation Completed</span>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              {completionGreeting}
+            </h2>
+            <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              Carry this stillness into the rest of your morning.
+            </p>
+          </div>
+        </div>
+        <div className="space-y-3 w-full">
+          <button
+            onClick={advanceToAffirmation}
+            className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+          >
+            <span>Continue to Affirmation</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+          <button
+            onClick={handleExitRoutine}
+            className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+          >
+            Exit routine
+          </button>
+        </div>
+        <ConfirmDialog
+          open={exitRoutineLinkConfirmOpen}
+          title="Exit this routine?"
+          message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+          confirmLabel="Exit Routine"
+          cancelLabel="Stay"
+          mildDestructive
+          onConfirm={confirmExitRoutine}
+          onDismiss={() => setExitRoutineLinkConfirmOpen(false)}
+        />
+      </div>
+      </div>
       </div>
     );
   }

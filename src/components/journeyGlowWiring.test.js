@@ -151,10 +151,12 @@ describe('Morning screens — each renders the shared JourneyGlow with journey="
     }
   });
 
-  it('MorningMeditate.jsx renders it on all three of its own return branches (countdown, active session, setup)', () => {
+  it('MorningMeditate.jsx renders it on all four of its own return branches (countdown, completed, active session, setup)', () => {
+    // Morning Meditation completion correction — a fourth, dedicated
+    // return branch (isCompleted) added alongside the existing three.
     const source = read('../pages/MorningMeditate.jsx');
     const occurrences = source.match(/<JourneyGlow journey="morning" \/>/g) ?? [];
-    expect(occurrences.length).toBe(3);
+    expect(occurrences.length).toBe(4);
   });
 });
 

@@ -12,7 +12,7 @@ import { roleForIndex } from '../lib/intentionSelection';
 import { getMorningCompletionKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
-import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
+import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
 const RING_CIRCUMFERENCE = 276.46;
@@ -116,16 +116,17 @@ export const SessionComplete = () => {
 
   const displayIntentions = intentions.length > 0 ? intentions : ['Stay calm'];
 
-  // WakeWise Phase 2 (B6) — this screen is reached ONLY on a genuine
-  // natural completion (the mount effect above gates completeSession() on
-  // state.status==='playing'; a direct/refreshed visit or a mismatched
-  // step still renders this same static screen, unaffected). The
-  // headline/body now rotate through 5 curated, uplifting variants keyed
-  // to the user's own local calendar day (same dayIndexFromDateKey
-  // technique greeting.js already uses) instead of one fixed string -
-  // stable all day, never re-rolled on rerender/reopen.
-  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
-  const { headline, body } = getOutcomeMessage(OUTCOME.COMPLETED, JOURNEY.MORNING, today);
+  // WakeWise DEV — full Morning routine completion correction: this
+  // screen is reached ONLY on a genuine natural completion (the mount
+  // effect above gates completeSession() on state.status==='playing'; a
+  // direct/refreshed visit or a mismatched step still renders this same
+  // static screen, unaffected). Now shares the same completion-message
+  // architecture as Morning Breathing/Stretch/Meditation
+  // (getCompletionGreeting - outcomeMessages.js) instead of its own
+  // separate headline/body pair, picked once and held stable via
+  // localStorage's own per-(journey, practice) non-repeat tracking -
+  // never re-rolled on rerender/reopen.
+  const [completionGreeting] = useState(() => getCompletionGreeting({ journey: 'morning', practice: 'routine' }));
 
   return (
     // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
@@ -188,12 +189,15 @@ export const SessionComplete = () => {
         </div>
       </div>
 
-      {/* Text Success Header */}
+      {/* Text Success Header — small warm-gold eyebrow label reusing
+          Breathe.jsx/MorningFlow.jsx/MorningMeditate.jsx's own completion-
+          panel placement/styling (never a new colour). The old separate
+          supporting body paragraph is dropped - the Summary card below
+          already carries the supporting content, and one rotating
+          headline is enough. */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{headline}</h2>
-        <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          {body}
-        </p>
+        <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete</span>
+        <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{completionGreeting}</h2>
       </div>
 
       {/* Summary card */}
@@ -216,7 +220,7 @@ export const SessionComplete = () => {
           onClick={handleReturnHome}
           className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
         >
-          <span>Continue to Today</span>
+          <span>Continue to My Day</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
       </div>

@@ -229,7 +229,10 @@ describe('Stretch pre-start disclosures - collapse/expand behaviour', () => {
     const guidedSessionsOpenUsages = source.match(/guidedSessionsOpen/g) ?? [];
     // setGuidedSessionsOpen(false) init + pre-start button/panel + active button/panel references.
     expect(guidedSessionsOpenUsages.length).toBeGreaterThanOrEqual(6);
-    expect(source).toMatch(/\{hasBegun && !isRepeatGated && \(\s*\n\s*<div className="space-y-2">\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => setGuidedSessionsOpen/);
+    // Morning Stretch completion correction - the active-only disclosure
+    // is also gated on !isCompleted now (the completed panel has its own
+    // action block instead).
+    expect(source).toMatch(/\{hasBegun && !isRepeatGated && !isCompleted && \(\s*\n\s*<div className="space-y-2">\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{\(\) => setGuidedSessionsOpen/);
   });
 });
 
@@ -279,8 +282,8 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
     expect(source).toMatch(/\{!countdown\.isActive && \(!hasBegun \? \(/);
   });
 
-  it('the countdown effect refuses to run at all while !hasBegun (or with no locked activeSequence yet)', () => {
-    expect(source).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
+  it('the countdown effect refuses to run at all while !hasBegun (or with no locked activeSequence yet), and also pauses while completed or a back-confirmation is open', () => {
+    expect(source).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
   it('the active movement list (the only place a "current" highlighted movement/animation-style state renders) is entirely inside the hasBegun branch - never rendered pre-start', () => {
@@ -289,16 +292,25 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
   });
 
   it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points across the pre-start/active transition - a real bug found and fixed this phase: a ref-triggered start() on an instance about to unmount orphans the audio), hidden pre-start via hideToggle, with nothing calling .start() outside handleBeginStretching/handleResumeWithMusic', () => {
-    expect(source).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    // Morning Stretch completion correction - suspended/hideToggle now also
+    // account for isCompleted (stop while the completion panel is shown)
+    // and backConfirmOpen (pause while the leave-confirmation is open),
+    // mirroring the approved Breathe.jsx pattern.
+    expect(source).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (source.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = source.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    // Exactly two legitimate call sites: handleBeginStretching and
-    // handleResumeWithMusic - never a third, and never inside a useEffect.
-    expect(startCalls.length).toBe(2);
+    // Exactly three legitimate call sites: handleBeginStretching,
+    // handleResumeWithMusic, and keepStretching (resuming music that was
+    // playing before a Back-confirmation dialog paused it) - never a
+    // fourth, and never inside a useEffect.
+    expect(startCalls.length).toBe(3);
     const effectBodies = source.match(/useEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[[^\]]*\]\);/g) ?? [];
+    // The new interval-management effect legitimately calls
+    // musicPlayerRef.current?.stop() on natural completion - only .start()
+    // remains forbidden inside a useEffect.
     for (const body of effectBodies) {
-      expect(body).not.toMatch(/musicPlayerRef/);
+      expect(body).not.toMatch(/musicPlayerRef\.current\?\.start\(/);
     }
   });
 
@@ -333,13 +345,21 @@ describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music togethe
     expect(body.indexOf('if (hasBegunOnceRef.current) return;')).toBeLessThan(body.indexOf('hasBegunOnceRef.current = true;'));
   });
 
-  it('the countdown\'s onComplete callback locks the selected sequence, resets activeStep/timeLeft, and sets hasBegun - all inside one callback', () => {
+  it('the countdown\'s onComplete callback locks the selected sequence, creates the pure stretch session controller, resets activeStep/timeLeft from it, and sets hasBegun - all inside one callback', () => {
+    // Morning Stretch completion correction - activeStep/timeLeft are no
+    // longer reset to literal 0/getStepDuration() but instead read back
+    // from the newly-created createStretchSession() controller, mirroring
+    // breathingSession.js's proven pattern.
     const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
     expect(countdownBlock).toMatch(/const sequence = \[\.\.\.selectedMovements\]\.sort\(\(a, b\) => a - b\);/);
     expect(countdownBlock).toMatch(/setActiveSequence\(sequence\);/);
-    expect(countdownBlock).toMatch(/setActiveStep\(0\);/);
-    expect(countdownBlock).toMatch(/setTimeLeft\(getStepDuration\(\)\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current = createStretchSession\(\{ movementCount: sequence\.length, stepDurationSeconds: getStepDuration\(\) \}\);/);
+    expect(countdownBlock).toMatch(/sessionRef\.current\.begin\(\);/);
+    expect(countdownBlock).toMatch(/setActiveStep\(sessionRef\.current\.getActiveIndex\(\)\);/);
+    expect(countdownBlock).toMatch(/setTimeLeft\(sessionRef\.current\.getTimeLeft\(\)\);/);
+    expect(countdownBlock).toMatch(/setIsCompleted\(false\);/);
+    expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
   });
 

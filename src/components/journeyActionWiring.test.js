@@ -18,7 +18,13 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
     ['../pages/IntentionSetup.jsx', 'morning', 2],
     ['../pages/Affirmation.jsx', 'morning', 1],
     ['../pages/SessionComplete.jsx', 'morning', 1],
-    ['../pages/MorningFlow.jsx', 'morning', 2],
+    // Morning Meditation completion correction — the new completed panel's
+    // "Continue to Affirmation" primary action, the first call site in
+    // this file.
+    ['../pages/MorningMeditate.jsx', 'morning', 1],
+    // Morning Stretch completion correction — a third call site: the new
+    // completed panel's "Continue to Breathe" primary action.
+    ['../pages/MorningFlow.jsx', 'morning', 3],
     ['../pages/Breathe.jsx', 'morning', 2],
     ['../pages/AnytimeReset.jsx', 'anytime', 1],
     // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's

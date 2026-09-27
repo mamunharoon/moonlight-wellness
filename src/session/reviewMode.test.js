@@ -431,7 +431,9 @@ describe('The three timed/exercise steps (Breathe, Stretch, Evening Breathing) n
     // musicEntryChoice.test.js): each now gates on hasBegun (MorningFlow.jsx
     // additionally on its own locked activeSequence), since nothing may
     // run before its own new pre-start screen's explicit Begin gesture.
-    expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming\) return;/);
+    // Morning Stretch completion correction also added isCompleted/
+    // backConfirmOpen to this same guard.
+    expect(morningFlowSource).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
     // Continue-lock/Skip-semantics fix adds hasFinished to Breathe.jsx/
     // EveningBreathing.jsx's own guard too (MorningFlow.jsx/Stretch is
     // untouched by that fix) - see embeddedBreathingContinueLock.test.js.

@@ -138,72 +138,114 @@ const BREATHING_ACKNOWLEDGEMENT_FALLBACK = 'Thank you for taking this moment for
 export const getBreathingAcknowledgement = (journey) =>
   BREATHING_ACKNOWLEDGEMENT[journey] ?? BREATHING_ACKNOWLEDGEMENT_FALLBACK;
 
-// Breathing completed state (mobile correction) — rotating, journey-
-// SCOPED pools of short, warm, uplifting acknowledgements (3-8 words, no
-// clinical/instructional language, per the approved copy revision) for
-// the new dedicated completion panel. Three separate pools (never one
-// shared pool with a journey-agnostic pick) so a Morning message can
-// never appear during Evening/Anytime, and vice versa. Distinct from
-// getBreathingAcknowledgement's single fixed line above (that line is
-// still used, unchanged, by EveningBreathing.jsx/QuietBreathing.jsx's own
-// inline acknowledgement - out of scope for this fix). Same module, same
-// journey/outcome vocabulary, never a competing system: this is purely an
-// additive export.
-const BREATHING_COMPLETION_GREETINGS = {
-  morning: [
-    'A brighter morning starts now.',
-    'Carry this calm into your day.',
-    'You’re ready for what’s ahead.',
-    'A steady start makes a difference.',
-    'You showed up for yourself.'
-  ],
-  anytime: [
-    'You gave yourself a moment.',
-    'A short reset can change things.',
-    'Carry this calm with you.',
-    'You made space to breathe.',
-    'Feeling steadier? Keep it close.'
-  ],
-  evening: [
-    'Let the day soften now.',
-    'You’re ready to slow down.',
-    'Carry this calm into rest.',
-    'The day can wait until tomorrow.',
-    'Breathe out. It’s time to unwind.'
-  ]
+// Shared completion-greeting architecture (Morning Stretch/Meditation/
+// routine correction) — ONE rotating-pool system, keyed by BOTH journey
+// (morning/anytime/evening) AND completed practice (breathing/stretching/
+// meditation/routine), used by every natural-completion panel in the app.
+// Extends the breathing-only pool this module already shipped (mobile
+// correction #3/Morning breathing completion correction) into this same
+// two-dimensional shape rather than standing up a second, competing
+// system - `getBreathingCompletionGreeting` below is now a thin,
+// byte-for-byte-compatible wrapper over `getCompletionGreeting`, so
+// Breathe.jsx (already approved and physical-iPhone-tested) needs no
+// changes at all. Each (journey, practice) pool is short, warm, uplifting
+// (3-8 words, no clinical/instructional language) and completely
+// separate from every other pool - a Morning message can never leak into
+// Anytime/Evening, and Stretch/Meditation/routine messages can never leak
+// into each other, by construction (each is its own array, its own
+// storage key).
+const COMPLETION_GREETINGS = {
+  morning: {
+    breathing: [
+      'A brighter morning starts now.',
+      'Carry this calm into your day.',
+      'You’re ready for what’s ahead.',
+      'A steady start makes a difference.',
+      'You showed up for yourself.'
+    ],
+    stretching: [
+      'Your body is awake and ready.',
+      'Carry this energy into your morning.',
+      'A little movement makes a difference.',
+      'You’ve made a strong start.',
+      'Your morning is already in motion.'
+    ],
+    meditation: [
+      'Your mind has room to breathe.',
+      'Carry this clarity with you.',
+      'You made space for stillness.',
+      'Hold onto this quiet moment.',
+      'A calmer morning continues here.'
+    ],
+    routine: [
+      'Step into your day with confidence.',
+      'Carry this positive energy forward.',
+      'Your morning has a clear direction.',
+      'You’re ready for the day ahead.',
+      'Take this calm and confidence with you.'
+    ]
+  },
+  // Anytime/Evening only have a breathing pool today - stretching/
+  // meditation/routine for those journeys are explicitly out of scope for
+  // this pass (handled separately after Morning passes physical-device
+  // testing). getCompletionGreeting's own fallback below (never reaching
+  // into another journey's pool) is what keeps this safe rather than a
+  // placeholder entry here.
+  anytime: {
+    breathing: [
+      'You gave yourself a moment.',
+      'A short reset can change things.',
+      'Carry this calm with you.',
+      'You made space to breathe.',
+      'Feeling steadier? Keep it close.'
+    ]
+  },
+  evening: {
+    breathing: [
+      'Let the day soften now.',
+      'You’re ready to slow down.',
+      'Carry this calm into rest.',
+      'The day can wait until tomorrow.',
+      'Breathe out. It’s time to unwind.'
+    ]
+  }
 };
 
 // localStorage (not sessionStorage) - deliberately survives across days,
 // not just this app session, since "avoid yesterday's greeting" and
 // "avoid the immediately-previous greeting" are the same requirement in
-// the common case of one breathing completion per journey per day. One
-// key PER JOURNEY (never shared across pools, so Morning's last-shown
-// index can never affect Evening's own rotation). Still just a single
-// lightweight index per journey, never a persisted history/statistics
-// table and never a database write (explicitly out of scope for this
-// fix). Read/write failures (e.g. localStorage unavailable) degrade
-// gracefully to a plain random pick with no repeat-avoidance for that
-// one call - never a crash.
-const breathingLastGreetingKey = (journey) => `moonlight_breathing_last_greeting_index_${journey}`;
+// the common case of one completion per journey+practice per day. One key
+// PER (journey, practice) PAIR - never shared across pools, so e.g.
+// Morning Stretch's last-shown index can never affect Morning Meditation's
+// or Evening Breathing's own rotation. Still just a single lightweight
+// index per pool, never a persisted history/statistics table and never a
+// database write (explicitly out of scope). Read/write failures (e.g.
+// localStorage unavailable) degrade gracefully to a plain random pick
+// with no repeat-avoidance for that one call - never a crash.
+const completionGreetingKey = (journey, practice) => `moonlight_completion_greeting_last_index_${journey}_${practice}`;
 
 /**
- * Picks one greeting for a single naturally-completed breathing session,
- * from the pool that matches the ACTUAL journey context - never a
- * Morning message during Evening/Anytime or vice versa. Callers must
- * call this exactly once per completion (e.g. via a lazy useState
- * initializer keyed to entering the completed state) and hold the
- * returned string for as long as the completion screen stays mounted -
- * this function itself does not memoize; calling it again picks again.
- * An unrecognised/missing journey falls back to the 'anytime' pool
- * (matching this module's own existing getOutcomeMessage default),
- * never a crash and never a Morning/Evening-specific claim for an
- * unknown context.
- * @param {'morning'|'anytime'|'evening'} [journey]
+ * Picks one greeting for a single naturally-completed activity, from the
+ * pool that matches BOTH the actual journey AND the actual completed
+ * practice - never a Morning message during Evening/Anytime, never a
+ * Stretch message for a Meditation completion, or vice versa in either
+ * dimension. Callers must call this exactly once per completion (e.g.
+ * via a lazy useState initializer, or inside the one interval callback
+ * that detects natural completion) and hold the returned string for as
+ * long as the completion screen stays mounted - this function itself
+ * does not memoize; calling it again picks again. An unrecognised/
+ * missing (journey, practice) combination - including every Anytime/
+ * Evening practice not yet built - falls back to the same honest,
+ * generic line getBreathingAcknowledgement's own fallback already uses,
+ * never a crash and never silently borrowing a different journey's or
+ * practice's real copy.
+ * @param {{ journey: 'morning'|'anytime'|'evening', practice: 'breathing'|'stretching'|'meditation'|'routine' }} params
  * @returns {string}
  */
-export const getBreathingCompletionGreeting = (journey) => {
-  const pool = BREATHING_COMPLETION_GREETINGS[journey] ?? BREATHING_COMPLETION_GREETINGS.anytime;
-  const storageKey = breathingLastGreetingKey(BREATHING_COMPLETION_GREETINGS[journey] ? journey : 'anytime');
+export const getCompletionGreeting = ({ journey, practice }) => {
+  const pool = COMPLETION_GREETINGS[journey]?.[practice];
+  if (!pool) return BREATHING_ACKNOWLEDGEMENT_FALLBACK;
+  const storageKey = completionGreetingKey(journey, practice);
   let lastIndex = -1;
   try {
     const stored = localStorage.getItem(storageKey);
@@ -222,6 +264,18 @@ export const getBreathingCompletionGreeting = (journey) => {
   }
   return pool[nextIndex];
 };
+
+/**
+ * Backward-compatible wrapper over getCompletionGreeting - Breathe.jsx
+ * (already approved and physical-iPhone-tested) keeps calling this exact
+ * name/signature unchanged. An unrecognised/missing journey falls back to
+ * the 'anytime' breathing pool (matching this module's own existing
+ * getOutcomeMessage default), never a crash.
+ * @param {'morning'|'anytime'|'evening'} [journey]
+ * @returns {string}
+ */
+export const getBreathingCompletionGreeting = (journey) =>
+  getCompletionGreeting({ journey: COMPLETION_GREETINGS[journey] ? journey : 'anytime', practice: 'breathing' });
 
 // Morning breathing Back/early-exit correction — a short, honest,
 // non-celebratory acknowledgement shown on the pre-start/selection screen

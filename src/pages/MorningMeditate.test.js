@@ -75,8 +75,13 @@ describe('MorningMeditate.jsx — compact setup: purpose, recommended choice, di
 });
 
 describe('MorningMeditate.jsx — Skip and Complete both continue to Affirmation, exactly once', () => {
-  it('handleComplete mirrors the Session Engine transition then navigates to /affirmation - never to the standalone completion route', () => {
-    const body = source.match(/const handleComplete = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+  // Morning Meditation completion correction — handleComplete was split
+  // into advanceToAffirmation (the real mirror+navigate step, reached by
+  // Skip, Finish & continue, and the new completed panel's Continue
+  // action) and handleNaturalCompletion (which only shows the completed
+  // panel - see the describe block below for its own dedicated coverage).
+  it('advanceToAffirmation mirrors the Session Engine transition then navigates to /affirmation - never to the standalone completion route', () => {
+    const body = source.match(/const advanceToAffirmation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/mirrorMeditateExitRef\.current\(\);/);
     expect(body).toMatch(/setJourneyStep\('affirmation'\);/);
     expect(body).toMatch(/navigate\('\/affirmation'\);/);
@@ -87,8 +92,8 @@ describe('MorningMeditate.jsx — Skip and Complete both continue to Affirmation
     expect(codeOnly).not.toMatch(/self-guided-meditation-complete/);
   });
 
-  it('handleSkip reuses handleComplete verbatim - one real transition path, not two', () => {
-    expect(source).toMatch(/const handleSkip = \(\) => handleComplete\(\);/);
+  it('handleSkip reuses advanceToAffirmation verbatim - one real transition path, not two', () => {
+    expect(source).toMatch(/const handleSkip = \(\) => advanceToAffirmation\(\);/);
   });
 
   it('the Session Engine mirror is guarded by a one-shot ref AND currentStep.id === \'meditate\' - the exact same double-guard pattern Breathe.jsx already established, preventing a double advanceStep()', () => {

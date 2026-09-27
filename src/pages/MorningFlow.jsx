@@ -29,6 +29,8 @@ import { getStepLabel } from '../lib/stepLabels';
 import { formatTotalDuration } from '../lib/formatDuration';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
+import { createStretchSession } from '../lib/stretchSession';
+import { getCompletionGreeting } from '../lib/outcomeMessages';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -308,38 +310,73 @@ export const MorningFlow = () => {
 
   const [timeLeft, setTimeLeft] = useState(() => trustedSnapshot?.timeLeft ?? getStepDuration());
 
+  // Morning Stretch completion correction — physical-device-class defect
+  // (mirroring Breathe.jsx's identical fix): the timer previously called
+  // navigate() directly the instant the final movement's final second
+  // elapsed, with no completion panel and no confirmed way to leave
+  // early. Root cause: completion was decided by a render-time
+  // setInterval closure, not by a single, authoritative decision point.
+  // Fix: a pure, synchronous createStretchSession controller
+  // (stretchSession.js, real-execution tested with no fake timers - see
+  // stretchSession.test.js), driven by ONE real interval, whose own
+  // callback is the single place that detects the final tick AND
+  // synchronously stops itself, stops music, picks the greeting, and
+  // flips isCompleted - zero renders/effects in between.
+  const sessionRef = useRef(null);
+  const intervalRef = useRef(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionGreeting, setCompletionGreeting] = useState(null);
+  // Back/early-exit correction (reusing Breathe.jsx's proven pattern) -
+  // gates the same interval-management effect and InteractiveAmbientMusic's
+  // own `suspended` prop that isConfirming/isCompleted already use, so
+  // the timer/animation/music all genuinely pause the instant this
+  // dialog opens, never reset.
+  const [backConfirmOpen, setBackConfirmOpen] = useState(false);
+
+  const stopStretchInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  // Covers unmount and any navigation away from this screen (Continue/
+  // Skip/Exit/Back) - the one place that guarantees the interval is
+  // never left running behind a screen the user is no longer on.
+  useEffect(() => () => stopStretchInterval(), []);
+
   useEffect(() => {
     // Build 15: nothing runs until hasBegun (or a genuine resume from a
-    // paused snapshot, which already implies hasBegun=true). Pause-
-    // during-review fix - see Breathe.jsx's identical block for the full
-    // rationale: freeze the countdown the instant the confirmation
-    // dialog opens, not only after the user confirms.
-    if (!hasBegun || !activeSequence || isInterrupted || isRepeatGated || isConfirming) return;
+    // paused snapshot, which already implies hasBegun=true), and never
+    // again once isCompleted or backConfirmOpen. Pause-during-review fix
+    // - see Breathe.jsx's identical block for the full rationale: freeze
+    // the countdown the instant a confirmation dialog opens, not only
+    // after the user confirms.
+    if (!hasBegun || !activeSequence || isInterrupted || isRepeatGated || isConfirming || isCompleted || backConfirmOpen) return;
+    const session = sessionRef.current;
+    if (!session) return;
 
-    const stepDur = getStepDuration();
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setActiveStep((curr) => {
-            if (curr < activeSequence.length - 1) {
-              return curr + 1;
-            } else {
-              setJourneyStep('breathe');
-              navigate('/breathe');
-              mirrorStretchExitRef.current();
-              return curr;
-            }
-          });
-          return stepDur;
-        }
-        return prev - 1;
-      });
+    intervalRef.current = setInterval(() => {
+      const current = sessionRef.current;
+      if (!current) return;
+      const { completed, timeLeft: nextTimeLeft, activeIndex } = current.tick();
+      setTimeLeft(nextTimeLeft);
+      setActiveStep(activeIndex);
+      if (completed) {
+        // All completion side-effects happen synchronously, in this same
+        // callback, the instant the boundary is reached - stop the
+        // interval (so a stray extra tick can never fire), stop the
+        // music, and enter the completed state, all in one step, exactly
+        // once per real completion.
+        stopStretchInterval();
+        musicPlayerRef.current?.stop();
+        setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
+        setIsCompleted(true);
+      }
     }, 1000);
 
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasBegun, activeSequence, navigate, setJourneyStep, routineDuration, isInterrupted, isRepeatGated, isConfirming]);
+    return () => stopStretchInterval();
+  }, [hasBegun, activeSequence, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
 
   // Double-tap protection: a ref (not state) so a second, near-
   // simultaneous tap can never race past this check before the first
@@ -358,10 +395,18 @@ export const MorningFlow = () => {
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
+      // Sequential-run correctness — the one true "start a fresh
+      // session" entry point: always creates a BRAND NEW controller for
+      // whichever movements are currently selected, never reusing a
+      // previous instance.
       const sequence = [...selectedMovements].sort((a, b) => a - b);
       setActiveSequence(sequence);
-      setActiveStep(0);
-      setTimeLeft(getStepDuration());
+      sessionRef.current = createStretchSession({ movementCount: sequence.length, stepDurationSeconds: getStepDuration() });
+      sessionRef.current.begin();
+      setActiveStep(sessionRef.current.getActiveIndex());
+      setTimeLeft(sessionRef.current.getTimeLeft());
+      setIsCompleted(false);
+      setCompletionGreeting(null);
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
         musicPlayerRef.current?.start();
@@ -379,19 +424,34 @@ export const MorningFlow = () => {
     countdown.start();
   };
 
+  // Manual "Next Movement"/"Continue" tap - delegates the completion
+  // decision to the same pure controller the timer itself drives
+  // (advanceMovement() makes the exact same decision tick() would on the
+  // final movement), so a deliberate tap and the clock reaching zero are
+  // never two different code paths that could disagree.
   const handleNextStep = () => {
-    const stepDur = getStepDuration();
-    if (activeStep < activeSequence.length - 1) {
-      setActiveStep((prev) => prev + 1);
-      setTimeLeft(stepDur);
-    } else {
-      setJourneyStep('breathe');
-      navigate('/breathe');
-      mirrorStretchExitRef.current();
+    const session = sessionRef.current;
+    if (!session) return;
+    const { completed, timeLeft: nextTimeLeft, activeIndex } = session.advanceMovement();
+    setTimeLeft(nextTimeLeft);
+    setActiveStep(activeIndex);
+    if (completed) {
+      stopStretchInterval();
+      musicPlayerRef.current?.stop();
+      setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
+      setIsCompleted(true);
     }
   };
 
   const handleSkip = () => {
+    setJourneyStep('breathe');
+    navigate('/breathe');
+    mirrorStretchExitRef.current();
+  };
+
+  // Only reachable once isCompleted (Continue to Breathe is hidden until
+  // then, see render below) - records genuine completion and advances.
+  const handleContinueToBreathe = () => {
     setJourneyStep('breathe');
     navigate('/breathe');
     mirrorStretchExitRef.current();
@@ -432,13 +492,57 @@ export const MorningFlow = () => {
       return false;
     }
     if (!hasBegun || isRepeatGated) return;
+    // Morning Stretch Back/early-exit correction (reusing Breathe.jsx's
+    // proven pattern) — Back from the COMPLETED panel is ordinary
+    // navigation, never an early exit: the exercise already finished, so
+    // this must never open the confirmation or touch isCompleted/
+    // completionGreeting.
+    if (isCompleted) return;
+    // Repeated-Back-tap guard — never re-capture wasMusicPlayingRef (it
+    // would now read false, since the music is already suspended for
+    // the open dialog) and never open a second dialog.
+    if (backConfirmOpen) return false;
+    // Previously: reset everything immediately with ZERO confirmation
+    // (found live on Breathe.jsx before its own fix; Stretch had the
+    // exact same defect). Now: capture whether music was genuinely
+    // playing before the dialog suspends it, then just open the dialog -
+    // the timer/animation/music all pause via the interval effect's/
+    // InteractiveAmbientMusic's own backConfirmOpen gate, never reset,
+    // until the user actually chooses Leave Stretch.
+    wasMusicPlayingRef.current = musicPlayerRef.current?.isPlaying() ?? false;
+    setBackConfirmOpen(true);
+    return false;
+  };
+
+  // "Keep Stretching" — dismiss the dialog and resume from the exact
+  // remaining time (nothing was ever reset), restoring music only if it
+  // was genuinely playing before the dialog opened.
+  const keepStretching = () => {
+    setBackConfirmOpen(false);
+    if (wasMusicPlayingRef.current) {
+      wasMusicPlayingRef.current = false;
+      musicPlayerRef.current?.start();
+    }
+  };
+
+  // "Leave Stretch" — the one true confirmed-early-exit path: stops and
+  // disposes of the interval/session/music, records nothing (never calls
+  // mirrorStretchExitRef/advanceStep), and returns to the pre-start/
+  // selection screen.
+  const leaveStretch = () => {
+    setBackConfirmOpen(false);
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);
+    stopStretchInterval();
+    sessionRef.current?.end();
+    sessionRef.current = null;
     setActiveSequence(null);
+    setIsCompleted(false);
+    setCompletionGreeting(null);
     setHasBegun(false);
     musicPlayerRef.current?.stop();
-    return false;
+    wasMusicPlayingRef.current = false;
   };
 
   const selectedCount = selectedMovements.size;
@@ -649,6 +753,30 @@ export const MorningFlow = () => {
             </button>
           </div>
         </>
+      ) : isCompleted ? (
+        // Morning Stretch completion correction — a genuine dedicated
+        // completed panel, replacing the active exercise interface
+        // entirely (progress bar, movement list are ALL gone here, not
+        // just overlaid) so there is never any doubt the exercise is
+        // over. Warm-gold visual language reused from this app's own
+        // existing tokens (IntentionSetup.jsx/SessionComplete.jsx/
+        // Breathe.jsx's own bg-morning-accent/10 + border-morning-
+        // accent-tint/25 + shadow-morning-glow badge shape) - never a
+        // new colour.
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center">
+            <span className="material-symbols-outlined text-morning-accent text-4xl" aria-hidden="true">check_circle</span>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Stretch Completed</span>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              {completionGreeting}
+            </h2>
+            <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              Take this energy with you as you continue your morning.
+            </p>
+          </div>
+        </div>
       ) : (
         <>
           {/* Progress visual bar */}
@@ -759,8 +887,8 @@ export const MorningFlow = () => {
         <InteractiveAmbientMusic
           ref={musicPlayerRef}
           musicVariantId={INTERACTIVE_STRETCHING_MUSIC_ID}
-          suspended={hasBegun ? (Boolean(openVideo) || manuallyPaused) : false}
-          hideToggle={!hasBegun}
+          suspended={hasBegun ? (isCompleted || Boolean(openVideo) || manuallyPaused || backConfirmOpen) : false}
+          hideToggle={!hasBegun || isCompleted}
         />
       )}
 
@@ -768,13 +896,14 @@ export const MorningFlow = () => {
           Stretching Sessions video rows below - visible in the initial
           viewport with no scroll. See Breathe.jsx's identical panel.
           Both only ever apply once the exercise has genuinely begun. */}
-      {hasBegun && !isRepeatGated && isInterrupted && !openVideo && (
+      {hasBegun && !isRepeatGated && !isCompleted && isInterrupted && !openVideo && (
         <ExercisePausedPanel onResume={handleResume} journeyTone="morning" />
       )}
 
       {/* Usability remediation - see Breathe.jsx's identical block for the
-          full rationale. */}
-      {hasBegun && !isRepeatGated && !isInterrupted && !openVideo && (
+          full rationale. Morning Stretch completion correction — gated on
+          !isCompleted too (pausing a finished stretch is nonsensical). */}
+      {hasBegun && !isRepeatGated && !isCompleted && !isInterrupted && !openVideo && (
         <button
           type="button"
           onClick={handlePauseExercise}
@@ -793,8 +922,10 @@ export const MorningFlow = () => {
           once the exercise is active - the pre-start branch above
           already renders its own copy while !hasBegun. Still reachable
           mid-exercise, preserving the existing interrupt-to-watch
-          affordance handleSelectVideo already provides. */}
-      {hasBegun && !isRepeatGated && (
+          affordance handleSelectVideo already provides. Gated on
+          !isCompleted - the completed panel has its own action block
+          below instead. */}
+      {hasBegun && !isRepeatGated && !isCompleted && (
         <div className="space-y-2">
           <button
             type="button"
@@ -838,29 +969,54 @@ export const MorningFlow = () => {
               covers this; nothing replaces this branch while reviewing. */}
           {!isReviewMode && (
             <>
-              {/* Hidden while the ExercisePausedPanel above is showing its own
-                  Resume action - see Breathe.jsx's identical comment. */}
-              {!isInterrupted && (
-                <button
-                  onClick={handleNextStep}
-                  className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-                >
-                  <span>{activeStep === orderedActiveSteps.length - 1 ? 'Continue' : 'Next Movement'}</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
+              {isCompleted ? (
+                <>
+                  {/* Morning Stretch completion correction — the required
+                      primary action, gated purely on the new explicit
+                      isCompleted state. Tapping it is the one place
+                      completion is ever mirrored into the Session Engine
+                      - exactly once, guarded by hasMirroredExitRef. */}
+                  <button
+                    onClick={handleContinueToBreathe}
+                    className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                  >
+                    <span>Continue to Breathe</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                  <button
+                    onClick={handleExitRoutine}
+                    className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+                  >
+                    Exit routine
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Hidden while the ExercisePausedPanel above is showing its own
+                      Resume action - see Breathe.jsx's identical comment. */}
+                  {!isInterrupted && (
+                    <button
+                      onClick={handleNextStep}
+                      className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                    >
+                      <span>{activeStep === orderedActiveSteps.length - 1 ? 'Continue' : 'Next Movement'}</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSkip}
+                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+                  >
+                    Skip this step
+                  </button>
+                  <button
+                    onClick={handleExitRoutine}
+                    className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+                  >
+                    Exit routine
+                  </button>
+                </>
               )}
-              <button
-                onClick={handleSkip}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-              >
-                Skip this step
-              </button>
-              <button
-                onClick={handleExitRoutine}
-                className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
-              >
-                Exit routine
-              </button>
             </>
           )}
         </div>
@@ -897,6 +1053,22 @@ export const MorningFlow = () => {
         mildDestructive
         onConfirm={confirmExitRoutine}
         onDismiss={() => setExitRoutineConfirmOpen(false)}
+      />
+      {/* Morning Stretch Back/early-exit correction — mild warning
+          (temporary, resumable progress lost; no saved history erased),
+          matching Breathe.jsx's own identical severity/hierarchy for the
+          same class of action. Keep Stretching dismisses with zero state
+          change (nothing was ever reset); Leave Stretch is the one
+          confirmed early-exit path (leaveStretch, above). */}
+      <ConfirmDialog
+        open={backConfirmOpen}
+        title="Leave this stretch?"
+        message="Your progress in this stretch won’t be completed."
+        confirmLabel="Leave Stretch"
+        cancelLabel="Keep Stretching"
+        mildDestructive
+        onConfirm={leaveStretch}
+        onDismiss={keepStretching}
       />
     </div>
   );

@@ -100,15 +100,30 @@ describe('Canonical map — Stretch setup Back -> Intention; Active Stretch Back
     expect(body).toMatch(/if \(!hasBegun \|\| isRepeatGated\) return;/);
   });
 
-  it('while active, it resets the double-tap guard, clears the interrupt/pause flags and the locked sequence, flips hasBegun off, stops any playing music, and cancels this tap\'s navigation', () => {
+  // Morning Stretch Back/early-exit correction — handleBackFromActive no
+  // longer resets anything immediately (found live: zero confirmation
+  // before this fix, mirroring Breathe.jsx's identical pre-fix defect).
+  // It now only opens the "Leave this stretch?" dialog; the actual
+  // reset/stop moved to the new, separately-confirmed leaveStretch() -
+  // see breathingBackEarlyExit.test.js's own Breathe.jsx precedent for
+  // the analogous coverage shape.
+  it('while active, handleBackFromActive only captures the pre-dialog music state and opens the confirm dialog - never resets anything itself', () => {
     const body = morningFlowSource.match(/const handleBackFromActive = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(isCompleted\) return;/);
+    expect(body).toMatch(/wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;/);
+    expect(body).toMatch(/setBackConfirmOpen\(true\);/);
+    expect(body).not.toMatch(/setHasBegun\(false\);|musicPlayerRef\.current\?\.stop\(\);/);
+    expect(body).toMatch(/return false;/);
+  });
+
+  it('leaveStretch (the confirmed early-exit path) is the one that actually resets the run and stops music', () => {
+    const body = morningFlowSource.match(/const leaveStretch = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/hasBegunOnceRef\.current = false;/);
     expect(body).toMatch(/setVideoOpenedDuringExercise\(false\);/);
     expect(body).toMatch(/setManuallyPaused\(false\);/);
     expect(body).toMatch(/setActiveSequence\(null\);/);
     expect(body).toMatch(/setHasBegun\(false\);/);
     expect(body).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(body).toMatch(/return false;/);
   });
 });
 

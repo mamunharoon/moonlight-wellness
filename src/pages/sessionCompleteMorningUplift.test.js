@@ -36,8 +36,8 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
     expect(source).toMatch(/text-\[9px\] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0/);
   });
 
-  it('the completion headline now uses the new Playfair Display token (WakeWise Phase 2, B6: {headline} now rotates - see sessionCompleteOutcomeMessages.test.js)', () => {
-    expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{headline\}<\/h2>/);
+  it('the completion headline now uses the new Playfair Display token (rotates via the shared getCompletionGreeting architecture - see sessionCompleteOutcomeMessages.test.js)', () => {
+    expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{completionGreeting\}<\/h2>/);
   });
 
   // WakeWise DEV — journey-aware primary action colour: the later
@@ -51,8 +51,8 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
 });
 
 describe('SessionComplete.jsx — real copy preserved exactly (CTA unchanged; headline/body now sourced from outcomeMessages.js, see its own test file)', () => {
-  it('the CTA label is byte-identical to before this phase', () => {
-    expect(source).toMatch(/<span>Continue to Today<\/span>/);
+  it('the CTA label is now "Continue to My Day" (WakeWise DEV full Morning routine completion correction) - handleReturnHome and its destination are otherwise unchanged', () => {
+    expect(source).toMatch(/<span>Continue to My Day<\/span>/);
   });
 
   it('the former single fixed headline/body strings no longer live in this file - they moved to outcomeMessages.js as the first rotating variant (byte-identical content, see outcomeMessages.test.js)', () => {

@@ -259,7 +259,9 @@ describe('Shared by every structurally-similar interactive timed screen', () => 
   it('MorningFlow.jsx (interactive stretch timer) renders ONE shared, stable player with a DISTINCT id (IS01), also suspended while a guided video is open or manually paused (only once genuinely begun)', () => {
     expect(morningFlowSource).toMatch(/import \{ InteractiveAmbientMusic \} from '\.\.\/components\/InteractiveAmbientMusic';/);
     expect(morningFlowSource).toMatch(/const INTERACTIVE_STRETCHING_MUSIC_ID = 'IS01';/);
-    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(Boolean\(openVideo\) \|\| manuallyPaused\) : false\}\s*\n\s*hideToggle=\{!hasBegun\}\s*\n\s*\/>/);
+    // Morning Stretch completion correction - suspended/hideToggle now
+    // also fold in isCompleted/backConfirmOpen, mirroring Breathe.jsx.
+    expect(morningFlowSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (morningFlowSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
   });
@@ -315,25 +317,20 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
     // screen resolves the music preference before hasBegun is ever true,
     // so once the exercise is running there is nothing left to "await".
     it(`${name}: the paused panel (and its single Resume action) renders whenever interrupted (video or manual pause) and no video is currently open, and only once genuinely begun - no separate "awaiting music choice" gate exists here`, () => {
-      // Morning breathing completion correction - Breathe.jsx's own gate
-      // also now excludes the new completed state (isInterrupted can
+      // Morning breathing/Stretch completion corrections - both screens'
+      // own gate now excludes the completed state (isInterrupted can
       // never be true once isCompleted, since the buttons that would set
       // it are themselves hidden once completed - see the dedicated
-      // completion-panel test file for that invariant); MorningFlow.jsx
-      // is untouched by that fix.
-      const expected = name === 'Breathe.jsx'
-        ? /\{hasBegun && !isRepeatGated && !isCompleted && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/
-        : /\{hasBegun && !isRepeatGated && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/;
-      expect(source).toMatch(expected);
+      // completion-panel test files for that invariant).
+      expect(source).toMatch(/\{hasBegun && !isRepeatGated && !isCompleted && isInterrupted && !openVideo && \(\s*\n\s*<ExercisePausedPanel/);
       expect(source).not.toMatch(/musicChoiceMade|awaitingMusicChoice/);
     });
 
     it(`${name}: a persistent "Pause Exercise" button is reachable whenever the exercise is actually running (not interrupted, no video open, genuinely begun), after capturing whether music was playing`, () => {
       expect(source).toMatch(/const handlePauseExercise = \(\) => \{\s*\n\s*wasMusicPlayingRef\.current = musicPlayerRef\.current\?\.isPlaying\(\) \?\? false;\s*\n\s*setManuallyPaused\(true\);\s*\n\s*\};/);
-      const expectedPauseGate = name === 'Breathe.jsx'
-        ? /\{hasBegun && !isRepeatGated && !isCompleted && !isInterrupted && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/
-        : /\{hasBegun && !isRepeatGated && !isInterrupted && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/;
-      expect(source).toMatch(expectedPauseGate);
+      // Morning breathing/Stretch completion corrections - both gates now
+      // exclude isCompleted (pausing a finished exercise is nonsensical).
+      expect(source).toMatch(/\{hasBegun && !isRepeatGated && !isCompleted && !isInterrupted && !openVideo && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{handlePauseExercise\}/);
       expect(source).toMatch(/Pause Exercise/);
       const musicIndex = source.indexOf('<InteractiveAmbientMusic');
       const pauseButtonIndex = source.indexOf('onClick={handlePauseExercise}');
