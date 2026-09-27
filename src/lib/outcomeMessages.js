@@ -115,6 +115,29 @@ const ROTATING_MESSAGES = {
  *   outcome resolves to that set's first variant, never a crash.
  * @returns {{ headline: string, body: string }}
  */
+// Honest positive acknowledgement after a single breathing PATTERN
+// completes naturally (Breathe.jsx/EveningBreathing.jsx/QuietBreathing.jsx)
+// - distinct from getOutcomeMessage above, which speaks to completing an
+// entire Morning/Anytime/Evening routine. Reuses this same module's
+// journey vocabulary rather than a second, competing outcome model; a
+// fixed (non-rotating) single line per journey, since the requirement
+// gives exact copy rather than a rotating set. Only ever shown for a
+// genuine natural completion - callers gate this the same way they gate
+// their own Continue/next action (never for early-exit/skip/interrupted).
+const BREATHING_ACKNOWLEDGEMENT = {
+  morning: 'Beautifully done. Carry this steady energy into your morning.',
+  anytime: 'You gave yourself a moment to reset.',
+  evening: 'Let that slower rhythm stay with you as you wind down.'
+};
+const BREATHING_ACKNOWLEDGEMENT_FALLBACK = 'Thank you for taking this moment for yourself.';
+
+/**
+ * @param {'morning'|'anytime'|'evening'|undefined} journey
+ * @returns {string}
+ */
+export const getBreathingAcknowledgement = (journey) =>
+  BREATHING_ACKNOWLEDGEMENT[journey] ?? BREATHING_ACKNOWLEDGEMENT_FALLBACK;
+
 export const getOutcomeMessage = (outcome, journey = JOURNEY.ANYTIME, dateKey) => {
   const rotatingSet = ROTATING_MESSAGES[journey]?.[outcome];
   if (rotatingSet) return pickVariant(rotatingSet, dateKey);

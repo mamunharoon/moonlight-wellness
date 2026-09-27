@@ -7,10 +7,16 @@ import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./SelfGuidedMeditationComplete.jsx', import.meta.url)), 'utf-8');
 
-describe('SelfGuidedMeditationComplete.jsx — approved heading and copy, exact text', () => {
-  it('heading and supporting copy match exactly', () => {
-    expect(source).toMatch(/Meditation complete/);
-    expect(source).toMatch(/Take this steadiness with you\./);
+describe('SelfGuidedMeditationComplete.jsx — outcome-aware messaging correction: reuses the shared Phase 2 model instead of a fixed hand-written string', () => {
+  it('derives heading/body from getOutcomeMessage(OUTCOME.COMPLETED, journeyTone, today) - no hardcoded "Meditation complete" string remains', () => {
+    expect(source).toMatch(/getOutcomeMessage\(OUTCOME\.COMPLETED, journeyTone, today\)/);
+    expect(source).not.toMatch(/>Meditation complete</);
+    expect(source).not.toMatch(/>Take this steadiness with you\.</);
+  });
+
+  it('renders the derived headline/body directly', () => {
+    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\{completionHeadline\}<\/h1>/);
+    expect(source).toMatch(/\{completionBody\}/);
   });
 });
 

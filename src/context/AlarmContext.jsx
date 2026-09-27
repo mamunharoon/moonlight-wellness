@@ -191,11 +191,24 @@ export const AlarmProvider = ({ children }) => {
     !mismatchSnoozedThisSession &&
     getDismissedMismatchTimezone() !== deviceTimezone
   );
-  // First-time confirmation case: a real user (not still resolving auth)
-  // with no confirmed timezone at all yet - distinct copy/actions from
-  // the ongoing mismatch banner (see AlarmActive-style banners wherever
-  // this is consumed).
-  const timezoneUnconfirmed = Boolean(!authLoading && timezone === null && !mismatchSnoozedThisSession);
+  // Mirrors settledRhythmUserIdRef below but as reactive state: whether the
+  // rhythm row for the CURRENT identity has finished loading (fetchRhythm
+  // resolved, or the guest path ran). Without this, timezoneUnconfirmed
+  // would briefly read timezone===null during the network round-trip right
+  // after sign-in - before fetchRhythm restores the user's real saved
+  // timezone - and incorrectly re-show the "confirm your timezone" banner
+  // on every login even though a valid timezone was already saved.
+  const [rhythmSettledUserId, setRhythmSettledUserId] = useState(userId);
+  // First-time confirmation case: a real user (not still resolving auth,
+  // and whose own rhythm row has finished loading) with no confirmed
+  // timezone at all yet - distinct copy/actions from the ongoing mismatch
+  // banner (see AlarmActive-style banners wherever this is consumed).
+  const timezoneUnconfirmed = Boolean(
+    !authLoading &&
+    rhythmSettledUserId === userId &&
+    timezone === null &&
+    !mismatchSnoozedThisSession
+  );
   const askTimezoneLater = () => setMismatchSnoozedThisSession(true);
   const [isAlarmSet, setIsAlarmSet] = useState(getInitialAlarmEnabled);
   // Welcome alarm-status card — see ALARM_CONFIGURED_KEY's own doc
@@ -408,6 +421,7 @@ export const AlarmProvider = ({ children }) => {
         // Only mark this identity settled once the guest values are in
         // place, so the persist-write effects above never fire in between.
         settledRhythmUserIdRef.current = userId;
+        setRhythmSettledUserId(userId);
         return;
       }
 
@@ -418,8 +432,10 @@ export const AlarmProvider = ({ children }) => {
       setAlarmConfigured(false);
       await fetchRhythm(userId);
       // Only mark this identity settled once the fetch has resolved, so the
-      // transition into this account's rhythm is fully established first.
+      // transition into this account's rhythm is fully established first -
+      // and so timezoneUnconfirmed above never fires during the fetch.
       settledRhythmUserIdRef.current = userId;
+      setRhythmSettledUserId(userId);
     };
 
     syncRhythm();

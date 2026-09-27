@@ -131,12 +131,15 @@ describe('MorningMeditate.jsx — Back/Exit reuse Morning\'s existing convention
     expect(source).toMatch(/<BackButton fallback="\/breathe" guardActiveRoute=\{false\} \/>/);
   });
 
-  it('a plain, unconfirmed "Exit routine" link exists too, matching Affirmation.jsx/Breathe.jsx\'s own identical pattern exactly', () => {
-    const body = source.match(/const handleExitRoutine = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/setJourneyStep\(''\);/);
-    expect(body).toMatch(/navigate\('\/'\);/);
-    expect(body).toMatch(/abandonSession\(\);/);
+  it('the "Exit routine" link now confirms first (dialog-severity correction), matching Affirmation.jsx/Breathe.jsx\'s own identical pattern exactly - the actual abandonSession()/navigate action moved to confirmExitRoutine, only reachable after confirming', () => {
+    const openerBody = source.match(/const handleExitRoutine = \(\) => [^\n;]+;/)?.[0] ?? '';
+    expect(openerBody).toMatch(/setExitRoutineLinkConfirmOpen\(true\)/);
+    const confirmBody = source.match(/const confirmExitRoutine = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmBody).toMatch(/setJourneyStep\(''\);/);
+    expect(confirmBody).toMatch(/navigate\('\/'\);/);
+    expect(confirmBody).toMatch(/abandonSession\(\);/);
     expect(source).toMatch(/Exit routine/);
+    expect(source).toMatch(/open=\{exitRoutineLinkConfirmOpen\}/);
   });
 });
 

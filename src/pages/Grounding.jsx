@@ -112,8 +112,15 @@ export const Grounding = () => {
   // Skip is an exit from the whole exercise, not a per-prompt discard —
   // see the file-level note above. Always lands on the completion screen
   // regardless of which prompt is active.
+  //
+  // Outcome-aware messaging correction — previously byte-identical to
+  // handleNext's finish call, so SupportComplete.jsx could never tell a
+  // genuine finish from a Skip. Passes the real outcome through router
+  // state (SupportComplete.jsx's own established, additive convention)
+  // so it can show the honest, non-guilt SKIPPED copy instead of
+  // completion language for something the user didn't finish.
   const handleSkip = () => {
-    navigate('/support-complete');
+    navigate('/support-complete', { state: { outcome: 'skipped' } });
   };
 
   return (

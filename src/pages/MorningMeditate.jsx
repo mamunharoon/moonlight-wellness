@@ -202,7 +202,16 @@ export const MorningMeditate = () => {
 
   const handleSkip = () => handleComplete();
 
-  const handleExitRoutine = () => {
+  // Dialog-severity correction — see Breathe.jsx's identical fix/
+  // rationale. Distinct state from exitConfirmOpen above (that one is the
+  // ACTIVE-screen Close/X dialog, already confirmed) - this is the
+  // separate, plain pre-start "Exit routine" link, which previously had
+  // zero confirmation despite abandonSession() marking the whole session
+  // SKIPPED (terminal, never resurfaced as resumable).
+  const [exitRoutineLinkConfirmOpen, setExitRoutineLinkConfirmOpen] = useState(false);
+  const handleExitRoutine = () => setExitRoutineLinkConfirmOpen(true);
+  const confirmExitRoutine = () => {
+    setExitRoutineLinkConfirmOpen(false);
     setJourneyStep('');
     navigate('/');
     if (state.status === 'playing' && currentStep?.id === 'meditate') abandonSession();
@@ -317,14 +326,27 @@ export const MorningMeditate = () => {
   }
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
+    // Mobile correction (Meditation setup scrolling) — this setup screen
+    // is rendered outside <Layout> (App.jsx) with no scroll container of
+    // its own; index.html's <body> is deliberately overflow-hidden on
+    // both axes (every full-bleed route must supply its own inner
+    // scroller - see viewportScrollRepair.test.js's own doc comment).
+    // min-h-[85vh] was only ever a FLOOR, never a ceiling, so once the
+    // expanded MeditationSetupPanel (5 styles + duration + sound + Begin)
+    // exceeded the real device viewport there was no scroll path at all -
+    // Duration/Sound/Begin were genuinely unreachable, not merely
+    // "needs a scroll". Same proven h-dvh/overflow-y-auto shell
+    // Introduction.jsx/SelfGuidedMeditation.jsx/AnytimeReset.jsx already
+    // use, wrapping the previously-unwrapped content div unchanged.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
+      className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
       }}
     >
       {/* WakeWise DEV — colour glow extension: Morning's own embedded
@@ -391,6 +413,18 @@ export const MorningMeditate = () => {
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
       />
+      <ConfirmDialog
+        open={exitRoutineLinkConfirmOpen}
+        title="Exit this routine?"
+        message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+        confirmLabel="Exit Routine"
+        cancelLabel="Stay"
+        mildDestructive
+        onConfirm={confirmExitRoutine}
+        onDismiss={() => setExitRoutineLinkConfirmOpen(false)}
+      />
+    </div>
+    </div>
     </div>
   );
 };

@@ -20,6 +20,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
@@ -361,7 +362,15 @@ export const IntentionSetup = () => {
     mirrorTransition();
   };
 
-  const handleExitRoutine = () => {
+  // Dialog-severity correction — see Breathe.jsx's identical fix/
+  // rationale: previously exited with zero confirmation despite
+  // abandonSession() marking the whole session SKIPPED (terminal, never
+  // resurfaced as resumable). Both "Exit routine" render sites below
+  // still call this same handler, unchanged.
+  const [exitRoutineConfirmOpen, setExitRoutineConfirmOpen] = useState(false);
+  const handleExitRoutine = () => setExitRoutineConfirmOpen(true);
+  const confirmExitRoutine = () => {
+    setExitRoutineConfirmOpen(false);
     setJourneyStep('');
     navigate('/');
     if (state.status === 'playing' && currentStep?.id === 'intention') abandonSession();
@@ -705,6 +714,16 @@ export const IntentionSetup = () => {
       </div>
         </>
       )}
+      <ConfirmDialog
+        open={exitRoutineConfirmOpen}
+        title="Exit this routine?"
+        message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+        confirmLabel="Exit Routine"
+        cancelLabel="Stay"
+        mildDestructive
+        onConfirm={confirmExitRoutine}
+        onDismiss={() => setExitRoutineConfirmOpen(false)}
+      />
     </div>
   );
 };

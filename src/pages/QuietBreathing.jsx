@@ -26,6 +26,7 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
 import { getJourneyToneTokens } from '../lib/journeyTone';
+import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -336,6 +337,16 @@ export const QuietBreathing = ({ standalone = false }) => {
     hasBegunOnceRef.current = false;
     setHasBegun(false);
     setEarlyEnded(false);
+    // Mobile correction (sequential breathing-pattern completion
+    // lifecycle) — defensive reset so a second/third pattern in this same
+    // mount always starts from a genuinely fresh timer state, never a
+    // leftover secondsLeft<=0 from the pattern just finished. Not
+    // currently reachable in practice (the preparation countdown's own
+    // onComplete already resets secondsLeft before hasBegun flips back to
+    // true), but this is the one true "start a fresh session" entry point
+    // for this screen and must never rely on that ordering elsewhere.
+    setSecondsLeft(activePattern.totalSeconds);
+    setBreatheState('Inhale');
   };
 
   // Standalone Home quick-action correction — Back while active, found
@@ -413,7 +424,7 @@ export const QuietBreathing = ({ standalone = false }) => {
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-on-surface">{earlyEnded ? 'Session ended early' : 'Breathing complete'}</h2>
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                {earlyEnded ? `Your ${activePattern.label} session ended before the timer finished.` : 'Take a moment to notice how you feel.'}
+                {earlyEnded ? `Your ${activePattern.label} session ended before the timer finished.` : getBreathingAcknowledgement(journeyTone)}
               </p>
             </div>
             <div className="space-y-3 w-full">

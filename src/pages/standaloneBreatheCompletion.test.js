@@ -70,10 +70,11 @@ describe('QuietBreathing.jsx (standalone) — natural completion: distinct "Brea
   // dedicated "Early-end result correction" describe block in
   // standaloneBreathe.test.js) - this file keeps its focus on the
   // genuine natural-completion path, which is otherwise unchanged.
-  it('isComplete (or earlyEnded) renders before the !hasBegun/active ternary, with the exact required natural-completion heading/subtext', () => {
+  it('isComplete (or earlyEnded) renders before the !hasBegun/active ternary, with the exact required natural-completion heading, and an honest, journey-aware acknowledgement (mobile correction #4) rather than a hardcoded string', () => {
     expect(standaloneBlock).toMatch(/\{isComplete \|\| earlyEnded \? \(/);
     expect(standaloneBlock).toMatch(/Breathing complete/);
-    expect(standaloneBlock).toMatch(/Take a moment to notice how you feel\./);
+    expect(standaloneBlock).toMatch(/getBreathingAcknowledgement\(journeyTone\)/);
+    expect(standaloneBlock).not.toMatch(/Take a moment to notice how you feel\./);
   });
 
   it('primary "Done" navigates to Home ("/"), secondary "Breathe again" calls handleBreatheAgain', () => {

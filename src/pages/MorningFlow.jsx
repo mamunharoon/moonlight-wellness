@@ -397,7 +397,16 @@ export const MorningFlow = () => {
     mirrorStretchExitRef.current();
   };
 
-  const handleExitRoutine = () => {
+  // Dialog-severity correction — see Breathe.jsx's identical fix/
+  // rationale: this link previously exited with zero confirmation despite
+  // abandonSession() marking the whole session SKIPPED (terminal, never
+  // resurfaced as resumable), unlike Back's own mildDestructive-confirmed
+  // interruptSession(). Same shared ConfirmDialog, same tier, action
+  // itself unchanged.
+  const [exitRoutineConfirmOpen, setExitRoutineConfirmOpen] = useState(false);
+  const handleExitRoutine = () => setExitRoutineConfirmOpen(true);
+  const confirmExitRoutine = () => {
+    setExitRoutineConfirmOpen(false);
     setJourneyStep('');
     navigate('/');
     if (state.status === 'playing' && currentStep?.id === 'stretch') abandonSession();
@@ -449,8 +458,16 @@ export const MorningFlow = () => {
   return (
     // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
     // identical block for the full rationale.
+    //
+    // Mobile correction (Morning Stretch compaction) — space-y-5 -> -3,
+    // found live: only the first row of movement cards was reliably
+    // visible above the fold at 390x844/393x852, against the approved
+    // screenshot showing all four. Trims the gap between EVERY top-level
+    // section (header, title, duration pill, music toggle, Begin button,
+    // movements grid) rather than singling one out - no text size, no
+    // control size, no safe-area/Back-button clearance touched.
     <div
-      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-5 select-none"
+      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-3 select-none"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
@@ -542,7 +559,7 @@ export const MorningFlow = () => {
               fully available without a separate toggle to open first. */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-1">Choose your movements</h3>
-            <div className="grid grid-cols-2 gap-3" role="group" aria-label="Choose your movements">
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Choose your movements">
               {steps.map((step, idx) => (
                 <MovementCheckboxRow
                   key={idx}
@@ -870,6 +887,16 @@ export const MorningFlow = () => {
         cancelLabel="Cancel"
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
+      />
+      <ConfirmDialog
+        open={exitRoutineConfirmOpen}
+        title="Exit this routine?"
+        message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+        confirmLabel="Exit Routine"
+        cancelLabel="Stay"
+        mildDestructive
+        onConfirm={confirmExitRoutine}
+        onDismiss={() => setExitRoutineConfirmOpen(false)}
       />
     </div>
   );

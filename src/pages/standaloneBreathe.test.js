@@ -233,10 +233,10 @@ describe('Early-end result correction — "End early" no longer silently duplica
     expect(source).toMatch(/onClick=\{handleEndEarly\}/);
   });
 
-  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end', () => {
+  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) rather than a hardcoded string', () => {
     expect(source).toMatch(/\{isComplete \|\| earlyEnded \? \(/);
     expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : 'Breathing complete'\}/);
-    expect(source).toMatch(/earlyEnded \? `Your \$\{activePattern\.label\} session ended before the timer finished\.` : 'Take a moment to notice how you feel\.'/);
+    expect(source).toMatch(/earlyEnded \? `Your \$\{activePattern\.label\} session ended before the timer finished\.` : getBreathingAcknowledgement\(journeyTone\)/);
   });
 
   it('Done and "Breathe again" are shared by both result states - Breathe again also clears earlyEnded so it works identically from either', () => {

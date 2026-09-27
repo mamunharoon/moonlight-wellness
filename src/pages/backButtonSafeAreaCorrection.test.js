@@ -30,12 +30,19 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 // this describe.each still verifies for every other page); see the
 // dedicated describe block below for its new bottom-safe-area/scroll
 // container coverage.
+// Mobile correction (Meditation setup scrolling) — MorningMeditate.jsx is
+// no longer part of this shared min-h-[85vh]/pb-6 loop either, for the
+// same reason Affirmation.jsx was pulled out above: it now owns its own
+// h-dvh/overflow-y-auto scroll container (see viewportScrollRepair.test.js
+// for that fix's own dedicated coverage) instead of the unscrollable
+// min-h-[85vh] floor every other AFFECTED_PAGES entry still uses. Its F8
+// top-safe-area padding is untouched; see the dedicated describe block
+// below for its new bottom-safe-area/scroll-container coverage.
 const AFFECTED_PAGES = [
   ['Breathe.jsx', './Breathe.jsx'],
   ['IntentionSetup.jsx', './IntentionSetup.jsx'],
   ['MeditationComplete.jsx', './MeditationComplete.jsx'],
   ['MorningFlow.jsx', './MorningFlow.jsx'],
-  ['MorningMeditate.jsx', './MorningMeditate.jsx'],
   ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx'],
   ['SessionComplete.jsx', './SessionComplete.jsx']
 ];
@@ -86,8 +93,34 @@ describe('Affirmation.jsx — F1 mobile-nav fix: real scroll container, F8 top-s
     expect(source).not.toMatch(/min-h-\[85vh\]/);
   });
 
-  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor) and no longer carries the old flat pb-6', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col justify-between max-w-xl mx-auto space-y-10"/);
+  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor), no longer carries the old flat pb-6, and no longer uses my-auto/justify-between (mobile correction #6: those absorbed all free space as symmetric card margin, pushing Continue past the fold - see affirmationCtaFitAndScroll.test.js)', () => {
+    expect(source).toMatch(/className="min-h-full flex flex-col max-w-xl mx-auto space-y-6"/);
+  });
+});
+
+// Mobile correction (Meditation setup scrolling) — MorningMeditate.jsx's
+// own dedicated coverage, now that its setup screen owns a real scroll
+// container instead of the shared min-h-[85vh] shape.
+describe('MorningMeditate.jsx — Meditation setup scrolling fix: real scroll container, F8 top-safe-area untouched', () => {
+  const source = read('./MorningMeditate.jsx');
+
+  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
+    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
+    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
+    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  });
+
+  it('now also adds env(safe-area-inset-bottom) to its setup screen - never accounted for before this fix', () => {
+    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  });
+
+  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Introduction.jsx/AnytimeReset.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
+    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  });
+
+  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner), keeping its original spacing/padding otherwise', () => {
+    expect(source).toMatch(/className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"/);
   });
 });
 

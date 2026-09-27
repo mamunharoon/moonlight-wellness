@@ -29,6 +29,7 @@ import { getStepLabel } from '../lib/stepLabels';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
+import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md).
@@ -221,6 +222,14 @@ export const EveningBreathing = () => {
 
     return () => clearInterval(timer);
   }, [hasFinished, hasBegun, manuallyPaused, isRepeatGated, isConfirming, activePattern]);
+
+  // Mobile correction (sequential breathing-pattern completion lifecycle)
+  // — see Breathe.jsx's identical effect/rationale: stops audio the
+  // moment natural completion is detected, deterministically, rather than
+  // only as a side effect of the next explicit action.
+  useEffect(() => {
+    if (hasFinished) musicPlayerRef.current?.stop();
+  }, [hasFinished]);
 
   // Double-tap protection - see Breathe.jsx's identical rationale. Also
   // where the selected pattern is effectively "locked" for the active
@@ -452,13 +461,20 @@ export const EveningBreathing = () => {
           {!isReviewMode && (
             <>
               {hasFinished && !manuallyPaused && (
-                <button
-                  onClick={handleComplete}
-                  className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-                >
-                  <span>Continue</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
+                <>
+                  {/* Mobile correction (honest positive acknowledgement) —
+                      see Breathe.jsx's identical gate/rationale. */}
+                  <p className="text-sm text-center text-on-surface-variant" role="status">
+                    {getBreathingAcknowledgement('evening')}
+                  </p>
+                  <button
+                    onClick={handleComplete}
+                    className={`w-full ${getJourneyPrimaryActionClasses('evening')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                  >
+                    <span>Continue</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={handleSkip}

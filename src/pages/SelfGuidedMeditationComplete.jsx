@@ -8,6 +8,10 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
 import { getJourneyToneTokens } from '../lib/journeyTone';
+import { OUTCOME, getOutcomeMessage } from '../lib/outcomeMessages';
+import { useAlarm } from '../context/AlarmContext';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 
 /*
  * Self-Guided Meditation — completion screen.
@@ -39,6 +43,20 @@ export const SelfGuidedMeditationComplete = () => {
   // or a possibly-different daypart, since no explicit journeyTone is
   // threaded through this specific navigate() call.
   const journeyTone = usePracticeJourneyTone();
+  const { effectiveTimezone } = useAlarm();
+
+  // Outcome-aware messaging correction — this genuine-natural-completion-
+  // only screen (per this file's own doc comment) previously showed a
+  // fixed, hand-written "Meditation complete" / "Take this steadiness
+  // with you." regardless of journey, never rotating and never reusing
+  // the same Phase 2 outcome model this app's other completion screens
+  // (SessionComplete.jsx/EveningComplete.jsx/MeditationComplete.jsx) all
+  // already share. journeyTone always resolves to a real JOURNEY value
+  // (morning/anytime/evening - see usePracticeJourneyTone.js's own
+  // fallback chain), so this is a direct, safe reuse rather than a
+  // guess.
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const { headline: completionHeadline, body: completionBody } = getOutcomeMessage(OUTCOME.COMPLETED, journeyTone, today);
 
   const style = getMeditationStyleById(session?.styleId) || getMeditationStyleById(DEFAULT_MEDITATION_STYLE_ID);
   const duration = getMeditationDurationById(session?.durationId) || getMeditationDurationById(DEFAULT_MEDITATION_DURATION_ID);
@@ -142,8 +160,8 @@ export const SelfGuidedMeditationComplete = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
         <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">Meditation complete</h1>
-        <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">Take this steadiness with you.</p>
+        <h1 className="font-serif italic text-3xl text-on-surface">{completionHeadline}</h1>
+        <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
         {session && (
           <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
             <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>

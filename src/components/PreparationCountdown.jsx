@@ -28,14 +28,38 @@
 // likely rendered with NO visible colour at all on Morning/Evening
 // before this fix. Now uses the same alpha-safe `-tint` RGB-triplet
 // tokens JourneyGlow.jsx uses, for all three journeys consistently.
+//
+// Mobile correction #3 — strengthened visual per the approved Stitch
+// concept: a contained dark card (bg-surface-container, the same token
+// already used for other contained surfaces in this app, e.g. the guided-
+// sessions disclosure on Stretch/Breathe) instead of a plain glass-panel
+// ring, a larger/bolder number with a "SECONDS" support label, and a
+// subtle static journey-coloured glow (the existing morning-glow/mint-
+// glow/evening-glow/welcome-glow shadow tokens - never a new colour, and
+// never animated, so there is nothing to gate behind Reduced Motion on
+// its own). "Start now" gains a light journey-tinted fill for more visual
+// weight while staying deliberately short of a solid primary-action fill
+// - see this file's own note above on why it must never compete with the
+// screen's real Begin/Continue action that follows. Functional timing/
+// Skip/audio-unlock behaviour is entirely unchanged: every prop here is
+// still purely presentational, exactly as before.
+const ACCENT_TONES = {
+  morning: { text: 'text-morning-accent', border: 'border-morning-accent-tint/40', glow: 'shadow-morning-glow', fill: 'bg-morning-accent-tint/15' },
+  anytime: { text: 'text-tertiary', border: 'border-tertiary-tint/40', glow: 'shadow-mint-glow', fill: 'bg-tertiary-tint/15' },
+  evening: { text: 'text-evening-accent', border: 'border-evening-accent-tint/40', glow: 'shadow-evening-glow', fill: 'bg-evening-accent-tint/15' },
+  primary: { text: 'text-primary', border: 'border-primary/40', glow: 'shadow-welcome-glow', fill: 'bg-primary/15' }
+};
+
 export const PreparationCountdown = ({ secondsRemaining, cue, onSkip, accent = 'primary' }) => {
-  const accentText = accent === 'morning' ? 'text-morning-accent' : accent === 'anytime' ? 'text-tertiary' : accent === 'evening' ? 'text-evening-accent' : 'text-primary';
-  const accentBorder = accent === 'morning' ? 'border-morning-accent-tint/40' : accent === 'anytime' ? 'border-tertiary-tint/40' : accent === 'evening' ? 'border-evening-accent-tint/40' : 'border-primary/40';
+  const tone = ACCENT_TONES[accent] ?? ACCENT_TONES.primary;
 
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-6 select-none" role="status" aria-live="polite">
-      <div className={`w-24 h-24 rounded-full glass-panel border-2 ${accentBorder} flex items-center justify-center`}>
-        <span className={`text-4xl font-bold ${accentText}`}>{secondsRemaining}</span>
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-6 select-none px-4" role="status" aria-live="polite">
+      <div className={`w-36 h-36 rounded-full bg-surface-container border-2 ${tone.border} ${tone.glow} flex flex-col items-center justify-center`}>
+        <span className={`text-6xl font-extrabold leading-none ${tone.text}`}>{secondsRemaining}</span>
+        {secondsRemaining > 0 && (
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1.5">Seconds</span>
+        )}
       </div>
       <div className="space-y-2 px-6">
         <p className="text-lg font-bold text-on-surface">
@@ -46,7 +70,7 @@ export const PreparationCountdown = ({ secondsRemaining, cue, onSkip, accent = '
       <button
         type="button"
         onClick={onSkip}
-        className={`glass-panel ${accentText} px-6 py-3 rounded-full font-bold text-sm hover:bg-white/10 active:scale-95 transition-all ${accentBorder} min-h-[44px]`}
+        className={`${tone.fill} ${tone.text} px-8 py-3.5 rounded-full font-bold text-sm border-2 ${tone.border} hover:bg-white/10 active:scale-95 transition-all min-h-[44px]`}
       >
         Start now
       </button>

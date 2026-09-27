@@ -73,17 +73,20 @@ describe('ConfirmDialog.jsx - two centrally defined destructive severities', () 
 });
 
 describe('Home.jsx dialogCopy() - correct severity reaches the correct dialog kind', () => {
-  it('Morning Start Over uses mildDestructive (resets only resumable step progress)', () => {
-    expect(homeSource).toMatch(/mildDestructive: activeDialog\.period === 'morning'/);
-  });
-
-  it('Evening Start Over keeps destructive: true and is NOT unconditionally mild (scoped by period, not shared)', () => {
+  // Dialog-severity correction — a product-wide audit found this
+  // previously scoped mildDestructive to Morning only, even though the
+  // message text (label-interpolated for both periods) makes the
+  // identical "saved history will not be deleted" claim either way.
+  // Same consequence must get the same severity - both periods now
+  // correctly share mildDestructive: true unconditionally.
+  it('Morning and Evening Start Over both use mildDestructive: true unconditionally (same consequence - only resumable step progress is reset, never saved history)', () => {
     const startOverBlock = homeSource.slice(
       homeSource.indexOf("if (activeDialog.kind === 'start-over')"),
       homeSource.indexOf("if (activeDialog.kind === 'repeat')")
     );
     expect(startOverBlock).toMatch(/destructive: true/);
-    expect(startOverBlock).not.toMatch(/mildDestructive: true(?!\s*:)/);
+    expect(startOverBlock).toMatch(/mildDestructive: true/);
+    expect(startOverBlock).not.toMatch(/mildDestructive: activeDialog\.period/);
   });
 
   it('discard-stale (both Morning and Evening) uses mildDestructive: true unconditionally - discards only a resumable snapshot, never saved history', () => {

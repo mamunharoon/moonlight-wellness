@@ -66,8 +66,8 @@ describe('SessionComplete.jsx — real copy preserved exactly (CTA unchanged; he
 });
 
 describe('SessionComplete.jsx — real completion-persistence logic is completely untouched', () => {
-  it('same-day-repeat/no-double-credit guard (shouldWriteCompletionDate) is still the one gate before writing the completion flag', () => {
-    expect(source).toMatch(/if \(shouldWriteCompletionDate\(localStorage\.getItem\(morningDoneKey\), attributionDateKey\)\) \{/);
+  it('same-day-repeat/no-double-credit guard (shouldWriteCompletionDate) gates the write, now alongside a state.status === \'completed\' check (outcome-contract correction: never credit today from a route reached without genuine Session Engine completion)', () => {
+    expect(source).toMatch(/if \(state\.status === 'completed' && shouldWriteCompletionDate\(localStorage\.getItem\(morningDoneKey\), attributionDateKey\)\) \{/);
   });
 
   it('stale/pinned-date attribution still takes priority over "now" when present, and the user-scoped completion key is still real (getMorningCompletionKey(userId))', () => {

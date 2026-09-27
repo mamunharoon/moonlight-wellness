@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
+import { useAlarm } from '../context/AlarmContext';
+import { getZonedParts } from '../lib/timezone';
+import { now as devNow } from '../lib/devClock';
 
 const CHECK_IN_OPTIONS = [
   { id: 'better', label: 'Better' },
@@ -32,21 +36,52 @@ const CHECK_IN_OPTIONS = [
  * between a mood's two options without leaving Support.jsx) — this one
  * returns to feeling selection so the user can pick a different feeling
  * entirely.
+ *
+ * Outcome-aware messaging correction — this is the one shared terminal
+ * screen for three real entry paths (Grounding's finish vs. Skip;
+ * StressRelease's finish; Support.jsx's own video path including the
+ * "Instant Calm" video), and it previously showed the identical
+ * "You made it through this moment." regardless of whether the user
+ * genuinely finished or left early/skipped - unlike its sibling
+ * completion screens (SessionComplete.jsx/EveningComplete.jsx/
+ * MeditationComplete.jsx), which all already reuse this same Phase 2
+ * outcome model. Reuses it here too rather than a second one:
+ * `location.state?.outcome` ('skipped'|'ended_early', optional) lets an
+ * updated caller say what actually happened; any caller that doesn't
+ * pass it (including any not yet updated) defaults to 'completed',
+ * preserving this screen's original, always-completed-flavoured
+ * behaviour exactly. The genuine-completion copy itself is intentionally
+ * left as its own bespoke, already-on-tone line (crafted for this
+ * specific emotionally-supportive context) rather than swapped for the
+ * more generic rotating Anytime set - only the two outcomes that were
+ * genuinely indistinguishable from it before gain real, honest copy.
  */
 export const SupportComplete = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { effectiveTimezone } = useAlarm();
   const [checkIn, setCheckIn] = useState(null);
 
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
+
+  const outcome = location.state?.outcome === 'skipped' || location.state?.outcome === 'ended_early'
+    ? location.state.outcome
+    : 'completed';
+  const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const { headline, body } = outcome === 'skipped'
+    ? getOutcomeMessage(OUTCOME.SKIPPED, JOURNEY.ANYTIME, today)
+    : outcome === 'ended_early'
+      ? getOutcomeMessage(OUTCOME.ENDED_EARLY, JOURNEY.ANYTIME, today)
+      : { headline: 'You made it through this moment.', body: 'Be gentle with yourself.' };
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback="/">
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
         <div className="space-y-4">
           <span className="material-symbols-outlined text-on-surface-variant/70 text-4xl">self_improvement</span>
-          <h1 className="font-serif italic text-3xl text-on-surface">You made it through this moment.</h1>
+          <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
           <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-            Be gentle with yourself.
+            {body}
           </p>
         </div>
 

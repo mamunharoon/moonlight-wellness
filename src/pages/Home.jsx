@@ -226,13 +226,16 @@ export const Home = () => {
         title: `Start ${label} Routine Over?`,
         message: `Your current ${label} step progress will be reset. Saved history and journal entries will not be deleted.`,
         confirmLabel: 'Start Over',
-        // Build 15 muted-destructive addition — Morning's own Start Over
-        // only resets resumable step progress, never saved history, so it
-        // gets the lighter severity. Evening's own Start Over (identical
-        // wording, different period) keeps the strong treatment: scoped
-        // explicitly by period, never both muted together.
+        // Dialog-severity correction — found on audit: this was previously
+        // scoped `mildDestructive` to Morning only, leaving Evening's own
+        // Start Over rendering the full-red `destructive` treatment even
+        // though its message (above, `label`-interpolated for both
+        // periods) makes the identical claim either way - "Saved history
+        // and journal entries will not be deleted," only resumable step
+        // progress is reset. Same consequence must get the same severity;
+        // both periods now correctly get the lighter, mild treatment.
         destructive: true,
-        mildDestructive: activeDialog.period === 'morning'
+        mildDestructive: true
       };
     }
     if (activeDialog.kind === 'repeat') {

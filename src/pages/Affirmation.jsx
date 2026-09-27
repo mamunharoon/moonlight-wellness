@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
@@ -9,6 +10,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { BackButton } from '../components/BackButton';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
@@ -90,7 +92,16 @@ export const Affirmation = () => {
     mirrorTransition();
   };
 
-  const handleExitRoutine = () => {
+  // Dialog-severity correction — see Breathe.jsx's identical fix/
+  // rationale. This screen itself has no timer/local progress of its own
+  // (per this file's own note above), but abandonSession() still marks
+  // the WHOLE Morning routine SKIPPED (terminal, never resurfaced as
+  // resumable) - by this point that means every earlier completed step
+  // too, which previously exited with zero confirmation at all.
+  const [exitRoutineConfirmOpen, setExitRoutineConfirmOpen] = useState(false);
+  const handleExitRoutine = () => setExitRoutineConfirmOpen(true);
+  const confirmExitRoutine = () => {
+    setExitRoutineConfirmOpen(false);
     setJourneyStep('');
     navigate('/');
     if (state.status === 'playing' && currentStep?.id === 'affirmation') abandonSession();
@@ -123,7 +134,17 @@ export const Affirmation = () => {
     <div className="h-dvh overflow-hidden">
     <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-full flex flex-col justify-between max-w-xl mx-auto space-y-10"
+      // Mobile correction — my-auto on the card below (combined with
+      // justify-between here) absorbed ALL free flex space as symmetric
+      // top+bottom margin before justify-content ever got a say, on top of
+      // a generous space-y-10 between every child - together pushing the
+      // Continue button past the 390x844/393x852 fold even though the
+      // scroll container above already made it technically reachable.
+      // Dropped justify-between (dead weight without my-auto) and tightened
+      // to space-y-6; the flex-1 spacer just above the button block (added
+      // below, mirroring Introduction.jsx's identical convention) now
+      // absorbs only genuinely leftover space instead of doubling up.
+      className="min-h-full flex flex-col max-w-xl mx-auto space-y-6"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
@@ -156,17 +177,17 @@ export const Affirmation = () => {
         Begin with a supportive thought to shape how you meet the day.
       </p>
 
-      <div className="my-auto space-y-12 text-center relative overflow-hidden p-6 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent-tint/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
+      <div className="space-y-6 text-center relative overflow-hidden p-5 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent-tint/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <span className="material-symbols-outlined text-9xl">wb_sunny</span>
         </div>
 
-        <div className="space-y-6 relative z-10">
+        <div className="space-y-4 relative z-10">
           <span className="material-symbols-outlined text-morning-accent text-4xl animate-pulse">auto_awesome</span>
           <h2 className="text-3xl font-morning-display italic font-semibold text-on-morning-affirmation leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {affirmations.map(({ intention, affirmation }, idx) => (
               <div key={intention.toLowerCase()} className="space-y-1">
                 {affirmations.length > 1 && (
@@ -180,6 +201,12 @@ export const Affirmation = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile correction — absorbs only genuinely leftover vertical
+          space (Introduction.jsx's own established convention), instead of
+          the removed my-auto/justify-between combo that always claimed
+          space symmetrically even when none was safely available. */}
+      <div className="flex-1" />
 
       <div className="space-y-3 w-full">
         {/* Duplicate-return-action fix (mirrors IntentionSetup.jsx's
@@ -204,6 +231,16 @@ export const Affirmation = () => {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={exitRoutineConfirmOpen}
+        title="Exit this routine?"
+        message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+        confirmLabel="Exit Routine"
+        cancelLabel="Stay"
+        mildDestructive
+        onConfirm={confirmExitRoutine}
+        onDismiss={() => setExitRoutineConfirmOpen(false)}
+      />
     </div>
     </div>
     </div>

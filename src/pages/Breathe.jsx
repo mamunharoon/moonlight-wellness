@@ -33,6 +33,7 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
+import { getBreathingAcknowledgement } from '../lib/outcomeMessages';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -271,6 +272,20 @@ export const Breathe = () => {
     return () => clearInterval(timer);
   }, [hasFinished, hasBegun, isInterrupted, isRepeatGated, isConfirming, activePattern]);
 
+  // Mobile correction (sequential breathing-pattern completion lifecycle)
+  // — found live: music kept looping after a SECOND pattern's natural
+  // completion in the same visit. Root cause: music was only ever stopped
+  // as a SIDE EFFECT of the next explicit action (Continue's navigate()
+  // unmounting InteractiveAmbientMusic, or Back's own explicit stop() in
+  // handleBackFromActive below) - never directly tied to the timer
+  // actually reaching 0. This mirrors QuietBreathing.jsx's own proven
+  // `isComplete` -> stop() effect, so natural completion deterministically
+  // stops audio exactly once regardless of what the user does next, and
+  // behaves identically the 1st, 2nd or later time through in one mount.
+  useEffect(() => {
+    if (hasFinished) musicPlayerRef.current?.stop();
+  }, [hasFinished]);
+
   // Double-tap protection: a ref, checked and set before anything else
   // runs - see MorningFlow.jsx's identical rationale.
   const hasBegunOnceRef = useRef(false);
@@ -321,7 +336,21 @@ export const Breathe = () => {
     skipStep();
   };
 
-  const handleExitRoutine = () => {
+  // Dialog-severity correction — previously exited immediately with zero
+  // confirmation, despite being the more final of this screen's two exit
+  // paths: abandonSession() marks the whole session SKIPPED, a terminal
+  // status routineCardState.js deliberately never resurfaces as
+  // "resume?" - unlike Back/Close's own mildDestructive-confirmed
+  // interruptSession() (handleBackFromActive/BackButton's guard), which
+  // IS resumable. Reuses the existing shared ConfirmDialog rather than a
+  // new component; mildDestructive (same tier as Back/Close) since only
+  // this step's temporary, unsaved progress is lost - never saved
+  // history - and the action itself is completely unchanged, just now
+  // confirmed first.
+  const [exitRoutineConfirmOpen, setExitRoutineConfirmOpen] = useState(false);
+  const handleExitRoutine = () => setExitRoutineConfirmOpen(true);
+  const confirmExitRoutine = () => {
+    setExitRoutineConfirmOpen(false);
     setJourneyStep('');
     navigate('/');
     if (state.status === 'playing' && currentStep?.id === 'breathe') abandonSession();
@@ -654,13 +683,23 @@ export const Breathe = () => {
           {!isReviewMode && (
             <>
               {hasFinished && !isInterrupted && (
-                <button
-                  onClick={handleComplete}
-                  className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-                >
-                  <span>Continue</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
+                <>
+                  {/* Mobile correction (honest positive acknowledgement) —
+                      only ever shown for a genuine natural completion, the
+                      exact same gate Continue itself uses; never for
+                      Skip/interrupted. Reuses the shared Phase 2
+                      outcome-messaging module rather than a second model. */}
+                  <p className="text-sm text-center text-on-surface-variant" role="status">
+                    {getBreathingAcknowledgement('morning')}
+                  </p>
+                  <button
+                    onClick={handleComplete}
+                    className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                  >
+                    <span>Continue</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={handleSkip}
@@ -696,6 +735,16 @@ export const Breathe = () => {
         cancelLabel="Cancel"
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
+      />
+      <ConfirmDialog
+        open={exitRoutineConfirmOpen}
+        title="Exit this routine?"
+        message="You'll leave without finishing today's Morning routine - it won't be saved to resume later."
+        confirmLabel="Exit Routine"
+        cancelLabel="Stay"
+        mildDestructive
+        onConfirm={confirmExitRoutine}
+        onDismiss={() => setExitRoutineConfirmOpen(false)}
       />
     </div>
   );

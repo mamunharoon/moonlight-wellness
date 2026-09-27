@@ -184,6 +184,13 @@ export const Gratitude = () => {
         message="Your unsaved progress on this step may be lost."
         confirmLabel="Review"
         cancelLabel="Stay here"
+        // Dialog-severity correction — found on audit: this copy already
+        // admits real, if temporary, progress loss ("may be lost"), the
+        // same tier the Meditate screens' own "Leave this meditation?"
+        // dialog uses (mildDestructive) for equivalent "will end" wording
+        // - this one previously had no severity prop at all (rendered
+        // neutral/primary, indistinguishable from a lossless action).
+        mildDestructive
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
       />

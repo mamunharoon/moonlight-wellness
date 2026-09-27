@@ -109,8 +109,8 @@ describe('MovementCheckboxRow - compact grid-card variant', () => {
     expect(compactBlock).toMatch(/has-\[:focus-visible\]:ring-2 \$\{tokens\.focusRing\}/);
   });
 
-  it('enforces a minimum 76px card height - comfortably above the 44x44pt touch-target minimum even in a 2-column grid on a 320px-wide screen', () => {
-    expect(compactBlock).toMatch(/min-h-\[76px\]/);
+  it('enforces a minimum 64px card height (Morning Stretch compaction, was 76px) - comfortably above the 44x44pt touch-target minimum even in a 2-column grid on a 320px-wide screen', () => {
+    expect(compactBlock).toMatch(/min-h-\[64px\]/);
   });
 
   it('shows title, icon and durationLabel - the same real props as the full row, nothing hard-coded', () => {

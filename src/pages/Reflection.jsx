@@ -221,6 +221,9 @@ export const Reflection = () => {
         message="Your unsaved progress on this step may be lost."
         confirmLabel="Review"
         cancelLabel="Stay here"
+        // Dialog-severity correction — see Gratitude.jsx's identical
+        // fix/rationale.
+        mildDestructive
         onConfirm={confirmLeave}
         onDismiss={cancelLeave}
       />

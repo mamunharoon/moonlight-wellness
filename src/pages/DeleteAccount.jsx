@@ -394,11 +394,20 @@ export const DeleteAccount = () => {
         )}
 
         <div className="space-y-3">
-          <PrimaryButton disabled={billingLoading || Boolean(billingError)} onClick={() => setPhase('reauth')}>
-            Continue
-          </PrimaryButton>
-          <SecondaryButton onClick={() => navigate('/profile/account-management')}>
+          {/* Dialog-severity correction — found on audit: this step had
+              the hierarchy inverted relative to every other pre-final-
+              confirmation step in this flow ("explain" above, "status"
+              below) - "Continue" was the prominent PrimaryButton and
+              "Keep my account" was the muted SecondaryButton. Per the
+              approved hierarchy, Keep-my-account must stay the prominent
+              safe action until the final typed-phrase confirmation step;
+              only the actual consequence/wording changed nowhere - this
+              swaps which button uses which component, nothing else. */}
+          <PrimaryButton onClick={() => navigate('/profile/account-management')}>
             Keep my account
+          </PrimaryButton>
+          <SecondaryButton disabled={billingLoading || Boolean(billingError)} onClick={() => setPhase('reauth')}>
+            Continue
           </SecondaryButton>
         </div>
       </div>

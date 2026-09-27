@@ -94,7 +94,15 @@ export const SessionComplete = () => {
     // identity's own key (see dailyCompletion.js's own doc comment), so
     // this completion is never later read back as a different user's.
     const morningDoneKey = getMorningCompletionKey(userId);
-    if (shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
+    // Outcome-contract correction — this write previously had no
+    // state.status check of its own, relying entirely on "this screen is
+    // only ever reached via a finished routine" (true today, since only
+    // Affirmation's Continue navigates here) rather than verifying it.
+    // Mirrors EveningComplete.jsx's own mount-effect guard (state.status
+    // === 'playing' && currentStep?.id === 'completion') so a direct/
+    // stale visit to this route can never credit today's Morning
+    // completion without the Session Engine having genuinely completed.
+    if (state.status === 'completed' && shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
       localStorage.setItem(morningDoneKey, attributionDateKey);
     }
     if (state.sessionId) {

@@ -72,15 +72,24 @@ const TOKENS = {
 // movements are visible on the setup screen at once without scrolling).
 // Same real checkbox input/label wrapping and focus-visible ring as the
 // full row - only the visual layout differs, not the accessibility
-// contract. min-h-[76px] keeps the whole card comfortably above the
+// contract. min-h-[64px] keeps the whole card comfortably above the
 // 44x44pt minimum touch target even with two columns on a 320px-wide
 // screen.
+//
+// Mobile correction (Morning Stretch compaction) — min-h-[76px] -> 64px
+// and py-3 -> py-2.5, found live: only the first row of four movement
+// cards was reliably visible above the fold at 390x844/393x852, pushing
+// Begin Stretching (which sits ABOVE this grid) out of easy reach and
+// hiding the second row entirely without scrolling. Both changes keep
+// the card comfortably clear of the 44x44 floor (64px > 44px) and change
+// no text size, icon size, or copy - only the card's own vertical
+// padding/height.
 export const MovementCheckboxRow = ({ title, description, durationLabel, icon, isSelected, onToggle, compact = false, journeyTone = 'primary' }) => {
   const tokens = TOKENS[journeyTone] || TOKENS.primary;
   if (compact) {
     return (
       <label
-        className={`relative min-h-[76px] px-3 py-3 rounded-2xl border flex flex-col items-center text-center gap-1 transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+        className={`relative min-h-[64px] px-3 py-2.5 rounded-2xl border flex flex-col items-center text-center gap-1 transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
           isSelected ? tokens.selectedRow : tokens.unselectedRow
         }`}
       >

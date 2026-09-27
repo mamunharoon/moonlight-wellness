@@ -212,12 +212,22 @@ export const Support = () => {
     navigate('/auth?tab=signup');
   };
 
+  // Outcome-aware messaging correction — previously always navigated the
+  // same way regardless of HOW the video ended, so SupportComplete.jsx
+  // could never distinguish a genuine finish (e.g. the "Instant Calm"
+  // video playing to its end) from an early close - identical to the gap
+  // AnytimeReset.jsx's own video path already fixed once; this mirrors
+  // that exact pattern (onEnded sets a real "ended naturally" flag,
+  // checked here) rather than guessing from onClose alone.
+  const [videoEndedNaturally, setVideoEndedNaturally] = useState(false);
+
   // Closing the video (finished, or the user closed it early) is the
   // signal this moment is done — advances to the shared Completion
   // screen, matching the requested Play -> Completion step exactly.
   const handleVideoClose = () => {
     setOpenVideoId(null);
-    navigate('/support-complete');
+    navigate('/support-complete', { state: { outcome: videoEndedNaturally ? 'completed' : 'ended_early' } });
+    setVideoEndedNaturally(false);
   };
 
   const videoEntry = option?.kind === 'video' ? getCatalogEntryById(option.id) : null;
@@ -318,7 +328,7 @@ export const Support = () => {
           version, closing this modal navigates to /support-complete
           rather than just clearing local state — see handleVideoClose. */}
       {openVideo && (
-        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} />
+        <BetaVideoModal entry={openVideo} onClose={handleVideoClose} onEnded={() => setVideoEndedNaturally(true)} />
       )}
       <SignInPromptDialog
         open={signInPromptOpen}

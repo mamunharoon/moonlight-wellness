@@ -71,13 +71,23 @@ describe.each([
 
 describe('Breathe.jsx (Morning) — render gate', () => {
   it('Continue is rendered only when hasFinished && !isInterrupted (previously !isInterrupted alone - the exact reported defect)', () => {
-    expect(breatheSource).toMatch(/\{hasFinished && !isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handleComplete\}/);
+    // Mobile correction (honest positive acknowledgement) - the button is
+    // now wrapped alongside an acknowledgement <p> in a fragment under the
+    // same gate, rather than being the immediate next element.
+    const gated = breatheSource.match(/\{hasFinished && !isInterrupted && \(\s*\n\s*<>[\s\S]*?\n\s*<\/>\s*\n\s*\)\}/)?.[0] ?? '';
+    expect(gated).not.toBe('');
+    expect(gated).toMatch(/onClick=\{handleComplete\}/);
   });
 });
 
 describe('EveningBreathing.jsx (Evening) — render gate', () => {
   it('Continue is rendered only when hasFinished && !manuallyPaused (previously !manuallyPaused alone via the shared handleAdvance - the exact reported defect)', () => {
-    expect(eveningBreathingSource).toMatch(/\{hasFinished && !manuallyPaused && \(\s*\n\s*<button\s*\n\s*onClick=\{handleComplete\}/);
+    // Mobile correction (honest positive acknowledgement) - the button is
+    // now wrapped alongside an acknowledgement <p> in a fragment under the
+    // same gate, rather than being the immediate next element.
+    const gated = eveningBreathingSource.match(/\{hasFinished && !manuallyPaused && \(\s*\n\s*<>[\s\S]*?\n\s*<\/>\s*\n\s*\)\}/)?.[0] ?? '';
+    expect(gated).not.toBe('');
+    expect(gated).toMatch(/onClick=\{handleComplete\}/);
   });
 
   it('the pre-start Skip button (before Begin is ever tapped) also uses handleSkip, not handleComplete', () => {

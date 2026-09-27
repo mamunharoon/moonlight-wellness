@@ -86,16 +86,42 @@ describe('Welcome.jsx — first-run screen owns its own scroll container', () =>
   });
 });
 
+describe('MorningMeditate.jsx — Meditation setup screen owns its own scroll container (mobile correction: Duration/Sound/Begin were unreachable)', () => {
+  const morningMeditateSource = read('./MorningMeditate.jsx');
+
+  it('wraps the setup return in the proven h-dvh/overflow-y-auto shape', () => {
+    expect(morningMeditateSource).toContain(SCROLL_OUTER);
+    expect(morningMeditateSource).toContain(SCROLL_INNER);
+  });
+
+  it('the setup screen\'s content div keeps its original spacing/padding, just min-h-full instead of min-h-[85vh], plus safe-area bottom padding (the unrelated active-session screen elsewhere in this file keeps its own min-h-[85vh] untouched)', () => {
+    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"/);
+    expect(morningMeditateSource).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  });
+
+  it('still renders MeditationSetupPanel unchanged (Begin/Duration/Sound wiring untouched by the scroll-container fix)', () => {
+    expect(morningMeditateSource).toMatch(/<MeditationSetupPanel/);
+    expect(morningMeditateSource).toMatch(/onBegin=\{handleBegin\}/);
+  });
+
+  it('div open/close tags stay balanced (two new wrapper divs added, two new closes added)', () => {
+    const opens = (morningMeditateSource.match(/<div/g) ?? []).length;
+    const closes = (morningMeditateSource.match(/<\/div>/g) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+});
+
 describe('Cross-file consistency - every fixed screen reuses the exact same wrapper shape Introduction.jsx pioneered, no bespoke variant invented per file', () => {
   it('Introduction.jsx (the original fix) still has the same two wrapper lines - the shape being copied has not itself drifted', () => {
     expect(introductionSource).toContain(SCROLL_OUTER);
     expect(introductionSource).toContain(SCROLL_INNER);
   });
 
-  it('all four fixed files (Introduction, SelfGuidedMeditation, Auth, Welcome, AnytimeReset) use byte-identical wrapper markup, not four slightly different reimplementations', () => {
+  it('all fixed files (Introduction, SelfGuidedMeditation, Auth, Welcome, AnytimeReset, MorningMeditate) use byte-identical wrapper markup, not slightly different reimplementations', () => {
     const authSource = read('./Auth.jsx');
     const anytimeResetSource = read('./AnytimeReset.jsx');
-    for (const source of [introductionSource, selfGuidedMeditationSource, authSource, welcomeSource, anytimeResetSource]) {
+    const morningMeditateSource = read('./MorningMeditate.jsx');
+    for (const source of [introductionSource, selfGuidedMeditationSource, authSource, welcomeSource, anytimeResetSource, morningMeditateSource]) {
       expect(source).toContain(SCROLL_OUTER);
       expect(source).toContain(SCROLL_INNER);
     }

@@ -39,7 +39,7 @@ describe('fetchRhythm — a registered user\'s real source of truth', () => {
 
 describe('syncRhythm identity-reset — cross-user/sign-out isolation', () => {
   it('the guest branch re-reads both from guest storage - never a leftover value from the previous identity', () => {
-    const guestBranch = source.match(/if \(!userId\) \{[\s\S]*?settledRhythmUserIdRef\.current = userId;\s*\n\s*return;\s*\n\s*\}/)?.[0] ?? '';
+    const guestBranch = source.match(/if \(!userId\) \{[\s\S]*?settledRhythmUserIdRef\.current = userId;[\s\S]*?\n\s*return;\s*\n\s*\}/)?.[0] ?? '';
     expect(guestBranch).toMatch(/setIsAlarmSet\(getInitialAlarmEnabled\(\)\);/);
     expect(guestBranch).toMatch(/setAlarmConfigured\(getInitialAlarmConfigured\(\)\);/);
   });

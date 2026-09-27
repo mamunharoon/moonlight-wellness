@@ -345,10 +345,17 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       // embeddedBreathingContinueLock.test.js): Breathe.jsx's own Continue is
       // now ALSO gated on hasFinished, so its guard reads
       // "hasFinished && !isInterrupted", not just "!isInterrupted" alone.
-      const expected = name === 'Breathe.jsx'
-        ? /\{hasFinished && !isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/
-        : /\{!isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/;
-      expect(source).toMatch(expected);
+      // Mobile correction (honest positive acknowledgement) - Breathe.jsx's
+      // Continue button is now wrapped alongside an acknowledgement <p> in
+      // a fragment under the same gate, rather than being the immediate
+      // next element - see breathingSequentialCompletionLifecycle.test.js.
+      if (name === 'Breathe.jsx') {
+        const gated = source.match(/\{hasFinished && !isInterrupted && \(\s*\n\s*<>[\s\S]*?\n\s*<\/>\s*\n\s*\)\}/)?.[0] ?? '';
+        expect(gated).not.toBe('');
+        expect(gated).toMatch(/onClick=\{handle(NextStep|Complete)\}/);
+      } else {
+        expect(source).toMatch(/\{!isInterrupted && \(\s*\n\s*<button\s*\n\s*onClick=\{handle(NextStep|Complete)\}/);
+      }
     });
 
     // Build 16 physical-iPhone correction (F6) — the old "Resume Exercise
@@ -363,10 +370,16 @@ describe('Breathe.jsx / MorningFlow.jsx - pausing the exercise timer itself when
       const resumeBody = source.match(/const handleResume = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(resumeBody).toMatch(/if \(wasMusicPlayingRef\.current\) \{\s*\n\s*wasMusicPlayingRef\.current = false;\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
       // No useEffect anywhere in the file calls start() on the ref - the
-      // only call site is inside handleResume above.
+      // only call site is inside handleResume above. Mobile correction
+      // (sequential breathing-pattern completion lifecycle) added a
+      // narrowly-scoped stop()-only effect to Breathe.jsx (mirroring
+      // QuietBreathing.jsx's own proven isComplete->stop() pattern, see
+      // breathingSequentialCompletionLifecycle.test.js) - that is a
+      // deliberate, different call (.stop(), never .start()) and does not
+      // violate this guard.
       const effectBodies = source.match(/useEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[[^\]]*\]\);/g) ?? [];
       for (const body of effectBodies) {
-        expect(body).not.toMatch(/musicPlayerRef/);
+        expect(body).not.toMatch(/musicPlayerRef\.current\?\.start\(/);
       }
     });
 

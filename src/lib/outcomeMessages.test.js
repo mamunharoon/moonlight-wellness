@@ -1,6 +1,6 @@
 // WakeWise Phase 2 (B4/B6) — outcomeMessages.js.
 import { describe, it, expect } from 'vitest';
-import { OUTCOME, JOURNEY, getOutcomeMessage } from './outcomeMessages';
+import { OUTCOME, JOURNEY, getOutcomeMessage, getBreathingAcknowledgement } from './outcomeMessages';
 
 describe('OUTCOME / JOURNEY enums', () => {
   it('OUTCOME has exactly the four required values', () => {
@@ -115,5 +115,19 @@ describe('getOutcomeMessage - defaults and defensiveness', () => {
     expect(() => getOutcomeMessage('not-a-real-outcome', 'not-a-real-journey')).not.toThrow();
     const fallback = getOutcomeMessage('not-a-real-outcome', 'not-a-real-journey');
     expect(fallback.headline.toLowerCase()).not.toMatch(/complete/);
+  });
+});
+
+describe('getBreathingAcknowledgement - honest positive acknowledgement after a single natural breathing-pattern completion (mobile correction #4)', () => {
+  it('returns the exact required copy for each real journey', () => {
+    expect(getBreathingAcknowledgement(JOURNEY.MORNING)).toBe('Beautifully done. Carry this steady energy into your morning.');
+    expect(getBreathingAcknowledgement(JOURNEY.ANYTIME)).toBe('You gave yourself a moment to reset.');
+    expect(getBreathingAcknowledgement(JOURNEY.EVENING)).toBe('Let that slower rhythm stay with you as you wind down.');
+  });
+
+  it('falls back to the neutral/standalone copy for an unrecognised or missing journey - never throws', () => {
+    expect(getBreathingAcknowledgement(undefined)).toBe('Thank you for taking this moment for yourself.');
+    expect(getBreathingAcknowledgement('not-a-real-journey')).toBe('Thank you for taking this moment for yourself.');
+    expect(() => getBreathingAcknowledgement()).not.toThrow();
   });
 });
