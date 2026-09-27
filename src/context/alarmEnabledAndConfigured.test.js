@@ -81,12 +81,17 @@ describe('updateRhythm — the one real, deliberate save entry point', () => {
   });
 });
 
-describe('saveRhythm — upserts both new columns explicitly, never omitted', () => {
-  it('the upsert payload includes alarm_enabled and alarm_configured', () => {
+describe('saveRhythm — upserts both new columns explicitly on the first attempt, never omitted outright', () => {
+  // Timezone persistence correction, part 2 — the first attempt still
+  // always sends both columns (this describe block's own original
+  // guarantee); a missing-column 42703 error now retries once with just
+  // the core fields instead of failing outright - see
+  // timezonePersistenceCorrection.test.js for that resilience path's own
+  // dedicated coverage.
+  it('the first upsert attempt includes alarm_enabled and alarm_configured', () => {
     const fn = source.match(/const saveRhythm = async \(newAlarm, newBed, newTimezone, newEnabled, newConfigured\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(fn).not.toBe('');
-    expect(fn).toMatch(/alarm_enabled: newEnabled,/);
-    expect(fn).toMatch(/alarm_configured: newConfigured,/);
+    expect(fn).toMatch(/alarm_enabled: newEnabled,\s*\n\s*alarm_configured: newConfigured/);
   });
 });
 

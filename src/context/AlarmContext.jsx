@@ -17,6 +17,7 @@ import { sanitizeIntentions } from '../lib/intentionSelection';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
 import { buildAlarmOccurrenceKey, getHandledAlarmOccurrence, markAlarmOccurrenceHandled, clearHandledAlarmOccurrence } from '../lib/alarmOccurrence';
 import { resolvePlayableAlarmSound, getStoredAlarmSoundId, setStoredAlarmSoundId, DEFAULT_ALARM_SOUND_ID } from '../lib/alarmSounds';
+import { upsertRhythmWithFallback } from '../lib/rhythmPersistence';
 
 const AlarmContext = createContext();
 
@@ -723,27 +724,44 @@ export const AlarmProvider = ({ children }) => {
   // actually awaits and acts on this - every other existing caller
   // (updateRhythm) is completely unaffected by a function that now
   // resolves to a value it simply never reads.
+  //
+  // Timezone persistence correction, part 2 — real found defect,
+  // confirmed live via a direct, read-only PostgREST probe against DEV:
+  // `20260926000000_rhythms_alarm_enabled_and_configured.sql` is
+  // committed in this repo but has NOT been applied to the live DEV
+  // database - rhythms.alarm_enabled/alarm_configured both return
+  // Postgres 42703 ("column ... does not exist") there today, while
+  // wake_up_time/bedtime/timezone all resolve fine. Because this upsert
+  // always sent alarm_enabled/alarm_configured alongside every other
+  // field in ONE payload, that single missing pair broke the ENTIRE
+  // write for every caller - not just confirmTimezone, but updateRhythm
+  // (Onboarding.jsx's own wake/bed/timezone save, every alarm-time edit)
+  // too, all silently (none of those callers ever awaited/checked this
+  // function's result before this correction's own confirmTimezone did).
+  // The actual retry-with-fallback contract now lives in
+  // upsertRhythmWithFallback (rhythmPersistence.js) - extracted so it can
+  // be executed against a mocked Supabase client in a real test, not only
+  // checked by source-text regex like the rest of this closure's own
+  // internals necessarily are. This function's own job is unchanged:
+  // build the two payload halves, delegate, and log/return a boolean.
   const saveRhythm = async (newAlarm, newBed, newTimezone, newEnabled, newConfigured) => {
     if (!supabase || !userId) return false;
 
-    try {
-      const { error } = await supabase
-        .from('rhythms')
-        .upsert(
-          {
-            user_id: userId,
-            wake_up_time: newAlarm,
-            bedtime: newBed,
-            timezone: newTimezone ?? null,
-            alarm_enabled: newEnabled,
-            alarm_configured: newConfigured,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: 'user_id' }
-        );
+    const corePayload = {
+      user_id: userId,
+      wake_up_time: newAlarm,
+      bedtime: newBed,
+      timezone: newTimezone ?? null,
+      updated_at: new Date().toISOString()
+    };
 
-      if (error) {
-        console.error('Error saving rhythm:', error.message);
+    try {
+      const result = await upsertRhythmWithFallback(supabase, corePayload, {
+        alarm_enabled: newEnabled,
+        alarm_configured: newConfigured
+      });
+      if (!result.success) {
+        console.error('Error saving rhythm:', result.error?.message);
         return false;
       }
       return true;

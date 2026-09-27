@@ -71,8 +71,22 @@ describe('save failure - timezone is never marked confirmed, and an honest error
   it('saveRhythm itself now catches a thrown/rejected call (not just a Postgrest {error} response) and returns false either way - previously there was no catch at all, so a network-level rejection could propagate uncaught', () => {
     expect(saveRhythmBody).toMatch(/try \{/);
     expect(saveRhythmBody).toMatch(/\} catch \(e\) \{\s*\n\s*console\.error\('Error saving rhythm:', e\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
-    expect(saveRhythmBody).toMatch(/if \(error\) \{\s*\n\s*console\.error\('Error saving rhythm:', error\.message\);\s*\n\s*return false;\s*\n\s*\}/);
+    expect(saveRhythmBody).toMatch(/if \(!result\.success\) \{\s*\n\s*console\.error\('Error saving rhythm:', result\.error\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
     expect(saveRhythmBody).toMatch(/return true;/);
+  });
+
+  // Timezone persistence correction, part 2 — the real "underlying
+  // Supabase persistence operation is failing" root cause (confirmed live:
+  // rhythms.alarm_enabled/alarm_configured return Postgres 42703 on DEV,
+  // even though the migration adding them is already committed) lives in
+  // upsertRhythmWithFallback (rhythmPersistence.js), with its own
+  // dedicated, REAL executed test coverage in rhythmPersistence.test.js -
+  // this just confirms saveRhythm actually delegates to it, with the
+  // correct core/extended field split.
+  it('saveRhythm delegates the actual upsert-with-fallback logic to upsertRhythmWithFallback, splitting the payload into core fields (always present) and extended fields (alarm_enabled/alarm_configured - the ones confirmed missing on live DEV today)', () => {
+    expect(contextSource).toMatch(/import \{ upsertRhythmWithFallback \} from '\.\.\/lib\/rhythmPersistence';/);
+    expect(saveRhythmBody).toMatch(/const corePayload = \{\s*\n\s*user_id: userId,\s*\n\s*wake_up_time: newAlarm,\s*\n\s*bedtime: newBed,\s*\n\s*timezone: newTimezone \?\? null,\s*\n\s*updated_at: new Date\(\)\.toISOString\(\)\s*\n\s*\};/);
+    expect(saveRhythmBody).toMatch(/const result = await upsertRhythmWithFallback\(supabase, corePayload, \{\s*\n\s*alarm_enabled: newEnabled,\s*\n\s*alarm_configured: newConfigured\s*\n\s*\}\);/);
   });
 
   it('confirmTimezone clears any previous error at the start of every attempt, so retrying (tapping the same action again) is the one, sufficient retry mechanism', () => {
