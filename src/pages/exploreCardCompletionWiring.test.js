@@ -27,9 +27,14 @@ describe('SessionComplete.jsx (Morning) — ExploreCard placement and content', 
     expect(block).not.toBe('');
     expect(block).toMatch(/journey="morning"/);
     expect(block).toMatch(/title="Have a little more time\?"/);
-    expect(block).toMatch(/supportingText="Explore stretching, breathing and meditation for your morning\."/);
     expect(block).toMatch(/ctaLabel="Explore Morning"/);
     expect(block).toMatch(/itemCount=\{getMorningExploreCatalog\(\)\.length\}/);
+  });
+
+  it('Physical-iPhone correction — the supporting sentence is removed (ExploreCard\'s supportingText is now optional; omitting it tightens the card automatically)', () => {
+    const block = source.match(/<ExploreCard\s*\n[\s\S]*?\n\s*\/>/)?.[0] ?? '';
+    expect(block).not.toMatch(/supportingText/);
+    expect(source).not.toMatch(/Explore stretching, breathing and meditation for your morning\./);
   });
 
   it('links to /library with journey=morning and the allowlisted from=morning-complete origin - never a free-form return URL', () => {

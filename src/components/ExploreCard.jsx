@@ -42,6 +42,13 @@ const JOURNEY_ICON_CLASS = {
   anytime: 'text-tertiary bg-tertiary/10'
 };
 
+// Physical-iPhone correction — `supportingText` is now optional (additive,
+// backward-compatible: Evening/Anytime both keep passing it and render
+// byte-identically to before). Only SessionComplete.jsx (Morning) now
+// omits it, per the approved "remove the supporting sentence" simplification
+// - the space-y-1 wrapper below only ever applies margin between actually-
+// rendered siblings, so omitting this line already tightens the card with
+// no separate spacing change needed.
 export const ExploreCard = ({ journey, icon, title, supportingText, ctaLabel, to, itemCount }) => (
   <Link
     to={to}
@@ -54,7 +61,9 @@ export const ExploreCard = ({ journey, icon, title, supportingText, ctaLabel, to
     </span>
     <span className="flex-1 min-w-0 space-y-1">
       <span className="block text-sm font-bold text-on-surface">{title}</span>
-      <span className="block text-xs text-on-surface-variant leading-relaxed">{supportingText}</span>
+      {supportingText && (
+        <span className="block text-xs text-on-surface-variant leading-relaxed">{supportingText}</span>
+      )}
       <span className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider mt-1 ${journey === 'morning' ? 'text-morning-accent' : journey === 'evening' ? 'text-evening-accent' : journey === 'anytime' ? 'text-tertiary' : 'text-primary'}`}>
         {ctaLabel}
         {typeof itemCount === 'number' && itemCount > 0 ? ` · ${itemCount}` : ''}

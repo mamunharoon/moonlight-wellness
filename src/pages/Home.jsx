@@ -111,6 +111,14 @@ export const Home = () => {
   const morningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.morning, liveState: state, snapshot: morningSnapshotToday });
   const eveningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.evening, liveState: state, snapshot: eveningSnapshotToday });
 
+  // Physical-iPhone correction — MorningJourneyPathway's own currentStepNumber
+  // prop (1-5), derived from the exact same resolved step index and
+  // MORNING_DISPLAY_STEP_NUMBERS resolveStepLabel above already uses for
+  // "Step X of Y" - no second/competing progress source. Read as a plain
+  // number rather than via resolveStepLabel's own "Step X of Y" string so
+  // the pathway can compute per-step completed/current directly.
+  const morningCurrentPathwayStep = MORNING_DISPLAY_STEP_NUMBERS[getSessionById(RITUAL_SESSION_IDS.morning)?.steps[morningResolvedStepIndex]?.id];
+
   // "Yesterday's unfinished routine" remediation — a routine can have
   // genuinely nothing recorded for TODAY (morningCardState/
   // eveningCardState above both correctly resolve to 'not-started') while
@@ -1031,6 +1039,11 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), 'morning')}
+              {/* Physical-iPhone correction — the pathway now also renders
+                  here, with completed steps checked and the current step
+                  highlighted, via the same currentStepNumber this card's
+                  own resolved step index already produces. */}
+              <MorningJourneyPathway currentStepNumber={morningCurrentPathwayStep} />
               <button
                 type="button"
                 onClick={handleMorningAction}
@@ -1055,6 +1068,10 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningCompletedCard, undefined, 'morning')}
+              {/* Physical-iPhone correction — currentStepNumber=6 (past the
+                  last real step, MORNING_DISPLAY_STEP_COUNT + 1) marks
+                  every one of the 5 steps completed/checked. */}
+              <MorningJourneyPathway currentStepNumber={MORNING_DISPLAY_STEP_COUNT + 1} />
               <button
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}

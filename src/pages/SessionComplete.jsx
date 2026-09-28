@@ -335,11 +335,15 @@ export const SessionComplete = () => {
           suitable content only (Morning/Stretching/Breathing categories
           plus meditation-eligible items, never an evening-only entry -
           see exploreFiltering.js's own documented rule). */}
+      {/* Physical-iPhone correction — the supporting sentence removed
+          (approved simplification, tightens the card automatically since
+          ExploreCard's own space-y-1 wrapper only applies margin between
+          actually-rendered siblings); title, CTA, route, origin, item
+          count and accessibility label are all otherwise unchanged. */}
       <ExploreCard
         journey="morning"
         icon="explore"
         title="Have a little more time?"
-        supportingText="Explore stretching, breathing and meditation for your morning."
         ctaLabel="Explore Morning"
         to="/library?journey=morning&from=morning-complete"
         itemCount={getMorningExploreCatalog().length}

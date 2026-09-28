@@ -195,8 +195,17 @@ export const Affirmation = () => {
               (previously a cool grey, text-slate-600, at odds with the
               warm cream/gold surface) - no new colour introduced, only an
               existing token applied more consistently. Role label bumped
-              9px -> 10px and quote text xs -> sm, matching this app's own
-              established micro-label/body-copy size floors. */}
+              9px -> 10px.
+              Physical-iPhone correction — the quote text was still hard
+              to read: text-sm (14px) fell short of the approved 15-16px
+              floor, and the /90 opacity on-morning-affirmation-tint/90)
+              softened the already-brownish token further, reading as
+              pale against the cream card. Now full-strength
+              on-morning-affirmation (the SAME token, no opacity modifier
+              - never a new colour, and the token this screen's own role
+              label and heading already use at full strength) at text-base
+              (16px) and font-semibold, keeping leading-relaxed for
+              comfortable line height. */}
           <div className="space-y-4">
             {affirmations.map(({ intention, affirmation }, idx) => (
               <div
@@ -206,7 +215,7 @@ export const Affirmation = () => {
                 {affirmations.length > 1 && (
                   <span className="text-[10px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
                 )}
-                <p className="text-sm text-on-morning-affirmation/90 max-w-xs mx-auto leading-relaxed font-medium">
+                <p className="text-base text-on-morning-affirmation max-w-xs mx-auto leading-relaxed font-semibold">
                   "{affirmation}"
                 </p>
               </div>

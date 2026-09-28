@@ -94,8 +94,12 @@ describe('MorningMeditate.jsx — Meditation setup screen owns its own scroll co
     expect(morningMeditateSource).toContain(SCROLL_INNER);
   });
 
-  it('the setup screen\'s content div keeps its original spacing/padding, just min-h-full instead of min-h-[85vh], plus safe-area bottom padding (the unrelated active-session screen elsewhere in this file keeps its own min-h-[85vh] untouched)', () => {
-    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"/);
+  it('the setup screen\'s content div keeps its own scroll-owning min-h-full and safe-area bottom padding; Physical-iPhone correction dropped justify-between (was spreading the few, short children across the full viewport height, the real cause of the excessive gap below the progress pathway) and tightened space-y-10 -> space-y-4 (the unrelated active-session screen elsewhere in this file keeps its own min-h-[85vh] untouched)', () => {
+    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
+    // Comments in this file legitimately mention "justify-between" while
+    // explaining the fix - strip comments first.
+    const codeOnly = morningMeditateSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/justify-between/);
     expect(morningMeditateSource).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
   });
 

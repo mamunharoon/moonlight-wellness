@@ -119,8 +119,8 @@ describe('MorningMeditate.jsx — Meditation setup scrolling fix: real scroll co
     expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
   });
 
-  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner), keeping its original spacing/padding otherwise', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"/);
+  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner); Physical-iPhone correction dropped justify-between and tightened space-y-10 -> space-y-4 (the real cause of the excessive gap below the progress pathway), otherwise unchanged', () => {
+    expect(source).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
   });
 });
 

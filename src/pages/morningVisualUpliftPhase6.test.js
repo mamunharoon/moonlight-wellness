@@ -21,26 +21,32 @@ const anytimeResetSource = read('./AnytimeReset.jsx');
 const tailwindConfigSource = read('../../tailwind.config.js');
 const indexCssSource = read('../index.css');
 
-describe('Morning Home — five-step pathway only on the not-started card, never on in-progress/completed', () => {
-  it('MorningJourneyPathway is imported and rendered exactly once, inside the not-started (!morningHasStaleChoice) card block only', () => {
+describe('Morning Home — five-step pathway in every Morning card state (Physical-iPhone correction)', () => {
+  it('MorningJourneyPathway is imported once and rendered in all three real card states - not-started, in-progress, and completed', () => {
     const importMatches = homeSource.match(/import \{ MorningJourneyPathway \} from '\.\.\/components\/MorningJourneyPathway';/g) ?? [];
     expect(importMatches.length).toBe(1);
-    const renderMatches = homeSource.match(/<MorningJourneyPathway \/>/g) ?? [];
-    expect(renderMatches.length).toBe(1);
+    const renderMatches = homeSource.match(/<MorningJourneyPathway/g) ?? [];
+    expect(renderMatches.length).toBe(3);
+  });
 
+  it('not-started renders the plain pathway (no currentStepNumber - every step in its original upcoming look, byte-identical to before this correction)', () => {
     const notStartedBlock = homeSource.match(/\{morningCardState === 'not-started' && !morningHasStaleChoice && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
     expect(notStartedBlock).toMatch(/<MorningJourneyPathway \/>/);
   });
 
-  it('the in-progress and completed Morning cards never render the pathway - Resume/Repeat behaviour is untouched by this addition', () => {
+  it('in-progress passes currentStepNumber derived from the SAME resolved step index resolveStepLabel already uses - no competing/second progress store', () => {
+    expect(homeSource).toMatch(/const morningCurrentPathwayStep = MORNING_DISPLAY_STEP_NUMBERS\[getSessionById\(RITUAL_SESSION_IDS\.morning\)\?\.steps\[morningResolvedStepIndex\]\?\.id\];/);
     const inProgressBlock = homeSource.match(/\{morningCardState === 'in-progress' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
-    const completedBlock = homeSource.match(/\{morningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
-    expect(inProgressBlock).not.toMatch(/MorningJourneyPathway/);
-    expect(completedBlock).not.toMatch(/MorningJourneyPathway/);
-    // The exact original Resume/Repeat handlers and labels are still wired.
+    expect(inProgressBlock).toMatch(/<MorningJourneyPathway currentStepNumber=\{morningCurrentPathwayStep\} \/>/);
+    // The exact original Resume handler/label and Start Over are still wired, unchanged.
     expect(inProgressBlock).toMatch(/onClick=\{handleMorningAction\}/);
     expect(inProgressBlock).toMatch(/\{morningInProgressCard\.buttonLabel\}/);
     expect(inProgressBlock).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'start-over', period: 'morning' \}\)\}/);
+  });
+
+  it('completed passes currentStepNumber = MORNING_DISPLAY_STEP_COUNT + 1 (past the last real step, so all five steps satisfy "completed") - Repeat is still wired, unchanged', () => {
+    const completedBlock = homeSource.match(/\{morningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
+    expect(completedBlock).toMatch(/<MorningJourneyPathway currentStepNumber=\{MORNING_DISPLAY_STEP_COUNT \+ 1\} \/>/);
     expect(completedBlock).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'morning' \}\)\}/);
     expect(completedBlock).toMatch(/\{morningCompletedCard\.buttonLabel\}/);
   });
@@ -49,6 +55,97 @@ describe('Morning Home — five-step pathway only on the not-started card, never
     expect(homeSource).toMatch(/onClick=\{handleResumeStaleMorning\}/);
     expect(homeSource).toMatch(/Resume Previous Routine/);
     expect(homeSource).toMatch(/Start Today's Routine/);
+  });
+});
+
+describe('Morning Meditation setup — spacing correction (Physical-iPhone finding: excessive gap below the progress pathway)', () => {
+  // Comments in this file legitimately mention "justify-between" while
+  // explaining the fix - strip comments first so the check reflects only
+  // the real, executable code, matching this suite's own established
+  // hex-scan precedent below.
+  const codeOnly = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  it('the outer content container no longer uses justify-between (the real cause: distributing all leftover viewport space as extra gaps between a few short children) and space-y-10 is tightened to space-y-4', () => {
+    expect(codeOnly(morningMeditateSource)).not.toMatch(/justify-between/);
+    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
+  });
+
+  it('no fixed pixel height was introduced that could clip smaller devices - the exact new className carries only min-h-full (a floor, verified above) and no arbitrary-value height class, and the surrounding h-dvh/overflow-y-auto scroll owner is still present unchanged', () => {
+    expect(morningMeditateSource).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(morningMeditateSource).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+    // The exact className string verified above contains no h-[...]/min-h-[...]
+    // arbitrary-value class - only the plain min-h-full floor.
+    expect('min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4').not.toMatch(/h-\[/);
+  });
+
+  it('MeditationSetupPanel and its Begin/Duration/Sound/advanced-customisation wiring are completely untouched by the spacing correction', () => {
+    expect(morningMeditateSource).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="morning"\s*\n\s*heading="Mindful Pause"\s*\n\s*purpose="A quiet moment before your affirmation\."/);
+    expect(morningMeditateSource).toMatch(/onBegin=\{handleBegin\}/);
+    expect(morningMeditateSource).toMatch(/onSelectDuration=\{session\.setDurationId\}/);
+    expect(morningMeditateSource).toMatch(/onSelectSound=\{session\.selectSound\}/);
+    expect(morningMeditateSource).toMatch(/defaultExpanded=\{chooseAnotherExpanded\}/);
+  });
+});
+
+describe('Morning Affirmation — supporting-text readability correction (Physical-iPhone finding: too pale, too small)', () => {
+  // Comments in this file legitimately mention "text-slate-600" while
+  // explaining the fix - strip comments first, matching this suite's own
+  // established hex-scan precedent.
+  const affirmationCodeOnly = affirmationSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  it('the quote text now uses the existing on-morning-affirmation token at FULL strength (no /90 opacity, no new colour) and text-base (16px), not the old text-sm (14px)/90%-opacity combination', () => {
+    expect(affirmationSource).toMatch(/text-base text-on-morning-affirmation max-w-xs mx-auto leading-relaxed font-semibold/);
+    expect(affirmationSource).not.toMatch(/text-on-morning-affirmation\/90/);
+    expect(affirmationSource).not.toMatch(/text-sm text-on-morning-affirmation/);
+    expect(affirmationCodeOnly).not.toMatch(/text-slate-600/);
+  });
+
+  it('the role label (PRIMARY/SUPPORTING), the main affirmation headline, and the intention-derived mapping are all untouched by the readability correction', () => {
+    expect(affirmationSource).toMatch(/text-\[10px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
+    expect(affirmationSource).toMatch(/Today is a fresh beginning\./);
+    expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
+  });
+});
+
+describe('Explore Morning card — supporting sentence removed (Physical-iPhone approved copy simplification); Evening/Anytime untouched', () => {
+  it('SessionComplete.jsx (Morning) no longer passes supportingText to ExploreCard; title, CTA, route, origin and item count are all otherwise unchanged', () => {
+    expect(sessionCompleteSource).not.toMatch(/Explore stretching, breathing and meditation for your morning\./);
+    const block = sessionCompleteSource.match(/<ExploreCard\s*\n[\s\S]*?\n\s*\/>/)?.[0] ?? '';
+    expect(block).not.toMatch(/supportingText/);
+    expect(block).toMatch(/title="Have a little more time\?"/);
+    expect(block).toMatch(/ctaLabel="Explore Morning"/);
+    expect(block).toMatch(/to="\/library\?journey=morning&from=morning-complete"/);
+    expect(block).toMatch(/itemCount=\{getMorningExploreCatalog\(\)\.length\}/);
+  });
+
+  it('ExploreCard.jsx\'s own supportingText prop is additive-optional (only conditionally rendered) - Evening/Anytime callers keep passing it and are byte-unaffected', () => {
+    const exploreCardSource = read('../components/ExploreCard.jsx');
+    expect(exploreCardSource).toMatch(/\{supportingText && \(/);
+    expect(eveningCompleteSource).toMatch(/supportingText="Explore sleep stories, calming videos and soothing sounds\."/);
+  });
+
+  it('the accessible label is untouched - it is built from ctaLabel/title only, never from supportingText', () => {
+    const exploreCardSource = read('../components/ExploreCard.jsx');
+    expect(exploreCardSource).toMatch(/aria-label=\{`\$\{ctaLabel\}: \$\{title\}`\}/);
+  });
+});
+
+describe('Morning Stretch and Breathing — completely untouched by this correction pass (they passed physical-device review)', () => {
+  it('MorningFlow.jsx (Stretch) — the approved Phase 6 layout (stacked movements, CompactSoundControl header) is present, unmodified by this pass', () => {
+    expect(morningFlowSource).toMatch(/className="space-y-2" role="group" aria-label="Choose your movements"/);
+    expect(morningFlowSource).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="morning" \/>/);
+  });
+
+  it('Breathe.jsx (Breathing) source is byte-identical to the approved Phase 6 commit - no visual or functional edit in this pass', () => {
+    expect(breatheSource).toMatch(/Choose Your Breath/);
+    expect(breatheSource).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="morning"/);
+  });
+});
+
+describe('No Anytime/Evening source changes in this correction pass', () => {
+  it('EveningComplete.jsx and AnytimeReset.jsx are untouched - their own ExploreCard/pathway-adjacent content is unaffected by the Morning-only corrections', () => {
+    expect(eveningCompleteSource).not.toMatch(/MorningJourneyPathway/);
+    expect(anytimeResetSource).not.toMatch(/MorningJourneyPathway/);
   });
 });
 

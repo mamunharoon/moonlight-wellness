@@ -470,7 +470,20 @@ export const MorningMeditate = () => {
     <div className="h-dvh overflow-hidden">
     <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-full flex flex-col justify-between pb-6 max-w-xl mx-auto space-y-10"
+      // Physical-iPhone correction — `justify-between` (a min-h-full flex
+      // column with few, short children) was distributing all the
+      // viewport's leftover vertical space as extra gaps BETWEEN those
+      // children, on top of the already-generous space-y-10 - the real
+      // cause of the excessive blank space between ProgressIndicator and
+      // MeditationSetupPanel's own icon/heading. Removed entirely (this
+      // screen never needed content pinned to the bottom edge - Exit
+      // routine now simply follows the panel in normal flow, matching
+      // every other Morning setup screen's own convention) and space-y-10
+      // tightened to space-y-4, matching MorningFlow.jsx's/Breathe.jsx's
+      // own established "compact inter-section gap" values. No fixed
+      // height was introduced - min-h-full/overflow-y-auto scrolling is
+      // completely unchanged, so smaller devices still scroll normally.
+      className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
