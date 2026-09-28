@@ -20,12 +20,12 @@ describe('useCompletionHandoff — purely additive, never touches isCompleted or
 });
 
 describe('useCompletionHandoff — the hold -> exit-fade -> revealed sequence', () => {
-  it('HOLD_MS is within the approved ~150-250ms range', () => {
-    expect(source).toMatch(/const HOLD_MS = 200;/);
+  it('HOLD_MS is within the approved ~150-250ms range, retuned to its low end by the completion-transition refinement pass (200 -> 150) to keep the combined sequence inside the newly-approved ~1.1-1.4s target', () => {
+    expect(source).toMatch(/const HOLD_MS = 150;/);
   });
 
-  it('EXIT_FADE_MS is within the approved ~300-400ms range', () => {
-    expect(source).toMatch(/const EXIT_FADE_MS = 350;/);
+  it('EXIT_FADE_MS is retuned by the same pass (350 -> 250)', () => {
+    expect(source).toMatch(/const EXIT_FADE_MS = 250;/);
   });
 
   it('the hold timer transitions phase to \'exiting\' only after HOLD_MS, and only when genuinely completed and motion is not reduced', () => {

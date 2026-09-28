@@ -127,7 +127,13 @@ describe('Real Evening routes — untouched, no journey prop, still the exact or
   it('none of them pass a journey prop to EveningSceneShell - every one keeps the default \'evening\' behaviour', () => {
     for (const path of eveningRoutes) {
       const source = read(`../pages${path.slice(1)}`);
-      expect(source, `${path} should not pass journey= to EveningSceneShell`).not.toMatch(/journey=/);
+      // Scoped to the <EveningSceneShell ...> opening tag itself, not the
+      // whole file - "Explore More" discovery, Phase 5 added a genuinely
+      // unrelated journey="evening" prop on EveningComplete.jsx's own
+      // <ExploreCard>, which must not false-positive here.
+      const openingTag = source.match(/<EveningSceneShell\b[^>]*>/)?.[0] ?? '';
+      expect(openingTag, `${path} should have an <EveningSceneShell> tag to check`).not.toBe('');
+      expect(openingTag, `${path} should not pass journey= to EveningSceneShell`).not.toMatch(/journey=/);
     }
   });
 });

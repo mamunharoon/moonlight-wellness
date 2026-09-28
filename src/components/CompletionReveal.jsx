@@ -66,9 +66,12 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 //
 // `stagger` (optional) reveals an array of child nodes with a small,
 // approved 100-150ms incremental delay each (badge -> greeting -> insight/
-// milestone) rather than everything appearing at once. Omitting it renders
-// `children` as one uniform fade+scale with no internal staggering - both
-// are valid.
+// milestone) rather than everything appearing at once - each item settles
+// with a small upward slide (STAGGER_RISE_PX) alongside its own opacity
+// fade, the approved brief's "small upward greeting reveal" applied
+// uniformly to every staggered item, greeting included. Omitting `stagger`
+// renders `children` as one uniform fade+scale with no internal
+// staggering (and no slide) - both are valid.
 //
 // `actions` (optional, only meaningful alongside `stagger`) renders after
 // the staggered content with NO transitionDelay of its own - "reveal
@@ -92,29 +95,37 @@ const GLOW_CLASSES = Object.freeze({
   anytime: 'shadow-mint-glow'
 });
 
-// Physical-iPhone completion-transition-tuning pass — this component's
-// own settle time is only PART of the true end-to-end visible transition;
-// the other part (the HOLD + EXIT FADE of the outgoing active view, for
-// every ternary-swap/early-return screen) happens entirely BEFORE this
-// component ever mounts, in useCompletionHandoff.js - see that hook's own
-// doc comment for the full rhythm and why the abruptness was never really
-// about duration alone. COMMIT_DELAY_MS (20ms -> 100ms) is a slightly more
-// deliberate settle before the entrance itself begins - also what gives
-// BetaVideoModal.jsx's guided-video overlay its own short, permitted
-// "visual settle delay after the genuine fullscreen-end event" (see that
-// file's own doc comment - never used to determine whether fullscreen
-// ended, only to pace what happens once it genuinely has).
-// STAGGER_STEP_MS stays within the approved 100-150ms-per-item range.
-// Combined with useCompletionHandoff's own 550ms hold+exit-fade prefix,
-// a typical 2-item stagger now settles at ~550+100+150+120+400=1320ms -
-// squarely inside the approved ~1.2-1.5s target (verified in this file's
-// own test suite, not just asserted here).
-const COMMIT_DELAY_MS = 100;
+// Physical-iPhone completion-transition refinement pass — this
+// component's own settle time is only PART of the true end-to-end visible
+// transition for the four screens that also use useCompletionHandoff's
+// own HOLD + EXIT FADE of the outgoing active view (that part happens
+// entirely BEFORE this component ever mounts - see that hook's own doc
+// comment). Retuned again here to land the combined sequence inside the
+// newly-approved ~1.1-1.4s target (previously ~1.2-1.5s): with
+// useCompletionHandoff's own 400ms hold+exit-fade prefix (150+250), a
+// 1-item stagger now settles at 400+80+200+0+470=1150ms and a 2-item
+// stagger at 400+80+200+150+470=1300ms - both inside 1.1-1.4s (verified
+// in this file's own test suite). Screens with no such prefix (the
+// always-rendered completion pages, and the two early-return meditation
+// screens that never got the hold+exit-fade treatment - see
+// useCompletionHandoff.js's own documented limitation) settle faster on
+// this component's own timing alone (750-1050ms for 1-3 items) - an
+// honest, already-explained architectural difference, not a second
+// timing implementation. STAGGER_STEP_MS stays within the approved
+// 100-150ms-per-item range, at its top.
+const COMMIT_DELAY_MS = 80;
 const FRAME_TRANSITION_MS = 550;
-const STAGGER_TRANSITION_MS = 400;
-const STAGGER_STEP_MS = 120;
-const STAGGER_BASE_DELAY_MS = 150;
+const STAGGER_TRANSITION_MS = 470;
+const STAGGER_STEP_MS = 150;
+const STAGGER_BASE_DELAY_MS = 200;
 const REDUCED_MOTION_TRANSITION_MS = 200;
+// "Small upward greeting reveal" (approved brief) - every staggered item,
+// greeting included, settles in with a small upward slide alongside its
+// own opacity fade (never a bare pop-in). Reduced Motion never applies
+// this - see the reducedMotion render branch below, which flattens
+// `stagger` with no transform at all, matching "remove scale, slide,
+// stagger and pulsing" exactly.
+const STAGGER_RISE_PX = 8;
 
 export const CompletionReveal = ({
   active,
@@ -207,7 +218,14 @@ export const CompletionReveal = ({
           key={i}
           style={{
             opacity: entered ? 1 : 0,
-            transition: `opacity ${STAGGER_TRANSITION_MS}ms ease-out`,
+            // The upward slide is part of the celebratory treatment, same
+            // as scale/glow above - a genuine early-exit/interruption
+            // surface (celebratory={false}) gets "only a soft plain fade"
+            // per the approved brief, never this slide either.
+            ...(celebratory ? { transform: entered ? 'translateY(0)' : `translateY(${STAGGER_RISE_PX}px)` } : null),
+            transition: celebratory
+              ? `opacity ${STAGGER_TRANSITION_MS}ms ease-out, transform ${STAGGER_TRANSITION_MS}ms ease-out`
+              : `opacity ${STAGGER_TRANSITION_MS}ms ease-out`,
             transitionDelay: `${STAGGER_BASE_DELAY_MS + i * STAGGER_STEP_MS}ms`
           }}
         >

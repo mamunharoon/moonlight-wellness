@@ -18,6 +18,8 @@ import { recordPracticeCompletion } from '../lib/practiceCompletions';
 import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
+import { ExploreCard } from '../components/ExploreCard';
+import { getMorningExploreCatalog } from '../lib/exploreFiltering';
 
 const RING_CIRCUMFERENCE = 276.46;
 
@@ -321,6 +323,24 @@ export const SessionComplete = () => {
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
       </div>
+
+      {/* "Explore More" discovery, Phase 5 — optional, secondary, and
+          deliberately placed AFTER the primary Continue action above (per
+          the approved placement rule: greeting -> Momentum -> primary
+          action -> Explore) so it can never compete with or precede it.
+          journey="morning" filters the Library to approved Morning-
+          suitable content only (Morning/Stretching/Breathing categories
+          plus meditation-eligible items, never an evening-only entry -
+          see exploreFiltering.js's own documented rule). */}
+      <ExploreCard
+        journey="morning"
+        icon="explore"
+        title="Have a little more time?"
+        supportingText="Explore stretching, breathing and meditation for your morning."
+        ctaLabel="Explore Morning"
+        to="/library?journey=morning&from=morning-complete"
+        itemCount={getMorningExploreCatalog().length}
+      />
     </div>
   );
 };

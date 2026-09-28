@@ -48,9 +48,9 @@ describe('Layout.jsx — the persistent bottom-nav Library tab is unchanged, nev
 });
 
 describe('Library.jsx — FROM_CONTEXTS is the one allowlist; the marker only ever SELECTS a pre-approved destination', () => {
-  it('defines exactly the three approved contexts, each a fixed, hardcoded {fallback, label} pair - never a value read from the URL itself', () => {
+  it('defines the four approved contexts, each a fixed, hardcoded {fallback, label} pair - never a value read from the URL itself ("Explore More" discovery, Phase 5, added morning-complete for Morning Explore\'s own origin)', () => {
     expect(librarySource).toMatch(
-      /const FROM_CONTEXTS = \{\s*\n\s*home: \{ fallback: '\/', label: 'Back to Home' \},\s*\n\s*'evening-summary': \{ fallback: '\/evening-complete', label: 'Back to Evening Summary' \},\s*\n\s*'meditation-setup': \{ fallback: '\/self-guided-meditation', label: 'Back to Meditation Setup' \}\s*\n\s*\};/
+      /const FROM_CONTEXTS = \{\s*\n\s*home: \{ fallback: '\/', label: 'Back to Home' \},\s*\n\s*'evening-summary': \{ fallback: '\/evening-complete', label: 'Back to Evening Summary' \},\s*\n\s*'meditation-setup': \{ fallback: '\/self-guided-meditation', label: 'Back to Meditation Setup' \},[\s\S]*?'morning-complete': \{ fallback: '\/session-complete', label: 'Back to Morning Complete' \}\s*\n\s*\};/
     );
   });
 
@@ -58,15 +58,21 @@ describe('Library.jsx — FROM_CONTEXTS is the one allowlist; the marker only ev
     expect(librarySource).toMatch(/import \{ BackButton \} from '\.\.\/components\/BackButton';/);
   });
 
-  it('entryContext is a lazy one-time initializer that looks the raw `from` value up in FROM_CONTEXTS - never a live/derived value, never used as a destination directly', () => {
-    expect(librarySource).toMatch(/const \[entryContext\] = useState\(\(\) => FROM_CONTEXTS\[searchParams\.get\('from'\)\]\);/);
+  it('entryContext is a lazy one-time initializer that looks the raw `from` value up in FROM_CONTEXTS (or, for the one dynamic "Explore More" exception, resolveAnytimeRecommendContext) - never a live/derived value, never used as a destination directly', () => {
+    const body = librarySource.match(/const \[entryContext\] = useState\(\(\) => \{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/const from = searchParams\.get\('from'\);/);
+    expect(body).toMatch(/if \(from === 'anytime-recommend'\) return resolveAnytimeRecommendContext\(searchParams\);/);
+    expect(body).toMatch(/return FROM_CONTEXTS\[from\];/);
   });
 
   // Item 6/7 - an unknown or missing `from` value, or any raw/arbitrary
   // string (a URL, a path, anything not a literal key of FROM_CONTEXTS),
   // resolves to `undefined` via the plain object lookup - there is no
   // code path anywhere in this file that ever reads `from` as a
-  // navigable destination itself.
+  // navigable destination itself. resolveAnytimeRecommendContext's own
+  // dynamic fallback is the one exception, and it is itself never an open
+  // redirect - see that function's own doc comment/dedicated test file.
   it('an unrecognised or missing `from` value can never redirect anywhere - the raw value is only ever used as an object lookup key, never as a destination itself', () => {
     expect(librarySource).not.toMatch(/navigate\(searchParams\.get\('from'\)/);
     expect(librarySource).not.toMatch(/fallback=\{searchParams\.get\('from'\)\}/);
@@ -75,18 +81,20 @@ describe('Library.jsx — FROM_CONTEXTS is the one allowlist; the marker only ev
     // before checking the actual code contains no such thing.)
     const code = librarySource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(code).not.toMatch(/returnTo/i);
-    // searchParams.get('from') appears exactly twice in the actual code -
-    // both are the same allowlist-lookup shape, never anything else (a
-    // third mention lives only in a doc comment, explaining the pattern).
-    const rawFromUsages = code.match(/searchParams\.get\('from'\)/g) ?? [];
+    // searchParams.get('from') is only ever assigned to a local `from`
+    // variable (twice - entryContext's own initializer, and the strip
+    // effect below) - never inlined directly as an object-lookup key or
+    // a destination anywhere else in the actual code.
+    const rawFromUsages = code.match(/const from = searchParams\.get\('from'\);/g) ?? [];
     expect(rawFromUsages.length).toBe(2);
-    expect(code).toMatch(/FROM_CONTEXTS\[searchParams\.get\('from'\)\]/g);
+    expect(code).toMatch(/FROM_CONTEXTS\[from\]/);
   });
 
-  it('a mount-only effect strips the `from` marker only when it was a genuine allowlisted value, leaving category/openId completely untouched', () => {
-    const body = librarySource.match(/useEffect\(\(\) => \{\s*\n\s*if \(!FROM_CONTEXTS\[searchParams\.get\('from'\)\]\)[\s\S]*?\}, \[\]\);/)?.[0] ?? '';
+  it('a mount-only effect strips the `from`/`journey`/`need`/`duration` markers only when genuinely recognised, leaving category/openId completely untouched', () => {
+    const body = librarySource.match(/useEffect\(\(\) => \{\s*\n\s*const from = searchParams\.get\('from'\);[\s\S]*?\}, \[\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/next\.delete\('from'\);/);
+    expect(body).toMatch(/next\.delete\('journey'\);/);
     expect(body).not.toMatch(/next\.delete\('category'\)/);
     expect(body).not.toMatch(/next\.delete\('openId'\)/);
     expect(body).toMatch(/setSearchParams\(next, \{ replace: true \}\);/);

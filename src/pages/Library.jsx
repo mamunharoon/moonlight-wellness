@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CATALOG_CATEGORIES, MEDIA_CATALOG, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
+import { CATALOG_CATEGORIES, MEDIA_CATALOG, ANYTIME_RESET_NEEDS, ANYTIME_RESET_DURATIONS, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
+import { isValidExploreJourney, getExploreCatalogForJourney, getCuratedExploreCatalog } from '../lib/exploreFiltering';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
@@ -23,7 +24,34 @@ const slugify = (label) => label.toLowerCase().replace(/&/g, 'and').replace(/[^a
 const FROM_CONTEXTS = {
   home: { fallback: '/', label: 'Back to Home' },
   'evening-summary': { fallback: '/evening-complete', label: 'Back to Evening Summary' },
-  'meditation-setup': { fallback: '/self-guided-meditation', label: 'Back to Meditation Setup' }
+  'meditation-setup': { fallback: '/self-guided-meditation', label: 'Back to Meditation Setup' },
+  // "Explore More" discovery, Phase 5 — Morning Explore's own origin.
+  // Evening Explore deliberately reuses the existing 'evening-summary' key
+  // above rather than adding a near-duplicate - same destination, same
+  // honest label.
+  'morning-complete': { fallback: '/session-complete', label: 'Back to Morning Complete' }
+};
+
+// "Explore More" discovery, Phase 5 — Anytime Explore's own origin is the
+// ONE exception to the plain static FROM_CONTEXTS lookup above: Anytime
+// Reset's "recommend" step is local component state (need+duration), not
+// a separate route, so a bare '/anytime-reset' fallback would silently
+// reset the user back to step 1, losing their exact recommendation - "Back
+// returns to the exact Anytime origin" requires restoring it. Still never
+// an open redirect: the destination PATH is always the same hardcoded
+// '/anytime-reset' string; `need`/`duration` are only ever used if they
+// pass the exact same ANYTIME_RESET_NEEDS/ANYTIME_RESET_DURATIONS
+// allowlist AnytimeReset.jsx's own post-auth restore already validates
+// against - an invalid/missing pair safely falls back to plain
+// '/anytime-reset' (step 1), never a crash, never an arbitrary URL.
+const resolveAnytimeRecommendContext = (searchParams) => {
+  const need = searchParams.get('need');
+  const duration = searchParams.get('duration');
+  const isValid = ANYTIME_RESET_NEEDS.some((n) => n.id === need) && ANYTIME_RESET_DURATIONS.some((d) => d.id === duration);
+  return {
+    fallback: isValid ? `/anytime-reset?need=${encodeURIComponent(need)}&duration=${encodeURIComponent(duration)}` : '/anytime-reset',
+    label: 'Back to Anytime Reset'
+  };
 };
 
 // Meditation experience: a UI-only pseudo-category, deliberately not part
@@ -87,8 +115,30 @@ export const Library = () => {
   // initializer (not a live searchParams.get('from') read) is required.
   // Looks up the raw `from` value in the FROM_CONTEXTS allowlist above -
   // an unknown/missing value resolves to `undefined`, never a caller-
-  // chosen destination.
-  const [entryContext] = useState(() => FROM_CONTEXTS[searchParams.get('from')]);
+  // chosen destination. 'anytime-recommend' is the one dynamic exception -
+  // see resolveAnytimeRecommendContext's own doc comment above.
+  const [entryContext] = useState(() => {
+    const from = searchParams.get('from');
+    if (from === 'anytime-recommend') return resolveAnytimeRecommendContext(searchParams);
+    return FROM_CONTEXTS[from];
+  });
+
+  // "Explore More" discovery, Phase 5 — captured once, same lazy-
+  // initializer/one-time-restore-then-clear treatment as `from`/`category`
+  // above. An invalid/missing `journey` resolves to null (isValidExploreJourney's
+  // own allowlist), never a guessed closest match - Library then behaves
+  // exactly as a direct/bottom-nav visit always has.
+  const [journey] = useState(() => {
+    const raw = searchParams.get('journey');
+    return isValidExploreJourney(raw) ? raw : null;
+  });
+  // Scoped to the journey-filtered subset by default whenever a valid
+  // journey arrived; "View All Library content" (below) clears this back
+  // to the full, unfiltered catalogue for the rest of this visit - the
+  // one, explicit escape hatch every journey shares (Anytime's own
+  // "broader approved catalogue" requirement, and the general "allow View
+  // All or the existing filters" progressive-disclosure rule).
+  const [journeyScopeActive, setJourneyScopeActive] = useState(() => Boolean(journey));
 
   // WakeWise Phase 3A (R11) — the category chip row has no visual cue that
   // more categories exist past the visible edge. `showCategoryFade` tracks
@@ -159,18 +209,33 @@ export const Library = () => {
     updateCategoryScrollState();
   };
 
-  // Strips the now-consumed `from` marker so it can't linger in the URL
-  // while the user browses/filters within Library, or reappear on a
-  // later browser back/forward - `category`/`openId` are left completely
-  // untouched, same one-time-consume-then-clear treatment
-  // AnytimeReset.jsx/Meditate.jsx already use for their own restore
-  // params. Only ever strips a value that was genuinely in the allowlist -
-  // an unrecognised `from` value is left in place (harmless - it never
-  // matched anything and never will) rather than silently erased.
+  // Strips the now-consumed `from`/`journey`/`need`/`duration` markers so
+  // none can linger in the URL while the user browses/filters within
+  // Library, or reappear on a later browser back/forward - `category`/
+  // `openId` are left completely untouched, same one-time-consume-then-
+  // clear treatment AnytimeReset.jsx/Meditate.jsx already use for their
+  // own restore params. Only ever strips a value that was genuinely
+  // recognised (a FROM_CONTEXTS key, the dynamic 'anytime-recommend', or a
+  // valid `journey`) - an unrecognised value is left in place (harmless -
+  // it never matched anything and never will) rather than silently
+  // erased. `need`/`duration` are stripped alongside `from` whenever
+  // `from` was 'anytime-recommend', regardless of whether they actually
+  // validated (see resolveAnytimeRecommendContext) - they only ever exist
+  // to be consumed once, here.
   useEffect(() => {
-    if (!FROM_CONTEXTS[searchParams.get('from')]) return;
+    const from = searchParams.get('from');
+    const fromRecognised = Boolean(FROM_CONTEXTS[from]) || from === 'anytime-recommend';
+    const journeyRecognised = isValidExploreJourney(searchParams.get('journey'));
+    if (!fromRecognised && !journeyRecognised) return;
     const next = new URLSearchParams(searchParams);
-    next.delete('from');
+    if (fromRecognised) {
+      next.delete('from');
+      if (from === 'anytime-recommend') {
+        next.delete('need');
+        next.delete('duration');
+      }
+    }
+    if (journeyRecognised) next.delete('journey');
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -184,6 +249,17 @@ export const Library = () => {
     confirmCreateAccount
   } = useProtectedVideo();
 
+  // "Explore More" discovery, Phase 5 — while journeyScopeActive, every
+  // grouping below is restricted to this exact id set (getExploreCatalogForJourney's
+  // own journey rule - see exploreFiltering.js) - a Set for O(1) membership,
+  // never re-filtering the full catalogue per category per render. null
+  // (not journey-scoped, or "View All Library content" already tapped)
+  // means no restriction at all - the original, unfiltered behaviour.
+  const journeyPool = useMemo(
+    () => (journeyScopeActive && journey ? new Set(getExploreCatalogForJourney(journey).map((entry) => entry.id)) : null),
+    [journeyScopeActive, journey]
+  );
+
   const itemsByCategory = useMemo(() => {
     const grouped = {};
     for (const category of CATALOG_CATEGORIES) grouped[category] = [];
@@ -192,19 +268,29 @@ export const Library = () => {
       if (!trimmedQuery) return true;
       return `${entry.title} ${entry.description}`.toLowerCase().includes(trimmedQuery);
     };
+    const matchesJourneyPool = (entry) => !journeyPool || journeyPool.has(entry.id);
     for (const entry of MEDIA_CATALOG) {
-      if (!matchesQuery(entry)) continue;
+      if (!matchesJourneyPool(entry) || !matchesQuery(entry)) continue;
       grouped[entry.category].push(entry);
     }
     // Meditation is a second, independent view of the same catalogue —
     // filtered by meditation eligibility, not by primary category, so it
     // never removes an item from the group loop above.
-    grouped[MEDITATION_FILTER] = getMeditationCatalog().filter(matchesQuery);
+    grouped[MEDITATION_FILTER] = getMeditationCatalog().filter((entry) => matchesJourneyPool(entry) && matchesQuery(entry));
     return grouped;
-  }, [query]);
+  }, [query, journeyPool]);
 
   const visibleCategories = activeCategory ? [activeCategory] : CATALOG_CATEGORIES;
   const totalVisibleItems = visibleCategories.reduce((sum, c) => sum + itemsByCategory[c].length, 0);
+
+  // "Explore More" discovery, Phase 5 — the curated "just for you"
+  // landing view: only while journey-scoped AND the user hasn't yet
+  // drilled into a specific category or typed a search (both already
+  // count as "using the existing filters", the other half of "show a
+  // small relevant set first; allow View All or the existing filters").
+  const showJourneyCurated = Boolean(journeyScopeActive && journey && !activeCategory && !query.trim());
+  const journeyCuratedItems = showJourneyCurated ? getCuratedExploreCatalog(journey) : [];
+  const journeyLabel = journey === 'morning' ? 'your morning' : journey === 'evening' ? 'your evening' : 'right now';
 
   const handleSelectCategory = (category) => {
     setActiveCategory(category);
@@ -228,6 +314,42 @@ export const Library = () => {
     });
   };
 
+  // "Explore More" discovery, Phase 5 — shared row markup, reused by both
+  // the curated section below and the normal per-category list further
+  // down, so the two never drift into two different visual treatments
+  // for the exact same kind of row.
+  const renderItemRow = (entry) => {
+    const cachedMinutes = getCachedDurationMinutes(entry.id);
+    const durationLabel = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');
+    const isUnavailable = entry.active === false;
+    return (
+      <button
+        key={entry.id}
+        type="button"
+        disabled={isUnavailable}
+        onClick={() => handleSelect(entry.id)}
+        className={`w-full flex items-center gap-4 glass-panel rounded-2xl p-4 transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset min-h-[44px] ${
+          isUnavailable ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5 active:scale-[0.99]'
+        }`}
+      >
+        <span className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-primary text-xl">
+            {isUnavailable ? 'error_outline' : isGuest ? 'lock' : 'play_circle'}
+          </span>
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-semibold text-on-surface">{entry.title}</span>
+          <span className="block text-xs text-on-surface-variant leading-relaxed line-clamp-2">
+            {isUnavailable ? 'Unavailable right now.' : entry.description}
+          </span>
+        </span>
+        <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0">
+          {isUnavailable ? '' : durationLabel}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {entryContext && (
@@ -246,6 +368,31 @@ export const Library = () => {
         <div className="glass-panel rounded-2xl p-4 flex items-center gap-3 border-white/10">
           <span className="material-symbols-outlined text-secondary text-xl shrink-0">info</span>
           <p className="text-xs text-on-surface-variant">Sign in to play any item below.</p>
+        </div>
+      )}
+
+      {/* "Explore More" discovery, Phase 5 — the curated "just for you"
+          landing view: a small relevant set first (getCuratedExploreCatalog,
+          exploreFiltering.js), reusing the exact same row markup
+          (renderItemRow) every other list in this page already uses - no
+          second visual treatment, no duplicated content registry. "View
+          All Library content" is the one, explicit, uniform escape hatch
+          every journey shares - it never narrows further, only ever
+          broadens back to the complete, unfiltered Library (search and
+          the category chips below remain fully usable either way). */}
+      {showJourneyCurated && (
+        <div className="space-y-3">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">
+            For {journeyLabel}
+          </h3>
+          <div className="space-y-3">{journeyCuratedItems.map(renderItemRow)}</div>
+          <button
+            type="button"
+            onClick={() => setJourneyScopeActive(false)}
+            className="w-full min-h-[44px] glass-panel text-on-surface-variant py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            View All Library content
+          </button>
         </div>
       )}
 
@@ -347,8 +494,11 @@ export const Library = () => {
         </button>
       </div>
 
-      {/* Content sections */}
-      {totalVisibleItems === 0 ? (
+      {/* Content sections — hidden while the curated "just for you" view
+          above is showing (showJourneyCurated), so the same journey-
+          scoped items never appear twice at once; "View All Library
+          content" (above) is what reveals this section. */}
+      {!showJourneyCurated && (totalVisibleItems === 0 ? (
         <div className="glass-panel rounded-2xl p-8 text-center space-y-2">
           <span className="material-symbols-outlined text-on-surface-variant/50 text-3xl">search_off</span>
           <p className="text-sm text-on-surface-variant">
@@ -400,43 +550,13 @@ export const Library = () => {
                       </span>
                     </Link>
                   )}
-                  {items.map((entry) => {
-                    const cachedMinutes = getCachedDurationMinutes(entry.id);
-                    const durationLabel = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');
-                    const isUnavailable = entry.active === false;
-                    return (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => handleSelect(entry.id)}
-                        className={`w-full flex items-center gap-4 glass-panel rounded-2xl p-4 transition-all text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset min-h-[44px] ${
-                          isUnavailable ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5 active:scale-[0.99]'
-                        }`}
-                      >
-                        <span className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-primary text-xl">
-                            {isUnavailable ? 'error_outline' : isGuest ? 'lock' : 'play_circle'}
-                          </span>
-                        </span>
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-sm font-semibold text-on-surface">{entry.title}</span>
-                          <span className="block text-xs text-on-surface-variant leading-relaxed line-clamp-2">
-                            {isUnavailable ? 'Unavailable right now.' : entry.description}
-                          </span>
-                        </span>
-                        <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0">
-                          {isUnavailable ? '' : durationLabel}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {items.map(renderItemRow)}
                 </div>
               </div>
             );
           })}
         </div>
-      )}
+      ))}
 
       {openVideo && (
         <BetaVideoModal

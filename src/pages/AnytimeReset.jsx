@@ -18,6 +18,8 @@ import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { RecommendationCard } from '../components/journey/RecommendationCard';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { ExploreCard } from '../components/ExploreCard';
+import { getAnytimeExploreCatalog } from '../lib/exploreFiltering';
 
 // Build 15 Phase B — Material Symbols icon per need, for the restyled
 // SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
@@ -599,6 +601,31 @@ export const AnytimeReset = () => {
                 Change time
               </button>
             </div>
+          )}
+
+          {/* "Explore More" discovery, Phase 5 — optional, secondary,
+              rendered only at this recommend step's own resting state
+              (never while a video is open/playing/showing its own
+              completion overlay - `!openVideo` below - matching "not
+              inside a running breathing timer, meditation or active
+              media session"). journey="anytime" links into the Library
+              already showing the prioritised, shorter-first quick-reset
+              set by default (getAnytimeExploreCatalog, exploreFiltering.js)
+              with "View All Library content" as the explicit escape
+              hatch into the full, broader catalogue. `need`/`duration`
+              (this exact selection, not a guess) let Back return to the
+              precise Anytime origin - see Library.jsx's own
+              resolveAnytimeRecommendContext. */}
+          {!isComplete && !openVideo && (
+            <ExploreCard
+              journey="anytime"
+              icon="explore"
+              title="Want another way to reset?"
+              supportingText="Explore quick practices for the time and need you have."
+              ctaLabel="Explore Anytime"
+              to={`/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(needId)}&duration=${encodeURIComponent(durationId)}`}
+              itemCount={getAnytimeExploreCatalog().length}
+            />
           )}
         </div>
       )}

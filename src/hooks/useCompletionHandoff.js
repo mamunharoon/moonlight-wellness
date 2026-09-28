@@ -45,8 +45,18 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 // synchronously, at the exact original moment, before this hook's timers
 // even start - this hook only ever delays which JSX renders, never any
 // side effect.
-const HOLD_MS = 200;
-const EXIT_FADE_MS = 350;
+//
+// Physical-iPhone completion-transition refinement pass — retuned
+// (200/350 -> 150/250) so this hook's own prefix, combined with
+// CompletionReveal's own retuned settle time, lands the complete visible
+// sequence inside the newly-approved ~1.1-1.4s target instead of the
+// previous ~1.2-1.5s (see CompletionReveal.jsx's own doc comment for the
+// exact combined math) - a "slightly lengthen the reveal" request never
+// meant "add more delay to every layer"; shortening this HOLD/EXIT_FADE
+// prefix while lengthening CompletionReveal's own stagger is what keeps
+// the total in range without adding a second multi-second pause anywhere.
+const HOLD_MS = 150;
+const EXIT_FADE_MS = 250;
 
 const detectReducedMotion = () => {
   try {

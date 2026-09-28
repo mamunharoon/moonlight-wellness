@@ -18,6 +18,8 @@ import { recordPracticeCompletion } from '../lib/practiceCompletions';
 import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
+import { ExploreCard } from '../components/ExploreCard';
+import { getEveningExploreCatalog } from '../lib/exploreFiltering';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -322,6 +324,25 @@ export const EveningComplete = () => {
           Return Home
         </button>
       </div>
+
+      {/* "Explore More" discovery, Phase 5 — optional, secondary, placed
+          AFTER the primary completion/return action above (Return Home).
+          Distinct from "Choose a Sleep Experience" above it (which links
+          straight into the Sleep Soundscapes category only) - this is the
+          broader Evening/wind-down discovery entry point, covering
+          calming videos too, not just sleep sounds. journey="evening"
+          filters the Library to approved Evening/sleep/wind-down content
+          only (timeOfDay === 'evening' - never an energising Morning-only
+          item, see exploreFiltering.js's own documented rule). */}
+      <ExploreCard
+        journey="evening"
+        icon="nights_stay"
+        title="Would more support help you unwind?"
+        supportingText="Explore sleep stories, calming videos and soothing sounds."
+        ctaLabel="Explore Evening"
+        to="/library?journey=evening&from=evening-summary"
+        itemCount={getEveningExploreCatalog().length}
+      />
 
       <ConfirmDialog
         open={redoConfirmOpen}

@@ -25,9 +25,9 @@ describe('Library.jsx — Self-Guided Meditation entry, rendered only in the Med
     expect(block).toMatch(/glass-panel rounded-2xl p-4/);
   });
 
-  it('is rendered before the real items.map loop, but never replaces or filters it - the genuine guided items are unaffected', () => {
+  it('is rendered before the real items.map loop, but never replaces or filters it - the genuine guided items are unaffected ("Explore More" discovery, Phase 5, factored the row markup into a shared renderItemRow helper reused by both this loop and the new curated section, so the call site is now items.map(renderItemRow))', () => {
     const entryIdx = librarySource.indexOf('Self-Guided Meditation');
-    const itemsMapIdx = librarySource.indexOf('{items.map((entry) => {');
+    const itemsMapIdx = librarySource.indexOf('{items.map(renderItemRow)}');
     expect(entryIdx).toBeGreaterThan(-1);
     expect(itemsMapIdx).toBeGreaterThan(entryIdx);
   });
