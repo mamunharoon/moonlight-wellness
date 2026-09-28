@@ -76,7 +76,7 @@ const MORNING_NOT_STARTED_BY_DAYPART = {
 /**
  * @param {Object} args
  * @param {'morning'|'evening'} args.period - the currently SELECTED pill (Home.jsx's own activePeriod), never the raw clock.
- * @param {'not-started'|'in-progress'|'completed'} args.cardState - this routine's own resolveRoutineCardState() result.
+ * @param {'not-started'|'in-progress'|'completed'|'finished-partially'} args.cardState - this routine's own resolveRoutineCardState() result. Phase 9 — Truthful Journey Outcomes: 'finished-partially' is the honest counterpart to 'completed' - reached today, but not every displayed stage genuinely completed (any skipped/ended-early/not-reached stage). Reuses the SAME exact heading/supporting-line copy as the matching journey's final screen (SessionComplete.jsx/EveningComplete.jsx, Part 7), so the two surfaces never disagree.
  * @param {'morning'|'afternoon'|'evening-night'} [args.morningDaypart] - required only when period === 'morning' && cardState === 'not-started'; ignored otherwise.
  * @param {string} [args.stepName] - required only when cardState === 'in-progress' (getStepLabel(...) - the plain current-step name).
  * @returns {{ eyebrow: string, title: string, supportingText: string, duration: string|null, buttonLabel: string }}
@@ -86,8 +86,17 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
     if (cardState === 'completed') {
       return {
         eyebrow: 'YOUR MORNING',
-        title: 'Your Morning Reset is complete',
-        supportingText: 'You’ve set your direction for today.',
+        title: 'Morning Reset complete',
+        supportingText: 'You made time to begin your day with intention.',
+        duration: null,
+        buttonLabel: 'Repeat Morning Routine'
+      };
+    }
+    if (cardState === 'finished-partially') {
+      return {
+        eyebrow: 'YOUR MORNING',
+        title: 'Morning Reset finished',
+        supportingText: 'Every intentional moment still matters.',
         duration: null,
         buttonLabel: 'Repeat Morning Routine'
       };
@@ -115,8 +124,17 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
   if (cardState === 'completed') {
     return {
       eyebrow: 'YOUR EVENING',
-      title: 'Your Evening Wind-Down is complete',
-      supportingText: 'You’ve taken time to close the day gently.',
+      title: 'Evening Wind-Down complete',
+      supportingText: 'You gave yourself time to close the day gently.',
+      duration: null,
+      buttonLabel: 'Repeat Evening Routine'
+    };
+  }
+  if (cardState === 'finished-partially') {
+    return {
+      eyebrow: 'YOUR EVENING',
+      title: 'Evening Wind-Down finished',
+      supportingText: 'Take the calm you created into the night.',
       duration: null,
       buttonLabel: 'Repeat Evening Routine'
     };

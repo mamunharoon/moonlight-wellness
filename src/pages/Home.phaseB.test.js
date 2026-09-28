@@ -23,14 +23,18 @@ describe('Home.jsx — Phase A tokens now wired in (Phase B)', () => {
   // fix this also required.
   it('every Morning card sets the morning-tint background via inline style (0.1 alpha), and the old dead-code light/dark gradient pair is fully gone', () => {
     const morningCardCount = (source.match(/style=\{\{ backgroundColor: 'rgb\(var\(--color-morning-tint\) \/ 0\.1\)' \}\}/g) ?? []).length;
-    expect(morningCardCount).toBe(4); // stale-choice, not-started, in-progress, completed
+    // stale-choice, not-started, in-progress, completed, finished-partially
+    // (Phase 9 — Truthful Journey Outcomes, Part 9's honest 4th state)
+    expect(morningCardCount).toBe(5);
     expect(source).not.toMatch(/fffdfa/);
     expect(source).not.toMatch(/1e1a17/);
   });
 
   it('every Evening card sets the evening-tint background via inline style (0.2 alpha, the exact same #121b2e value, just via the named token now)', () => {
     const eveningCardCount = (source.match(/style=\{\{ backgroundColor: 'rgb\(var\(--color-evening-tint\) \/ 0\.2\)' \}\}/g) ?? []).length;
-    expect(eveningCardCount).toBe(4); // stale-choice, not-started, in-progress, completed
+    // stale-choice, not-started, in-progress, completed, finished-partially
+    // (Phase 9 — Truthful Journey Outcomes, Part 9's honest 4th state)
+    expect(eveningCardCount).toBe(5);
     expect(source).not.toMatch(/121b2e/);
   });
 });

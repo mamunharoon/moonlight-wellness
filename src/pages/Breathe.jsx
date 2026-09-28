@@ -99,7 +99,7 @@ export const Breathe = () => {
   // mirrorBreathingExitRef below. Skip uses the canonical, separately-
   // validated skipStep() action instead (Continue-lock/Skip-semantics
   // fix) - see handleSkip.
-  const { state, currentStep, advanceStep, skipStep, abandonSession } = useSession();
+  const { state, currentStep, advanceStep, skipStep, abandonSession, recordStepEndedEarly } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('breathe', 'morning-routine');
   // isRepeatGated hidden-options defect fix — see MorningFlow.jsx's
   // identical fix for the full rationale (found live: reviewing an
@@ -519,6 +519,7 @@ export const Breathe = () => {
   // lands back on.
   const leaveExercise = () => {
     setBackConfirmOpen(false);
+    recordStepEndedEarly();
     hasBegunOnceRef.current = false;
     setVideoOpenedDuringExercise(false);
     setManuallyPaused(false);

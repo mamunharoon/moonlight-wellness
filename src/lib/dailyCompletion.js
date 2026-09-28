@@ -38,6 +38,24 @@
 // reset, never a cross-user misattribution.
 export const MORNING_DONE_KEY = 'moonlight_morning_completed_date';
 export const EVENING_DONE_KEY = 'moonlight_evening_completed_date';
+// Phase 9 — Truthful Journey Outcomes (Part 8/9): a second, ADDITIVE
+// per-day flag, deliberately separate from MORNING_DONE_KEY/EVENING_DONE_KEY
+// above. Those two keep their existing meaning exactly as-is ("a genuine
+// natural completion was reached today, so there is something real to
+// review" - ReflectionReview.jsx/GratitudeReview.jsx depend on that, and
+// it stays true even for a partial run whose answers were still saved) -
+// repurposing them to mean "every stage genuinely completed" would break
+// that dependency. This key instead answers the strictly narrower
+// question Home's honest 4-state model (Part 9) and the final-screen
+// copy (Part 7) both need: was EVERY displayed stage genuinely
+// 'completed' (never merely reached/skipped/ended-early)? Written
+// alongside the existing flag, only when that is true - never written,
+// and never cleared, for a partial run (so a later, still-partial reload
+// can never read a stale "fully completed" value left over from a
+// different day - see shouldWriteCompletionDate's own same-day-only
+// semantics, reused verbatim for this key too).
+export const MORNING_FULLY_COMPLETED_KEY = 'moonlight_morning_fully_completed_date';
+export const EVENING_FULLY_COMPLETED_KEY = 'moonlight_evening_fully_completed_date';
 // Meditation experience — identical unscoped-key defect found during the
 // same audit (Home.jsx/MeditationComplete.jsx), fixed the same way for the
 // same reason: a registered user's own "meditated today" pill must never
@@ -50,6 +68,8 @@ const scopedKey = (baseKey, userId) => (userId ? `${baseKey}:${userId}` : baseKe
 export const getMorningCompletionKey = (userId) => scopedKey(MORNING_DONE_KEY, userId);
 export const getEveningCompletionKey = (userId) => scopedKey(EVENING_DONE_KEY, userId);
 export const getMeditationCompletionKey = (userId) => scopedKey(MEDITATION_DONE_KEY, userId);
+export const getMorningFullyCompletedKey = (userId) => scopedKey(MORNING_FULLY_COMPLETED_KEY, userId);
+export const getEveningFullyCompletedKey = (userId) => scopedKey(EVENING_FULLY_COMPLETED_KEY, userId);
 
 // Redo Tonight's Wind-Down (Build 15) — clears only the CURRENT identity's
 // own Evening completion flag, never Morning's or another user's (see
@@ -59,4 +79,9 @@ export const getMeditationCompletionKey = (userId) => scopedKey(MEDITATION_DONE_
 // routineResponses.js for the exact failure-safe order this must follow.
 export const clearEveningCompletionKey = (userId) => {
   localStorage.removeItem(getEveningCompletionKey(userId));
+  // Phase 9 — a redo must start a genuinely fresh outcome set (Part 9):
+  // clearing only the base flag and leaving a stale "fully completed"
+  // flag behind would let a partial redo attempt still read today as
+  // fully completed from the earlier, deleted run.
+  localStorage.removeItem(getEveningFullyCompletedKey(userId));
 };

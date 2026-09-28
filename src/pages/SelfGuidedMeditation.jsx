@@ -434,15 +434,14 @@ export const SelfGuidedMeditation = () => {
           />
 
           <MeditationSetupPanel
-            // Anytime Visual Flow and Closing Handoff uplift (Part 8) —
-            // aligned with the approved Morning/Evening Meditation setup:
-            // compact header + one short sentence + recommendation card,
-            // full style/duration/sound choices tucked behind "Choose
-            // style, time & sound" rather than all shown immediately.
+            // Meditation ↔ Breathing alignment correction — aligned with
+            // the approved Morning/Evening Meditation setup structure:
+            // Sound control, heading, one short sentence, then every style/
+            // duration choice shown immediately (no more disclosure).
             // MeditationSetupPanel.jsx itself is the SAME shared component
             // Morning/Evening already use - no new/duplicate setup screen.
-            compact
-            purpose="A quiet pause, whenever you need one."
+            heading="Choose Your Meditation"
+            purpose="Find a pause that fits this moment."
             journeyTone={journeyTone}
             recommendedDurationId={getRecommendedDurationId()}
             style={session.style}

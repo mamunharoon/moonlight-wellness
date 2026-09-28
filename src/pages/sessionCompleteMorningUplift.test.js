@@ -31,13 +31,17 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
   });
 
   it('the checkmark icon and both intention-summary labels (eyebrow + PRIMARY/SUPPORTING role) use morning-accent gold, not the generic peach they used before', () => {
-    expect(source).toMatch(/text-morning-accent text-2xl font-bold">check_circle/);
+    // Phase 9 — Truthful Journey Outcomes: the icon grew from text-2xl to
+    // text-3xl once the "100%"/"Complete" text beneath it was removed
+    // (see morningRoutineCompletionUplift.test.js) - still morning-accent.
+    expect(source).toMatch(/text-morning-accent text-3xl font-bold">check_circle/);
     expect(source).toMatch(/font-semibold uppercase text-morning-accent/);
     expect(source).toMatch(/text-\[9px\] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0/);
   });
 
-  it('the completion headline now uses the new Playfair Display token (rotates via the shared getCompletionGreeting architecture - see sessionCompleteOutcomeMessages.test.js)', () => {
-    expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{completionGreeting\}<\/h2>/);
+  it('Phase 9 — Truthful Journey Outcomes: the completion headline is now the outcome-gated exact copy (Part 7), using the same Playfair Display token the old rotating headline used; {completionGreeting} still renders, as a smaller secondary line beneath it (see sessionCompleteOutcomeMessages.test.js)', () => {
+    expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">/);
+    expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{completionGreeting\}<\/p>/);
   });
 
   // WakeWise DEV — journey-aware primary action colour: the later

@@ -25,6 +25,10 @@ const pageSource = read('./SelfGuidedMeditation.jsx');
 const hookSource = read('../hooks/useMeditationSession.js');
 const setupPanelSource = read('../components/journey/MeditationSetupPanel.jsx');
 const activeSessionSource = read('../components/journey/MeditationActiveSession.jsx');
+// Meditation ↔ Breathing alignment correction — the full "Choose your
+// sound" radiogroup that used to live in both files above moved into one
+// shared compact control.
+const soundControlSource = read('../components/journey/MeditationSoundControl.jsx');
 
 // Strips /* ... */ and // ... comments before asserting "no real reference
 // remains" - several doc comments across these files legitimately mention
@@ -52,11 +56,11 @@ describe('No guest concept left anywhere in this feature (isGuest/useAuth fully 
 });
 
 describe('Setup screen: a guest can choose any of the three sounds before Begin, no redirect', () => {
-  it('MeditationSetupPanel\'s "Choose your sound" radiogroup has no isGuest/onSignIn wiring anywhere in its rows', () => {
-    const soundBlock = setupPanelSource.match(/aria-label="Choose your sound">[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? '';
-    expect(soundBlock).not.toBe('');
-    expect(soundBlock).not.toMatch(/isGuest/);
-    expect(soundBlock).not.toMatch(/onSignIn/);
+  it('the compact MeditationSoundControl (which MeditationSetupPanel now renders instead of a full radiogroup) has no isGuest/onSignIn wiring anywhere in its options', () => {
+    expect(setupPanelSource).toMatch(/<MeditationSoundControl/);
+    const codeOnly = stripComments(soundControlSource);
+    expect(codeOnly).not.toMatch(/isGuest/);
+    expect(codeOnly).not.toMatch(/onSignIn/);
   });
 
   it('begin() (via getOrCreateController, its own shared controller-creation helper - see useMeditationSession.test.js) passes the real selected sound straight through - no guest override, no forced silence', () => {
@@ -84,11 +88,11 @@ describe('Active session: sound selection never redirects, for anyone', () => {
     expect(body).not.toMatch(/navigate\(/);
   });
 
-  it('MeditationActiveSession\'s "Choose your sound" radiogroup has no isGuest/onSignIn wiring anywhere in its rows', () => {
-    const soundBlock = activeSessionSource.match(/aria-label="Choose your sound">[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? '';
-    expect(soundBlock).not.toBe('');
-    expect(soundBlock).not.toMatch(/isGuest/);
-    expect(soundBlock).not.toMatch(/onSignIn/);
+  it('MeditationActiveSession no longer renders a "Choose your sound" radiogroup at all (Meditation ↔ Breathing alignment correction) - nothing left there to carry isGuest/onSignIn wiring either way', () => {
+    expect(activeSessionSource).not.toMatch(/aria-label="Choose your sound"/);
+    const codeOnly = stripComments(activeSessionSource);
+    expect(codeOnly).not.toMatch(/isGuest/);
+    expect(codeOnly).not.toMatch(/onSignIn/);
   });
 });
 

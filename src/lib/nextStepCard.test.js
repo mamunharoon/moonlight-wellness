@@ -81,11 +81,20 @@ describe('resolveNextStepCard — Morning, in-progress and completed', () => {
     expect(card.buttonLabel).toBe('Continue Morning Routine');
   });
 
-  it('completed: exact required copy, "YOUR MORNING" eyebrow', () => {
+  it('completed: exact required copy (Phase 9, Part 7/9 - matches SessionComplete.jsx\'s own fully-completed copy), "YOUR MORNING" eyebrow', () => {
     const card = resolveNextStepCard({ period: 'morning', cardState: 'completed' });
     expect(card.eyebrow).toBe('YOUR MORNING');
-    expect(card.title).toBe('Your Morning Reset is complete');
-    expect(card.supportingText).toBe('You’ve set your direction for today.');
+    expect(card.title).toBe('Morning Reset complete');
+    expect(card.supportingText).toBe('You made time to begin your day with intention.');
+    expect(card.buttonLabel).toBe('Repeat Morning Routine');
+    expect(card.duration).toBeNull();
+  });
+
+  it('Phase 9 — Truthful Journey Outcomes: finished-partially gets its own honest copy, distinct from completed, matching SessionComplete.jsx\'s own partial-run copy exactly - never claims full completion', () => {
+    const card = resolveNextStepCard({ period: 'morning', cardState: 'finished-partially' });
+    expect(card.eyebrow).toBe('YOUR MORNING');
+    expect(card.title).toBe('Morning Reset finished');
+    expect(card.supportingText).toBe('Every intentional moment still matters.');
     expect(card.buttonLabel).toBe('Repeat Morning Routine');
     expect(card.duration).toBeNull();
   });
@@ -107,11 +116,19 @@ describe('resolveNextStepCard — Evening (no daypart variation)', () => {
     expect(card.buttonLabel).toBe('Continue Evening Wind-Down');
   });
 
-  it('completed: exact required copy, "YOUR EVENING" eyebrow', () => {
+  it('completed: exact required copy (Phase 9, Part 7/9 - matches EveningComplete.jsx\'s own fully-completed copy), "YOUR EVENING" eyebrow', () => {
     const card = resolveNextStepCard({ period: 'evening', cardState: 'completed' });
     expect(card.eyebrow).toBe('YOUR EVENING');
-    expect(card.title).toBe('Your Evening Wind-Down is complete');
-    expect(card.supportingText).toBe('You’ve taken time to close the day gently.');
+    expect(card.title).toBe('Evening Wind-Down complete');
+    expect(card.supportingText).toBe('You gave yourself time to close the day gently.');
+    expect(card.buttonLabel).toBe('Repeat Evening Routine');
+  });
+
+  it('Phase 9 — Truthful Journey Outcomes: finished-partially gets its own honest copy, distinct from completed, matching EveningComplete.jsx\'s own partial-run copy exactly - never claims full completion', () => {
+    const card = resolveNextStepCard({ period: 'evening', cardState: 'finished-partially' });
+    expect(card.eyebrow).toBe('YOUR EVENING');
+    expect(card.title).toBe('Evening Wind-Down finished');
+    expect(card.supportingText).toBe('Take the calm you created into the night.');
     expect(card.buttonLabel).toBe('Repeat Evening Routine');
   });
 

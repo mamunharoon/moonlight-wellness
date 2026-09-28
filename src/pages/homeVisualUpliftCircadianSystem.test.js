@@ -108,10 +108,12 @@ describe('Home Visual Uplift — compaction reaches every card, not only Morning
   it('every journey/Anytime/Active-Intention card shell uses the compact p-5 (never the old p-6)', () => {
     expect(homeSource).not.toMatch(/glass-panel p-6 rounded-3xl/);
     const compactShells = homeSource.match(/glass-panel p-5 rounded-3xl/g) ?? [];
-    // 3 morning (not-started/in-progress/completed) + 1 morning stale-choice
-    // + 4 evening (stale-choice/not-started/in-progress/completed) + 1
-    // anytime + 1 Active Intention wrapper = 10.
-    expect(compactShells.length).toBe(10);
+    // 4 morning (stale-choice/not-started/in-progress/completed) + 1 morning
+    // finished-partially + 4 evening (stale-choice/not-started/in-progress/
+    // completed) + 1 evening finished-partially + 1 anytime + 1 Active
+    // Intention wrapper = 12. The two finished-partially shells are Phase
+    // 9's Truthful Journey Outcomes honest 4th state (Part 9).
+    expect(compactShells.length).toBe(12);
   });
 
   it('every primary CTA uses the compact py-3.5 (never the old py-4) while keeping an explicit min-h-[44px] wherever it was already present', () => {

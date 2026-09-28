@@ -1,5 +1,5 @@
 import { getSessionById } from './sessionRegistry';
-import { SESSION_STATUS } from './sessionReducer';
+import { SESSION_STATUS, STEP_OUTCOME } from './sessionReducer';
 
 /*
  * Stage 3C — Session Engine core, persistence (Ticket Group 2)
@@ -66,13 +66,33 @@ const VALID_STATUSES = Object.values(SESSION_STATUS);
 
 const isValidTimestamp = (value) => typeof value === 'string' && !Number.isNaN(Date.parse(value));
 
+const VALID_STEP_OUTCOMES = Object.values(STEP_OUTCOME);
+
+// Phase 9 — Truthful Journey Outcomes. Additive, backward-compatible:
+// a legacy record with no `stepOutcomes` field at all (pre-Phase-9) simply
+// yields `{}` here — every stage then reads as its honest neutral/
+// not-started state rather than being back-filled from stepIndex. Invalid
+// individual entries (unknown step id for this session, or a value outside
+// the real enum) are dropped rather than rejecting the whole restore.
+const validateStepOutcomes = (candidate, session) => {
+  if (!candidate || typeof candidate !== 'object') return {};
+  const validStepIds = new Set(session.steps.map((step) => step.id));
+  const result = {};
+  for (const [stepId, outcome] of Object.entries(candidate)) {
+    if (validStepIds.has(stepId) && VALID_STEP_OUTCOMES.includes(outcome)) {
+      result[stepId] = outcome;
+    }
+  }
+  return result;
+};
+
 // Defensive shape + referential validation. Returns a validated state
 // object, or null if anything about the candidate can't be trusted.
 // Never throws.
 const validateRuntimeState = (candidate) => {
   if (!candidate || typeof candidate !== 'object') return null;
 
-  const { sessionId, stepIndex, status, startedAt, updatedAt, interruptionReason, completionEventId } = candidate;
+  const { sessionId, stepIndex, status, startedAt, updatedAt, interruptionReason, completionEventId, stepOutcomes } = candidate;
 
   if (!VALID_STATUSES.includes(status)) return null;
   if (!Number.isInteger(stepIndex) || stepIndex < 0) return null;
@@ -83,7 +103,7 @@ const validateRuntimeState = (candidate) => {
     if (sessionId !== null || startedAt !== null || interruptionReason !== null || completionEventId !== null) {
       return null;
     }
-    return { sessionId: null, stepIndex: 0, status, startedAt: null, updatedAt, interruptionReason: null, completionEventId: null };
+    return { sessionId: null, stepIndex: 0, status, startedAt: null, updatedAt, interruptionReason: null, completionEventId: null, stepOutcomes: {} };
   }
 
   // Every non-idle status must reference a real, currently-registered
@@ -105,7 +125,16 @@ const validateRuntimeState = (candidate) => {
     return null; // completionEventId is only ever set once completed
   }
 
-  return { sessionId, stepIndex, status, startedAt, updatedAt, interruptionReason, completionEventId };
+  return {
+    sessionId,
+    stepIndex,
+    status,
+    startedAt,
+    updatedAt,
+    interruptionReason,
+    completionEventId,
+    stepOutcomes: validateStepOutcomes(stepOutcomes, session),
+  };
 };
 
 const isStale = (state) => {

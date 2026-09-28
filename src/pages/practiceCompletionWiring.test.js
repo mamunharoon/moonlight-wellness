@@ -36,12 +36,17 @@ describe('SessionComplete.jsx (Morning) — completion event and daily flag both
   });
 
   it('the completion-event effect is gated on state.status === \'completed\' && state.completionEventId - never on the CTA (handleReturnHome) alone', () => {
-    const effectBody = sessionCompleteSource.match(/useEffect\(\(\) => \{\s*if \(state\.status !== 'completed' \|\| !state\.completionEventId\) return;[\s\S]*?\n {2}\}, \[state\.status, state\.completionEventId, userId, effectiveTimezone\]\);/)?.[0];
+    const effectBody = sessionCompleteSource.match(/useEffect\(\(\) => \{[\s\S]*?if \(state\.status !== 'completed' \|\| !state\.completionEventId \|\| !morningFullyCompleted\) return;[\s\S]*?\n {2}\}, \[state\.status, state\.completionEventId, morningFullyCompleted, userId, effectiveTimezone\]\);/)?.[0];
     expect(effectBody).toBeTruthy();
     expect(effectBody).toMatch(/journey: 'morning'/);
     expect(effectBody).toMatch(/practiceType: 'full_routine'/);
     expect(effectBody).toMatch(/sessionId: state\.completionEventId/);
     expect(effectBody).toMatch(/timezone: effectiveTimezone/);
+  });
+
+  it('Phase 9 — Truthful Journey Outcomes (Part 8): the SAME effect is additionally gated on morningFullyCompleted - reaching the terminal screen (state.status === \'completed\') is necessary but never sufficient; a partial run (any skipped/ended-early/not-reached stage) never writes a full_routine event', () => {
+    expect(sessionCompleteSource).toMatch(/if \(state\.status !== 'completed' \|\| !state\.completionEventId \|\| !morningFullyCompleted\) return;/);
+    expect(sessionCompleteSource).toMatch(/const morningFullyCompleted = isFullyCompleted\(morningPathwayStages\);/);
   });
 
   it('handleReturnHome (the CTA) no longer writes the flag or the completion event at all - navigation/cleanup only', () => {
@@ -65,11 +70,16 @@ describe('EveningComplete.jsx — completion event mirrors the same mount-time p
   });
 
   it('the new effect is gated on state.status === \'completed\' && state.completionEventId, in a SEPARATE effect from the existing flag-writing mount effect', () => {
-    const effectBody = eveningCompleteSource.match(/useEffect\(\(\) => \{\s*if \(state\.status !== 'completed' \|\| !state\.completionEventId\) return;[\s\S]*?\n {2}\}, \[state\.status, state\.completionEventId, userId, effectiveTimezone\]\);/)?.[0];
+    const effectBody = eveningCompleteSource.match(/useEffect\(\(\) => \{[\s\S]*?if \(state\.status !== 'completed' \|\| !state\.completionEventId \|\| !eveningFullyCompleted\) return;[\s\S]*?\n {2}\}, \[state\.status, state\.completionEventId, eveningFullyCompleted, userId, effectiveTimezone\]\);/)?.[0];
     expect(effectBody).toBeTruthy();
     expect(effectBody).toMatch(/journey: 'evening'/);
     expect(effectBody).toMatch(/practiceType: 'full_routine'/);
     expect(effectBody).toMatch(/sessionId: state\.completionEventId/);
+  });
+
+  it('Phase 9 — Truthful Journey Outcomes (Part 8): the SAME effect is additionally gated on eveningFullyCompleted - reaching the terminal screen is necessary but never sufficient; a partial run never writes a full_routine event', () => {
+    expect(eveningCompleteSource).toMatch(/if \(state\.status !== 'completed' \|\| !state\.completionEventId \|\| !eveningFullyCompleted\) return;/);
+    expect(eveningCompleteSource).toMatch(/const eveningFullyCompleted = isFullyCompleted\(eveningPathwayStages\);/);
   });
 
   it('the existing mount effect (completeSession + eveningDoneKey flag write) is completely unchanged', () => {

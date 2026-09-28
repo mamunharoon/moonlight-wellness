@@ -18,12 +18,31 @@ import { getJourneyToneTokens } from '../../lib/journeyTone';
  * matches its own journey colour rather than always peach.
  */
 
+// Meditation ↔ Breathing alignment correction — one genuine icon badge per
+// journey tone, matching BreathingPatternRow.jsx's own ICON_BADGE_TOKENS
+// exactly (tinted when selected, neutral white/5 otherwise) - not a second,
+// divergent colour mapping.
+const ICON_BADGE_TOKENS = {
+  primary: { selected: 'bg-primary/25 text-primary', unselected: 'bg-white/5 text-on-surface-variant' },
+  morning: { selected: 'bg-morning-accent-tint/25 text-morning-accent', unselected: 'bg-white/5 text-on-surface-variant' },
+  anytime: { selected: 'bg-tertiary-tint/25 text-tertiary', unselected: 'bg-white/5 text-on-surface-variant' },
+  evening: { selected: 'bg-evening-accent-tint/25 text-evening-accent', unselected: 'bg-white/5 text-on-surface-variant' }
+};
+
 // Compact accessible radio row for the 5 meditation styles - same native
 // <input type="radio"> + <label> construction BreathingPatternRow.jsx
 // established (a strong ring when unselected, a filled ring plus a small
 // contrasting dot when selected - never a checkmark).
-export const MeditationOptionRow = ({ groupName, label, description, selected, onSelect, journeyTone = 'primary' }) => {
+//
+// Meditation ↔ Breathing alignment correction — `icon` (additive, optional,
+// default null): renders the same left-hand icon badge BreathingPatternRow's
+// own full-width row uses, so the vertically-stacked meditation-style list
+// visually matches Breathing's pattern list. Every existing caller of this
+// row (the active screen's sound list, MeditationSetupPanel's old grid-era
+// callers) omits it and is unaffected; only the style rows pass one.
+export const MeditationOptionRow = ({ groupName, label, description, selected, onSelect, journeyTone = 'primary', icon = null }) => {
   const tokens = getJourneyToneTokens(journeyTone);
+  const badgeTokens = ICON_BADGE_TOKENS[journeyTone] || ICON_BADGE_TOKENS.primary;
   return (
     <label
       className={`flex items-center justify-between gap-3 w-full min-h-[44px] px-4 py-2.5 rounded-2xl border text-left transition-all duration-150 cursor-pointer active:scale-[0.98] has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
@@ -31,6 +50,11 @@ export const MeditationOptionRow = ({ groupName, label, description, selected, o
       }`}
     >
       <input type="radio" name={groupName} checked={selected} onChange={onSelect} className="sr-only" />
+      {icon && (
+        <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${selected ? badgeTokens.selected : badgeTokens.unselected}`}>
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">{icon}</span>
+        </span>
+      )}
       <span className="flex-1 min-w-0">
         <span className={`block text-sm leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-medium'}`}>{label}</span>
         {description && <span className="block text-[11px] text-on-surface-variant mt-0.5 leading-snug">{description}</span>}

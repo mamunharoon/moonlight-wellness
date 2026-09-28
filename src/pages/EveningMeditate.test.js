@@ -65,12 +65,12 @@ describe('EveningMeditate.jsx — context-specific defaults: Quiet Meditation, 5
   });
 });
 
-describe('EveningMeditate.jsx — compact setup: purpose, recommended choice, disclosure, Skip', () => {
-  it('renders MeditationSetupPanel in compact mode with a purpose string and a conditional onSkip handler (Evening journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
-    // WakeWise DEV — journey-aware primary action colour: accent="evening"
-    // now sits between compact and purpose=, so this regex allows an
-    // optional line in between rather than requiring them adjacent.
-    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n(\s*.*\n)?\s*purpose=/);
+describe('EveningMeditate.jsx — setup: heading, purpose, and a conditional onSkip handler', () => {
+  it('renders MeditationSetupPanel (Meditation ↔ Breathing alignment correction: no more `compact` prop) with the exact approved heading/purpose and a conditional onSkip handler (Evening journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
+    expect(source).toMatch(/<MeditationSetupPanel[\s\S]*?purpose=/);
+    expect(source).not.toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n/);
+    expect(source).toMatch(/heading="Take a Mindful Pause"/);
+    expect(source).toMatch(/purpose="A quiet pause before you rest\."/);
     expect(source).toMatch(/onSkip=\{isReviewMode \? undefined : handleSkip\}/);
     expect(source).toMatch(/skipLabel=\{hasStartedThisVisit \? 'Continue to Prepare for Rest' : 'Skip meditation'\}/);
   });
@@ -128,8 +128,12 @@ describe('EveningMeditate.jsx — End Meditation (embedded copy), never advances
     expect(block).toMatch(/cancelLabel: 'Keep Meditating'/);
   });
 
-  it('onRequestLeave is session.endSession directly - no advanceStep/interruptSession/navigate wrapped around it', () => {
-    expect(source).toMatch(/onRequestLeave=\{session\.endSession\}/);
+  it('onRequestLeave is handleEndMeditation - a thin wrapper adding Phase 9\'s honest stepOutcomes annotation (recordStepEndedEarly) around the original session.endSession() cleanup, still no advanceStep/interruptSession/navigate', () => {
+    expect(source).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
+    const handlerBody = source.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handlerBody).toMatch(/recordStepEndedEarly\(\);/);
+    expect(handlerBody).toMatch(/session\.endSession\(\);/);
+    expect(handlerBody).not.toMatch(/navigate|advanceStep|interruptSession|leaveActiveRoutine/);
   });
 });
 
@@ -171,23 +175,21 @@ describe('EveningMeditate.jsx — active screen: exactly ONE whole-journey Exit/
     expect(showExitMatches.length).toBe(1);
   });
 
-  it('the two controls invoke genuinely different callbacks: onRequestLeave is session.endSession (End Meditation only); EveningSceneShell\'s showExit renders ExitEveningButton, which calls its own leaveActiveRoutine()+navigate(\'/\') - never session.endSession, and this file never calls leaveActiveRoutine at all', () => {
+  it('the two controls invoke genuinely different callbacks: onRequestLeave is handleEndMeditation (End Meditation only); EveningSceneShell\'s showExit renders ExitEveningButton, which calls its own leaveActiveRoutine()+navigate(\'/\') - never handleEndMeditation/session.endSession, and this file never calls leaveActiveRoutine at all', () => {
     const block = activeBlock();
-    expect(block).toMatch(/onRequestLeave=\{session\.endSession\}/);
+    expect(block).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
     const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(codeOnly).not.toMatch(/leaveActiveRoutine/);
   });
 
-  it('End Meditation preserves the parent journey exactly at Meditation - session.endSession never calls advanceStep/interruptSession/navigate (see useMeditationSession.test.js\'s own proof of endSession\'s real body)', () => {
+  it('End Meditation preserves the parent journey exactly at Meditation - handleEndMeditation (recordStepEndedEarly + session.endSession, Phase 9) never calls advanceStep/interruptSession/navigate (see useMeditationSession.test.js\'s own proof of endSession\'s real body)', () => {
     const block = activeBlock();
-    // No local wrapper around onRequestLeave in this file - it is passed
-    // the hook's endSession function directly, so its behaviour is
-    // entirely governed by useMeditationSession.js's own endSession
-    // (proven not to navigate/advance/interrupt in useMeditationSession.
-    // test.js).
-    expect(block).toMatch(/onRequestLeave=\{session\.endSession\}/);
-    expect(block).not.toMatch(/advanceStep\(\)/);
-    expect(block).not.toMatch(/interruptSession/);
+    expect(block).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
+    const handlerBody = source.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handlerBody).toMatch(/recordStepEndedEarly\(\);/);
+    expect(handlerBody).toMatch(/session\.endSession\(\);/);
+    expect(handlerBody).not.toMatch(/advanceStep\(\)/);
+    expect(handlerBody).not.toMatch(/interruptSession/);
   });
 });
 

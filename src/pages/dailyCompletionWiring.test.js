@@ -16,9 +16,11 @@ const meditationCompleteSource = read('./MeditationComplete.jsx');
 
 describe('Home.jsx reads the CURRENT identity\'s own completion key, never a bare unscoped one', () => {
   it('imports the scoped key getters and no longer defines its own unscoped constants', () => {
-    expect(homeSource).toMatch(
-      /import \{ getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey \} from '\.\.\/lib\/dailyCompletion';/
-    );
+    // Phase 9 — Truthful Journey Outcomes (Part 8/9) added two more
+    // getters (getMorningFullyCompletedKey/getEveningFullyCompletedKey)
+    // to this same import - now multi-line, still one single import
+    // statement from the same module, still no locally-defined constant.
+    expect(homeSource).toMatch(/import \{\s*\n\s*getMorningCompletionKey,\s*\n\s*getEveningCompletionKey,\s*\n\s*getMeditationCompletionKey,\s*\n\s*getMorningFullyCompletedKey,\s*\n\s*getEveningFullyCompletedKey\s*\n\} from '\.\.\/lib\/dailyCompletion';/);
     expect(homeSource).not.toMatch(/const MORNING_DONE_KEY = 'moonlight_morning_completed_date';/);
     expect(homeSource).not.toMatch(/const EVENING_DONE_KEY = 'moonlight_evening_completed_date';/);
     expect(homeSource).not.toMatch(/const MEDITATION_DONE_KEY = 'moonlight_meditation_completed_date';/);
@@ -48,7 +50,9 @@ describe('MeditationComplete.jsx writes Meditation completion to the CURRENT ide
 
 describe('SessionComplete.jsx writes Morning completion to the CURRENT identity\'s own scoped key', () => {
   it('imports getMorningCompletionKey and destructures userId from useAlarm()', () => {
-    expect(sessionCompleteSource).toMatch(/import \{ getMorningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+    // Phase 9 — Truthful Journey Outcomes (Part 8/9) added
+    // getMorningFullyCompletedKey to this same import, additively.
+    expect(sessionCompleteSource).toMatch(/import \{ getMorningCompletionKey, getMorningFullyCompletedKey \} from '\.\.\/lib\/dailyCompletion';/);
     expect(sessionCompleteSource).toMatch(/const \{ intentions, setJourneyStep, effectiveTimezone, userId \} = useAlarm\(\);/);
     expect(sessionCompleteSource).not.toMatch(/const MORNING_DONE_KEY = 'moonlight_morning_completed_date';/);
   });
@@ -68,7 +72,9 @@ describe('EveningComplete.jsx writes Evening completion to the CURRENT identity\
     // by this screen and Home.jsx - see routineResponses.test.js). This
     // file keeps only the plain getEveningCompletionKey read it still
     // needs for its own mount-effect completion write above.
-    expect(eveningCompleteSource).toMatch(/import \{ getEveningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+    // Phase 9 — Truthful Journey Outcomes (Part 8/9) added
+    // getEveningFullyCompletedKey to this same import, additively.
+    expect(eveningCompleteSource).toMatch(/import \{ getEveningCompletionKey, getEveningFullyCompletedKey \} from '\.\.\/lib\/dailyCompletion';/);
     expect(eveningCompleteSource).toMatch(/const \{ effectiveTimezone, userId \} = useAlarm\(\);/);
     expect(eveningCompleteSource).not.toMatch(/const EVENING_DONE_KEY = 'moonlight_evening_completed_date';/);
   });

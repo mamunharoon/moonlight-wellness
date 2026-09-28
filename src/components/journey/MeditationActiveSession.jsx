@@ -3,8 +3,6 @@ import { useRef, useState } from 'react';
 import { JourneyHeader } from './JourneyHeader';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MeditationProgressRing } from '../MeditationProgressRing';
-import { MEDITATION_SOUNDS } from '../../lib/meditationSounds';
-import { MeditationOptionRow } from './MeditationControls';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 
@@ -148,6 +146,15 @@ const DEFAULT_END_COPY = {
 export const MeditationActiveSession = ({
   style,
   snapshot,
+  // Meditation ↔ Breathing alignment correction — `soundId`/`onSelectSound`
+  // are kept as accepted props for backward-compatible caller wiring (every
+  // caller already threads session.soundId/session.selectSound through
+  // here), but this component no longer renders a sound selector of its
+  // own: the user already chose their sound on the setup screen's compact
+  // MeditationSoundControl, and repeating all three choices here consumed
+  // excessive vertical space and duplicated that decision. The selected
+  // sound keeps playing in the background exactly as before - this is a
+  // presentation-only removal, no audio-lifecycle change.
   soundId,
   soundUnavailable,
   reducedMotion = false,
@@ -165,9 +172,9 @@ export const MeditationActiveSession = ({
   // earlier `accent`, additive, default 'primary'). Resume and
   // bottomAction (e.g. Morning's "Finish & continue") are this screen's
   // own primary journey-progress actions and are explicitly named in the
-  // approved colour mapping, as is the style eyebrow, the progress ring,
-  // and the sound rows below; Pause and the End/Leave button are
-  // transport/escape controls and stay neutral regardless of this prop.
+  // approved colour mapping, as is the style eyebrow and the progress
+  // ring; Pause and the End/Leave button are transport/escape controls and
+  // stay neutral regardless of this prop.
   journeyTone = 'primary',
   onEndSession = null
 }) => {
@@ -287,7 +294,18 @@ export const MeditationActiveSession = ({
     <div className="h-dvh overflow-hidden">
     <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide">
     <div
-      className="min-h-full max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-8 animate-in fade-in duration-500"
+      // Meditation ↔ Breathing alignment correction (physical-iPhone
+      // screenshot) — `justify-between` on this min-h-full flex column
+      // distributed all leftover viewport space as artificial gaps BETWEEN
+      // JourneyHeader, the style/ring/cue group, and the bottom controls -
+      // worse once the repeated "Choose your sound" list below was removed,
+      // since there was even less real content to fill that space. Plain
+      // top-down flow (space-y-6) instead: content now begins right below
+      // the header with no engineered gap, and any leftover space simply
+      // sits below the bottom controls as ordinary trailing scroll room,
+      // never between them. Still fully scrollable at 320x568 - no fixed
+      // height introduced.
+      className="min-h-full max-w-md w-full mx-auto flex flex-col py-6 space-y-6 animate-in fade-in duration-500"
       style={{
         paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
         paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
@@ -301,7 +319,14 @@ export const MeditationActiveSession = ({
         showCloseButton={showHeaderClose}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-8 text-center">
+      {/* Meditation ↔ Breathing alignment correction — style label and the
+          countdown ring now form one visual group with the cue sitting
+          close beneath (gap-4, was gap-8 under the old flex-1/justify-
+          center treatment that also forced this block to consume all
+          leftover vertical space). No longer flex-1/justify-center - this
+          block now sits in normal top-down flow directly under the
+          header. */}
+      <div className="flex flex-col items-center gap-4 text-center">
         <span className={`font-label-sm text-xs ${getJourneyToneTokens(journeyTone).text} uppercase tracking-widest font-bold`}>{style.label}</span>
 
         <MeditationProgressRing
@@ -338,23 +363,6 @@ export const MeditationActiveSession = ({
             <span className="material-symbols-outlined text-sm" aria-hidden="true">pause</span>
           </button>
         )}
-
-        <div className="space-y-2">
-          <h2 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Choose your sound</h2>
-          <div className="space-y-2" role="radiogroup" aria-label="Choose your sound">
-            {MEDITATION_SOUNDS.map((sound) => (
-              <MeditationOptionRow
-                key={sound.id}
-                groupName="meditation-sound-active"
-                label={sound.label}
-                description={sound.description}
-                selected={soundId === sound.id}
-                onSelect={() => onSelectSound(sound.id)}
-                journeyTone={journeyTone}
-              />
-            ))}
-          </div>
-        </div>
 
         {bottomAction ? (
           <button

@@ -19,10 +19,12 @@
 // never receives a check badge at all: reaching/viewing the
 // recommendation is not a completion of anything, and Anytime never shows
 // a 100% indicator (Part 2's own explicit "Do not show 100% for Anytime").
+import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
+
 const STAGES = [
-  { id: 'need', label: 'Need', icon: 'psychology' },
-  { id: 'time', label: 'Time', icon: 'schedule' },
-  { id: 'reset', label: 'Reset', icon: 'auto_awesome' }
+  { id: 'need', label: 'Need', icon: JOURNEY_STAGE_ICONS.need },
+  { id: 'time', label: 'Time', icon: JOURNEY_STAGE_ICONS.time },
+  { id: 'reset', label: 'Reset', icon: JOURNEY_STAGE_ICONS.reset }
 ];
 
 /**

@@ -1,9 +1,16 @@
 // Evening Visual Uplift (Phase 7) — EveningComplete.jsx spec section 8
-// changes: a "100% Complete" indication, reordered actions (Sleep
-// Experience -> Return Home -> Review/Edit (smaller) -> Explore Evening
-// -> Redo), and ExploreCard's longer supporting sentence removed. No DOM
-// rendering available in this repo's Vitest - source-level checks,
-// matching this codebase's own established precedent.
+// changes: reordered actions (Sleep Experience -> Return Home -> Review/
+// Edit (smaller) -> Explore Evening -> Redo), and ExploreCard's longer
+// supporting sentence removed. No DOM rendering available in this repo's
+// Vitest - source-level checks, matching this codebase's own established
+// precedent.
+//
+// Phase 9 — Truthful Journey Outcomes superseded Phase 7's own "100%
+// Complete" badge, which unconditionally overclaimed full completion
+// merely for reaching this terminal screen. It is removed entirely, in
+// favour of a heading/supporting-line pair gated on whether every
+// displayed Evening stage genuinely completed - see
+// eveningCompleteOutcomeMessages.test.js for that behavior's own coverage.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,20 +18,16 @@ import { fileURLToPath } from 'node:url';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const source = read('./EveningComplete.jsx');
 
-describe('EveningComplete - "100% Complete" indication', () => {
-  it('shows a 100% Complete badge, reusing the existing evening-accent token (never a new colour)', () => {
-    expect(source).toMatch(/100% Complete/);
-    expect(source).toMatch(/text-evening-accent uppercase font-bold tracking-wider/);
+describe('EveningComplete - Phase 9: no percentage/graded-score wording anywhere', () => {
+  it('never shows a "100% Complete" badge or any other percentage in real code/markup - removed in favour of a truthful, outcome-gated heading/supporting-line pair (doc comments referencing the historical Phase 7 feature name by way of explanation are not user-facing, so are not checked here)', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/100%/);
+    expect(code).not.toMatch(/\d+%/);
   });
 
-  it('only ever renders once this screen is genuinely reached via a completed Evening routine - the badge sits inside the same CompletionReveal stagger block every other completion element (headline/momentum) already relies on, not a separately-gated element', () => {
-    const staggerBlock = source.slice(source.indexOf('stagger={['), source.indexOf(']}\n      />'));
-    expect(staggerBlock).toMatch(/100% Complete/);
-  });
-
-  it('Anytime completion is untouched by this badge - EveningComplete.jsx is Evening-only, and this string never appears in Anytime\'s own completion screen (SupportComplete.jsx)', () => {
+  it('Anytime completion remains untouched either way - EveningComplete.jsx is Evening-only, and no percentage ever appeared in Anytime\'s own completion screen (SupportComplete.jsx)', () => {
     const supportCompleteSource = read('./SupportComplete.jsx');
-    expect(supportCompleteSource).not.toMatch(/100% Complete/);
+    expect(supportCompleteSource).not.toMatch(/100%/);
   });
 });
 

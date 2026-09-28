@@ -1,5 +1,5 @@
 import { getSessionById } from './sessionRegistry';
-import { SESSION_STATUS } from './sessionReducer';
+import { SESSION_STATUS, STEP_OUTCOME } from './sessionReducer';
 import { getZonedParts, getCachedTimezone } from '../lib/timezone';
 
 /*
@@ -142,15 +142,42 @@ const writeAll = (routines) => {
 // routine" requirement starts here: an out-of-range index is rejected
 // outright, never clamped into some other step). Returns null (never
 // throws) if anything about the candidate can't be trusted.
+const VALID_STEP_OUTCOMES = Object.values(STEP_OUTCOME);
+
+// Phase 9 — Truthful Journey Outcomes. Same additive, backward-compatible
+// treatment as sessionPersistence.js's own validateStepOutcomes: a legacy
+// entry with no stepOutcomes field yields `{}` (every stage reads as its
+// honest neutral state); an individual invalid entry is dropped rather
+// than rejecting the whole snapshot.
+const validateStepOutcomes = (candidate, session) => {
+  if (!candidate || typeof candidate !== 'object') return {};
+  const validStepIds = new Set(session.steps.map((step) => step.id));
+  const result = {};
+  for (const [stepId, outcome] of Object.entries(candidate)) {
+    if (validStepIds.has(stepId) && VALID_STEP_OUTCOMES.includes(outcome)) {
+      result[stepId] = outcome;
+    }
+  }
+  return result;
+};
+
 const validateEntry = (sessionId, candidate) => {
   if (!candidate || typeof candidate !== 'object') return null;
-  const { stepIndex, status, startedAt, updatedAt, completionEventId, dateKey } = candidate;
+  const { stepIndex, status, startedAt, updatedAt, completionEventId, dateKey, stepOutcomes } = candidate;
   if (!VALID_STATUSES.includes(status)) return null;
   if (!Number.isInteger(stepIndex) || stepIndex < 0) return null;
   if (typeof dateKey !== 'string' || !dateKey) return null;
   const session = getSessionById(sessionId);
   if (!session || stepIndex >= session.steps.length) return null;
-  return { stepIndex, status, startedAt: startedAt ?? null, updatedAt: updatedAt ?? null, completionEventId: completionEventId ?? null, dateKey };
+  return {
+    stepIndex,
+    status,
+    startedAt: startedAt ?? null,
+    updatedAt: updatedAt ?? null,
+    completionEventId: completionEventId ?? null,
+    dateKey,
+    stepOutcomes: validateStepOutcomes(stepOutcomes, session),
+  };
 };
 
 /**
@@ -174,7 +201,8 @@ export const saveRoutineProgress = (sessionId, snapshot) => {
     startedAt: snapshot?.startedAt ?? null,
     updatedAt: snapshot?.updatedAt ?? null,
     completionEventId: snapshot?.completionEventId ?? null,
-    dateKey: pinnedDateKey ?? todayDateKey()
+    dateKey: pinnedDateKey ?? todayDateKey(),
+    stepOutcomes: snapshot?.stepOutcomes ?? {}
   };
   writeAll(all);
 };

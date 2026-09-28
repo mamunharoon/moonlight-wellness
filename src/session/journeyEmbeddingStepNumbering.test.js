@@ -60,10 +60,11 @@ describe('Every Evening screen\'s own visible "Step X of 7" label', () => {
   it('Prepare for Rest displays Step 6 of 7', () => {
     expect(read('../pages/PrepareForRest.jsx')).toMatch(/Step 6 of 7/);
   });
-  it('Evening Complete replaces its former "Step 7 of 7" eyebrow with a "100% Complete" badge (Evening Visual Uplift, Phase 7) - the finish line communicates completion, not a step count that no longer matters once the journey is over', () => {
+  it('Evening Complete no longer shows a "Step 7 of 7" eyebrow or step count - the finish line communicates the real outcome (Phase 9: an outcome-gated heading/supporting-line pair, never a percentage) instead of a step count that no longer matters once the journey is over', () => {
     const source = read('../pages/EveningComplete.jsx');
-    expect(source).not.toMatch(/Step 7 of 7/);
-    expect(source).toMatch(/100% Complete/);
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/Step 7 of 7/);
+    expect(code).not.toMatch(/100%/);
   });
 
   it('none of the seven Evening screens still shows a stale "of 6" total', () => {

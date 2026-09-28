@@ -8,11 +8,21 @@
 // deterministic schedule (getPromptForStyle). Order and copy are exactly
 // as specified; Quiet Meditation is the default style everywhere it's
 // selected (SelfGuidedMeditation.jsx's initial state).
+// Meditation ↔ Breathing alignment correction — `icon` (additive, one
+// genuine Material Symbol per style, presentation-only): lets the setup
+// screen's vertically-stacked style rows match BreathingPatternRow's own
+// icon-badge treatment. Deliberately distinct from the canonical journey-
+// stage Meditate icon (journeyIcons.js's `self_improvement`) and from each
+// other - these are per-STYLE icons, not journey-stage icons, and are out
+// of scope for that canonicalization (see journeyIcons.js's own doc
+// comment on the boundary between the two). No id, label, description,
+// order, or prompt content changes.
 export const MEDITATION_STYLES = [
   {
     id: 'quiet',
     label: 'Quiet Meditation',
     description: 'Sit quietly with gentle background music',
+    icon: 'spa',
     prompts: [
       'Allow yourself to be still.',
       'Let thoughts pass without following them.',
@@ -23,6 +33,7 @@ export const MEDITATION_STYLES = [
     id: 'breath-awareness',
     label: 'Breath Awareness',
     description: 'Gently notice each breath',
+    icon: 'waves',
     prompts: [
       'Notice your natural breath.',
       'Feel each inhale and exhale.',
@@ -33,6 +44,7 @@ export const MEDITATION_STYLES = [
     id: 'mindful-pause',
     label: 'Mindful Pause',
     description: 'Notice your body, thoughts and surroundings',
+    icon: 'balance',
     prompts: [
       'Notice how your body feels.',
       'Become aware of the space around you.',
@@ -43,6 +55,7 @@ export const MEDITATION_STYLES = [
     id: 'body-awareness',
     label: 'Body Awareness',
     description: 'Gently notice sensations throughout your body',
+    icon: 'emoji_people',
     prompts: [
       'Notice where your body meets the surface beneath you.',
       'Gently soften your shoulders and jaw.',
@@ -54,6 +67,7 @@ export const MEDITATION_STYLES = [
     id: 'loving-kindness',
     label: 'Loving-Kindness',
     description: 'Offer kind thoughts to yourself and others',
+    icon: 'volunteer_activism',
     prompts: [
       'Offer yourself a moment of kindness.',
       'May you feel calm and supported.',

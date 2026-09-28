@@ -26,8 +26,9 @@ describe('SessionComplete.jsx — rotating completion message wiring', () => {
     expect(setterCalls.length).toBe(1);
   });
 
-  it('renders {completionGreeting} directly as the headline - not a hardcoded string, and no separate {body} paragraph any more', () => {
-    expect(source).toMatch(/<h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{completionGreeting\}<\/h2>/);
+  it('Phase 9 — Truthful Journey Outcomes: {completionGreeting} now renders as a smaller secondary line beneath the outcome-gated exact heading/supporting-line pair, never as the primary headline (and no separate {body} paragraph any more)', () => {
+    expect(source).toMatch(/<h1 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\s*\n\s*\{morningFullyCompleted \? 'Morning Reset complete' : 'Morning Reset finished'\}\s*\n\s*<\/h1>/);
+    expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{completionGreeting\}<\/p>/);
     expect(source).not.toMatch(/\{body\}/);
   });
 

@@ -58,9 +58,9 @@ describe('Today\'s Rhythm — default selection prioritizes an active routine ov
     expect(firstTimeStateIdx).toBeGreaterThan(inProgressEveningIdx);
   });
 
-  it('a completed Morning during morning hours defers the default to Anytime rather than re-suggesting a finished routine', () => {
+  it('a completed OR finished-partially Morning during morning hours defers the default to Anytime rather than re-suggesting a finished routine (Phase 9 — Truthful Journey Outcomes: finished-partially gets the same deferral completed already had)', () => {
     const defaultPeriodBody = homeSource.match(/const defaultPeriod = \(\(\) => \{([\s\S]*?)\}\)\(\);/)?.[1] ?? '';
-    expect(defaultPeriodBody).toMatch(/morningCardState === 'completed' \? 'anytime' : 'morning'/);
+    expect(defaultPeriodBody).toMatch(/morningCardState === 'completed' \|\| morningCardState === 'finished-partially' \? 'anytime' : 'morning'/);
   });
 });
 

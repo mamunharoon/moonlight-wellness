@@ -9,7 +9,7 @@ import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
 import { roleForIndex } from '../lib/intentionSelection';
-import { getMorningCompletionKey } from '../lib/dailyCompletion';
+import { getMorningCompletionKey, getMorningFullyCompletedKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
@@ -20,6 +20,9 @@ import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
 import { ExploreCard } from '../components/ExploreCard';
 import { getMorningExploreCatalog } from '../lib/exploreFiltering';
+import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
+import { MORNING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { computeStageStatus, isFullyCompleted } from '../session/stageStatus';
 
 const RING_CIRCUMFERENCE = 276.46;
 
@@ -34,6 +37,20 @@ export const SessionComplete = () => {
   // StrictMode double-invoke of the mount effect below safe without needing
   // an extra guard ref here.
   const { state, currentStep, completeSession, resetSession } = useSession();
+
+  // Phase 9 — Truthful Journey Outcomes: computed early (before the
+  // completion-recording effects below, which must gate on it) from the
+  // Session Engine's own stepOutcomes - never inferred from having reached
+  // this screen. A direct/stale visit still resolves whatever stepOutcomes
+  // state genuinely holds; a stage is never fabricated as "completed"
+  // merely because this is the terminal screen.
+  const morningPathwayStages = computeStageStatus({
+    stages: MORNING_PATHWAY_STAGES,
+    stepOutcomes: state.stepOutcomes,
+    currentStepId: currentStep?.id ?? null,
+    sessionStatus: state.status
+  });
+  const morningFullyCompleted = isFullyCompleted(morningPathwayStages);
 
   // WakeWise Phase 3B (3B.1) — captured once, before the mount effect below
   // can flip state.status to 'completed': true only for a genuine natural
@@ -88,6 +105,18 @@ export const SessionComplete = () => {
       if (shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
         localStorage.setItem(morningDoneKey, attributionDateKey);
       }
+      // Phase 9 — Truthful Journey Outcomes (Part 8/9): the additive
+      // "genuinely fully completed today" signal, written only when every
+      // displayed Morning stage is genuinely 'completed' - never for a
+      // partial run. morningDoneKey above keeps its own separate, broader
+      // meaning ("reached a genuine completion today, so there is
+      // something real to review") untouched.
+      if (morningFullyCompleted) {
+        const morningFullyDoneKey = getMorningFullyCompletedKey(userId);
+        if (shouldWriteCompletionDate(localStorage.getItem(morningFullyDoneKey), attributionDateKey)) {
+          localStorage.setItem(morningFullyDoneKey, attributionDateKey);
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.status, currentStep, completeSession]);
@@ -135,7 +164,18 @@ export const SessionComplete = () => {
   // effect in this app.
   const [confirmedSessionId, setConfirmedSessionId] = useState(null);
   useEffect(() => {
-    if (state.status !== 'completed' || !state.completionEventId) return;
+    // Phase 9 — Truthful Journey Outcomes (Part 8): a full_routine
+    // completion event must only ever be written when every displayed
+    // Morning stage is genuinely 'completed' - reaching this terminal
+    // screen (state.status === 'completed') is necessary but never
+    // sufficient on its own. A partial run (any skipped/ended-early/
+    // not-reached stage) still shows this same supportive screen, just
+    // with no full_routine event and no full-routine Momentum credit.
+    // Individual practice completions (e.g. Breathing/Meditation, if
+    // separately tracked) are untouched by this gate - they are recorded
+    // elsewhere, at their own natural-completion moment, regardless of
+    // how the surrounding routine ultimately finishes.
+    if (state.status !== 'completed' || !state.completionEventId || !morningFullyCompleted) return;
     let cancelled = false;
     recordPracticeCompletion({
       userId,
@@ -151,7 +191,7 @@ export const SessionComplete = () => {
     return () => {
       cancelled = true;
     };
-  }, [state.status, state.completionEventId, userId, effectiveTimezone]);
+  }, [state.status, state.completionEventId, morningFullyCompleted, userId, effectiveTimezone]);
 
   // "Your Momentum" foundation, Phase 3 — factual insight + gentle
   // milestone for this exact, already-confirmed completion event. Never
@@ -269,9 +309,13 @@ export const SessionComplete = () => {
           ></circle>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="material-symbols-outlined text-morning-accent text-2xl font-bold">check_circle</span>
-          <span className="text-3xl font-extrabold text-on-surface mt-0.5">100%</span>
-          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">Complete</span>
+          {/* Phase 9 — Truthful Journey Outcomes: the numeric "100%"/
+              "Complete" claim is removed - this ring is a decorative
+              "you reached the end" marker, never a graded score. The
+              real, truthful outcome is stated in words below (heading +
+              supporting line), gated on whether every stage genuinely
+              completed. */}
+          <span className="material-symbols-outlined text-morning-accent text-3xl font-bold">check_circle</span>
         </div>
       </div>
 
@@ -291,16 +335,35 @@ export const SessionComplete = () => {
         journeyTone="morning"
         className="space-y-3"
         stagger={[
-          <div key="greeting" className="text-center">
-            {/* Morning completion screen refinement — the "Morning
-                Complete" eyebrow removed: the 100% ring/checkmark above
-                already communicates completion, so this line only
-                repeated it. The rotating greeting itself is unchanged. */}
-            <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{completionGreeting}</h2>
+          <div key="greeting" className="text-center space-y-2">
+            {/* Phase 9 — Truthful Journey Outcomes (Part 7): exact
+                approved copy, gated on morningFullyCompleted - "complete"
+                is shown ONLY when every displayed Morning stage is
+                genuinely completed; any skipped/ended-early/not-reached
+                stage shows the "finished" variant instead. Never a
+                percentage, either way. */}
+            <h1 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">
+              {morningFullyCompleted ? 'Morning Reset complete' : 'Morning Reset finished'}
+            </h1>
+            <p className="text-sm text-on-surface-variant">
+              {morningFullyCompleted ? 'You made time to begin your day with intention.' : 'Every intentional moment still matters.'}
+            </p>
+            {/* The pre-existing rotating greeting stays as a smaller,
+                secondary line - every phrase in the morning/routine pool
+                (outcomeMessages.js) is a generic, supportive affirmation
+                that never itself claims full completion, so it never
+                contradicts the "finished" outcome above. */}
+            <p className="text-sm text-on-surface-variant/80 italic">{completionGreeting}</p>
           </div>,
           <MomentumPanel key="momentum" insight={momentum.insight} milestone={momentum.milestone} />
         ]}
       />
+
+      {/* Phase 9 — Truthful Journey Outcomes: the real per-stage pathway
+          for this run, added to the final Morning summary screen per
+          Part 4/5 of the spec (this screen previously showed no
+          high-level journey context at all). */}
+      <MorningJourneyPathway stages={morningPathwayStages} />
 
       {/* Summary card */}
       <div className="glass-panel p-5 rounded-2xl text-left text-xs text-on-surface-variant w-full max-w-sm mx-auto space-y-2 shadow-sm">

@@ -99,7 +99,7 @@ export const EveningBreathing = () => {
   const { effectiveTimezone, userId } = useAlarm();
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { isGuest } = useAuth();
-  const { state, currentStep, advanceStep, skipStep } = useSession();
+  const { state, currentStep, advanceStep, skipStep, recordStepEndedEarly } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('breathing', 'evening-wind-down');
   // isRepeatGated hidden-options defect fix — the exact same defect and
   // fix as MorningFlow.jsx/Breathe.jsx (found live: "Back from Meditation
@@ -452,6 +452,7 @@ export const EveningBreathing = () => {
   // is invented (see the final report's honest-outcomes note).
   const leaveExercise = () => {
     setBackConfirmOpen(false);
+    recordStepEndedEarly();
     hasBegunOnceRef.current = false;
     setManuallyPaused(false);
     stopBreathingInterval();

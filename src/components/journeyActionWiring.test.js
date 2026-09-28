@@ -12,8 +12,12 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionClasses with its own real journey', () => {
   const expectations = [
     // [file, journey, how many call sites expected]
-    ['../pages/Home.jsx', 'morning', 4],
-    ['../pages/Home.jsx', 'evening', 4],
+    // Phase 9 — Truthful Journey Outcomes (Part 9) added a 5th call site
+    // each: the new 'finished-partially' card's own primary action
+    // (Repeat Morning Routine / Review or Edit Tonight's Responses),
+    // the honest counterpart to the pre-existing 'completed' card.
+    ['../pages/Home.jsx', 'morning', 5],
+    ['../pages/Home.jsx', 'evening', 5],
     ['../pages/Home.jsx', 'anytime', 1],
     ['../pages/IntentionSetup.jsx', 'morning', 2],
     ['../pages/Affirmation.jsx', 'morning', 1],
@@ -70,13 +74,12 @@ describe('Shared accent-prop components — each caller passes its own real jour
   // needed); SelfGuidedMeditation.jsx now passes its own dynamically-
   // resolved journeyTone instead of a hardcoded 'anytime' literal.
   it('MeditationSetupPanel.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {
-    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="morning"/);
-    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="evening"/);
-    // Anytime Visual Flow and Closing Handoff uplift (Part 8) —
-    // SelfGuidedMeditation.jsx now also passes `compact` (aligned with
-    // Morning/Evening's own approved setup structure), plus its own
-    // `purpose` sentence, ahead of journeyTone.
-    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel[\s\S]*?compact\s*\n[\s\S]*?journeyTone=\{journeyTone\}/);
+    // Meditation ↔ Breathing alignment correction — `compact` is retired
+    // (every journey now shows the same always-full structure), so this
+    // only checks journeyTone wiring, not the former compact marker.
+    expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*journeyTone="morning"/);
+    expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*journeyTone="evening"/);
+    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel[\s\S]*?journeyTone=\{journeyTone\}/);
   });
 
   it('MeditationActiveSession.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {

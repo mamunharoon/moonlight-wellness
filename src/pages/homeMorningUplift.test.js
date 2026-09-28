@@ -62,10 +62,10 @@ describe('Home.jsx — Morning\'s four card states all render the gold/Playfair 
     expect(source).toMatch(/nextStepCardBody\(morningCompletedCard, undefined, 'morning'\)/);
   });
 
-  it('all four Morning card shells (stale-choice, not-started, in-progress, completed) use the morning-accent border and the sparing morning-glow shadow, never the generic shadow-sm', () => {
+  it('all five Morning card shells (stale-choice, not-started, in-progress, completed, finished-partially) use the morning-accent border and the sparing morning-glow shadow, never the generic shadow-sm - the 5th is Phase 9\'s Truthful Journey Outcomes honest state', () => {
     const morningBlock = source.match(/\{activePeriod === 'morning' && \([\s\S]*?\n {6}\)\}/)?.[0] ?? '';
     const shellMatches = morningBlock.match(/className="glass-panel p-5 rounded-3xl[^"]*"/g) ?? [];
-    expect(shellMatches.length).toBe(4);
+    expect(shellMatches.length).toBe(5);
     for (const cls of shellMatches) {
       expect(cls).toMatch(/border-morning-accent-tint\//);
       expect(cls).toMatch(/shadow-morning-glow/);

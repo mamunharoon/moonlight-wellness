@@ -1,38 +1,47 @@
 // Source-level regression guard for MeditationSetupPanel.jsx - the shared
 // setup screen extracted from SelfGuidedMeditation.jsx (Journey Embedding,
-// Phase 2). Covers both standalone's unchanged non-compact rendering and
-// the new compact/expandable embedded presentation.
+// Phase 2). Meditation ↔ Breathing alignment correction — the former
+// compact/expandable two-state model (a "Recommended for you" summary card
+// behind a "Choose style, time & sound" disclosure) is gone: every journey
+// (Morning/Evening/Anytime) now shows the same always-full structure,
+// matching Breathe.jsx/EveningBreathing.jsx's own setup screens.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./MeditationSetupPanel.jsx', import.meta.url)), 'utf-8');
 
-describe('MeditationSetupPanel — five styles, three durations, three sounds via the real data modules', () => {
-  it('imports MEDITATION_STYLES/MEDITATION_DURATIONS/MEDITATION_SOUNDS - no second copy of the data', () => {
+describe('MeditationSetupPanel — five styles and three durations via the real data modules', () => {
+  it('imports MEDITATION_STYLES/MEDITATION_DURATIONS - no second copy of the data', () => {
     expect(source).toMatch(/from '\.\.\/\.\.\/lib\/meditationStyles';/);
     expect(source).toMatch(/from '\.\.\/\.\.\/lib\/meditationDurations';/);
-    expect(source).toMatch(/from '\.\.\/\.\.\/lib\/meditationSounds';/);
   });
 
-  it('styles/durations/sounds each render via a single map (never a hand-duplicated list)', () => {
-    // F6 — styles now map with an index too (idx), for the compact grid's
-    // last-item-spans-full-width logic (MeditationStyleCard's fullWidth).
-    expect(source).toMatch(/\{MEDITATION_STYLES\.map\(\(s, idx\) => \(/);
+  it('styles/durations each render via a single map (never a hand-duplicated list)', () => {
+    expect(source).toMatch(/\{MEDITATION_STYLES\.map\(\(s\) => \(/);
     expect(source).toMatch(/\{MEDITATION_DURATIONS\.map\(\(d\) => \(/);
-    expect(source).toMatch(/\{MEDITATION_SOUNDS\.map\(\(s\) => \(/);
   });
 
-  it('reuses the shared MeditationOptionRow/MeditationDurationChip/MeditationStyleCard controls, never a second radio implementation', () => {
-    expect(source).toMatch(/import \{ MeditationOptionRow, MeditationDurationChip, MeditationStyleCard \} from '\.\/MeditationControls';/);
+  it('reuses the shared MeditationOptionRow/MeditationDurationChip controls, never a second radio implementation, and never imports/renders the retired two-column MeditationStyleCard (doc comments may still discuss it in prose)', () => {
+    expect(source).toMatch(/import \{ MeditationOptionRow, MeditationDurationChip \} from '\.\/MeditationControls';/);
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/MeditationStyleCard/);
+  });
+
+  it('sound selection is delegated to the compact MeditationSoundControl, never a second/duplicate sound implementation in this file', () => {
+    expect(source).toMatch(/import \{ MeditationSoundControl \} from '\.\/MeditationSoundControl';/);
+    expect(source).not.toMatch(/MEDITATION_SOUNDS/);
   });
 });
 
 describe('MeditationSetupPanel — accessible radiogroups', () => {
-  it('all three groups use role="radiogroup" with a real native <input type="radio"> (inside MeditationControls.jsx)', () => {
+  it('both remaining groups use role="radiogroup" with a real native <input type="radio"> (inside MeditationControls.jsx)', () => {
     expect(source).toMatch(/role="radiogroup" aria-label="Meditation style"/);
     expect(source).toMatch(/role="radiogroup" aria-label="Duration"/);
-    expect(source).toMatch(/role="radiogroup" aria-label="Choose your sound"/);
+  });
+
+  it('no full three-row "Choose your sound" radiogroup lives in this file any more - that section moved to the compact MeditationSoundControl', () => {
+    expect(source).not.toMatch(/role="radiogroup" aria-label="Choose your sound"/);
   });
 });
 
@@ -43,20 +52,13 @@ describe('MeditationSetupPanel — Recommended badge is context-driven, never th
   });
 });
 
-describe('MeditationSetupPanel — compact mode (embedded): recommended summary, disclosure, Skip', () => {
-  it('compact mode shows a recommended-choice summary and hides the full option list until expanded', () => {
-    // Morning/Evening journey meditation-selection fix: expanded now
-    // defaults from the additive `defaultExpanded` prop (still false for
-    // every existing caller that omits it) rather than a hardcoded
-    // useState(false), so "Choose another meditation" can open this panel
-    // already expanded - see this file's own updated doc comment.
-    expect(source).toMatch(/const \[expanded, setExpanded\] = useState\(defaultExpanded\);/);
-    expect(source).toMatch(/const showOptions = !compact \|\| expanded;/);
-  });
-
-  it('the disclosure control reads "Choose style, time & sound" and only renders in compact mode before expansion', () => {
-    expect(source).toMatch(/\{compact && !expanded && \(/);
-    expect(source).toMatch(/Choose style, time &amp; sound/);
+describe('MeditationSetupPanel — every choice always renders immediately, matching Breathing\'s own setup screens', () => {
+  it('holds no expand/collapse state at all - no compact prop, no disclosure, no "Recommended for you" summary card (checked against real code, since the doc comment legitimately discusses the retired `compact` model in prose)', () => {
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/\bcompact\b/);
+    expect(codeOnly).not.toMatch(/defaultExpanded|onExpandedConsumed|showOptions|useState|useEffect/);
+    expect(codeOnly).not.toMatch(/Recommended for you/i);
+    expect(codeOnly).not.toMatch(/Choose style, time &amp; sound/);
   });
 
   it('Skip only renders when the caller supplies onSkip (embedded callers only - standalone never passes it)', () => {
@@ -64,18 +66,14 @@ describe('MeditationSetupPanel — compact mode (embedded): recommended summary,
     expect(source).toMatch(/Skip meditation/);
   });
 
-  it('Explore Guided Meditations only renders when the caller supplies onExploreGuided (standalone only - embedded callers never pass it)', () => {
-    expect(source).toMatch(/\{onExploreGuided && \(/);
+  it('Explore Guided Meditations only renders when the caller supplies onExploreGuided, positioned before the primary Begin action', () => {
+    const exploreIdx = source.indexOf('{onExploreGuided && (');
+    const beginIdx = source.indexOf('onClick={onBegin}');
+    expect(exploreIdx).toBeGreaterThan(-1);
+    expect(beginIdx).toBeGreaterThan(exploreIdx);
     expect(source).toMatch(/Explore Guided Meditations/);
   });
 
-  // Pre-Build-15 defect fix — beginLabel is still an optional override
-  // prop, but its default changed from a static "Begin Meditation"
-  // string to null, resolved at render time from the live `duration`
-  // prop (formatMeditationBeginLabel) - see MeditationSetupPanel.jsx's
-  // own doc comment for the "Begin 5-Minute Meditation" stale-label bug
-  // this replaces. Morning/Evening no longer supply a caller-hardcoded
-  // override at all (see MorningMeditate.test.js/EveningMeditate.test.js).
   it('the Begin button label defaults to null (an optional override) and is resolved from the live duration prop, never a hardcoded string', () => {
     expect(source).toMatch(/beginLabel = null/);
     expect(source).toMatch(/import \{ MEDITATION_DURATIONS, formatMeditationBeginLabel \} from '\.\.\/\.\.\/lib\/meditationDurations';/);
@@ -84,58 +82,42 @@ describe('MeditationSetupPanel — compact mode (embedded): recommended summary,
   });
 });
 
-describe('MeditationSetupPanel — non-compact mode (standalone, unchanged): every option renders immediately', () => {
-  it('showOptions is true whenever compact is false, regardless of the expanded flag - the standalone caller never gets a collapsed view', () => {
-    // showOptions = !compact || expanded - when compact is false, the
-    // left operand of || is already true, so this is unconditionally true
-    // for every non-compact caller, exactly like the original always-shown
-    // SelfGuidedMeditation.jsx setup screen.
-    expect(source).toMatch(/const showOptions = !compact \|\| expanded;/);
-  });
-});
-
-// F6 (pre-Build-15 usability pass) — approved compact two-column layout
-// for the 5 meditation styles, replacing 5 stacked full-width rows (each
-// with its own inline description) to shorten the setup screen. Applies
-// to this one shared component, so standalone/Morning/Evening all get it
-// consistently (no per-caller variant).
-describe('MeditationSetupPanel — F6 compact two-column Meditation Style grid', () => {
-  it('the style radiogroup is a 2-column grid (grid-cols-2), not the stacked space-y-2 rows every other radiogroup here still uses', () => {
-    const block = source.match(/<div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Meditation style">[\s\S]*?<\/div>/)?.[0] ?? '';
+describe('MeditationSetupPanel — vertically stacked, full-width style rows with a genuine icon (Meditation ↔ Breathing alignment)', () => {
+  it('the style radiogroup is stacked full-width rows (space-y-2), not the former 2-column grid', () => {
+    const block = source.match(/<div className="space-y-2" role="radiogroup" aria-label="Meditation style">[\s\S]*?<\/div>/)?.[0] ?? '';
     expect(block.length).toBeGreaterThan(0);
-    expect(block).toMatch(/<MeditationStyleCard/);
-    expect(block).not.toMatch(/<MeditationOptionRow/);
+    expect(block).toMatch(/<MeditationOptionRow/);
+    expect(block).toMatch(/icon=\{s\.icon\}/);
   });
 
-  it('the last (odd-numbered) style spans both columns generically - never hardcoded to a literal index/count of 5', () => {
-    expect(source).toMatch(/fullWidth=\{MEDITATION_STYLES\.length % 2 === 1 && idx === MEDITATION_STYLES\.length - 1\}/);
-    expect(source).not.toMatch(/fullWidth=\{idx === 4\}/);
-  });
-
-  it('the selected style\'s description renders exactly once, below the grid, reading live from the current `style` prop (never a separate/stale copy)', () => {
-    expect(source).toMatch(/<p className="text-xs text-on-surface-variant px-1" aria-live="polite">\{style\.description\}<\/p>/);
-    // Only this one description paragraph for style - MeditationStyleCard
-    // itself never renders a visible description inline (see that
-    // component's own test for its accessible-name-only treatment).
-    const styleBlock = source.slice(source.indexOf('Meditation style'), source.indexOf('Duration</h2>'));
-    expect((styleBlock.match(/text-on-surface-variant px-1"/g) ?? []).length).toBe(1);
-  });
-
-  it('duration and sound sections are completely untouched - still their own original controls/layout', () => {
+  it('duration section is untouched - still MeditationDurationChip in a 3-column grid', () => {
     expect(source).toMatch(/<MeditationDurationChip/);
-    expect(source).toMatch(/<MeditationOptionRow/);
     expect(source).toMatch(/grid grid-cols-3 gap-2" role="radiogroup" aria-label="Duration"/);
   });
 });
 
+describe('MeditationSetupPanel — compact Sound control, upper-right', () => {
+  it('renders MeditationSoundControl right-aligned as the panel\'s first element, wired to the live soundId/onSelectSound props', () => {
+    const idx = source.indexOf('<MeditationSoundControl');
+    expect(idx).toBeGreaterThan(-1);
+    expect(idx).toBeLessThan(source.indexOf('Meditation style'));
+    const block = source.match(/<div className="flex justify-end">[\s\S]*?<\/div>/)?.[0] ?? '';
+    expect(block).toMatch(/<MeditationSoundControl soundId=\{soundId\} onSelectSound=\{onSelectSound\} journeyTone=\{journeyTone\} \/>/);
+  });
+});
+
+describe('MeditationSetupPanel — journey-specific wording defaults', () => {
+  it('heading defaults to "Take a Mindful Pause" (Evening\'s own copy); Morning/Anytime callers pass their own', () => {
+    expect(source).toMatch(/heading = 'Take a Mindful Pause'/);
+  });
+});
+
 describe('MeditationSetupPanel — touch targets and no fixed-width overflow at 320px', () => {
-  it('every button this file owns directly carries the 44px minimum - the radio ROW/CHIP targets now live in MeditationControls.jsx (see that file\'s own test)', () => {
-    // Begin, the disclosure toggle, Explore Guided Meditations, and Skip -
-    // four literal button occurrences in THIS file's own source (the
-    // latter two are mutually-relevant-by-context but both still appear
-    // as real markup here, each behind its own conditional render).
+  it('every button this file owns directly carries the 44px minimum', () => {
+    // Begin, Explore Guided Meditations, and Skip - each behind its own
+    // conditional render.
     const minHeightMatches = source.match(/min-h-\[44px\]/g) ?? [];
-    expect(minHeightMatches.length).toBeGreaterThanOrEqual(4);
+    expect(minHeightMatches.length).toBeGreaterThanOrEqual(3);
   });
 
   it('no element uses a fixed pixel width wider than a 320px viewport (w-[###px]) - only relative/max-w utilities', () => {

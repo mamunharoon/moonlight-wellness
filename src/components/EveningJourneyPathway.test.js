@@ -1,104 +1,117 @@
-// Evening Visual Uplift (Phase 7) — EveningJourneyPathway. No DOM
-// rendering available in this repo's Vitest - source-level checks,
-// matching this codebase's own established precedent (see e.g.
-// AnswerOptionButton.test.js).
+// Evening Visual Uplift (Phase 7), Phase 9 — Truthful Journey Outcomes —
+// EveningJourneyPathway, real execution. This repo's Vitest runs with
+// environment: 'node' (no DOM/jsdom), but a React component is still a
+// plain function: calling it directly returns a real element tree.
 //
-// These tests exist specifically to prove the mid-turn "Evening pathway
-// state clarification" correction is honoured: genuine stage icons are
-// ALWAYS the primary visual (never replaced by a checkmark), a secondary
-// completed/skipped badge only ever appears from an EXPLICIT, externally-
-// supplied `stageStatus` map, and completed/skipped is never inferred
-// merely from `currentStageId`'s own position among the 5 stages.
+// Phase 7 established the honesty contract (genuine icon always visible,
+// completion/skip only ever an additive corner badge); Phase 9 makes it
+// real by unifying on the shared `stages` prop (session/stageStatus.js's
+// computeStageStatus() output shape, the same shape
+// MorningJourneyPathway.jsx now also consumes) and adding 'ended_early'
+// support.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { EveningJourneyPathway } from './EveningJourneyPathway';
+import { EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { StageOutcomeBadge } from './journey/StageOutcomeBadge';
 
-const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
+const REAL_ICONS = ['chat_bubble', 'favorite', 'air', 'self_improvement', 'bedtime'];
+const REAL_LABELS = ['Reflect', 'Gratitude', 'Breathe', 'Meditate', 'Rest'];
 
-const source = read('./EveningJourneyPathway.jsx');
-const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const stagesWithStatus = (statuses) =>
+  EVENING_PATHWAY_STAGES.map(({ id, label, icon }, idx) => ({ id, label, icon, status: statuses[idx] }));
 
-describe('EveningJourneyPathway - genuine stage icons are always the primary visual', () => {
-  it('renders all 5 real stage icons unconditionally in STAGES, never behind a completed/current ternary', () => {
-    expect(code).toMatch(/\{ id: 'reflect', label: 'Reflect', icon: 'chat_bubble' \}/);
-    expect(code).toMatch(/\{ id: 'gratitude', label: 'Gratitude', icon: 'favorite' \}/);
-    expect(code).toMatch(/\{ id: 'breathe', label: 'Breathe', icon: 'air' \}/);
-    expect(code).toMatch(/\{ id: 'meditate', label: 'Meditate', icon: 'spa' \}/);
-    expect(code).toMatch(/\{ id: 'rest', label: 'Rest', icon: 'bedtime' \}/);
+const collectStages = (element) => {
+  const listItems = element.props.children.filter((child) => child?.props?.role === 'listitem');
+  return listItems.map((item) => {
+    const [iconCol] = item.props.children;
+    const [iconBadge, labelSpan] = iconCol.props.children;
+    const [iconSpan, outcomeBadgeEl] = iconBadge.props.children;
+    const [labelText, srSpan] = labelSpan.props.children;
+    return {
+      iconGlyph: iconSpan.props.children,
+      iconAriaHidden: iconSpan.props['aria-hidden'],
+      badgeType: outcomeBadgeEl.type,
+      badgeStatus: outcomeBadgeEl.props.status,
+      badgeTone: outcomeBadgeEl.props.journeyTone,
+      badgeClass: iconBadge.props.className,
+      label: labelText,
+      srSuffix: Array.isArray(srSpan.props.children) ? srSpan.props.children.join('') : srSpan.props.children
+    };
+  });
+};
+
+describe('EveningJourneyPathway — real execution, no-props default (byte-identical not-started look)', () => {
+  const outer = EveningJourneyPathway();
+  const element = outer.props.children;
+  const stages = collectStages(element);
+
+  it('renders exactly the five approved stages, in the exact approved order: Reflect, Gratitude, Breathe, Meditate, Rest', () => {
+    expect(stages.map((s) => s.label)).toEqual(REAL_LABELS);
+    expect(stages.map((s) => s.iconGlyph)).toEqual(REAL_ICONS);
   });
 
-  it('the main badge always renders stage.icon - there is no conditional swapping it for a checkmark/tick icon', () => {
-    // The main badge span renders {stage.icon} unconditionally; only an
-    // ADDITIVE absolutely-positioned corner span (checked separately
-    // below) ever renders a checkmark, never replacing this one.
-    expect(code).toMatch(/<span className="material-symbols-outlined text-sm" aria-hidden="true">\{stage\.icon\}<\/span>/);
-    // No ternary anywhere swaps the main icon for 'check' or 'check_circle'.
-    expect(code).not.toMatch(/stage\.icon\s*:\s*'check/);
-    expect(code).not.toMatch(/isCompleted\s*\?\s*'check/);
-  });
-});
-
-describe('EveningJourneyPathway - completed/skipped are only ever driven by an explicit stageStatus prop', () => {
-  it('isCompleted/isSkipped are derived only from stageStatus?.[stage.id], never from currentStageId or the stage\'s own index', () => {
-    expect(code).toMatch(/const status = stageStatus\?\.\[stage\.id\] \?\? null;/);
-    expect(code).toMatch(/const isCompleted = status === 'completed';/);
-    expect(code).toMatch(/const isSkipped = status === 'skipped';/);
-    // Neither derivation references idx, currentStageId, or STAGES
-    // position - the one thing the mid-turn correction explicitly
-    // forbids ("do not infer completion merely because the user
-    // advanced to a later route").
-    const isCompletedLine = code.match(/const isCompleted = .*/)?.[0] ?? '';
-    const isSkippedLine = code.match(/const isSkipped = .*/)?.[0] ?? '';
-    expect(isCompletedLine).not.toMatch(/currentStageId|idx/);
-    expect(isSkippedLine).not.toMatch(/currentStageId|idx/);
+  it('every stage defaults to not_started with the corresponding sr-only suffix', () => {
+    for (const s of stages) {
+      expect(s.badgeStatus).toBe('not_started');
+      expect(s.srSuffix).toBe(', not started');
+    }
   });
 
-  it('stageStatus defaults to null - with no stageStatus supplied at all (today\'s real callers), no stage can ever show a completed/skipped badge', () => {
-    expect(source).toMatch(/stageStatus = null/);
+  it('is a real accessible list (role="list" on the root, role="listitem" per stage) with an aria-label naming the full sequence', () => {
+    expect(element.props.role).toBe('list');
+    expect(element.props['aria-label']).toBe('Evening Wind-Down stages: Reflect, Gratitude, Breathe, Meditate, Rest');
   });
 
-  it('a genuine completion (stageStatus: { reflect: \'completed\' }) shows the secondary check badge as an ADDITIVE overlay, not a replacement', () => {
-    const completedBlock = code.match(/\{isCompleted && \([\s\S]*?\)\}/)?.[0] ?? '';
-    expect(completedBlock).toMatch(/check/);
-    expect(completedBlock).toMatch(/absolute -bottom-1 -right-1/); // corner overlay, not the main badge
+  it('320px structural safety: the outer wrapper is horizontally scrollable', () => {
+    expect(outer.props.className).toMatch(/overflow-x-auto/);
   });
 
-  it('a reliably-known skipped stage (stageStatus: { breathe: \'skipped\' }) shows a muted dash/remove badge, never a checkmark', () => {
-    const skippedBlock = code.match(/\{isSkipped && \([\s\S]*?\)\}/)?.[0] ?? '';
-    expect(skippedBlock).toMatch(/remove/);
-    expect(skippedBlock).not.toMatch(/check/);
-  });
-
-  it('accessible text announces completed/skipped/current distinctly, e.g. "Breathe, skipped" via sr-only suffixes on the real label', () => {
-    expect(code).toMatch(/\{isCompleted && <span className="sr-only">, completed<\/span>\}/);
-    expect(code).toMatch(/\{isSkipped && <span className="sr-only">, skipped<\/span>\}/);
-    expect(code).toMatch(/\{isCurrent && <span className="sr-only">, current<\/span>\}/);
+  it('every icon is aria-hidden - the visible text label is the only accessible name for each stage', () => {
+    for (const s of stages) expect(s.iconAriaHidden).toBe('true');
   });
 });
 
-describe('EveningJourneyPathway - currentStageId (the one genuinely reliable signal) drives the ring/highlight independently', () => {
-  it('isCurrent is a simple equality check against currentStageId - the only position-derived signal this component trusts, and it never touches isCompleted/isSkipped', () => {
-    expect(code).toMatch(/const isCurrent = stage\.id === currentStageId;/);
+describe('EveningJourneyPathway — genuine icons are ALWAYS the primary visual, never replaced by a checkmark', () => {
+  it('the named Phase 9 Evening scenario: Reflection completed, Gratitude completed, Breathing ended early, Meditation skipped, Rest not reached', () => {
+    const stages = collectStages(
+      EveningJourneyPathway({ stages: stagesWithStatus(['completed', 'completed', 'ended_early', 'skipped', 'not_started']) }).props.children
+    );
+    expect(stages.map((s) => s.iconGlyph)).toEqual(REAL_ICONS); // every real icon still visible
+    expect(stages.map((s) => s.badgeStatus)).toEqual(['completed', 'completed', 'ended_early', 'skipped', 'not_started']);
+    expect(`${stages[2].label}${stages[2].srSuffix}`).toBe('Breathe, ended early');
+    expect(`${stages[3].label}${stages[3].srSuffix}`).toBe('Meditate, skipped');
+    expect(`${stages[4].label}${stages[4].srSuffix}`).toBe('Rest, not started');
   });
 
-  it('the current stage keeps its genuine icon too - isCurrent only changes badge/label CSS classes, never the rendered icon glyph', () => {
-    const badgeClassBlock = code.match(/const badgeClass = isCurrent[\s\S]*?;/)?.[0] ?? '';
-    expect(badgeClassBlock).not.toMatch(/icon:|stage\.icon/);
-  });
-});
-
-describe('EveningJourneyPathway - structural safety', () => {
-  it('wraps in overflow-x-auto scroll-hide, matching MorningJourneyPathway.jsx\'s own 320px safety pattern', () => {
-    expect(source).toMatch(/overflow-x-auto scroll-hide/);
+  it('every outcome badge is the shared StageOutcomeBadge with journeyTone="evening" - additive, never a replacement of the icon', () => {
+    const stages = collectStages(
+      EveningJourneyPathway({ stages: stagesWithStatus(['completed', 'not_started', 'not_started', 'not_started', 'not_started']) }).props.children
+    );
+    expect(stages[0]).toMatchObject({ badgeType: StageOutcomeBadge, badgeStatus: 'completed', badgeTone: 'evening' });
   });
 
-  it('uses only existing evening-accent/on-evening-accent/surface tokens - no raw hex, no new colour tokens', () => {
-    expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}/);
-    expect(code).toMatch(/evening-accent/);
+  it('"current" changes the main badge\'s ring/highlight class, never the icon glyph', () => {
+    const stages = collectStages(
+      EveningJourneyPathway({ stages: stagesWithStatus(['not_started', 'not_started', 'not_started', 'not_started', 'current']) }).props.children
+    );
+    expect(stages[4].iconGlyph).toBe('bedtime');
+    expect(stages[4].badgeClass).toMatch(/border-evening-accent(?!-tint)/);
+    expect(stages[0].badgeClass).not.toMatch(/border-evening-accent(?!-tint)/);
   });
 
-  it('exposes a real accessible list structure (role="list"/"listitem") with a descriptive aria-label naming all 5 stages', () => {
-    expect(source).toMatch(/role="list" aria-label="Evening Wind-Down stages: Reflect, Gratitude, Breathe, Meditate, Rest"/);
-    expect(source).toMatch(/role="listitem"/);
+  it('uses only existing evening-accent tokens - no raw hex, never Morning gold', () => {
+    const source = EveningJourneyPathway.toString();
+    expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(source).not.toMatch(/morning-accent/);
+  });
+
+  it('EVENING_PATHWAY_STAGES names the real session step id(s) each display stage represents - "rest" covers both sleepPreparation and completion', () => {
+    expect(EVENING_PATHWAY_STAGES.map((s) => s.stepIds)).toEqual([
+      ['reflection'],
+      ['gratitude'],
+      ['breathing'],
+      ['meditation'],
+      ['sleepPreparation', 'completion']
+    ]);
   });
 });

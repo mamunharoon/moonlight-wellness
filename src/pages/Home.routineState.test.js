@@ -51,6 +51,11 @@ describe('Home.jsx per-routine action handlers (Build 10 critical fix)', () => {
     expect(homeSource).toMatch(/eveningCardState === 'completed'/);
   });
 
+  it('Phase 9 — Truthful Journey Outcomes (Part 9): a 4th honest state, finished-partially, renders for both routines too - reached today without every displayed stage genuinely completing, never collapsed into (or silently promoted to) completed', () => {
+    expect(homeSource).toMatch(/morningCardState === 'finished-partially'/);
+    expect(homeSource).toMatch(/eveningCardState === 'finished-partially'/);
+  });
+
   it('in-progress Start Over is wired through resetRoutine, scoped to exactly the tapped routine, and clearly names it (Start Over parity fix)', () => {
     expect(homeSource).toMatch(/title: `Start \$\{label\} Routine Over\?`/);
     expect(homeSource).toMatch(/message: `Your current \$\{label\} step progress will be reset\. Saved history and journal entries will not be deleted\.`/);

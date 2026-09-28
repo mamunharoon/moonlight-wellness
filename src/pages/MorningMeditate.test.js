@@ -63,15 +63,12 @@ describe('MorningMeditate.jsx — context-specific defaults: Mindful Pause, 2 mi
   });
 });
 
-describe('MorningMeditate.jsx — compact setup: purpose, recommended choice, disclosure, Skip', () => {
-  it('renders MeditationSetupPanel in compact mode with a purpose string and a conditional onSkip handler (Morning journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
-    // WakeWise DEV — journey-aware primary action colour: journeyTone="morning"
-    // sits between compact and purpose=. Morning Visual Uplift (Phase 6)
-    // added a further heading="Mindful Pause" line in between too - this
-    // regex allows any number of optional lines rather than requiring a
-    // fixed count, so it stays correct as additive props are added.
-    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n[\s\S]*?purpose=/);
+describe('MorningMeditate.jsx — setup: heading, purpose, and a conditional onSkip handler', () => {
+  it('renders MeditationSetupPanel (Meditation ↔ Breathing alignment correction: no more `compact` prop - every choice shows immediately) with the exact approved heading/purpose and a conditional onSkip handler (Morning journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
+    expect(source).toMatch(/<MeditationSetupPanel\s*\n[\s\S]*?purpose=/);
+    expect(source).not.toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n/);
     expect(source).toMatch(/heading="Mindful Pause"/);
+    expect(source).toMatch(/purpose="A quiet moment before your affirmation\."/);
     expect(source).toMatch(/onSkip=\{isReviewMode \? undefined : handleSkip\}/);
     expect(source).toMatch(/skipLabel=\{hasStartedThisVisit \? 'Continue to Affirmation' : 'Skip meditation'\}/);
   });
@@ -129,8 +126,12 @@ describe('MorningMeditate.jsx — End Meditation (embedded copy), never advances
     expect(block).toMatch(/cancelLabel: 'Keep Meditating'/);
   });
 
-  it('onRequestLeave is session.endSession directly - no advanceStep/interruptSession/navigate wrapped around it', () => {
-    expect(source).toMatch(/onRequestLeave=\{session\.endSession\}/);
+  it('onRequestLeave is handleEndMeditation - a thin wrapper adding Phase 9\'s honest stepOutcomes annotation (recordStepEndedEarly) around the original session.endSession() cleanup, still no advanceStep/interruptSession/navigate', () => {
+    expect(source).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
+    const handlerBody = source.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handlerBody).toMatch(/recordStepEndedEarly\(\);/);
+    expect(handlerBody).toMatch(/session\.endSession\(\);/);
+    expect(handlerBody).not.toMatch(/navigate|advanceStep|interruptSession|leaveActiveRoutine/);
   });
 });
 
@@ -175,14 +176,14 @@ describe('MorningMeditate.jsx — active screen: unaffected by the Evening-only 
 });
 
 describe('MorningMeditate.jsx — active screen: Back/End Meditation and Close/X invoke genuinely different callbacks (correction, found live)', () => {
-  it('onRequestLeave (Back arrow + the big End Meditation button, both wired inside MeditationActiveSession) is session.endSession - never leaveActiveRoutine/interruptSession/advanceStep/navigate, proven at its own real definition in useMeditationSession.test.js', () => {
-    expect(source).toMatch(/onRequestLeave=\{session\.endSession\}/);
+  it('onRequestLeave (Back arrow + the big End Meditation button, both wired inside MeditationActiveSession) is handleEndMeditation - a thin recordStepEndedEarly()+session.endSession() wrapper (Phase 9), never leaveActiveRoutine/interruptSession/advanceStep/navigate', () => {
+    expect(source).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
   });
 
   it('onRequestClose (Close/X) is a SEPARATE prop, wired to this page\'s own handleRequestExitRoutine - never the same function/value as onRequestLeave', () => {
     expect(source).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
     const activeBlock = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
-    expect(activeBlock).toMatch(/onRequestLeave=\{session\.endSession\}/);
+    expect(activeBlock).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
     expect(activeBlock).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
   });
 

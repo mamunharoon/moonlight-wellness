@@ -97,7 +97,7 @@ import { CompletionReveal } from '../components/CompletionReveal';
 export const MorningMeditate = () => {
   const navigate = useNavigate();
   const { setJourneyStep } = useAlarm();
-  const { state, currentStep, advanceStep, abandonSession } = useSession();
+  const { state, currentStep, advanceStep, abandonSession, recordStepEndedEarly } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('meditate', 'morning-routine');
   // Whole-journey exit while meditation is active - see this file's own
   // top-of-file doc comment. The same shared mechanism BackButton.jsx's
@@ -203,20 +203,17 @@ export const MorningMeditate = () => {
   // journey meditation-selection fix) — found live: once a meditation
   // started, there was no way to switch STYLE or DURATION (only the sound
   // choice was ever exposed on the active screen); the only route back to
-  // the picker was Back's "End this meditation?", landing on the compact
-  // recommended-card setup, still requiring another tap on "Choose style,
-  // time & sound" to actually see the other options. This ends the current
+  // the picker was Back's "End this meditation?". This ends the current
   // session (same session.endSession() cleanup as Back/Finish & continue -
   // stops timer/audio, never claims completion, never advances the
-  // journey, never navigates Home/standalone/a later step) and opens this
-  // same step's own setup panel already expanded, via
-  // chooseAnotherExpanded/onExpandedConsumed (see MeditationSetupPanel.jsx's
-  // own doc comment for why this is safe to read only once per fresh
-  // mount).
-  const [chooseAnotherExpanded, setChooseAnotherExpanded] = useState(false);
+  // journey, never navigates Home/standalone/a later step) and returns to
+  // this same step's own setup panel. Meditation ↔ Breathing alignment
+  // correction — MeditationSetupPanel.jsx no longer has a collapsed/
+  // expanded state to restore (every choice always renders immediately,
+  // matching Breathing's own setup screens), so there is nothing left to
+  // re-expand here.
   const handleChooseAnother = () => {
     session.endSession();
-    setChooseAnotherExpanded(true);
   };
 
   useEffect(() => {
@@ -236,6 +233,19 @@ export const MorningMeditate = () => {
   });
 
   const handleSkip = () => advanceToAffirmation();
+
+  // "End Meditation" (Back / active-screen "End this meditation?" confirm)
+  // — genuinely distinct from Finish & continue/Choose another (see this
+  // file's own top-of-file doc comment: this path stops the timer/audio
+  // and returns to THIS step's own pre-start screen without advancing or
+  // interrupting the parent Morning session at all). Records the honest
+  // ended_early outcome for Meditate; session.endSession() is otherwise
+  // unchanged local cleanup shared by the other two paths, which must NOT
+  // record ended_early since they genuinely continue the journey.
+  const handleEndMeditation = () => {
+    recordStepEndedEarly();
+    session.endSession();
+  };
 
   // Dialog-severity correction — see Breathe.jsx's identical fix/
   // rationale. Distinct state from exitConfirmOpen above (that one is the
@@ -410,7 +420,7 @@ export const MorningMeditate = () => {
           onSelectSound={session.selectSound}
           onPause={session.pause}
           onResume={session.resume}
-          onRequestLeave={session.endSession}
+          onRequestLeave={handleEndMeditation}
           onRequestClose={handleRequestExitRoutine}
           endCopy={{
             buttonLabel: 'End Meditation',
@@ -509,7 +519,6 @@ export const MorningMeditate = () => {
       )}
 
       <MeditationSetupPanel
-        compact
         journeyTone="morning"
         heading="Mindful Pause"
         purpose="A quiet moment before your affirmation."
@@ -517,9 +526,9 @@ export const MorningMeditate = () => {
         // Defect fix — beginLabel omitted entirely: it previously
         // hardcoded "Begin 2-Minute Meditation" regardless of the
         // actually-selected duration, going stale the moment the user
-        // picked 5/10 minutes in "Choose style, time & sound". Omitting
-        // it lets MeditationSetupPanel.jsx compute the live label from
-        // `duration` (below) instead - see that file's own doc comment.
+        // picked 5/10 minutes. Omitting it lets MeditationSetupPanel.jsx
+        // compute the live label from `duration` (below) instead - see
+        // that file's own doc comment.
         style={session.style}
         duration={session.duration}
         soundId={session.soundId}
@@ -534,8 +543,6 @@ export const MorningMeditate = () => {
         // user has actually engaged with Meditation this visit yet.
         onSkip={isReviewMode ? undefined : handleSkip}
         skipLabel={hasStartedThisVisit ? 'Continue to Affirmation' : 'Skip meditation'}
-        defaultExpanded={chooseAnotherExpanded}
-        onExpandedConsumed={() => setChooseAnotherExpanded(false)}
       />
 
       <button

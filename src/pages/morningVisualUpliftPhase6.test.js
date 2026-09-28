@@ -22,31 +22,31 @@ const tailwindConfigSource = read('../../tailwind.config.js');
 const indexCssSource = read('../index.css');
 
 describe('Morning Home — five-step pathway in every Morning card state (Physical-iPhone correction)', () => {
-  it('MorningJourneyPathway is imported once and rendered in all three real card states - not-started, in-progress, and completed', () => {
+  it('MorningJourneyPathway is imported once and rendered in all four real card states - not-started, in-progress, completed, and finished-partially (Phase 9 — Truthful Journey Outcomes, Part 9\'s honest 4th state)', () => {
     const importMatches = homeSource.match(/import \{ MorningJourneyPathway \} from '\.\.\/components\/MorningJourneyPathway';/g) ?? [];
     expect(importMatches.length).toBe(1);
     const renderMatches = homeSource.match(/<MorningJourneyPathway/g) ?? [];
-    expect(renderMatches.length).toBe(3);
+    expect(renderMatches.length).toBe(4);
   });
 
-  it('not-started renders the plain pathway (no currentStepNumber - every step in its original upcoming look, byte-identical to before this correction)', () => {
+  it('not-started renders the plain pathway (no props - every step in its original upcoming look, byte-identical to before this correction)', () => {
     const notStartedBlock = homeSource.match(/\{morningCardState === 'not-started' && !morningHasStaleChoice && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
     expect(notStartedBlock).toMatch(/<MorningJourneyPathway \/>/);
   });
 
-  it('in-progress passes currentStepNumber derived from the SAME resolved step index resolveStepLabel already uses - no competing/second progress store', () => {
-    expect(homeSource).toMatch(/const morningCurrentPathwayStep = MORNING_DISPLAY_STEP_NUMBERS\[getSessionById\(RITUAL_SESSION_IDS\.morning\)\?\.steps\[morningResolvedStepIndex\]\?\.id\];/);
+  it('in-progress passes the real computed morningPathwayStages, derived (via computeStageStatus) from the SAME resolved step index resolveStepLabel already uses - no competing/second progress store', () => {
+    expect(homeSource).toMatch(/const morningCurrentStepId = getSessionById\(RITUAL_SESSION_IDS\.morning\)\?\.steps\[morningResolvedStepIndex\]\?\.id \?\? null;/);
     const inProgressBlock = homeSource.match(/\{morningCardState === 'in-progress' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
-    expect(inProgressBlock).toMatch(/<MorningJourneyPathway currentStepNumber=\{morningCurrentPathwayStep\} \/>/);
+    expect(inProgressBlock).toMatch(/<MorningJourneyPathway stages=\{morningPathwayStages\} \/>/);
     // The exact original Resume handler/label and Start Over are still wired, unchanged.
     expect(inProgressBlock).toMatch(/onClick=\{handleMorningAction\}/);
     expect(inProgressBlock).toMatch(/\{morningInProgressCard\.buttonLabel\}/);
     expect(inProgressBlock).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'start-over', period: 'morning' \}\)\}/);
   });
 
-  it('completed passes currentStepNumber = MORNING_DISPLAY_STEP_COUNT + 1 (past the last real step, so all five steps satisfy "completed") - Repeat is still wired, unchanged', () => {
+  it('completed passes the real computed morningPathwayStages too (Phase 9: the true per-stage outcomes for today\'s run, never a forced "all five completed") - Repeat is still wired, unchanged', () => {
     const completedBlock = homeSource.match(/\{morningCardState === 'completed' && \(([\s\S]*?)\n {10}\)\}/)?.[1] ?? '';
-    expect(completedBlock).toMatch(/<MorningJourneyPathway currentStepNumber=\{MORNING_DISPLAY_STEP_COUNT \+ 1\} \/>/);
+    expect(completedBlock).toMatch(/<MorningJourneyPathway stages=\{morningPathwayStages\} \/>/);
     expect(completedBlock).toMatch(/onClick=\{\(\) => setActiveDialog\(\{ kind: 'repeat', period: 'morning' \}\)\}/);
     expect(completedBlock).toMatch(/\{morningCompletedCard\.buttonLabel\}/);
   });
@@ -78,12 +78,12 @@ describe('Morning Meditation setup — spacing correction (Physical-iPhone findi
     expect('min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4').not.toMatch(/h-\[/);
   });
 
-  it('MeditationSetupPanel and its Begin/Duration/Sound/advanced-customisation wiring are completely untouched by the spacing correction', () => {
-    expect(morningMeditateSource).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="morning"\s*\n\s*heading="Mindful Pause"\s*\n\s*purpose="A quiet moment before your affirmation\."/);
+  it('MeditationSetupPanel and its Begin/Duration/Sound wiring are completely untouched by the spacing correction (Meditation ↔ Breathing alignment correction retired `compact`/`defaultExpanded` - every choice now shows immediately)', () => {
+    expect(morningMeditateSource).toMatch(/<MeditationSetupPanel\s*\n\s*journeyTone="morning"\s*\n\s*heading="Mindful Pause"\s*\n\s*purpose="A quiet moment before your affirmation\."/);
     expect(morningMeditateSource).toMatch(/onBegin=\{handleBegin\}/);
     expect(morningMeditateSource).toMatch(/onSelectDuration=\{session\.setDurationId\}/);
     expect(morningMeditateSource).toMatch(/onSelectSound=\{session\.selectSound\}/);
-    expect(morningMeditateSource).toMatch(/defaultExpanded=\{chooseAnotherExpanded\}/);
+    expect(morningMeditateSource).not.toMatch(/defaultExpanded=/);
   });
 });
 

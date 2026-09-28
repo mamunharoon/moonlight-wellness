@@ -109,10 +109,10 @@ describe('EveningMeditate.jsx — deliberate early finish (Finish & continue) an
     expect(source).toMatch(/const handleSkip = \(\) => advanceToPrepareForRest\(\);/);
   });
 
-  it('MeditationActiveSession\'s onRequestLeave (session.endSession, End Meditation) never sets isCompleted - ending early is structurally distinct from natural completion', () => {
+  it('MeditationActiveSession\'s onRequestLeave (handleEndMeditation, End Meditation) never sets isCompleted - ending early is structurally distinct from natural completion', () => {
     const activeBranch = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}return \(/)?.[1] ?? '';
     expect(activeBranch).not.toBe('');
-    expect(activeBranch).toMatch(/onRequestLeave=\{session\.endSession\}/);
+    expect(activeBranch).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
     expect(activeBranch).not.toMatch(/isCompleted/);
   });
 });

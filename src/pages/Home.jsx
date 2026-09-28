@@ -44,9 +44,18 @@ import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
 import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
-import { resolveEveningPathwayStage } from '../lib/eveningJourneyPathwayStage';
+import { MORNING_PATHWAY_STAGES, EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
+import { computeStageStatus } from '../session/stageStatus';
+import { SESSION_STATUS } from '../session/sessionReducer';
 import { setPendingContent } from '../lib/pendingContent';
-import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
+import {
+  getMorningCompletionKey,
+  getEveningCompletionKey,
+  getMeditationCompletionKey,
+  getMorningFullyCompletedKey,
+  getEveningFullyCompletedKey
+} from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
 import { clearEveningBreathingPattern } from '../lib/eveningBreathingSelection';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
@@ -73,6 +82,14 @@ export const Home = () => {
   // dailyCompletion.js's own doc comment for the full rationale.
   const isMorningDone = localStorage.getItem(getMorningCompletionKey(userId)) === today;
   const isEveningDone = localStorage.getItem(getEveningCompletionKey(userId)) === today;
+  // Phase 9 — Truthful Journey Outcomes (Part 8/9): the additive "every
+  // displayed stage genuinely completed today" signal - see
+  // dailyCompletion.js's own doc comment. Distinguishes a genuinely full
+  // completion from a partial one for resolveRoutineCardState below;
+  // never itself implies isMorningDone/isEveningDone (those stay the
+  // broader "reached a genuine completion today" signal).
+  const isMorningFullyDone = localStorage.getItem(getMorningFullyCompletedKey(userId)) === today;
+  const isEveningFullyDone = localStorage.getItem(getEveningFullyCompletedKey(userId)) === today;
   // Meditation experience: mirrors the morning/evening pattern exactly -
   // a local-date-keyed flag using the same timezone-correct dateKey, so
   // it resets at the user's own local midnight, never Sydney server time
@@ -101,41 +118,54 @@ export const Home = () => {
     sessionId: RITUAL_SESSION_IDS.morning,
     liveState: state,
     snapshot: morningSnapshotToday,
-    doneToday: isMorningDone
+    doneToday: isMorningDone,
+    fullyDoneToday: isMorningFullyDone
   });
   const eveningCardState = resolveRoutineCardState({
     sessionId: RITUAL_SESSION_IDS.evening,
     liveState: state,
     snapshot: eveningSnapshotToday,
-    doneToday: isEveningDone
+    doneToday: isEveningDone,
+    fullyDoneToday: isEveningFullyDone
   });
 
   const morningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.morning, liveState: state, snapshot: morningSnapshotToday });
   const eveningResolvedStepIndex = resolveRoutineStepIndex({ sessionId: RITUAL_SESSION_IDS.evening, liveState: state, snapshot: eveningSnapshotToday });
 
-  // Physical-iPhone correction — MorningJourneyPathway's own currentStepNumber
-  // prop (1-5), derived from the exact same resolved step index and
-  // MORNING_DISPLAY_STEP_NUMBERS resolveStepLabel above already uses for
-  // "Step X of Y" - no second/competing progress source. Read as a plain
-  // number rather than via resolveStepLabel's own "Step X of Y" string so
-  // the pathway can compute per-step completed/current directly.
-  const morningCurrentPathwayStep = MORNING_DISPLAY_STEP_NUMBERS[getSessionById(RITUAL_SESSION_IDS.morning)?.steps[morningResolvedStepIndex]?.id];
+  // Phase 9 — Truthful Journey Outcomes: real, per-stage pathway status
+  // for both Home cards, derived from the Session Engine's own
+  // stepOutcomes map (session/stageStatus.js's computeStageStatus) -
+  // never from route/step position alone. stepOutcomes itself comes from
+  // whichever source is authoritative for this routine right now: the
+  // LIVE reducer state when this routine is the one currently loaded
+  // there (state.sessionId matches), or today's persisted
+  // routineProgress.js snapshot otherwise (e.g. a different routine is
+  // live, or nothing is live but today's run already has recorded
+  // outcomes) - routineProgress.js mirrors stepOutcomes on every genuine
+  // state change (SessionContext.jsx), so the snapshot is never stale by
+  // more than one dispatch. A snapshot with no stepOutcomes field at all
+  // (a legacy save from before this phase) safely defaults to {} inside
+  // computeStageStatus - every stage reads as its honest neutral
+  // 'not_started', never a manufactured completion.
+  const morningIsLive = state.sessionId === RITUAL_SESSION_IDS.morning;
+  const morningStepOutcomes = morningIsLive ? state.stepOutcomes : (morningSnapshotToday?.stepOutcomes ?? {});
+  const morningCurrentStepId = getSessionById(RITUAL_SESSION_IDS.morning)?.steps[morningResolvedStepIndex]?.id ?? null;
+  const morningPathwayStages = computeStageStatus({
+    stages: MORNING_PATHWAY_STAGES,
+    stepOutcomes: morningStepOutcomes,
+    currentStepId: morningCurrentStepId,
+    sessionStatus: morningIsLive ? state.status : (morningCardState === 'in-progress' ? SESSION_STATUS.INTERRUPTED : null)
+  });
 
-  // Evening Visual Uplift (Phase 7) — EveningJourneyPathway's own
-  // currentStageId, derived from the exact same resolved Evening step
-  // index resolveStepLabel already uses, via the pure
-  // resolveEveningPathwayStage helper (eveningJourneyPathwayStage.js) -
-  // no second/competing progress source. Physical-iPhone finding
-  // correction: this ONLY ever resolves which stage is current (fully
-  // reliable - real stepIndex position) - it never fabricates a
-  // completed/skipped stageStatus map, since the Session Engine has no
-  // reliable per-stage record of that (see EveningJourneyPathway.jsx's
-  // own doc comment for the full audit). Every stage other than the
-  // current one therefore always renders in its plain, undecorated look -
-  // no completion is ever inferred merely from route/step position.
-  const eveningCurrentStageId = resolveEveningPathwayStage(
-    getSessionById(RITUAL_SESSION_IDS.evening)?.steps[eveningResolvedStepIndex]?.id
-  );
+  const eveningIsLive = state.sessionId === RITUAL_SESSION_IDS.evening;
+  const eveningStepOutcomes = eveningIsLive ? state.stepOutcomes : (eveningSnapshotToday?.stepOutcomes ?? {});
+  const eveningCurrentStepId = getSessionById(RITUAL_SESSION_IDS.evening)?.steps[eveningResolvedStepIndex]?.id ?? null;
+  const eveningPathwayStages = computeStageStatus({
+    stages: EVENING_PATHWAY_STAGES,
+    stepOutcomes: eveningStepOutcomes,
+    currentStepId: eveningCurrentStepId,
+    sessionStatus: eveningIsLive ? state.status : (eveningCardState === 'in-progress' ? SESSION_STATUS.INTERRUPTED : null)
+  });
 
   // "Yesterday's unfinished routine" remediation — a routine can have
   // genuinely nothing recorded for TODAY (morningCardState/
@@ -458,7 +488,12 @@ export const Home = () => {
     if (eveningCardState === 'in-progress') return 'evening';
     if (timeState === 'evening' || timeState === 'night') return 'evening';
     if (timeState === 'daytime-morning' || timeState === 'before-wake') {
-      return morningCardState === 'completed' ? 'anytime' : 'morning';
+      // Phase 9 — Truthful Journey Outcomes: a genuinely reached ending
+      // (full OR partial - either way today's Morning routine is behind
+      // you, not still to be started) must not keep defaulting back to
+      // Morning; 'finished-partially' gets the same Anytime default
+      // 'completed' already did.
+      return morningCardState === 'completed' || morningCardState === 'finished-partially' ? 'anytime' : 'morning';
     }
     return 'anytime';
   })();
@@ -533,6 +568,14 @@ export const Home = () => {
     period: 'morning',
     cardState: 'completed'
   });
+  // Phase 9 — Truthful Journey Outcomes (Part 9): the honest counterpart
+  // to morningCompletedCard above - shown instead of it whenever today's
+  // Morning run reached its end without every displayed stage genuinely
+  // completing (morningCardState === 'finished-partially').
+  const morningFinishedPartiallyCard = resolveNextStepCard({
+    period: 'morning',
+    cardState: 'finished-partially'
+  });
   const eveningNotStartedCard = resolveNextStepCard({
     period: 'evening',
     cardState: 'not-started'
@@ -545,6 +588,14 @@ export const Home = () => {
   const eveningCompletedCard = resolveNextStepCard({
     period: 'evening',
     cardState: 'completed'
+  });
+  // Phase 9 — Truthful Journey Outcomes (Part 9): the honest counterpart
+  // to eveningCompletedCard above - shown instead of it whenever today's
+  // Evening run reached its end without every displayed stage genuinely
+  // completing (eveningCardState === 'finished-partially').
+  const eveningFinishedPartiallyCard = resolveNextStepCard({
+    period: 'evening',
+    cardState: 'finished-partially'
   });
 
   // Build 15 Phase B remediation — "Change intention" (ActiveIntentionCard)
@@ -1057,11 +1108,9 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.morning, morningResolvedStepIndex), 'morning')}
-              {/* Physical-iPhone correction — the pathway now also renders
-                  here, with completed steps checked and the current step
-                  highlighted, via the same currentStepNumber this card's
-                  own resolved step index already produces. */}
-              <MorningJourneyPathway currentStepNumber={morningCurrentPathwayStep} />
+              {/* Phase 9 — real per-stage outcomes (completed/skipped/
+                  ended-early/current), never inferred from position. */}
+              <MorningJourneyPathway stages={morningPathwayStages} />
               <button
                 type="button"
                 onClick={handleMorningAction}
@@ -1086,16 +1135,45 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningCompletedCard, undefined, 'morning')}
-              {/* Physical-iPhone correction — currentStepNumber=6 (past the
-                  last real step, MORNING_DISPLAY_STEP_COUNT + 1) marks
-                  every one of the 5 steps completed/checked. */}
-              <MorningJourneyPathway currentStepNumber={MORNING_DISPLAY_STEP_COUNT + 1} />
+              {/* Phase 9 — the real per-stage outcomes for today's run,
+                  read from routineProgress.js's persisted stepOutcomes.
+                  This card's own headline (nextStepCardBody, driven by
+                  Part 9's honest Home-state logic) is what distinguishes
+                  a genuinely full completion from a partial one - this
+                  pathway simply shows each stage's true, honest outcome
+                  rather than forcing every one of the 5 to read as
+                  completed regardless of what actually happened. */}
+              <MorningJourneyPathway stages={morningPathwayStages} />
               <button
                 type="button"
                 onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
                 className={`block w-full py-3 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all`}
               >
                 {morningCompletedCard.buttonLabel}
+              </button>
+            </div>
+          )}
+
+          {/* MORNING — Phase 9, Truthful Journey Outcomes (Part 9): reached
+              today, but not every displayed stage genuinely completed -
+              the honest counterpart to the 'completed' card above. Never
+              relabelled as 'completed' merely because today's run reached
+              its final route; only isMorningFullyDone flipping this to
+              'completed' (a genuinely full run, today or a later repeat)
+              changes which of these two cards renders. */}
+          {morningCardState === 'finished-partially' && (
+            <div
+              className="glass-panel p-5 rounded-3xl text-center space-y-6 border-morning-accent-tint/25 shadow-morning-glow"
+              style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
+            >
+              {nextStepCardBody(morningFinishedPartiallyCard, undefined, 'morning')}
+              <MorningJourneyPathway stages={morningPathwayStages} />
+              <button
+                type="button"
+                onClick={() => setActiveDialog({ kind: 'repeat', period: 'morning' })}
+                className={`block w-full py-3 rounded-xl ${getJourneyPrimaryActionClasses('morning')} font-bold text-center hover:opacity-90 active:scale-95 transition-all`}
+              >
+                {morningFinishedPartiallyCard.buttonLabel}
               </button>
             </div>
           )}
@@ -1183,12 +1261,9 @@ export const Home = () => {
               {/* Evening Visual Uplift (Phase 7) — the current stage is
                   highlighted, derived from the same resolved step index
                   the card's own "Step X of Y" text above already uses.
-                  Physical-iPhone finding correction: no stageStatus is
-                  passed - other stages render in their plain, genuine-
-                  icon look, since the Session Engine cannot reliably tell
-                  completed from skipped for an individual stage (see
-                  EveningJourneyPathway.jsx's own doc comment). */}
-              <EveningJourneyPathway currentStageId={eveningCurrentStageId} />
+                  Phase 9 — real per-stage outcomes (completed/skipped/
+                  ended-early/current), never inferred from position. */}
+              <EveningJourneyPathway stages={eveningPathwayStages} />
               <button
                 type="button"
                 onClick={handleEveningAction}
@@ -1242,12 +1317,14 @@ export const Home = () => {
                   stepIndex - see EveningJourneyPathway.jsx's own doc
                   comment for the full audit) - so this deliberately never
                   claims five individual completions it cannot verify.
-                  The card's own "Your Evening Wind-Down is complete" text
-                  above already communicates the real, reliable whole-
-                  routine outcome. The "100% vs skipped stages" per-stage
-                  completion-summary policy is a reported follow-up, not
-                  resolved in this pass. */}
-              <EveningJourneyPathway />
+                  Phase 9 closes the "100% vs skipped stages" follow-up
+                  named here: this card's own headline (nextStepCardBody,
+                  driven by Part 9's honest Home-state logic, distinct from
+                  the 'finished-partially' card below) is what now
+                  distinguishes a genuinely full completion from a partial
+                  one, and the pathway shows each stage's real, honest
+                  recorded outcome instead of omitting it. */}
+              <EveningJourneyPathway stages={eveningPathwayStages} />
               {isGuest ? (
                 <button
                   type="button"
@@ -1279,6 +1356,60 @@ export const Home = () => {
                       sequence is the one shared
                       routineResponses.js#redoEveningWindDown - never a
                       second, hand-rolled copy of that logic here. */}
+                  {redoError && (
+                    <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
+                      <p className="text-sm text-on-surface">
+                        Couldn't redo tonight's Wind-Down. Your existing journey is unchanged — please try again.
+                      </p>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleRedoTap}
+                    className="block w-full py-3 text-center text-sm font-semibold text-red-300 hover:text-red-200 active:scale-95 transition-all"
+                  >
+                    Redo Tonight's Wind-Down
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* EVENING — Phase 9, Truthful Journey Outcomes (Part 9): reached
+              today, but not every displayed stage genuinely completed -
+              the honest counterpart to the 'completed' card above. Same
+              real actions (Review/Edit, Redo for a real user; Begin again
+              for a guest) - a partial run still has genuinely saved
+              Reflection/Gratitude answers worth reviewing, so nothing
+              here is gated on full completion. Never relabelled as
+              'completed' merely because today's run reached its final
+              route; only isEveningFullyDone flipping this to 'completed'
+              (a genuinely full run, today or a later repeat) changes
+              which of these two cards renders. */}
+          {eveningCardState === 'finished-partially' && (
+            <div
+              className="glass-panel p-5 rounded-3xl space-y-6 border-evening-accent-tint/25 shadow-evening-glow"
+              style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
+            >
+              {nextStepCardBody(eveningFinishedPartiallyCard, undefined, 'evening')}
+              <EveningJourneyPathway stages={eveningPathwayStages} />
+              {isGuest ? (
+                <button
+                  type="button"
+                  onClick={handleBeginEveningWindDown}
+                  className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+                >
+                  Begin Evening Wind-Down
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/review/reflection?q=1')}
+                    className={`block w-full py-3 rounded-xl ${getJourneyPrimaryActionClasses('evening')} font-bold text-center hover:opacity-90 active:scale-95 transition-all`}
+                  >
+                    Review or Edit Tonight's Responses
+                  </button>
                   {redoError && (
                     <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
                       <p className="text-sm text-on-surface">
@@ -1348,29 +1479,40 @@ export const Home = () => {
               Breathe/Meditate/Instant Calm/Explore, the same real,
               already-shipped practices AnytimeReset.jsx's own Step 3
               "Or choose another quick reset" already offers. Decorative
-              only (no individual tap targets, no directional arrows
-              between them - they are alternatives, not a required order):
-              Breathe and Meditate already have their own full, prominent,
-              directly-tappable quick-action tiles immediately below (see
-              "Or choose something quick"), so a second, competing set of
-              interactive tiles here would only duplicate them; Instant
-              Calm has no standalone route of its own to link to outside
-              the wizard, and Explore Anytime is already one tap beyond
-              "Start Anytime Reset" (Step 3's own ExploreCard) - this row
-              exists purely to make the card's flexible, non-linear
-              purpose visually legible at a glance. */}
-          <div className="flex items-center justify-center gap-4" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
+              only (no individual tap targets - they are alternatives, not
+              a required order): Breathe and Meditate already have their
+              own full, prominent, directly-tappable quick-action tiles
+              immediately below (see "Or choose something quick"), so a
+              second, competing set of interactive tiles here would only
+              duplicate them; Instant Calm has no standalone route of its
+              own to link to outside the wizard, and Explore Anytime is
+              already one tap beyond "Start Anytime Reset" (Step 3's own
+              ExploreCard) - this row exists purely to make the card's
+              flexible, non-linear purpose visually legible at a glance.
+              Phase 9 — Truthful Journey Outcomes (Part 6b): three small
+              decorative connectors now sit between the four cues, matching
+              the exact chevron treatment MorningJourneyPathway.jsx/
+              EveningJourneyPathway.jsx/AnytimePathway.jsx already use
+              (aria-hidden, not a tap target, no completed/skipped/current
+              badge added to any cue - these four remain example choices,
+              never mandatory sequential stages). */}
+          <div className="flex items-center justify-center gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
             {[
-              { icon: 'air', label: 'Breathe' },
-              { icon: 'self_improvement', label: 'Meditate' },
-              { icon: 'bolt', label: 'Instant Calm' },
-              { icon: 'explore', label: 'Explore' }
-            ].map((cue) => (
-              <span key={cue.label} className="flex flex-col items-center gap-1 w-14" aria-hidden="true">
-                <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-tertiary/15 text-tertiary">
-                  <span className="material-symbols-outlined text-lg">{cue.icon}</span>
+              { icon: JOURNEY_STAGE_ICONS.breathe, label: 'Breathe' },
+              { icon: JOURNEY_STAGE_ICONS.meditate, label: 'Meditate' },
+              { icon: JOURNEY_STAGE_ICONS.instantCalm, label: 'Instant Calm' },
+              { icon: JOURNEY_STAGE_ICONS.explore, label: 'Explore' }
+            ].map((cue, idx, cues) => (
+              <span key={cue.label} className="flex items-center" aria-hidden="true">
+                <span className="flex flex-col items-center gap-1 w-14">
+                  <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-tertiary/15 text-tertiary">
+                    <span className="material-symbols-outlined text-lg">{cue.icon}</span>
+                  </span>
+                  <span className="text-[9px] font-semibold text-on-surface-variant leading-none">{cue.label}</span>
                 </span>
-                <span className="text-[9px] font-semibold text-on-surface-variant leading-none">{cue.label}</span>
+                {idx < cues.length - 1 && (
+                  <span className="material-symbols-outlined text-on-surface-variant/30 text-xs -mt-4 shrink-0">chevron_right</span>
+                )}
               </span>
             ))}
           </div>

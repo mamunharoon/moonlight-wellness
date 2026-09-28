@@ -64,7 +64,7 @@ import { CompletionReveal } from '../components/CompletionReveal';
  */
 export const EveningMeditate = () => {
   const navigate = useNavigate();
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, recordStepEndedEarly } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('meditation', 'evening-wind-down');
 
   const hasMirroredExitRef = useRef(false);
@@ -145,13 +145,12 @@ export const EveningMeditate = () => {
   // "Choose another meditation" (mirrors MorningMeditate.jsx's identical
   // fix) — ends the current session (same cleanup as Back/Finish &
   // continue, never claims completion, never advances the journey, never
-  // navigates Home/standalone/a later step) and reopens this same step's
-  // own setup panel already expanded to the full style/duration/sound
-  // picker.
-  const [chooseAnotherExpanded, setChooseAnotherExpanded] = useState(false);
+  // navigates Home/standalone/a later step) and returns to this same
+  // step's own setup panel. Meditation ↔ Breathing alignment correction —
+  // MeditationSetupPanel.jsx always renders every choice immediately now,
+  // so there is no collapsed/expanded state left to restore.
   const handleChooseAnother = () => {
     session.endSession();
-    setChooseAnotherExpanded(true);
   };
 
   useEffect(() => {
@@ -171,6 +170,16 @@ export const EveningMeditate = () => {
   });
 
   const handleSkip = () => advanceToPrepareForRest();
+
+  // "End Meditation" (mirrors MorningMeditate.jsx's identical fix) —
+  // genuinely distinct from Finish & continue/Choose another: stops the
+  // timer/audio and returns to this step's own pre-start screen without
+  // advancing or interrupting the parent Evening session. Records the
+  // honest ended_early outcome for Meditate.
+  const handleEndMeditation = () => {
+    recordStepEndedEarly();
+    session.endSession();
+  };
 
   if (countdown.isActive) {
     return (
@@ -281,7 +290,7 @@ export const EveningMeditate = () => {
           onSelectSound={session.selectSound}
           onPause={session.pause}
           onResume={session.resume}
-          onRequestLeave={session.endSession}
+          onRequestLeave={handleEndMeditation}
           showHeaderClose={false}
           endCopy={{
             buttonLabel: 'End Meditation',
@@ -340,16 +349,16 @@ export const EveningMeditate = () => {
         )}
 
         <MeditationSetupPanel
-          compact
           journeyTone="evening"
-          purpose="A quiet pause to settle your mind before you rest."
+          heading="Take a Mindful Pause"
+          purpose="A quiet pause before you rest."
           recommendedDurationId={getRecommendedDurationId()}
           // Defect fix — beginLabel omitted entirely: it previously
           // hardcoded "Begin 5-Minute Meditation" regardless of the
           // actually-selected duration, going stale the moment the user
-          // picked 2/10 minutes in "Choose style, time & sound". Omitting
-          // it lets MeditationSetupPanel.jsx compute the live label from
-          // `duration` (below) instead - see that file's own doc comment.
+          // picked 2/10 minutes. Omitting it lets MeditationSetupPanel.jsx
+          // compute the live label from `duration` (below) instead - see
+          // that file's own doc comment.
           style={session.style}
           duration={session.duration}
           soundId={session.soundId}
@@ -363,8 +372,6 @@ export const EveningMeditate = () => {
           // "Return to [current step]" already covers that.
           onSkip={isReviewMode ? undefined : handleSkip}
           skipLabel={hasStartedThisVisit ? 'Continue to Prepare for Rest' : 'Skip meditation'}
-          defaultExpanded={chooseAnotherExpanded}
-          onExpandedConsumed={() => setChooseAnotherExpanded(false)}
         />
       </div>
 

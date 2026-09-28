@@ -71,7 +71,11 @@ describe('Home.jsx Morning/Evening selector wiring', () => {
     expect(defaultPeriodBody).toMatch(/if \(morningCardState === 'in-progress'\) return 'morning';/);
     expect(defaultPeriodBody).toMatch(/if \(eveningCardState === 'in-progress'\) return 'evening';/);
     expect(defaultPeriodBody).toMatch(/if \(timeState === 'evening' \|\| timeState === 'night'\) return 'evening';/);
-    expect(defaultPeriodBody).toMatch(/return morningCardState === 'completed' \? 'anytime' : 'morning';/);
+    // Phase 9 — Truthful Journey Outcomes: 'finished-partially' (reached
+    // today without every stage genuinely completing) gets the same
+    // Anytime default 'completed' already did - either way today's
+    // Morning routine is behind you, not still to be started.
+    expect(defaultPeriodBody).toMatch(/return morningCardState === 'completed' \|\| morningCardState === 'finished-partially' \? 'anytime' : 'morning';/);
     expect(defaultPeriodBody).toMatch(/return 'anytime';/);
   });
 });

@@ -16,6 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
@@ -23,10 +24,16 @@ const source = read('./AnytimePathway.jsx');
 const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 describe('AnytimePathway - genuine stage icons are always the primary visual', () => {
-  it('renders all 3 real stage icons unconditionally in STAGES, never behind a selected/current ternary', () => {
-    expect(code).toMatch(/\{ id: 'need', label: 'Need', icon: 'psychology' \}/);
-    expect(code).toMatch(/\{ id: 'time', label: 'Time', icon: 'schedule' \}/);
-    expect(code).toMatch(/\{ id: 'reset', label: 'Reset', icon: 'auto_awesome' \}/);
+  it('renders all 3 real stage icons unconditionally in STAGES, sourced from the shared canonical mapping, never behind a selected/current ternary', () => {
+    expect(code).toMatch(/\{ id: 'need', label: 'Need', icon: JOURNEY_STAGE_ICONS\.need \}/);
+    expect(code).toMatch(/\{ id: 'time', label: 'Time', icon: JOURNEY_STAGE_ICONS\.time \}/);
+    expect(code).toMatch(/\{ id: 'reset', label: 'Reset', icon: JOURNEY_STAGE_ICONS\.reset \}/);
+  });
+
+  it('the canonical mapping resolves Anytime\'s own original icon values - psychology/schedule/auto_awesome, unchanged by the refactor to a shared source', () => {
+    expect(JOURNEY_STAGE_ICONS.need).toBe('psychology');
+    expect(JOURNEY_STAGE_ICONS.time).toBe('schedule');
+    expect(JOURNEY_STAGE_ICONS.reset).toBe('auto_awesome');
   });
 
   it('the main badge always renders stage.icon unconditionally - there is no conditional swapping it for a checkmark/tick icon', () => {

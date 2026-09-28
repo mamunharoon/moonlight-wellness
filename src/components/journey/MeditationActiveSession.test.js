@@ -149,14 +149,31 @@ describe('MeditationActiveSession — End button uses quiet caution styling, not
   });
 });
 
-describe('MeditationActiveSession — sound can be seen and changed live, on the active screen', () => {
-  it('renders the "Choose your sound" radiogroup, mapping over MEDITATION_SOUNDS', () => {
-    expect(source).toMatch(/role="radiogroup" aria-label="Choose your sound"/);
-    expect(source).toMatch(/\{MEDITATION_SOUNDS\.map\(\(sound\) => \(/);
+describe('MeditationActiveSession — Meditation ↔ Breathing alignment correction: no repeated "Choose your sound" list on the active screen', () => {
+  it('renders no sound radiogroup and never imports MEDITATION_SOUNDS/MeditationOptionRow - the choice was already made on the setup screen', () => {
+    expect(source).not.toMatch(/role="radiogroup" aria-label="Choose your sound"/);
+    expect(source).not.toMatch(/MEDITATION_SOUNDS/);
+    expect(source).not.toMatch(/MeditationOptionRow/);
+  });
+
+  it('still accepts soundId/onSelectSound as props for backward-compatible caller wiring, even though they are no longer rendered here', () => {
+    expect(source).toMatch(/soundId,/);
+    expect(source).toMatch(/onSelectSound,/);
   });
 
   it('the unavailable-message container reserves its height unconditionally, so switching tracks never shifts the layout', () => {
     expect(source).toMatch(/min-h-\[1\.5em\]/);
+  });
+});
+
+describe('MeditationActiveSession — content-driven spacing, no artificial justify-between gap (physical-iPhone finding)', () => {
+  it('the outer container no longer relies on justify-between across the full-height column', () => {
+    expect(source).not.toMatch(/flex flex-col justify-between/);
+  });
+
+  it('the style/ring/cue group is no longer forced to consume all leftover vertical space via flex-1/justify-center', () => {
+    expect(source).not.toMatch(/flex-1 flex flex-col items-center justify-center gap-8/);
+    expect(source).toMatch(/flex flex-col items-center gap-4 text-center/);
   });
 });
 

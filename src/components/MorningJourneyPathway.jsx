@@ -1,3 +1,8 @@
+/* eslint-disable no-unused-vars */
+import { StageOutcomeBadge } from './journey/StageOutcomeBadge';
+import { MORNING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { STAGE_STATUS_SR_TEXT } from '../session/stageStatus';
+
 // Morning Visual Uplift (Phase 6) — the Morning Home "Morning Reset" card's
 // five-step visual pathway (Focus -> Stretch -> Breathe -> Meditate ->
 // Affirm), per the approved Stitch-direction Home redesign. Purely
@@ -8,20 +13,14 @@
 // own in-routine step tracking, and introduces no new routing.
 //
 // Every icon is a real, existing Material Symbol already used elsewhere in
-// this app for the same concept (never an emoji): `air` mirrors Home's own
-// Breathe quick-action tile icon, `spa` mirrors Home's own Meditate
-// quick-action tile icon, `auto_awesome` mirrors Affirmation.jsx's own
-// sparkle icon - reused here rather than invented. `flag` (Focus) and
-// `self_improvement` (Stretch) are the closest existing-vocabulary
-// Material Symbols for those two steps, matching every other choice's
-// "real Material Symbol, not a fabricated one" standard.
-const STEPS = [
-  { label: 'Focus', icon: 'flag' },
-  { label: 'Stretch', icon: 'self_improvement' },
-  { label: 'Breathe', icon: 'air' },
-  { label: 'Meditate', icon: 'spa' },
-  { label: 'Affirm', icon: 'auto_awesome' }
-];
+// this app for the same concept (never an emoji) - see
+// session/pathwayStages.js's own doc comment for the full per-icon
+// rationale. Unchanged by Phase 9 - these are the exact same five icons
+// this component has always used.
+
+// Every stage 'not_started' - the exact rendering this component has
+// always produced when no progress prop was supplied.
+const DEFAULT_STAGES = MORNING_PATHWAY_STAGES.map(({ id, label, icon }) => ({ id, label, icon, status: 'not_started' }));
 
 // 320px structural safety — five columns plus four chevrons at a
 // comfortable size (w-9 badges, gap-1 throughout) measure wider than a
@@ -35,58 +34,45 @@ const STEPS = [
 // narrower than tested - it simply scrolls horizontally in that case,
 // exactly like ProgressIndicator's own precedent.
 //
-// Physical-iPhone correction — the pathway previously only ever appeared
-// on the not-started Morning card; the in-progress and completed cards
-// never rendered it at all, so a device that landed on either of those
-// two states (the tested phone showed the completed card) saw no pathway.
-// `currentStepNumber` (additive, optional) makes this same one component
-// state-aware instead of adding a second implementation or a competing
-// progress store - it is read-only presentation derived from Home.jsx's
-// own EXISTING resolved step index (MORNING_DISPLAY_STEP_NUMBERS, the
-// same source ProgressIndicator.jsx already uses), never a new state
-// source:
-//   - omitted/undefined -> not-started: every step renders in its
-//     original plain/upcoming look, byte-identical to before this prop
-//     existed.
-//   - 1-5 -> in-progress: steps before it are marked completed (checked),
-//     the step at that number is marked current (highlighted), steps
-//     after it stay in the plain/upcoming look.
-//   - 6 (past the last real step) -> completed: every one of the 5 steps
-//     satisfies "before it", so all five render as completed/checked -
-//     one shared code path, no separate "completed" branch needed.
-// Completed/current are communicated by more than colour alone: a real
-// check icon replaces the activity icon for completed steps, and an
-// sr-only suffix ("- completed"/"- current") is announced per step for
-// assistive tech, alongside the always-visible text label.
-export const MorningJourneyPathway = ({ currentStepNumber } = {}) => (
+// Phase 9 — Truthful Journey Outcomes (problem #3 fix): this component
+// previously replaced a "completed" step's own icon with a generic
+// checkmark, inferred purely from `currentStepNumber` position (a step
+// was "completed" merely because a later step's number was reached - the
+// exact defect Phase 9 was raised to fix, since a SKIPPED step reads
+// identically to a genuinely completed one under pure position math).
+// It now accepts a `stages` prop - the exact output shape of
+// session/stageStatus.js's computeStageStatus() - and NEVER infers
+// anything itself: the genuine activity icon (flag/self_improvement/air/
+// spa/auto_awesome) is always the primary visual, in every status,
+// including 'completed'. A real completion only ever adds a small
+// secondary check badge in the corner (StageOutcomeBadge); a real skip
+// adds a muted dash badge; a confirmed mid-exercise abandonment adds a
+// muted pause badge; 'current' only changes the main badge's own ring/
+// highlight styling. Omitting `stages` entirely renders every stage
+// 'not_started', byte-identical to this component's original
+// no-progress-prop rendering.
+export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
   <div className="overflow-x-auto scroll-hide -mx-1 px-1">
     <div className="flex items-start justify-between gap-0.5 min-w-max mx-auto" role="list" aria-label="Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm">
-      {STEPS.map((step, idx) => {
-        const stepNumber = idx + 1;
-        const isCompleted = currentStepNumber != null && stepNumber < currentStepNumber;
-        const isCurrent = currentStepNumber != null && stepNumber === currentStepNumber;
-        const badgeClass = isCompleted
-          ? 'bg-morning-accent border-morning-accent text-on-morning-accent'
-          : isCurrent
-            ? 'bg-morning-accent-tint/25 border-morning-accent text-morning-accent'
-            : 'bg-morning-accent-tint/15 border-morning-accent-tint/30 text-morning-accent';
-        const labelClass = isCurrent
-          ? 'text-morning-accent font-bold'
-          : 'text-on-surface-variant font-semibold';
+      {stages.map((stage, idx) => {
+        const isCurrent = stage.status === 'current';
+        const badgeClass = isCurrent
+          ? 'bg-morning-accent-tint/25 border-morning-accent text-morning-accent'
+          : 'bg-morning-accent-tint/15 border-morning-accent-tint/30 text-morning-accent';
+        const labelClass = isCurrent ? 'text-morning-accent font-bold' : 'text-on-surface-variant font-semibold';
         return (
-          <div key={step.label} className="flex items-center gap-0.5" role="listitem">
+          <div key={stage.id} className="flex items-center gap-0.5" role="listitem">
             <div className="flex flex-col items-center gap-1 w-11">
-              <span className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${badgeClass}`}>
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">{isCompleted ? 'check' : step.icon}</span>
+              <span className={`relative w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${badgeClass}`}>
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">{stage.icon}</span>
+                <StageOutcomeBadge status={stage.status} journeyTone="morning" />
               </span>
               <span className={`text-[9px] leading-none whitespace-nowrap ${labelClass}`}>
-                {step.label}
-                {(isCompleted || isCurrent) && (
-                  <span className="sr-only">{isCompleted ? ' - completed' : ' - current'}</span>
-                )}
+                {stage.label}
+                <span className="sr-only">, {STAGE_STATUS_SR_TEXT[stage.status]}</span>
               </span>
             </div>
-            {idx < STEPS.length - 1 && (
+            {idx < stages.length - 1 && (
               <span className="material-symbols-outlined text-on-surface-variant/30 text-xs -mt-4 shrink-0" aria-hidden="true">chevron_right</span>
             )}
           </div>

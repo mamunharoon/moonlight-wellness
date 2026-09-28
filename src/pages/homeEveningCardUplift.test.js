@@ -18,9 +18,9 @@ import { fileURLToPath } from 'node:url';
 const source = readFileSync(fileURLToPath(new URL('./Home.jsx', import.meta.url)), 'utf-8');
 
 describe('Home.jsx — Evening card shells gain border-evening-accent-tint/25 shadow-evening-glow', () => {
-  it('exactly 4 Evening cards carry the new className (stale-choice, not-started, in-progress, completed) - p-5, Home Visual Uplift compaction (was p-6)', () => {
+  it('exactly 5 Evening cards carry the new className (stale-choice, not-started, in-progress, completed, finished-partially) - p-5, Home Visual Uplift compaction (was p-6); the 5th is Phase 9\'s Truthful Journey Outcomes honest state', () => {
     const count = (source.match(/className="glass-panel p-5 rounded-3xl space-y-[56] border-evening-accent-tint\/25 shadow-evening-glow"/g) ?? []).length;
-    expect(count).toBe(4);
+    expect(count).toBe(5);
   });
 
   it('the old plain border-white/5 shadow-sm className no longer appears anywhere in the Evening block', () => {
@@ -32,9 +32,9 @@ describe('Home.jsx — Evening card shells gain border-evening-accent-tint/25 sh
     expect(morningCount).toBeGreaterThanOrEqual(3); // not-started, in-progress, completed (at minimum)
   });
 
-  it('the evening-tint inline background style is still applied on all 4 cards, unchanged by the className edit', () => {
+  it('the evening-tint inline background style is still applied on all 5 cards, unchanged by the className edit', () => {
     const eveningCardCount = (source.match(/style=\{\{ backgroundColor: 'rgb\(var\(--color-evening-tint\) \/ 0\.2\)' \}\}/g) ?? []).length;
-    expect(eveningCardCount).toBe(4);
+    expect(eveningCardCount).toBe(5);
   });
 });
 

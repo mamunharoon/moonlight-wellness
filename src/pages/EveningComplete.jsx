@@ -10,7 +10,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getPinnedRoutineDate, unpinRoutineDate, clearRoutineProgress } from '../session/routineProgress';
 import { shouldWriteCompletionDate } from '../lib/routineCardState';
-import { getEveningCompletionKey } from '../lib/dailyCompletion';
+import { getEveningCompletionKey, getEveningFullyCompletedKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
@@ -20,6 +20,9 @@ import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
 import { ExploreCard } from '../components/ExploreCard';
 import { getEveningExploreCatalog } from '../lib/exploreFiltering';
+import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
+import { EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { computeStageStatus, isFullyCompleted } from '../session/stageStatus';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -97,6 +100,20 @@ export const EveningComplete = () => {
   // CompletionReveal.jsx - never duplicated here.
   const [isFreshCompletion] = useState(() => state.status === 'playing');
 
+  // Phase 9 — Truthful Journey Outcomes: computed early (before the
+  // completion-recording effect below, which must gate on it) from the
+  // Session Engine's own stepOutcomes - never inferred from having
+  // reached this screen. A direct/stale visit still resolves whatever
+  // stepOutcomes state genuinely holds; it is never fabricated as "all
+  // completed" merely because this is the terminal screen.
+  const eveningPathwayStages = computeStageStatus({
+    stages: EVENING_PATHWAY_STAGES,
+    stepOutcomes: state.stepOutcomes,
+    currentStepId: currentStep?.id ?? null,
+    sessionStatus: state.status
+  });
+  const eveningFullyCompleted = isFullyCompleted(eveningPathwayStages);
+
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
@@ -115,6 +132,18 @@ export const EveningComplete = () => {
       const eveningDoneKey = getEveningCompletionKey(userId);
       if (shouldWriteCompletionDate(localStorage.getItem(eveningDoneKey), attributionDateKey)) {
         localStorage.setItem(eveningDoneKey, attributionDateKey);
+      }
+      // Phase 9 — Truthful Journey Outcomes (Part 8/9): the additive
+      // "genuinely fully completed today" signal, written only when every
+      // displayed Evening stage is genuinely 'completed' - never for a
+      // partial run. eveningDoneKey above keeps its own separate, broader
+      // meaning ("reached a genuine completion today, so there is
+      // something real to review") untouched.
+      if (eveningFullyCompleted) {
+        const eveningFullyDoneKey = getEveningFullyCompletedKey(userId);
+        if (shouldWriteCompletionDate(localStorage.getItem(eveningFullyDoneKey), attributionDateKey)) {
+          localStorage.setItem(eveningFullyDoneKey, attributionDateKey);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +185,17 @@ export const EveningComplete = () => {
   // itself, and the identity it's called with, are completely unchanged.
   const [confirmedSessionId, setConfirmedSessionId] = useState(null);
   useEffect(() => {
-    if (state.status !== 'completed' || !state.completionEventId) return;
+    // Phase 9 — Truthful Journey Outcomes (Part 8): a full_routine
+    // completion event must only ever be written when every displayed
+    // Evening stage is genuinely 'completed' - reaching this terminal
+    // screen (state.status === 'completed') is necessary but never
+    // sufficient on its own. A partial run (any skipped/ended-early/
+    // not-reached stage) still shows this same supportive screen, just
+    // with no full_routine event and no full-routine Momentum credit.
+    // Individual practice completions (Breathing/Meditation) are
+    // untouched by this gate - recorded elsewhere, at their own natural-
+    // completion moment, regardless of how the surrounding routine ends.
+    if (state.status !== 'completed' || !state.completionEventId || !eveningFullyCompleted) return;
     let cancelled = false;
     recordPracticeCompletion({
       userId,
@@ -172,7 +211,7 @@ export const EveningComplete = () => {
     return () => {
       cancelled = true;
     };
-  }, [state.status, state.completionEventId, userId, effectiveTimezone]);
+  }, [state.status, state.completionEventId, eveningFullyCompleted, userId, effectiveTimezone]);
 
   // "Your Momentum" foundation, Phase 3 — factual insight + gentle
   // milestone for this exact, already-confirmed completion event. Never
@@ -252,23 +291,32 @@ export const EveningComplete = () => {
             <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
               <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
             </span>
-            {/* Evening Visual Uplift (Phase 7) — a small "100% Complete"
-                badge, enhancing the existing completion visual to state
-                the real outcome plainly (this screen is only ever reached
-                via a genuine COMPLETE_SESSION at the terminal step of the
-                Evening routine's fixed 7-step structure - see this file's
-                own mount-effect doc comment above). Reuses the exact same
-                evening-accent token as every other badge on this screen,
-                never a new colour. Deliberately NOT applied to Anytime,
-                which has no fixed routine to be "100%" of. */}
-            <span className="inline-flex items-center gap-1 text-[10px] text-evening-accent uppercase font-bold tracking-wider">
-              <span className="material-symbols-outlined text-xs" aria-hidden="true">check_circle</span>
-              100% Complete
-            </span>
-            <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
+            {/* Phase 9 — Truthful Journey Outcomes (Part 7): exact
+                approved copy, gated on eveningFullyCompleted - "complete"
+                is shown ONLY when every displayed Evening stage is
+                genuinely completed; any skipped/ended-early/not-reached
+                stage shows the "finished" variant instead, and the old
+                unconditional "You've reflected, appreciated the day and
+                prepared for rest." claim (which overclaimed on a partial
+                run) is replaced by this same honest supporting line.
+                Never a percentage, either way - the former "100%
+                Complete" badge is removed entirely. */}
+            <h1 className="font-serif italic text-3xl text-on-surface">
+              {eveningFullyCompleted ? 'Evening Wind-Down complete' : 'Evening Wind-Down finished'}
+            </h1>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              You've reflected, appreciated the day and prepared for rest.
+              {eveningFullyCompleted ? 'You gave yourself time to close the day gently.' : 'Take the calm you created into the night.'}
             </p>
+            {/* The pre-existing rotating greeting stays as a smaller,
+                secondary line - every phrase in the evening/routine pool
+                (outcomeMessages.js) is a generic, supportive affirmation
+                that never itself claims full completion, so it never
+                contradicts the "finished" outcome above. */}
+            <p className="text-sm text-on-surface-variant/80 italic">{headline}</p>
+            {/* Phase 9 — Truthful Journey Outcomes: the real per-stage
+                pathway for this run, added to the final Evening summary
+                screen per Part 4/5 of the spec. */}
+            <EveningJourneyPathway stages={eveningPathwayStages} />
           </div>,
           <MomentumPanel key="momentum" insight={momentum.insight} milestone={momentum.milestone} />
         ]}

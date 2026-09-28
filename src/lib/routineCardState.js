@@ -13,14 +13,22 @@ export const RITUAL_SESSION_IDS = Object.freeze({
 
 /**
  * What one routine's own card should show. `doneToday` is Home.jsx's
- * existing, simpler moonlight_{morning,evening}_completed_date flag -
- * kept as the sole "completed" signal (see routineProgress.js's own doc
- * comment for why) rather than introducing a second, competing source of
- * truth. `liveState` is SessionContext's `state`; `snapshot` is
+ * existing, simpler moonlight_{morning,evening}_completed_date flag - a
+ * genuine completion (full or partial) was reached today, so there is
+ * something real to review/repeat. Phase 9 — Truthful Journey Outcomes
+ * (Part 9) adds `fullyDoneToday` (dailyCompletion.js's own additive
+ * MORNING_FULLY_COMPLETED_KEY/EVENING_FULLY_COMPLETED_KEY, true only when
+ * every displayed stage genuinely completed): once `doneToday` is true,
+ * this alone decides which of the two truthful "reached the end" outcomes
+ * to report - 'completed' (every stage genuine) or 'finished-partially'
+ * (any skipped/ended-early/not-reached stage). Reaching the final route is
+ * never, by itself, sufficient for 'completed' - see stageStatus.js's own
+ * isFullyCompleted, the single source both flags are ultimately derived
+ * from. `liveState` is SessionContext's `state`; `snapshot` is
  * routineProgress.getRoutineProgress(sessionId) (today-only, or null).
  */
-export const resolveRoutineCardState = ({ sessionId, liveState, snapshot, doneToday }) => {
-  if (doneToday) return 'completed';
+export const resolveRoutineCardState = ({ sessionId, liveState, snapshot, doneToday, fullyDoneToday = false }) => {
+  if (doneToday) return fullyDoneToday ? 'completed' : 'finished-partially';
 
   const isLiveHere =
     liveState?.sessionId === sessionId &&

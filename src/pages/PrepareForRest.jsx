@@ -5,6 +5,8 @@ import { useSession } from '../context/SessionContext';
 import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
+import { EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
+import { computeStageStatus } from '../session/stageStatus';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { PrepareToggleRow } from '../components/evening/PrepareToggleRow';
 import { BedtimeMediaChooser } from '../components/evening/BedtimeMediaChooser';
@@ -131,6 +133,16 @@ export const PrepareForRest = () => {
   // review-only, no repeat-confirmation gate needed (see
   // EveningWindDown.jsx's identical block).
   const { isReviewMode, isLiveStep } = useStepReviewMode('sleepPreparation', 'evening-wind-down');
+  // Phase 9 — Truthful Journey Outcomes: real per-stage status, read
+  // from the live session's own stepOutcomes (never inferred from being
+  // "on this screen" alone - Reflect/Gratitude/Breathe/Meditate each
+  // show their genuine recorded completed/skipped/ended-early outcome).
+  const eveningPathwayStages = computeStageStatus({
+    stages: EVENING_PATHWAY_STAGES,
+    stepOutcomes: state.stepOutcomes,
+    currentStepId: currentStep?.id ?? null,
+    sessionStatus: state.status
+  });
   const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
   const {
     openVideo,
@@ -259,10 +271,9 @@ export const PrepareForRest = () => {
           <p className="text-xs text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
         </div>
 
-        {/* Evening Visual Uplift (Phase 7) — the five-stage pathway, Rest
-            highlighted as current. This screen previously showed no
-            high-level journey context at all. */}
-        <EveningJourneyPathway currentStageId="rest" />
+        {/* Phase 9 — real per-stage outcomes (completed/skipped/
+            ended-early/current), never inferred from position. */}
+        <EveningJourneyPathway stages={eveningPathwayStages} />
 
         <div className="space-y-2">
           {PREP_ITEMS.map((item) => (

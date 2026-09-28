@@ -166,8 +166,12 @@ describe('Canonical map — Meditation setup Back -> Breathe; Active Meditation 
     expect(morningMeditateSource).toMatch(/<BackButton fallback="\/breathe" guardActiveRoute=\{false\} \/>/);
   });
 
-  it('the active phase\'s own Back/End Meditation (onRequestLeave=session.endSession, MeditationActiveSession) is untouched by this pass - still returns to this step\'s own setup without touching the Session Engine', () => {
-    expect(morningMeditateSource).toMatch(/onRequestLeave=\{session\.endSession\}/);
+  it('the active phase\'s own Back/End Meditation (onRequestLeave=handleEndMeditation, MeditationActiveSession) still returns to this step\'s own setup without advancing/interrupting the parent session - Phase 9 adds only an honest stepOutcomes annotation (recordStepEndedEarly) alongside the pre-existing session.endSession() cleanup, never a navigate/advanceStep/interruptSession', () => {
+    expect(morningMeditateSource).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
+    const handlerBody = morningMeditateSource.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handlerBody).toMatch(/recordStepEndedEarly\(\);/);
+    expect(handlerBody).toMatch(/session\.endSession\(\);/);
+    expect(handlerBody).not.toMatch(/navigate|advanceStep|interruptSession/);
   });
 
   it('the active phase\'s own Close/X (onRequestClose=handleRequestExitRoutine) is untouched - still the one real "Leave this routine?" confirmation while meditation is active', () => {

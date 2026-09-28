@@ -129,7 +129,8 @@ export const SessionProvider = ({ children }) => {
       status: state.status,
       startedAt: state.startedAt,
       updatedAt: state.updatedAt,
-      completionEventId: state.completionEventId
+      completionEventId: state.completionEventId,
+      stepOutcomes: state.stepOutcomes
     });
   }, [state]);
 
@@ -156,6 +157,16 @@ export const SessionProvider = ({ children }) => {
     dispatch({ type: SESSION_ACTION_TYPES.ADVANCE_TO_STEP, payload: { stepId } });
   }, []);
   const skipStep = useCallback(() => dispatch({ type: SESSION_ACTION_TYPES.SKIP_STEP }), []);
+  // Phase 9 — Truthful Journey Outcomes. Annotation-only dispatch for a
+  // confirmed "Leave Exercise"/"End Meditation" abandonment: the caller's
+  // own local-state reset already returns the user to that step's own
+  // pre-start screen unchanged — this only records the honest outcome
+  // (see sessionReducer.js's RECORD_STEP_ENDED_EARLY doc comment). No-ops
+  // via the reducer's own guard when there's no live step to annotate.
+  const recordStepEndedEarly = useCallback(() => {
+    if (!currentStep) return;
+    dispatch({ type: SESSION_ACTION_TYPES.RECORD_STEP_ENDED_EARLY, payload: { stepId: currentStep.id } });
+  }, [currentStep]);
   const interruptSession = useCallback((reason) => {
     dispatch({ type: SESSION_ACTION_TYPES.INTERRUPT_SESSION, payload: { reason } });
   }, []);
@@ -206,7 +217,8 @@ export const SessionProvider = ({ children }) => {
         startedAt: snapshot.startedAt,
         updatedAt: snapshot.updatedAt,
         interruptionReason: null,
-        completionEventId: null
+        completionEventId: null,
+        stepOutcomes: snapshot.stepOutcomes
       }
     });
     return true;
@@ -256,7 +268,8 @@ export const SessionProvider = ({ children }) => {
         startedAt: stale.startedAt,
         updatedAt: stale.updatedAt,
         interruptionReason: null,
-        completionEventId: null
+        completionEventId: null,
+        stepOutcomes: stale.stepOutcomes
       }
     });
     return true;
@@ -289,6 +302,7 @@ export const SessionProvider = ({ children }) => {
       advanceStep,
       advanceToStep,
       skipStep,
+      recordStepEndedEarly,
       interruptSession,
       resumeSession,
       completeSession,
@@ -313,6 +327,7 @@ export const SessionProvider = ({ children }) => {
       advanceStep,
       advanceToStep,
       skipStep,
+      recordStepEndedEarly,
       interruptSession,
       resumeSession,
       completeSession,

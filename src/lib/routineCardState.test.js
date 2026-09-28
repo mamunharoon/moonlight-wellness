@@ -36,10 +36,45 @@ describe('resolveRoutineCardState — the critical "Evening selected opens Morni
     ).toBe('in-progress');
   });
 
-  it('completed takes priority over any live/snapshot state', () => {
+  it('completed takes priority over any live/snapshot state, when the run was genuinely FULLY completed (fullyDoneToday: true)', () => {
     expect(
-      resolveRoutineCardState({ sessionId: MORNING, liveState: { sessionId: MORNING, status: 'playing' }, snapshot: null, doneToday: true })
+      resolveRoutineCardState({
+        sessionId: MORNING,
+        liveState: { sessionId: MORNING, status: 'playing' },
+        snapshot: null,
+        doneToday: true,
+        fullyDoneToday: true
+      })
     ).toBe('completed');
+  });
+
+  // Phase 9 — Truthful Journey Outcomes (Part 9): doneToday alone (a
+  // genuine completion was reached today) is no longer sufficient for
+  // 'completed' - it also requires fullyDoneToday (every displayed stage
+  // genuinely completed). A reached-but-partial run must report the
+  // honest 'finished-partially' state instead, never 'completed'.
+  it('finished-partially: doneToday is true but fullyDoneToday is false (any skipped/ended-early/not-reached stage) - never reported as completed', () => {
+    expect(
+      resolveRoutineCardState({ sessionId: MORNING, liveState: { sessionId: null, status: 'idle' }, snapshot: null, doneToday: true, fullyDoneToday: false })
+    ).toBe('finished-partially');
+  });
+
+  it('finished-partially: fullyDoneToday defaults to false when omitted entirely - a caller can never accidentally get "completed" for free', () => {
+    expect(
+      resolveRoutineCardState({ sessionId: MORNING, liveState: { sessionId: null, status: 'idle' }, snapshot: null, doneToday: true })
+    ).toBe('finished-partially');
+  });
+
+  it('finished-partially also takes priority over any live/snapshot state, same as completed does', () => {
+    expect(
+      resolveRoutineCardState({
+        sessionId: EVENING,
+        liveState: { sessionId: EVENING, status: 'playing' },
+        snapshot: null,
+        doneToday: true,
+        fullyDoneToday: false
+      })
+    ).toBe('finished-partially');
   });
 
   it('the OTHER routine being live never makes this routine look in-progress', () => {

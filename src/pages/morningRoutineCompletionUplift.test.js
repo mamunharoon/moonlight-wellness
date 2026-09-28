@@ -27,27 +27,29 @@ describe('SessionComplete.jsx (100% Morning routine completion) — reuses the e
 });
 
 describe('SessionComplete.jsx (100% Morning routine completion) — required warm-gold visual, exactly once, honest wording', () => {
-  it('the 100%/Complete ring badge is unchanged (pre-existing, already correct) - check_circle icon, "100%", "Complete"', () => {
-    expect(source).toMatch(/<span className="material-symbols-outlined text-morning-accent text-2xl font-bold">check_circle<\/span>/);
-    expect(source).toMatch(/<span className="text-3xl font-extrabold text-on-surface mt-0\.5">100%<\/span>/);
-    expect(source).toMatch(/<span className="text-\[10px\] text-on-surface-variant uppercase tracking-wider font-semibold">Complete<\/span>/);
+  it('Phase 9 — Truthful Journey Outcomes: the ring keeps its check_circle icon (a decorative "you reached the end" marker), but the "100%"/"Complete" numeric claim is removed entirely from real code/markup (doc comments mentioning it by name for context are not user-facing) - replaced by an outcome-gated truthful heading/supporting-line pair below the ring', () => {
+    expect(source).toMatch(/<span className="material-symbols-outlined text-morning-accent text-3xl font-bold">check_circle<\/span>/);
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/100%/);
   });
 
-  it('Morning completion screen refinement — the "Morning Complete" eyebrow is removed (the 100%/check_circle ring above already communicates completion; this line only repeated it) - never re-added', () => {
+  it('Morning completion screen refinement — the "Morning Complete" eyebrow is removed (redundant with the outcome-gated heading below) - never re-added', () => {
     expect(source).not.toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
   });
 
-  it('shows exactly one rotating final message (completionGreeting) from the routine pool - no separate supporting body paragraph was added back', () => {
-    expect(source).toMatch(/<h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">\{completionGreeting\}<\/h2>/);
+  it('shows the rotating final message (completionGreeting) as a smaller secondary line beneath the exact outcome-gated heading/supporting-line pair - no separate supporting body paragraph was added back', () => {
+    expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{completionGreeting\}<\/p>/);
     expect(source).not.toMatch(/\{body\}/);
   });
 
-  it('no streaks/achievements/stats/new persistence were introduced - the Summary card below still only ever reads the existing intentions, and completeSession/localStorage writes are unchanged from before this pass', () => {
+  it('no streaks/achievements/stats were introduced - the Summary card below still only ever reads the existing intentions', () => {
     expect(source).not.toMatch(/streak|achievement|badge (?:earned|unlocked)/i);
-    // Exactly the two pre-existing localStorage calls (the daily-completion
-    // flag write/read this file already had) - no new persistence key.
+    // The two pre-existing localStorage calls (the daily-completion flag
+    // write/read this file already had), plus Phase 9's additive
+    // "genuinely fully completed today" get/set pair (Part 8/9) - no other
+    // new persistence key.
     const localStorageCalls = source.match(/localStorage\.(?:get|set)Item\(/g) ?? [];
-    expect(localStorageCalls.length).toBe(2);
+    expect(localStorageCalls.length).toBe(4);
   });
 });
 

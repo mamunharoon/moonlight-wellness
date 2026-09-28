@@ -28,8 +28,34 @@ import { getSessionById } from './sessionRegistry';
  *   completed   --COMPLETE_SESSION--> completed (idempotent no-op, same state reference)
  *   playing     --ABANDON_SESSION-->  skipped
  *   interrupted --ABANDON_SESSION-->  skipped
+ *   playing     --RECORD_STEP_ENDED_EARLY--> playing (annotation only; see note)
  *   (any)       --RESET_SESSION-->    idle       (canonical, unconditional)
  *   (any)       --RESTORE_SESSION-->  <payload>  (see note)
+ *
+ * STEP OUTCOMES (Phase 9 — Truthful Journey Outcomes)
+ *   `stepOutcomes` is a `{ [stepId]: 'completed' | 'skipped' | 'ended_early' }`
+ *   map, additive to the position-only state this engine already tracked.
+ *   A step id absent from the map is simply "not yet resolved" (the caller
+ *   derives not_started/in_progress from stepIndex/status as before — this
+ *   engine never writes a "not_started"/"in_progress" entry). Written only
+ *   by the four actions below; every other action leaves it untouched.
+ *     ADVANCE_STEP/ADVANCE_TO_STEP -> marks the step being LEFT 'completed'
+ *     SKIP_STEP                    -> marks the step being LEFT 'skipped'
+ *     RECORD_STEP_ENDED_EARLY      -> marks the given step 'ended_early',
+ *                                     without moving stepIndex or status —
+ *                                     the confirmed-abandonment signal for
+ *                                     a "Leave Exercise"/"End Meditation"
+ *                                     handler that otherwise leaves the
+ *                                     user on that same step's own screen
+ *     ABANDON_SESSION              -> defensively marks the CURRENT step
+ *                                     'ended_early', but only if that step
+ *                                     has no outcome yet — never overwrites
+ *                                     a genuine prior 'completed'/'skipped'
+ *   INTERRUPT_SESSION/RESUME_SESSION deliberately never touch this map —
+ *   pausing is not abandoning. START_SESSION/RESET_SESSION reset it to
+ *   `{}` (a fresh outcome set for a new or repeated routine). All four
+ *   writes are idempotent — setting the same key to the same value twice
+ *   is a no-op in effect.
  *
  *   Note on START_SESSION from 'completed'/'skipped': the brief's own
  *   example ("completed → playing must require a new START_SESSION")
@@ -109,9 +135,18 @@ export const SESSION_ACTION_TYPES = Object.freeze({
   RESUME_SESSION: 'RESUME_SESSION',
   COMPLETE_SESSION: 'COMPLETE_SESSION',
   ABANDON_SESSION: 'ABANDON_SESSION',
+  RECORD_STEP_ENDED_EARLY: 'RECORD_STEP_ENDED_EARLY',
   RESTORE_SESSION: 'RESTORE_SESSION',
   RESET_SESSION: 'RESET_SESSION',
 });
+
+export const STEP_OUTCOME = Object.freeze({
+  COMPLETED: 'completed',
+  SKIPPED: 'skipped',
+  ENDED_EARLY: 'ended_early',
+});
+
+const VALID_STEP_OUTCOMES = Object.values(STEP_OUTCOME);
 
 export const CANONICAL_IDLE_STATE = Object.freeze({
   sessionId: null,
@@ -121,6 +156,7 @@ export const CANONICAL_IDLE_STATE = Object.freeze({
   updatedAt: null,
   interruptionReason: null,
   completionEventId: null,
+  stepOutcomes: Object.freeze({}),
 });
 
 export const initialSessionState = CANONICAL_IDLE_STATE;
@@ -174,6 +210,7 @@ export const sessionReducer = (state, action) => {
         updatedAt: timestamp,
         interruptionReason: null,
         completionEventId: null,
+        stepOutcomes: {},
       };
     }
 
@@ -191,7 +228,13 @@ export const sessionReducer = (state, action) => {
         devWarn('ADVANCE_STEP rejected — already at the terminal step; call COMPLETE_SESSION explicitly.');
         return state;
       }
-      return { ...state, stepIndex: state.stepIndex + 1, updatedAt: now() };
+      const leavingStep = session.steps[state.stepIndex];
+      return {
+        ...state,
+        stepIndex: state.stepIndex + 1,
+        updatedAt: now(),
+        stepOutcomes: { ...state.stepOutcomes, [leavingStep.id]: STEP_OUTCOME.COMPLETED },
+      };
     }
 
     case SESSION_ACTION_TYPES.ADVANCE_TO_STEP: {
@@ -214,7 +257,13 @@ export const sessionReducer = (state, action) => {
         devWarn(`ADVANCE_TO_STEP rejected — target step "${targetStepId}" (index ${targetIndex}) is not ahead of the current step (index ${state.stepIndex}).`);
         return state;
       }
-      return { ...state, stepIndex: targetIndex, updatedAt: now() };
+      const leavingStep = session.steps[state.stepIndex];
+      return {
+        ...state,
+        stepIndex: targetIndex,
+        updatedAt: now(),
+        stepOutcomes: { ...state.stepOutcomes, [leavingStep.id]: STEP_OUTCOME.COMPLETED },
+      };
     }
 
     case SESSION_ACTION_TYPES.SKIP_STEP: {
@@ -236,7 +285,12 @@ export const sessionReducer = (state, action) => {
         devWarn('SKIP_STEP rejected — already at the terminal step; call COMPLETE_SESSION explicitly.');
         return state;
       }
-      return { ...state, stepIndex: state.stepIndex + 1, updatedAt: now() };
+      return {
+        ...state,
+        stepIndex: state.stepIndex + 1,
+        updatedAt: now(),
+        stepOutcomes: { ...state.stepOutcomes, [currentStep.id]: STEP_OUTCOME.SKIPPED },
+      };
     }
 
     case SESSION_ACTION_TYPES.INTERRUPT_SESSION: {
@@ -289,7 +343,38 @@ export const sessionReducer = (state, action) => {
         devWarn(`ABANDON_SESSION rejected — session status is "${state.status}"; nothing active to abandon.`);
         return state;
       }
-      return { ...state, status: SESSION_STATUS.SKIPPED, interruptionReason: null, updatedAt: now() };
+      const session = getSessionById(state.sessionId);
+      const currentStep = session?.steps[state.stepIndex];
+      // Defensive only — never overwrites a genuine outcome the current
+      // step already earned (e.g. an ended-early annotation already
+      // recorded, or a step somehow already marked completed/skipped).
+      const stepOutcomes =
+        currentStep && !state.stepOutcomes[currentStep.id]
+          ? { ...state.stepOutcomes, [currentStep.id]: STEP_OUTCOME.ENDED_EARLY }
+          : state.stepOutcomes;
+      return { ...state, status: SESSION_STATUS.SKIPPED, interruptionReason: null, updatedAt: now(), stepOutcomes };
+    }
+
+    case SESSION_ACTION_TYPES.RECORD_STEP_ENDED_EARLY: {
+      if (state.status !== SESSION_STATUS.PLAYING) {
+        devWarn(`RECORD_STEP_ENDED_EARLY rejected — session status is "${state.status}", not "playing".`);
+        return state;
+      }
+      const stepId = action.payload?.stepId;
+      if (!stepId) {
+        devWarn('RECORD_STEP_ENDED_EARLY rejected — no stepId given.');
+        return state;
+      }
+      if (state.stepOutcomes[stepId] === STEP_OUTCOME.ENDED_EARLY) {
+        // Already recorded — same reference, matching COMPLETE_SESSION's
+        // own idempotency precedent.
+        return state;
+      }
+      return {
+        ...state,
+        updatedAt: now(),
+        stepOutcomes: { ...state.stepOutcomes, [stepId]: STEP_OUTCOME.ENDED_EARLY },
+      };
     }
 
     case SESSION_ACTION_TYPES.RESET_SESSION: {
@@ -302,7 +387,13 @@ export const sessionReducer = (state, action) => {
         devWarn('RESTORE_SESSION given an invalid payload — falling back to canonical idle.');
         return CANONICAL_IDLE_STATE;
       }
-      return payload;
+      const stepOutcomes =
+        payload.stepOutcomes && typeof payload.stepOutcomes === 'object'
+          ? Object.fromEntries(
+              Object.entries(payload.stepOutcomes).filter(([, value]) => VALID_STEP_OUTCOMES.includes(value))
+            )
+          : {};
+      return { ...payload, stepOutcomes };
     }
 
     default:

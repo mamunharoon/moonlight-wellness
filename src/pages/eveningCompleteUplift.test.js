@@ -21,13 +21,15 @@ describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
     );
   });
 
-  it('Evening Visual Uplift (Phase 7) — the former "Step 7 of 7" eyebrow is replaced by a "100% Complete" badge, still evening-accent, never the generic peach primary', () => {
-    expect(source).not.toMatch(/Step 7 of 7/);
-    expect(source).toMatch(/text-evening-accent uppercase font-bold tracking-wider">\s*\n\s*<span className="material-symbols-outlined text-xs" aria-hidden="true">check_circle<\/span>\s*\n\s*100% Complete/);
+  it('Phase 9 — Truthful Journey Outcomes: the former "Step 7 of 7" eyebrow, and later the Phase 7 "100% Complete" badge that replaced it, are both gone - no percentage/graded badge of any kind remains in real code/markup (doc comments explaining the history by name are not user-facing)', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/Step 7 of 7/);
+    expect(code).not.toMatch(/100%/);
   });
 
-  it('the heading still uses the exact original Newsreader italic styling; the text itself now rotates via outcomeMessages.js (WakeWise Phase 2, B6 - see eveningCompleteOutcomeMessages.test.js)', () => {
-    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\{headline\}<\/h1>/);
+  it('the heading still uses the exact original Newsreader italic styling; it now renders the outcome-gated exact copy (Part 7), never the old unconditional headline; the rotating pool text (outcomeMessages.js, B6 - see eveningCompleteOutcomeMessages.test.js) still renders as a smaller secondary line', () => {
+    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\s*\n\s*\{eveningFullyCompleted \? 'Evening Wind-Down complete' : 'Evening Wind-Down finished'\}\s*\n\s*<\/h1>/);
+    expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{headline\}<\/p>/);
   });
 });
 

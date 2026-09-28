@@ -58,8 +58,9 @@ describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no con
     expect(body).toMatch(/initialSoundId: preset\?\.soundId/);
   });
 
-  it('Anytime Visual Flow and Closing Handoff uplift (Part 8) — the setup panel now renders in compact mode, aligned with the approved Morning/Evening Meditation setup (recommendation card + "Choose style, time & sound" disclosure), still with no Skip button (nothing to skip on a standalone practice)', () => {
-    expect(source).toMatch(/<MeditationSetupPanel[\s\S]*?compact\s*\n[\s\S]*?purpose="A quiet pause, whenever you need one\."/);
+  it('Meditation ↔ Breathing alignment correction — the setup panel renders the exact approved Anytime heading/purpose, aligned with Morning/Evening\'s own always-full structure (no more `compact` prop), still with no Skip button (nothing to skip on a standalone practice)', () => {
+    expect(source).toMatch(/<MeditationSetupPanel[\s\S]*?heading="Choose Your Meditation"[\s\S]*?purpose="Find a pause that fits this moment\."/);
+    expect(source).not.toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n/);
     expect(source).not.toMatch(/<MeditationSetupPanel[\s\S]*?onSkip=/);
   });
 
