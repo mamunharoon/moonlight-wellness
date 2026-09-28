@@ -102,9 +102,10 @@ describe('QuietBreathing.jsx — standalone branch (/breathe-standalone) is comp
   // Context-aware Breathing/Meditation theming — both now pass the
   // dynamic accent={journeyTone}, inheriting whichever journey launched
   // this standalone practice, never a hardcoded literal.
-  it('standalone never renders MusicEntryChoice at all - it uses MusicPreferenceToggle/BreathingPatternRow instead, both passing the dynamic accent={journeyTone}', () => {
+  it('standalone never renders MusicEntryChoice at all - it uses CompactSoundControl (Anytime Visual Flow and Closing Handoff uplift, Part 7 - replacing MusicPreferenceToggle here)/BreathingPatternRow instead, both passing the dynamic journeyTone/accent={journeyTone}', () => {
     expect(standaloneBlock).not.toMatch(/<MusicEntryChoice/);
-    expect(standaloneBlock).toMatch(/<MusicPreferenceToggle\s*\n\s*isOn=\{musicPreferenceOn\}\s*\n\s*onToggle=\{handleToggleMusicPreference\}\s*\n\s*description="Play gentle music during your breathing practice\."\s*\n\s*accent=\{journeyTone\}\s*\n\s*\/>/);
+    expect(standaloneBlock).not.toMatch(/<MusicPreferenceToggle/);
+    expect(standaloneBlock).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone=\{journeyTone\} \/>/);
     expect(standaloneBlock).toMatch(/<BreathingPatternRow[\s\S]*?accent=\{journeyTone\}/);
   });
 });

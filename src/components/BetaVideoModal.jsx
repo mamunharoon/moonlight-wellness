@@ -7,10 +7,11 @@ import { getMusicPreference, setMusicPreference } from '../lib/musicPreference';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { resolvePlaybackId, shouldShowMusicToggle } from '../lib/backgroundMusicSelection';
 import { useAuth } from '../context/AuthContext';
-import { getMediaCompletionMessage } from '../lib/outcomeMessages';
+import { getMediaCompletionMessage, getCompletionGreeting } from '../lib/outcomeMessages';
 import { getMediaCompletionPresentation } from '../lib/mediaCompletionPresentation';
 import { CompletionReveal } from './CompletionReveal';
 import { MomentumPanel } from './MomentumPanel';
+import { AnytimeClosingHandoffActions } from './AnytimeClosingHandoff';
 
 // Maps completionContext.journey onto CompletionReveal's `journeyTone` -
 // only 'morning'/'evening'/'anytime' have an approved glow token
@@ -406,7 +407,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       // completion is detected - only when a caller actually opted into
       // the new shared overlay (completionContext). Callers that omit it
       // keep the old generic "Done" overlay and never consume a message.
-      if (completionContext) setCompletionMessage(getMediaCompletionMessage());
+      // Anytime Visual Flow and Closing Handoff uplift — an Anytime-origin
+      // completion (completionContext.journey === 'anytime') reuses the
+      // SAME shared rotating Anytime completion-message pool
+      // (getCompletionGreeting) Breathing/Meditation's own closing handoff
+      // already uses, instead of the generic, journey-agnostic
+      // getMediaCompletionMessage() pool - every other journey (morning/
+      // evening/library/direct) keeps that exact original pool, unaffected.
+      if (completionContext) {
+        setCompletionMessage(
+          completionContext.journey === 'anytime'
+            ? getCompletionGreeting({ journey: 'anytime', practice: 'media' })
+            : getMediaCompletionMessage()
+        );
+      }
       // Anytime Reset completion fix — optional, additive callback for the
       // real natural-end event, distinct from onClose (which also fires on
       // an early/manual close and must never be mistaken for completion).
@@ -875,35 +889,59 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                         <span className={`material-symbols-outlined text-3xl ${mediaCompletionPresentation.iconClasses}`} aria-hidden="true">check_circle</span>
                       </div>,
                       <div key="message" className="space-y-2 text-center">
-                        <span className={`font-label-sm text-xs uppercase tracking-widest font-bold ${mediaCompletionPresentation.labelClasses}`}>Session Complete</span>
+                        <span className={`font-label-sm text-xs uppercase tracking-widest font-bold ${mediaCompletionPresentation.labelClasses}`}>{mediaCompletionPresentation.eyebrowLabel}</span>
                         <p className="text-sm text-white font-semibold max-w-xs mx-auto leading-relaxed">{completionMessage}</p>
                         <MomentumPanel insight={completionContext.momentumInsight} milestone={completionContext.momentumMilestone} />
-                        <p className="text-xs text-white/70">What would you like to do next?</p>
+                        <p className="text-xs text-white/70">{mediaCompletionPresentation.whatNextLabel}</p>
                       </div>
                     ]}
                     actions={
-                      <div className="flex flex-col gap-2 w-full max-w-[240px] mx-auto">
-                        <button
-                          ref={completionPrimaryButtonRef}
-                          type="button"
-                          onClick={completionContext.onPrimaryAction}
-                          className={`min-h-[44px] px-5 py-2.5 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${mediaCompletionPresentation.primaryButtonClasses}`}
-                        >
-                          {mediaCompletionPresentation.primaryLabel}
-                        </button>
-                        {/* "only when a valid destination exists" - a
-                            caller that omits onSecondaryAction hides this
-                            button entirely, for any journey. */}
-                        {completionContext.onSecondaryAction && (
+                      // Anytime Visual Flow and Closing Handoff uplift —
+                      // an Anytime-origin completion with a real
+                      // `onExploreMore` destination (AnytimeReset.jsx's own
+                      // two completionContext call sites both supply one)
+                      // renders the SAME shared three-action row
+                      // (AnytimeClosingHandoffActions) Breathing/Meditation's
+                      // own closing handoff already uses, instead of this
+                      // overlay's own generic primary/secondary pair - "one
+                      // shared implementation, never four unrelated ones."
+                      // Every other journey (morning/evening/library/direct,
+                      // and any future anytime caller that genuinely has no
+                      // Explore destination) keeps the original two-button
+                      // presentation, completely unaffected.
+                      completionContext.journey === 'anytime' && completionContext.onExploreMore ? (
+                        <div className="w-full max-w-[280px] mx-auto">
+                          <AnytimeClosingHandoffActions
+                            primaryButtonRef={completionPrimaryButtonRef}
+                            onContinueMyDay={completionContext.onPrimaryAction}
+                            onChooseAnotherReset={completionContext.onSecondaryAction}
+                            onExploreMore={completionContext.onExploreMore}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 w-full max-w-[240px] mx-auto">
                           <button
+                            ref={completionPrimaryButtonRef}
                             type="button"
-                            onClick={completionContext.onSecondaryAction}
-                            className="min-h-[44px] px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={completionContext.onPrimaryAction}
+                            className={`min-h-[44px] px-5 py-2.5 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${mediaCompletionPresentation.primaryButtonClasses}`}
                           >
-                            {mediaCompletionPresentation.secondaryLabel}
+                            {mediaCompletionPresentation.primaryLabel}
                           </button>
-                        )}
-                      </div>
+                          {/* "only when a valid destination exists" - a
+                              caller that omits onSecondaryAction hides this
+                              button entirely, for any journey. */}
+                          {completionContext.onSecondaryAction && (
+                            <button
+                              type="button"
+                              onClick={completionContext.onSecondaryAction}
+                              className="min-h-[44px] px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                              {mediaCompletionPresentation.secondaryLabel}
+                            </button>
+                          )}
+                        </div>
+                      )
                     }
                   />
                 </div>

@@ -4,10 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
-import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
-import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
 import { MusicEntryChoice } from '../components/MusicEntryChoice';
+import { CompactSoundControl } from '../components/CompactSoundControl';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
@@ -31,11 +30,27 @@ import { getBreathingAcknowledgement, getCompletionGreeting } from '../lib/outco
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
+import { AnytimeClosingHandoffMessage, AnytimeClosingHandoffActions } from '../components/AnytimeClosingHandoff';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 const DEFAULT_STANDALONE_PATTERN_ID = 'quiet';
+
+// Anytime Visual Flow and Closing Handoff uplift (Part 7) — one real
+// Material Symbol per real breathing pattern (BreathingPatternRow's
+// existing, additive `icon` prop), the exact same mapping Breathe.jsx's/
+// EveningBreathing.jsx's own BREATHING_PATTERN_ICONS already use - the
+// same activity, same icon, across journeys. No pattern is renamed,
+// reordered, or given a different cadence/timing to acquire this icon.
+const BREATHING_PATTERN_ICONS = {
+  morning: 'air',
+  evening: 'bedtime',
+  quiet: 'self_improvement',
+  box: 'crop_square',
+  coherent: 'waves'
+};
 
 /*
  * Solas — Support & Calm, Sprint 1 Phase 2: Quiet Breathing
@@ -108,10 +123,14 @@ export const QuietBreathing = ({ standalone = false }) => {
   // Step 1 -> Calm -> Breathe -> Back from the pre-start/pattern-picker
   // screen fell straight through to backFallback='/' unconditionally,
   // with no memory of the Anytime Reset screen it came from).
-  const anytimeOrigin = Boolean(location.state?.anytimeNeed && location.state?.anytimeDuration);
-  const anytimeResetDestination = anytimeOrigin
-    ? `/anytime-reset?need=${encodeURIComponent(location.state.anytimeNeed)}&duration=${encodeURIComponent(location.state.anytimeDuration)}`
-    : '/anytime-reset';
+  const { anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination } = resolveAnytimeOrigin(location.state);
+  // Anytime Visual Flow and Closing Handoff uplift (Part 11, entry-context
+  // isolation) — "Explore More" needs the exact Need/Time selection to
+  // build a safe destination the same way AnytimeReset.jsx's own "Explore
+  // Anytime" card already does; only meaningful when anytimeOrigin.
+  const anytimeExploreDestination = anytimeOrigin
+    ? `/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(anytimeNeed)}&duration=${encodeURIComponent(anytimeDuration)}`
+    : null;
 
   // Context-aware Breathing/Meditation theming — standalone only (see
   // usePracticeJourneyTone's own `enabled` doc comment for why this is
@@ -274,7 +293,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     countdown.start();
   };
 
-  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && MusicPreferenceToggle && BreathingPatternRow && BreathingPatternDescription && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && InteractiveAmbientMusic && MusicEntryChoice && BreathingPatternRow && CompactSoundControl && BetaVideoModal && BetaVideoRow && SignInPromptDialog && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
 
   // Early-end result state - declared here (ahead of `canRun`, which reads
   // it) so the countdown effect below can stop the instant an early end is
@@ -349,15 +368,20 @@ export const QuietBreathing = ({ standalone = false }) => {
         // callback, the instant the boundary is reached - stop the
         // interval (so a stray extra tick can never fire), stop the
         // music, and enter the completed state, all in one step, exactly
-        // once per real completion. The new rotating greeting/mint panel
-        // is Anytime-specific (see item 3 of this pass) - a standalone
-        // visit tagged with a different journeyTone (e.g. Home's own
-        // time-of-day-based quick action) keeps the original single
-        // getBreathingAcknowledgement string and Done/Breathe again
-        // pair, completely unchanged.
+        // once per real completion. Anytime Visual Flow and Closing
+        // Handoff uplift (Part 11, entry-context isolation) — the new
+        // rotating greeting/mint closing handoff is now gated on the
+        // explicit, validated `anytimeOrigin` marker, never the merely-
+        // cosmetic `journeyTone` (which also resolves to 'anytime' for an
+        // unrelated reason - a Home-direct quick-action tap or a direct
+        // visit during a plain midday daypart fallback, with no real
+        // preserved Need/Time selection to return to). A standalone visit
+        // that isn't genuinely anytimeOrigin keeps the original single
+        // getBreathingAcknowledgement string and Done/Breathe again pair,
+        // completely unchanged - "existing direct completion behaviour."
         stopBreathingInterval();
         musicPlayerRef.current?.stop();
-        if (journeyTone === 'anytime') {
+        if (anytimeOrigin) {
           setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'breathing' }));
         }
         setIsCompleted(true);
@@ -365,7 +389,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     }, 1000);
 
     return () => stopBreathingInterval();
-  }, [standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, journeyTone]);
+  }, [standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin]);
 
   // Non-standalone (Support's embedded usage) - completely unchanged: the
   // exact original naive interval, keyed off plain secondsLeft state,
@@ -537,43 +561,42 @@ export const QuietBreathing = ({ standalone = false }) => {
           // Phase 2 tracked activities, so there is no factual insight/
           // milestone to show here - this is the shared visual transition
           // only.
-          <CompletionReveal
-            active={showCompletionPanel}
-            journeyTone={journeyTone}
-            celebratory={isCompleted}
-            className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
-            stagger={[
-              // Anytime Breathing completion correction — the required
-              // completed/check visual, mint (tertiary) tokens matching
-              // every other Anytime card shell (bg-tertiary/10 + border-
-              // tertiary-tint/25 + shadow-mint-glow) - never Morning gold
-              // or Evening periwinkle. Early exit never shows this badge
-              // or "BREATHING COMPLETED" - "Session ended early" keeps its
-              // exact existing honest wording/icon-less layout below.
-              isCompleted && journeyTone === 'anytime' ? (
-                <div key="badge" className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center mx-auto">
-                  <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+          isCompleted && anytimeOrigin ? (
+            // Anytime Visual Flow and Closing Handoff uplift (Part 9) —
+            // the shared closing handoff's own message half (badge +
+            // "RESET COMPLETE" + rotating greeting + "What feels right
+            // now?"). Gated on the explicit, validated `anytimeOrigin`
+            // marker (Part 11), never the merely-cosmetic journeyTone.
+            // Its own actions render separately below, as an early,
+            // undelayed sibling - see this screen's own established
+            // "keep the CTA visible/tappable early" pattern, preserved
+            // exactly (AnytimeClosingHandoffActions, gated on the RAW
+            // isCompleted flag alongside earlyEnded's own actions).
+            <AnytimeClosingHandoffMessage active={showCompletionPanel} greeting={completionGreeting} />
+          ) : (
+            <CompletionReveal
+              active={showCompletionPanel}
+              journeyTone={journeyTone}
+              celebratory={isCompleted}
+              className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
+              stagger={[
+                <div key="greeting" className="space-y-2">
+                  <h2 className="text-2xl font-bold text-on-surface" role={isCompleted ? 'status' : undefined}>
+                    {earlyEnded ? 'Session ended early' : 'Breathing complete'}
+                  </h2>
+                  {earlyEnded ? (
+                    <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                      Your {activePattern.label} session ended before the timer finished.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                      {getBreathingAcknowledgement(journeyTone)}
+                    </p>
+                  )}
                 </div>
-              ) : null,
-              <div key="greeting" className="space-y-2">
-                {isCompleted && journeyTone === 'anytime' && (
-                  <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed</span>
-                )}
-                <h2 className="text-2xl font-bold text-on-surface" role={isCompleted ? 'status' : undefined}>
-                  {earlyEnded ? 'Session ended early' : (journeyTone === 'anytime' ? completionGreeting : 'Breathing complete')}
-                </h2>
-                {earlyEnded ? (
-                  <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                    Your {activePattern.label} session ended before the timer finished.
-                  </p>
-                ) : journeyTone !== 'anytime' ? (
-                  <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                    {getBreathingAcknowledgement(journeyTone)}
-                  </p>
-                ) : null}
-              </div>
-            ].filter(Boolean)}
-          />
+              ]}
+            />
+          )
         ) : countdown.isActive ? (
           // Build 16 physical-iPhone correction (F3) — shared preparation
           // countdown. Back/Cancel is handled entirely by this screen's
@@ -586,6 +609,18 @@ export const QuietBreathing = ({ standalone = false }) => {
           />
         ) : !hasBegun ? (
           <>
+            {/* Anytime Visual Flow and Closing Handoff uplift (Part 7) —
+                compact Sound control in the header area, replacing the
+                large full-width MusicPreferenceToggle card, matching the
+                approved Morning/Evening Breathing setup screens exactly
+                (same musicPreferenceOn/handleToggleMusicPreference state -
+                no second audio state). */}
+            {musicEligible && (
+              <div className="flex justify-end">
+                <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone={journeyTone} />
+              </div>
+            )}
+
             <div className="text-center space-y-2">
               <span className={`font-label-sm text-xs ${getJourneyToneTokens(journeyTone).text} uppercase tracking-widest font-bold`}>Mindful Breathing</span>
               <h2 className="text-2xl font-bold text-on-surface">Choose Your Breathing Practice</h2>
@@ -594,51 +629,35 @@ export const QuietBreathing = ({ standalone = false }) => {
               </p>
             </div>
 
-            {/* Build 16 physical-iPhone correction (F5) — compact
-                2-column grid, replacing the five full-width rows. Each
-                card shows its complete name only - the selected
-                pattern's full cadence and exact duration render once,
-                below the grid, via the shared
-                BreathingPatternDescription. */}
-            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
-              {BREATHING_PATTERNS.map((pattern, idx) => (
+            {/* Anytime Visual Flow and Closing Handoff uplift (Part 7) —
+                vertically stacked, full-width breathing option rows
+                (matching Breathe.jsx's/EveningBreathing.jsx's own
+                corrected structure), each with a real Material Symbol and
+                its complete cadence/exact duration shown inline -
+                BreathingPatternDescription's own separate block is no
+                longer needed. The exact same five real patterns, same
+                order - nothing renamed, reordered, or retimed. */}
+            <div className="space-y-2" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern) => (
                 <BreathingPatternRow
                   key={pattern.id}
-                  compact
                   accent={journeyTone}
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={setSelectedPatternId}
                   groupName="breathing-pattern"
-                  className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
+                  icon={BREATHING_PATTERN_ICONS[pattern.id]}
                 />
               ))}
             </div>
-            <BreathingPatternDescription pattern={activePattern} />
 
-            {musicEligible && (
-              <MusicPreferenceToggle
-                isOn={musicPreferenceOn}
-                onToggle={handleToggleMusicPreference}
-                description="Play gentle music during your breathing practice."
-                accent={journeyTone}
-              />
-            )}
-
-            <div className="space-y-3 w-full">
-              <button
-                type="button"
-                onClick={handleBeginBreathing}
-                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-              >
-                <span>Begin Breathing</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            </div>
-
-            {/* Release-quality guided-breathing discoverability -
-                standalone only. Collapsed by default, mirrors Breathe.jsx's
-                own identical disclosure using the same shared catalogue. */}
+            {/* Anytime Visual Flow and Closing Handoff uplift (Part 7) —
+                "Explore guided breathing" now sits BEFORE Begin Breathing
+                (the same approved choices-first-one-obvious-primary-
+                action-last order Breathe.jsx's own Phase 6 correction
+                already established). Same shared catalogue, same
+                guidedSessionsOpen state/content as before - only its
+                position moved. */}
             <div className="space-y-2">
               <button
                 type="button"
@@ -689,6 +708,17 @@ export const QuietBreathing = ({ standalone = false }) => {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-3 w-full">
+              <button
+                type="button"
+                onClick={handleBeginBreathing}
+                className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+              >
+                <span>Begin Breathing</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
             </div>
           </>
         ) : (
@@ -796,25 +826,35 @@ export const QuietBreathing = ({ standalone = false }) => {
             hold+exit-fade+stagger sequence above, matching
             MorningFlow.jsx/Breathe.jsx/EveningBreathing.jsx's own
             identical pattern (their own CTA also lives outside
-            CompletionReveal). WakeWise DEV — Anytime completion
-            correction: a practice reached through Anytime's own
-            quick-reset context (journeyTone === 'anytime') gets the two
-            Anytime-specific actions instead of Done/Breathe again -
-            "Choose Another Reset" returns to the real Anytime Reset
-            recommendation/options screen (never auto-starts a new
-            exercise), "Return Home" clears the temporary practice
-            context exactly like the Done button always has.
-            Morning/Evening-themed and primary/default standalone
-            completions (journeyTone !== 'anytime') are completely
-            untouched - same Done/Breathe again pair as before. */}
+            CompletionReveal).
+            Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 10,
+            Part 11 entry-context isolation) — gated on the explicit,
+            validated `anytimeOrigin` marker, never the merely-cosmetic
+            journeyTone. A genuine completion (isCompleted) gets the
+            shared three-action AnytimeClosingHandoffActions row (Continue
+            My Day / Choose Another Reset / Explore More) - the same
+            shared component BetaVideoModal.jsx's own overlay uses. An
+            honest early exit (earlyEnded, never isCompleted) gets only
+            "Choose Another Reset"/"Continue My Day" - no "Explore More"
+            (nothing was completed to explore further from), no
+            RESET COMPLETE styling above (see the CompletionReveal branch
+            this replaces). Every other standalone visit (not
+            anytimeOrigin) is completely untouched - same Done/Breathe
+            again pair as before. */}
         {(isCompleted || earlyEnded) && (
           <div className="space-y-3 w-full">
-            {journeyTone === 'anytime' ? (
+            {isCompleted && anytimeOrigin ? (
+              <AnytimeClosingHandoffActions
+                onContinueMyDay={() => exitPracticeToHome(navigate, '/')}
+                onChooseAnotherReset={() => exitPracticeToHome(navigate, anytimeResetDestination)}
+                onExploreMore={anytimeExploreDestination ? () => exitPracticeToHome(navigate, anytimeExploreDestination) : undefined}
+              />
+            ) : earlyEnded && anytimeOrigin ? (
               <>
                 <button
                   type="button"
                   onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
-                  className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                  className={`w-full ${getJourneyPrimaryActionClasses('anytime')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
                 >
                   <span>Choose Another Reset</span>
                 </button>
@@ -823,7 +863,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                   onClick={() => exitPracticeToHome(navigate, '/')}
                   className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  Return Home
+                  Continue My Day
                 </button>
               </>
             ) : (

@@ -58,8 +58,8 @@ describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no con
     expect(body).toMatch(/initialSoundId: preset\?\.soundId/);
   });
 
-  it('the setup panel renders in NON-compact mode - every option still shows immediately, no disclosure/Skip button', () => {
-    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact=\{false\}/);
+  it('Anytime Visual Flow and Closing Handoff uplift (Part 8) — the setup panel now renders in compact mode, aligned with the approved Morning/Evening Meditation setup (recommendation card + "Choose style, time & sound" disclosure), still with no Skip button (nothing to skip on a standalone practice)', () => {
+    expect(source).toMatch(/<MeditationSetupPanel[\s\S]*?compact\s*\n[\s\S]*?purpose="A quiet pause, whenever you need one\."/);
     expect(source).not.toMatch(/<MeditationSetupPanel[\s\S]*?onSkip=/);
   });
 
@@ -197,11 +197,9 @@ describe('SelfGuidedMeditation.jsx — Back/Close on the setup screen (pre-Begin
 // anytimeOrigin is false and every one of those destinations is exactly
 // context.fallback, completely unchanged.
 describe('SelfGuidedMeditation.jsx — Anytime Back-navigation correction: explicit origin, not journeyTone or browser history', () => {
-  it('anytimeOrigin/anytimeResetDestination/exitDestination are computed from router state, not journeyTone', () => {
-    expect(source).toMatch(/const anytimeOrigin = Boolean\(preset\?\.anytimeNeed && preset\?\.anytimeDuration\);/);
-    expect(source).toMatch(
-      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(preset\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(preset\.anytimeDuration\)\}`\s*\n\s*: null;/
-    );
+  it('anytimeOrigin/anytimeResetDestination/exitDestination are computed via the shared, allowlist-validated resolveAnytimeOrigin helper (lib/anytimeOrigin.js), not journeyTone', () => {
+    expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeResetDestination \} = resolveAnytimeOrigin\(preset\);/);
     expect(source).toMatch(/const exitDestination = anytimeOrigin \? anytimeResetDestination : context\.fallback;/);
   });
 
@@ -215,7 +213,10 @@ describe('SelfGuidedMeditation.jsx — Anytime Back-navigation correction: expli
     const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
     expect(panelBlock).toMatch(/\{anytimeOrigin \? \(/);
     expect(panelBlock).toMatch(/<span>Choose Another Reset<\/span>/);
-    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return Home/);
+    // Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 10) —
+    // renamed from "Return Home" to "Continue My Day", matching the
+    // shared handoff's own exact action label everywhere else it appears.
+    expect(panelBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Continue My Day/);
     const ifIndex = panelBlock.indexOf('anytimeOrigin ? (');
     const elseIndex = panelBlock.indexOf(') : (');
     const doneIndex = panelBlock.indexOf('<span>Done</span>');

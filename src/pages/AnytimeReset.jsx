@@ -13,13 +13,13 @@ import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
-import { AnytimeResetProgress } from '../components/journey/AnytimeResetProgress';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { RecommendationCard } from '../components/journey/RecommendationCard';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { ExploreCard } from '../components/ExploreCard';
 import { getAnytimeExploreCatalog } from '../lib/exploreFiltering';
+import { AnytimePathway } from '../components/AnytimePathway';
 
 // Build 15 Phase B — Material Symbols icon per need, for the restyled
 // SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
@@ -59,7 +59,7 @@ const QUICK_RESET_ALTERNATIVES = [
 /*
  * WakeWise — Anytime Reset (Build 15 UX remediation)
  *
- * Home -> Anytime Reset -> What do you need right now? -> How much time
+ * Home -> Anytime Reset -> What would support you now? -> How much time
  * do you have? -> Recommendation -> Play -> back to Recommendation.
  * Deliberately modeled on Meditate.jsx's own proven three-step wizard
  * shape (same local-state-only architecture, same guest/query-param
@@ -368,8 +368,6 @@ export const AnytimeReset = () => {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
-  const stepIndex = step === 'need' ? 0 : step === 'duration' ? 1 : 2;
-
   return (
     // Mobile scroll repair (Build 15 viewport audit): rendered outside
     // <Layout> with no scroll container of its own, relying on document
@@ -407,19 +405,28 @@ export const AnytimeReset = () => {
         onStepBack={handleStepBack}
         onClose={handleClose}
       />
-      {/* Build 15 release-quality pass — dedicated, more visible progress
-          indicator, replacing JourneyHeader's own small dots (never
-          passed stepIndex/stepCount above any more, so its dot block
-          never renders). See AnytimeResetProgress.jsx's own doc comment;
-          JourneyHeader itself and Meditate.jsx's own identical dots are
-          completely unmodified. */}
-      <AnytimeResetProgress stepIndex={stepIndex} stepCount={3} />
+      {/* Anytime Visual Flow and Closing Handoff uplift — the Need -> Time
+          -> Reset decision pathway, replacing the former plain 3-segment
+          AnytimeResetProgress bar (still on disk, now dormant - its own
+          getSegmentClassName unit test is unaffected either way). Genuine
+          stage icons stay visible in every state; Need/Time only ever
+          receive their own small secondary check once that step's real
+          value is genuinely already set (needSelected/timeSelected -
+          never inferred from step position); the current step gets the
+          existing mint highlight. Selecting Need or Time is a plain
+          navigation action, never itself recorded as a completion - see
+          this component's own doc comment for the full contract. */}
+      <AnytimePathway currentStageId={step === 'need' ? 'need' : step === 'duration' ? 'time' : 'reset'} needSelected={Boolean(needId)} timeSelected={Boolean(durationId)} />
 
       {step === 'need' && (
         <div className="space-y-6">
           <div className="space-y-1">
             <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt</span>
-            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">Take an Anytime Reset</h1>
+            {/* Anytime Visual Flow and Closing Handoff uplift — one
+                heading, one short supporting sentence (Part 4/Part 12),
+                replacing the former two-heading "Take an Anytime Reset" /
+                "What do you need right now?" pair. */}
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">What would support you now?</h1>
             {/* F3 (pre-Build-15 usability pass) — found live: a guest could
                 complete the whole Need -> Time -> Recommendation wizard
                 and only discover the sign-in requirement after tapping
@@ -430,14 +437,11 @@ export const AnytimeReset = () => {
                 second half of this fix. */}
             <p className="text-sm text-on-surface-variant">
               {isGuest
-                ? 'Choose what you need and how much time you have. Sign in is required to play your personalised recommendation.'
-                : 'Choose what you need and how much time you have.'}
+                ? 'Sign in is required to play your personalised recommendation.'
+                : 'Choose what fits, then how much time you have.'}
             </p>
           </div>
-          <div className="space-y-1">
-            <h2 className="text-sm font-bold text-on-surface">What do you need right now?</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3" role="group" aria-label="What do you need right now?">
+          <div className="grid grid-cols-2 gap-3" role="group" aria-label="What would support you now?">
             {ANYTIME_RESET_NEEDS.map((need) => (
               <SelectionChip
                 key={need.id}
@@ -466,6 +470,7 @@ export const AnytimeReset = () => {
                 selected={durationId === duration.id}
                 onClick={() => handleSelectDuration(duration.id)}
                 accent="anytime"
+                icon={duration.id === 'any' ? 'all_inclusive' : 'schedule'}
               />
             ))}
           </div>
@@ -637,18 +642,30 @@ export const AnytimeReset = () => {
           onEnded={() => setIsComplete(true)}
           completionContext={{
             journey: 'anytime',
-            // "Choose Another Session" - un-completes this same screen
-            // (needId/durationId untouched) so the full recommendation +
-            // alternatives reappears immediately, exactly like the former
-            // "Choose another quick reset" button this overlay replaces.
+            // Anytime Visual Flow and Closing Handoff uplift (Part 9) —
+            // the shared three-action row: "Continue My Day" (primary
+            // slot) leaves the wizard entirely; "Choose Another Reset"
+            // (secondary slot) un-completes this same screen (needId/
+            // durationId untouched) so the full recommendation +
+            // alternatives reappears immediately - exactly what the
+            // former two-action overlay's own "Choose Another Session"
+            // already did, just now the secondary rather than the primary
+            // action, matching the approved action order everywhere else
+            // this closing handoff appears; "Explore More" opens the same
+            // filtered Anytime Library this screen's own ExploreCard
+            // below already links to, preserving this exact Need/Time
+            // selection via the identical allowlisted query params.
             onPrimaryAction: () => {
               setIsComplete(false);
               setOpenVideoId(null);
+              navigate('/');
             },
             onSecondaryAction: () => {
               setIsComplete(false);
               setOpenVideoId(null);
-              navigate('/');
+            },
+            onExploreMore: () => {
+              navigate(`/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(needId)}&duration=${encodeURIComponent(durationId)}`);
             }
           }}
         />

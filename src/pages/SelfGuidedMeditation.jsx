@@ -16,6 +16,7 @@ import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
+import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
 
 /*
  * WakeWise — Self-Guided Meditation (IM01/IM02 Sound Choices)
@@ -113,10 +114,7 @@ export const SelfGuidedMeditation = () => {
   // (Home's Meditate tile, Library), anytimeOrigin is false and every one
   // of those destinations is exactly context.fallback, completely
   // unchanged.
-  const anytimeOrigin = Boolean(preset?.anytimeNeed && preset?.anytimeDuration);
-  const anytimeResetDestination = anytimeOrigin
-    ? `/anytime-reset?need=${encodeURIComponent(preset.anytimeNeed)}&duration=${encodeURIComponent(preset.anytimeDuration)}`
-    : null;
+  const { anytimeOrigin, anytimeResetDestination } = resolveAnytimeOrigin(preset);
   const exitDestination = anytimeOrigin ? anytimeResetDestination : context.fallback;
 
   const [reducedMotion] = useState(() => {
@@ -355,7 +353,7 @@ export const SelfGuidedMeditation = () => {
                     onClick={() => exitPracticeToHome(navigate, '/')}
                     className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    Return Home
+                    Continue My Day
                   </button>
                 </>
               ) : (
@@ -436,7 +434,15 @@ export const SelfGuidedMeditation = () => {
           />
 
           <MeditationSetupPanel
-            compact={false}
+            // Anytime Visual Flow and Closing Handoff uplift (Part 8) —
+            // aligned with the approved Morning/Evening Meditation setup:
+            // compact header + one short sentence + recommendation card,
+            // full style/duration/sound choices tucked behind "Choose
+            // style, time & sound" rather than all shown immediately.
+            // MeditationSetupPanel.jsx itself is the SAME shared component
+            // Morning/Evening already use - no new/duplicate setup screen.
+            compact
+            purpose="A quiet pause, whenever you need one."
             journeyTone={journeyTone}
             recommendedDurationId={getRecommendedDurationId()}
             style={session.style}

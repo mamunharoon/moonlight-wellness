@@ -14,8 +14,8 @@ describe('SelfGuidedMeditationComplete.jsx — outcome-aware messaging correctio
     expect(source).not.toMatch(/>Take this steadiness with you\.</);
   });
 
-  it('renders the derived headline/body directly for non-Anytime tones (Anytime Meditation completion correction: journeyTone === \'anytime\' instead renders the new rotating completionGreeting - see the dedicated Anytime-only describe block below)', () => {
-    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface" role="status">\{journeyTone === 'anytime' \? completionGreeting : completionHeadline\}<\/h1>/);
+  it('renders the derived headline/body directly for a non-anytimeOrigin visit (Anytime Visual Flow and Closing Handoff uplift, Part 11: the shared AnytimeClosingHandoff instead renders the new rotating completionGreeting, gated on the explicit anytimeOrigin marker - see the dedicated Anytime-only describe block below)', () => {
+    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface" role="status">\{completionHeadline\}<\/h1>/);
     expect(source).toMatch(/\{completionBody\}/);
   });
 });
@@ -91,8 +91,9 @@ describe('SelfGuidedMeditationComplete.jsx — a visible accessible Back control
     expect(source).toMatch(/alwaysFallback=\{anytimeOrigin\}/);
   });
 
-  it('backDestination resolves to the preserved Anytime Reset recommendation via the explicit anytimeOrigin marker (never journeyTone/browser history), falling back to context.fallback (Home) only when not genuinely reached from Anytime Reset', () => {
-    expect(source).toMatch(/const anytimeOrigin = Boolean\(session\?\.anytimeNeed && session\?\.anytimeDuration\);/);
+  it('backDestination resolves to the preserved Anytime Reset recommendation via the explicit, allowlist-validated anytimeOrigin marker (resolveAnytimeOrigin - never journeyTone/browser history), falling back to context.fallback (Home) only when not genuinely reached from Anytime Reset', () => {
+    expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(session\);/);
     expect(source).toMatch(/const backDestination = anytimeOrigin \? anytimeResetDestination : context\.fallback;/);
   });
 });
@@ -104,36 +105,41 @@ describe('SelfGuidedMeditationComplete.jsx — touch targets', () => {
   });
 });
 
-// WakeWise DEV — Anytime completion correction: a Meditate practice
-// reached through Anytime Reset's own "Or choose another quick reset"
-// gets the same two Anytime-specific actions QuietBreathing.jsx's own
-// completion screen already shows (journeyTone === 'anytime'), instead of
-// the generic Done/Meditate Again/Choose Another Meditation trio above -
-// reached any other way (Home/Library's Meditate tiles), journeyTone
-// isn't 'anytime' and the trio above is completely unchanged.
+// Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 11) — a
+// Meditate practice reached through Anytime Reset's own "Or choose
+// another quick reset" gets the shared three-action AnytimeClosingHandoff
+// (Continue My Day / Choose Another Reset / Explore More), gated on the
+// explicit, allowlist-validated anytimeOrigin marker - never the merely-
+// cosmetic journeyTone - instead of the generic Done/Meditate Again/
+// Choose Another Meditation trio. Reached any other way (Home/Library's
+// Meditate tiles), anytimeOrigin is false and the trio is completely
+// unchanged.
 describe('SelfGuidedMeditationComplete.jsx — Anytime-only completion gating', () => {
-  it('renders "Choose Another Reset" / "Return Home" only when journeyTone === \'anytime\', the generic trio only otherwise (Anytime Meditation completion correction renamed both buttons to match Morning/Evening/Anytime\'s exact wording)', () => {
-    expect(source).toMatch(/\{journeyTone === 'anytime' \? \(/);
-    expect(source).toMatch(/<span>Choose Another Reset<\/span>/);
-    expect(source).toMatch(/>\s*Return Home\s*</);
+  it('renders the shared AnytimeClosingHandoff only when anytimeOrigin, the generic trio only otherwise', () => {
+    expect(source).toMatch(/\{anytimeOrigin \? \(/);
+    expect(source).toMatch(/<AnytimeClosingHandoff/);
+    expect(source).toMatch(/onContinueMyDay=\{handleContinueMyDay\}/);
+    expect(source).toMatch(/onChooseAnotherReset=\{handleChooseAnotherQuickReset\}/);
+    expect(source).toMatch(/onExploreMore=\{anytimeExploreDestination \? handleExploreMore : undefined\}/);
   });
 
   it('"Choose another quick reset" restores the exact need/duration this practice was entered with, via the same allowlisted ?need=&duration= restore AnytimeReset.jsx already uses after sign-in - never a bare navigate that would restart the wizard from step 1', () => {
-    expect(source).toMatch(
-      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(session\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(session\.anytimeDuration\)\}`\s*\n\s*: '\/anytime-reset';/
-    );
     expect(source).toMatch(/const handleChooseAnotherQuickReset = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, anytimeResetDestination\);\s*\n\s*\};/);
   });
 
-  it('"Return to Home" is a plain exitPracticeToHome to \'/\', clearing the temporary practice context exactly like Done always has', () => {
-    expect(source).toMatch(/const handleReturnToHome = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, '\/'\);\s*\n\s*\};/);
+  it('"Continue My Day" is a plain exitPracticeToHome to \'/\', clearing the temporary practice context exactly like Done always has', () => {
+    expect(source).toMatch(/const handleContinueMyDay = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, '\/'\);\s*\n\s*\};/);
   });
 
-  it('the generic Done/Meditate Again/Choose Another Meditation trio is unreachable while journeyTone === \'anytime\' - it sits in the else branch of the same conditional', () => {
-    const buttonsBlock = source.slice(source.indexOf('<div className="space-y-3">'), source.indexOf('</div>\n    </div>\n  );'));
-    const ifIndex = buttonsBlock.indexOf("journeyTone === 'anytime' ? (");
-    const elseIndex = buttonsBlock.indexOf(') : (');
-    const doneIndex = buttonsBlock.indexOf('<span>Done</span>');
+  it('"Explore More" opens the filtered Anytime Library, preserving this exact need/duration selection', () => {
+    expect(source).toMatch(/const anytimeExploreDestination = anytimeOrigin\s*\n\s*\? `\/library\?journey=anytime&from=anytime-recommend&need=\$\{encodeURIComponent\(anytimeNeed\)\}&duration=\$\{encodeURIComponent\(anytimeDuration\)\}`\s*\n\s*: null;/);
+    expect(source).toMatch(/const handleExploreMore = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, anytimeExploreDestination\);\s*\n\s*\};/);
+  });
+
+  it('the generic Done/Meditate Again/Choose Another Meditation trio is unreachable while anytimeOrigin - it sits in the else branch of the same top-level conditional', () => {
+    const ifIndex = source.indexOf('{anytimeOrigin ? (');
+    const elseIndex = source.indexOf(') : (', ifIndex);
+    const doneIndex = source.indexOf('<span>Done</span>');
     expect(ifIndex).toBeGreaterThanOrEqual(0);
     expect(elseIndex).toBeGreaterThan(ifIndex);
     expect(doneIndex).toBeGreaterThan(elseIndex);

@@ -48,13 +48,15 @@ describe('AnytimeReset.jsx — step order and copy', () => {
     expect(source).toMatch(/useState\(\(\) => \(restoredIsValid \? 'recommend' : 'need'\)\)/);
   });
 
-  it('the approved intro heading and supporting copy are present verbatim', () => {
-    expect(source).toMatch(/Take an Anytime Reset/);
-    expect(source).toMatch(/Choose what you need and how much time you have\./);
+  it('Anytime Visual Flow and Closing Handoff uplift (Part 4) — the approved Step 1 heading is present verbatim, one heading, replacing the former two-heading "Take an Anytime Reset" / "What do you need right now?" pair', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).toMatch(/What would support you now\?/);
+    expect(code).not.toMatch(/Take an Anytime Reset/);
+    expect(code).not.toMatch(/What do you need right now\?/);
   });
 
   it('the approved step headings are present verbatim', () => {
-    expect(source).toMatch(/What do you need right now\?/);
+    expect(source).toMatch(/What would support you now\?/);
     expect(source).toMatch(/How much time do you have\?/);
   });
 });
@@ -315,10 +317,10 @@ describe('AnytimeReset.jsx — Visual Uplift Phase 2: mint identity, approved de
 // byte-identical, and the existing gate mechanism (handleBegin ->
 // SignInPromptDialog) is completely untouched.
 describe('AnytimeReset.jsx — F3 guest-gate disclosure', () => {
-  it('Step 1 subtitle is guest-only extended, authenticated copy is byte-identical to before this fix', () => {
+  it('Step 1 subtitle is still guest-only extended - the disclosure fact is preserved, using the Anytime Visual Flow and Closing Handoff uplift\'s own shortened copy', () => {
     const block = source.match(/<p className="text-sm text-on-surface-variant">\s*\n\s*\{isGuest[\s\S]*?<\/p>/)?.[0] ?? '';
-    expect(block).toMatch(/Choose what you need and how much time you have\. Sign in is required to play your personalised recommendation\./);
-    expect(block).toMatch(/: 'Choose what you need and how much time you have\.'/);
+    expect(block).toMatch(/Sign in is required to play your personalised recommendation\./);
+    expect(block).toMatch(/: 'Choose what fits, then how much time you have\.'/);
   });
 
   it('Step 3: RecommendationCard receives locked={isGuest} and a guest-specific startLabel, never a hardcoded "Start"', () => {

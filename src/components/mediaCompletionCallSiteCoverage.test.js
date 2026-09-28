@@ -41,12 +41,13 @@ describe('Every migrated call site passes a real, allowlisted completionContext.
   // the shared overlay, so their completionContext is a multi-line object
   // rather than a one-line literal - checked individually below.
 
-  it('AnytimeReset.jsx: journey "anytime" - primary "Choose Another Session" un-completes this screen, secondary "Return Home" navigates Home, both real, reachable destinations', () => {
+  it('AnytimeReset.jsx: journey "anytime" - Anytime Visual Flow and Closing Handoff uplift (Part 9) now provides all three shared actions: primary "Continue My Day" leaves the wizard, secondary "Choose Another Reset" un-completes this screen, and onExploreMore opens the filtered Anytime Library, all real, reachable destinations', () => {
     const source = read('../pages/AnytimeReset.jsx');
     const block = source.match(/completionContext=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
     expect(block).toMatch(/journey: 'anytime',/);
-    expect(block).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
-    expect(block).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\}/);
+    expect(block).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\},/);
+    expect(block).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
+    expect(block).toMatch(/onExploreMore: \(\) => \{\s*\n\s*navigate\(`\/library\?journey=anytime&from=anytime-recommend&need=\$\{encodeURIComponent\(needId\)\}&duration=\$\{encodeURIComponent\(durationId\)\}`\);\s*\n\s*\}/);
   });
 
   it('Meditate.jsx: journey "direct" (no explicit journey/journeyTone marker exists anywhere on this page, so the honest fallback is used, never a guessed "anytime") - primary just closes, secondary "Explore Another Session" only offered when a genuinely different session exists', () => {

@@ -17,8 +17,21 @@
 // treatment (this app's existing peach primary, no glow) since neither
 // has an established circadian identity of its own.
 import { getJourneyPrimaryActionClasses } from './journeyAction';
+import { ANYTIME_HANDOFF_EYEBROW, ANYTIME_HANDOFF_PROMPT } from '../components/AnytimeClosingHandoff';
 
 export const MEDIA_COMPLETION_JOURNEYS = Object.freeze(['morning', 'anytime', 'evening', 'library', 'direct']);
+
+// Anytime Visual Flow and Closing Handoff uplift — the overlay's own
+// eyebrow ("Session Complete") and closing prompt ("What would you like
+// to do next?") are additive/configurable per journey (default: the exact
+// original strings, byte-identical for morning/evening/library/direct -
+// only 'anytime' now uses the shared handoff's own approved copy,
+// imported from AnytimeClosingHandoff.jsx so the eyebrow/prompt text is
+// never duplicated in two places).
+const DEFAULT_EYEBROW = 'Session Complete';
+const DEFAULT_WHAT_NEXT = 'What would you like to do next?';
+const EYEBROW_OVERRIDES = { anytime: ANYTIME_HANDOFF_EYEBROW };
+const WHAT_NEXT_OVERRIDES = { anytime: ANYTIME_HANDOFF_PROMPT };
 
 const TONE_CLASSES = {
   morning: {
@@ -70,7 +83,7 @@ const LABELS = {
  * - never a crash, never silently borrowing another journey's gold/mint/
  * periwinkle identity.
  * @param {string} journey
- * @returns {{ journey: string, badgeClasses: string, iconClasses: string, labelClasses: string, primaryButtonClasses: string, primaryLabel: string, secondaryLabel: string }}
+ * @returns {{ journey: string, badgeClasses: string, iconClasses: string, labelClasses: string, primaryButtonClasses: string, primaryLabel: string, secondaryLabel: string, eyebrowLabel: string, whatNextLabel: string }}
  */
 export const getMediaCompletionPresentation = (journey) => {
   const resolvedJourney = MEDIA_COMPLETION_JOURNEYS.includes(journey) ? journey : 'direct';
@@ -83,6 +96,8 @@ export const getMediaCompletionPresentation = (journey) => {
     labelClasses: tone.label,
     primaryButtonClasses: getJourneyPrimaryActionClasses(resolvedJourney === 'library' || resolvedJourney === 'direct' ? undefined : resolvedJourney),
     primaryLabel: labels.primary,
-    secondaryLabel: labels.secondary
+    secondaryLabel: labels.secondary,
+    eyebrowLabel: EYEBROW_OVERRIDES[resolvedJourney] ?? DEFAULT_EYEBROW,
+    whatNextLabel: WHAT_NEXT_OVERRIDES[resolvedJourney] ?? DEFAULT_WHAT_NEXT
   };
 };

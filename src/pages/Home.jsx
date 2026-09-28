@@ -1322,19 +1322,57 @@ export const Home = () => {
         // cannot support a /<n> modifier (the same class of defect this
         // phase's AnytimeResetProgress.jsx fix addresses).
         <div
-          className="glass-panel p-5 rounded-3xl text-center space-y-6 border-tertiary-tint/40 shadow-mint-glow"
+          className="glass-panel p-5 rounded-3xl text-center space-y-5 border-tertiary-tint/40 shadow-mint-glow"
           style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
         >
-          <div className="space-y-2">
+          {/* Anytime Visual Flow and Closing Handoff uplift (Part 3) —
+              concise eyebrow/heading per the approved copy, replacing the
+              former "Available anytime" / "Take a moment to reset" /
+              longer paragraph trio with one short line. The accurate
+              duration range (1-10 minutes) is the real, honest span
+              across every real Anytime practice this card's own compact
+              cues below link to (Breathe ~1-2 min, Meditate 2/5/10 min,
+              Instant Calm ~2 min - see AnytimeReset.jsx's own
+              QUICK_RESET_ALTERNATIVES for the exact same figures), never
+              a guess. */}
+          <div className="space-y-1.5">
             <span className="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-tint/15 border border-tertiary-tint/30 text-tertiary text-[10px] font-bold uppercase tracking-wider">
-              Available anytime
+              Anytime Reset
             </span>
-            <h3 className="text-xl font-bold leading-tight text-on-surface pt-2">
-              Take a moment to reset
+            <h3 className="text-xl font-bold leading-tight text-on-surface pt-1">
+              Choose what fits your moment.
             </h3>
-            <p className="text-sm text-on-surface-variant font-medium">
-              A short guided pause whenever you need one - no need to wait for Morning or Evening.
-            </p>
+            <p className="text-xs text-on-surface-variant font-medium">About 1-10 minutes</p>
+          </div>
+          {/* Compact visual cues for what's inside an Anytime Reset -
+              Breathe/Meditate/Instant Calm/Explore, the same real,
+              already-shipped practices AnytimeReset.jsx's own Step 3
+              "Or choose another quick reset" already offers. Decorative
+              only (no individual tap targets, no directional arrows
+              between them - they are alternatives, not a required order):
+              Breathe and Meditate already have their own full, prominent,
+              directly-tappable quick-action tiles immediately below (see
+              "Or choose something quick"), so a second, competing set of
+              interactive tiles here would only duplicate them; Instant
+              Calm has no standalone route of its own to link to outside
+              the wizard, and Explore Anytime is already one tap beyond
+              "Start Anytime Reset" (Step 3's own ExploreCard) - this row
+              exists purely to make the card's flexible, non-linear
+              purpose visually legible at a glance. */}
+          <div className="flex items-center justify-center gap-4" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
+            {[
+              { icon: 'air', label: 'Breathe' },
+              { icon: 'self_improvement', label: 'Meditate' },
+              { icon: 'bolt', label: 'Instant Calm' },
+              { icon: 'explore', label: 'Explore' }
+            ].map((cue) => (
+              <span key={cue.label} className="flex flex-col items-center gap-1 w-14" aria-hidden="true">
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-tertiary/15 text-tertiary">
+                  <span className="material-symbols-outlined text-lg">{cue.icon}</span>
+                </span>
+                <span className="text-[9px] font-semibold text-on-surface-variant leading-none">{cue.label}</span>
+              </span>
+            ))}
           </div>
           <Link
             to="/anytime-reset"

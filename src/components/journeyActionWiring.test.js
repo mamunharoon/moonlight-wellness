@@ -34,11 +34,15 @@ describe('Plain per-page primary CTAs — each resolves getJourneyPrimaryActionC
     // getJourneyPrimaryActionClasses helper, just one layer removed from
     // this page's own source. See mediaCompletionPresentation.test.js.
     // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
-    // standalone branch now passes the dynamic journeyTone (see the
-    // describe block below), not a hardcoded 'anytime' literal; only its
-    // non-standalone (Support-embedded) branch still does, which has its
-    // own real, unambiguous Anytime identity.
-    ['../pages/QuietBreathing.jsx', 'anytime', 1],
+    // standalone branch mostly passes the dynamic journeyTone (see the
+    // describe block below), not a hardcoded 'anytime' literal; its
+    // non-standalone (Support-embedded) branch always does, which has its
+    // own real, unambiguous Anytime identity (call site 1). Anytime
+    // Visual Flow and Closing Handoff uplift (Part 10) — the standalone
+    // branch's own honest "ended early" panel ALSO now uses a literal
+    // 'anytime' for its "Choose Another Reset" action, gated on the
+    // explicit anytimeOrigin marker (not journeyTone) - call site 2.
+    ['../pages/QuietBreathing.jsx', 'anytime', 2],
     ['../pages/EveningWindDown.jsx', 'evening', 2],
     ['../pages/EveningBreathing.jsx', 'evening', 2],
     // Evening Meditation completion correction — the new completed
@@ -68,7 +72,11 @@ describe('Shared accent-prop components — each caller passes its own real jour
   it('MeditationSetupPanel.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {
     expect(read('../pages/MorningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="morning"/);
     expect(read('../pages/EveningMeditate.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n\s*journeyTone="evening"/);
-    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel\s*\n\s*compact=\{false\}\s*\n\s*journeyTone=\{journeyTone\}/);
+    // Anytime Visual Flow and Closing Handoff uplift (Part 8) —
+    // SelfGuidedMeditation.jsx now also passes `compact` (aligned with
+    // Morning/Evening's own approved setup structure), plus its own
+    // `purpose` sentence, ahead of journeyTone.
+    expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<MeditationSetupPanel[\s\S]*?compact\s*\n[\s\S]*?journeyTone=\{journeyTone\}/);
   });
 
   it('MeditationActiveSession.jsx: MorningMeditate/EveningMeditate pass their own fixed journeyTone; SelfGuidedMeditation passes its dynamically-resolved one', () => {
@@ -82,9 +90,9 @@ describe('Shared accent-prop components — each caller passes its own real jour
     expect(read('../pages/SelfGuidedMeditation.jsx')).toMatch(/<PreparationCountdown[\s\S]*?accent=\{journeyTone\}/);
   });
 
-  it('MusicPreferenceToggle.jsx and BreathingPatternRow.jsx: QuietBreathing.jsx\'s standalone branch passes the dynamic accent={journeyTone} to both, never a hardcoded literal', () => {
+  it('CompactSoundControl.jsx and BreathingPatternRow.jsx: QuietBreathing.jsx\'s standalone branch passes the dynamic journeyTone/accent={journeyTone} to both, never a hardcoded literal (Anytime Visual Flow and Closing Handoff uplift, Part 7: CompactSoundControl replaces MusicPreferenceToggle here)', () => {
     const source = read('../pages/QuietBreathing.jsx');
-    expect(source).toMatch(/<MusicPreferenceToggle[\s\S]*?accent=\{journeyTone\}/);
+    expect(source).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone=\{journeyTone\} \/>/);
     expect(source).toMatch(/<BreathingPatternRow[\s\S]*?accent=\{journeyTone\}/);
   });
 

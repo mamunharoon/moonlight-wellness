@@ -120,8 +120,9 @@ describe('QuietBreathing.jsx (standalone) — the combined isCompleted/earlyEnde
     expect(standaloneBlock).not.toMatch(/isFresh/);
   });
 
-  it('the mint completed badge (Anytime tone only) is still gated on isCompleted && journeyTone === \'anytime\' - never shown for a genuine early exit', () => {
-    expect(standaloneBlock).toMatch(/isCompleted && journeyTone === 'anytime' \? \(\s*\n\s*<div key="badge"/);
+  it('Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 11) — a genuine completion now branches on the explicit, validated anytimeOrigin marker (never the merely-cosmetic journeyTone): isCompleted && anytimeOrigin renders the shared AnytimeClosingHandoffMessage (its own mint badge/eyebrow/greeting), never shown for a genuine early exit or for a non-anytimeOrigin standalone visit', () => {
+    expect(standaloneBlock).toMatch(/isCompleted && anytimeOrigin \? \(/);
+    expect(standaloneBlock).toMatch(/<AnytimeClosingHandoffMessage active=\{showCompletionPanel\} greeting=\{completionGreeting\} \/>/);
   });
 
   it('the outgoing active-exercise branch (further down the same ternary chain, outside standaloneBlock\'s own deliberately-narrow slice) fades via activeViewExiting, replicating EveningSceneShell\'s own content-container flex/justify-between class', () => {

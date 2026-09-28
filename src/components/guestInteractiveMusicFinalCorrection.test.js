@@ -168,9 +168,9 @@ describe('MusicEntryChoice / Support Quiet Breathing — guest choice is not per
 });
 
 describe('Explicit confirmation: QuietBreathing.jsx final behaviour, standalone vs non-standalone, separate from Breathe.jsx', () => {
-  it('QuietBreathing.jsx standalone=true branch (the earlier round\'s fix) still uses MusicPreferenceToggle + a real Begin gesture, exactly like Breathe.jsx - confirmed independently here', () => {
+  it('QuietBreathing.jsx standalone=true branch (Anytime Visual Flow and Closing Handoff uplift, Part 7) now uses CompactSoundControl instead of MusicPreferenceToggle, same musicPreferenceOn/handleToggleMusicPreference state, plus a real Begin gesture, matching Breathe.jsx\'s own corrected structure', () => {
     const standaloneReturn = quietBreathingSource.slice(quietBreathingSource.indexOf('if (standalone) {'), quietBreathingSource.indexOf('return (\n    <EveningSceneShell'));
-    const toggleCallSite = standaloneReturn.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
+    const toggleCallSite = standaloneReturn.match(/<CompactSoundControl[\s\S]{0,300}\/>/)?.[0] ?? '';
     expect(toggleCallSite).toMatch(/isOn=\{musicPreferenceOn\}/);
     expect(toggleCallSite).toMatch(/onToggle=\{handleToggleMusicPreference\}/);
     // Scoped to the toggle's own call site, not the whole standalone
@@ -178,6 +178,7 @@ describe('Explicit confirmation: QuietBreathing.jsx final behaviour, standalone 
     // with its own, unrelated onSignIn={confirmSignInForVideo} for
     // guided-video protection, which this correction must not touch.
     expect(toggleCallSite).not.toMatch(/isGuest=|onSignIn=/);
+    expect(standaloneReturn).not.toMatch(/<MusicPreferenceToggle/);
   });
 
   it('QuietBreathing.jsx non-standalone (Support) branch uses the ENTIRELY different MusicEntryChoice/musicChoiceMade pattern, never MusicPreferenceToggle/musicPreferenceOn/hasBegun - the two branches remain genuinely distinct code paths, both now guest-accessible via their own respective fix', () => {

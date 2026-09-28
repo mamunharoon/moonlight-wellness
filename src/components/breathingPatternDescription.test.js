@@ -68,36 +68,27 @@ describe('BreathingPatternRow — compact grid-card variant (F5)', () => {
   });
 });
 
-describe('Standalone QuietBreathing.jsx — compact grid + shared description, unchanged by Evening Visual Uplift (Phase 7 touches only EveningBreathing.jsx)', () => {
-  const pages = [
-    ['QuietBreathing.jsx (standalone)', quietBreathingSource]
-  ];
-
-  it.each(pages)('%s imports BreathingPatternDescription and renders it with the live activePattern', (_name, source) => {
-    expect(source).toMatch(/import \{ BreathingPatternDescription \} from '\.\.\/components\/BreathingPatternDescription';/);
-    expect(source).toMatch(/<BreathingPatternDescription pattern=\{activePattern\} \/>/);
+// Anytime Visual Flow and Closing Handoff uplift (Part 7) — QuietBreathing.jsx's
+// standalone branch now matches Breathe.jsx's/EveningBreathing.jsx's own
+// corrected structure below (vertically stacked full-width rows with a
+// real icon, no separate shared description) - superseding the former
+// compact-grid describe block for this file.
+describe('QuietBreathing.jsx (standalone) — Anytime Visual Flow and Closing Handoff uplift: vertically stacked rows replace the compact grid + shared description', () => {
+  it('no longer imports or renders BreathingPatternDescription - each stacked row already shows its own full cadence/duration inline', () => {
+    expect(quietBreathingSource).not.toMatch(/import \{ BreathingPatternDescription \}/);
+    expect(quietBreathingSource).not.toMatch(/<BreathingPatternDescription/);
   });
 
-  it.each(pages)('%s renders the pattern grid as a real 2-column CSS grid (grid-cols-2), not a stacked list of full-width rows', (_name, source) => {
-    expect(source).toMatch(/className="grid grid-cols-2 gap-3" role="radiogroup"/);
+  it('renders BREATHING_PATTERNS as a vertically stacked list (space-y-2), not a 2-column grid', () => {
+    expect(quietBreathingSource).toMatch(/className="space-y-2" role="radiogroup" aria-label="Choose your breathing practice"/);
+    expect(quietBreathingSource).not.toMatch(/grid grid-cols-2 gap-3/);
   });
 
-  it.each(pages)('%s passes compact to every BreathingPatternRow in the grid', (_name, source) => {
-    const mapBlock = source.match(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \([\s\S]*?<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
-    expect(mapBlock).toMatch(/\bcompact\b/);
-  });
-
-  it.each(pages)('%s spans only the LAST pattern (Coherent Breathing, index 4) across both grid columns - the first four stay in their 2x2 arrangement', (_name, source) => {
-    expect(source).toMatch(/className=\{idx === BREATHING_PATTERNS\.length - 1 \? 'col-span-2' : undefined\}/);
-  });
-
-  it.each(pages)('%s: the shared description renders immediately after the grid', (_name, source) => {
-    const gridIndex = source.indexOf('className="grid grid-cols-2 gap-3" role="radiogroup"');
-    const descriptionIndex = source.indexOf('<BreathingPatternDescription pattern={activePattern} />');
-    expect(gridIndex).toBeGreaterThan(-1);
-    expect(descriptionIndex).toBeGreaterThan(gridIndex);
-    // Nothing but the grid's own closing markup sits between them.
-    expect(descriptionIndex - gridIndex).toBeLessThan(700);
+  it('no BreathingPatternRow call site passes compact - every row is the full, non-compact row (with an icon)', () => {
+    const mapBlock = quietBreathingSource.match(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \([\s\S]*?<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
+    expect(mapBlock).not.toBe('');
+    expect(mapBlock).not.toMatch(/\bcompact\b/);
+    expect(mapBlock).toMatch(/icon=\{BREATHING_PATTERN_ICONS\[pattern\.id\]\}/);
   });
 });
 

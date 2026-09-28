@@ -111,9 +111,9 @@ describe('Standalone mode - real pattern selection, genuine Begin gesture, corre
   // automatically appear here with zero code change to this file - this
   // is exactly what's checked below: the map call has no filter/slice
   // applied to BREATHING_PATTERNS before it.
-  it('the standalone picker maps the FULL shared BREATHING_PATTERNS array with no filtering - both Box and Coherent automatically appear here', () => {
+  it('the standalone picker maps the FULL shared BREATHING_PATTERNS array with no filtering - both Box and Coherent automatically appear here (Anytime Visual Flow and Closing Handoff uplift, Part 7: now a vertically stacked list, `(pattern) =>` with no `idx` - the former compact 2-column grid\'s own col-span-2 last-item logic no longer applies)', () => {
     const standaloneReturn = source.slice(source.indexOf('if (standalone) {'), source.lastIndexOf('return (\n    <EveningSceneShell'));
-    expect(standaloneReturn).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
+    expect(standaloneReturn).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
     expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.filter\(/);
     expect(standaloneReturn).not.toMatch(/BREATHING_PATTERNS\.slice\(/);
   });
@@ -245,9 +245,9 @@ describe('Early-end result correction — "End early" no longer silently duplica
     expect(source).toMatch(/onClick=\{handleEndEarly\}/);
   });
 
-  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) for non-Anytime tones (Anytime Breathing completion correction: anytime tone instead shows the new rotating completionGreeting, checked below)', () => {
+  it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) for a non-anytimeOrigin visit (Anytime Visual Flow and Closing Handoff uplift, Part 11: a genuinely anytimeOrigin completion instead renders the shared AnytimeClosingHandoffMessage with the rotating completionGreeting, checked in quietBreathingAnytimeCompletionLifecycle.test.js)', () => {
     expect(source).toMatch(/\{showCompletionPanel \? \(/);
-    expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : \(journeyTone === 'anytime' \? completionGreeting : 'Breathing complete'\)\}/);
+    expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : 'Breathing complete'\}/);
     expect(source).toMatch(/getBreathingAcknowledgement\(journeyTone\)/);
   });
 
@@ -290,13 +290,11 @@ describe('Repeatable use, no interference with another active routine', () => {
 // them via the same allowlisted ?need=&duration= mechanism
 // AnytimeReset.jsx already uses for its post-sign-in resume.
 describe('QuietBreathing.jsx (standalone) — "Choose another quick reset" restores the exact Anytime recommendation it was launched from', () => {
-  it('imports useLocation and reads anytimeNeed/anytimeDuration from router state (via the explicit anytimeOrigin marker) to build the real restore URL, falling back to a bare /anytime-reset only when absent', () => {
+  it('imports useLocation and resolves anytimeOrigin/anytimeResetDestination via the shared, allowlist-validated resolveAnytimeOrigin helper (lib/anytimeOrigin.js) to build the real restore URL, falling back to a bare /anytime-reset only when absent', () => {
     expect(source).toMatch(/import \{ useNavigate, useLocation \} from 'react-router-dom';/);
     expect(source).toMatch(/const location = useLocation\(\);/);
-    expect(source).toMatch(/const anytimeOrigin = Boolean\(location\.state\?\.anytimeNeed && location\.state\?\.anytimeDuration\);/);
-    expect(source).toMatch(
-      /const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(location\.state\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(location\.state\.anytimeDuration\)\}`\s*\n\s*: '\/anytime-reset';/
-    );
+    expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
   });
 
   it('the anytime-tone completion screen\'s "Choose another quick reset" button uses this computed destination, never a bare literal \'/anytime-reset\'', () => {

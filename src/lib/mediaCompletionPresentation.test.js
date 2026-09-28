@@ -4,6 +4,7 @@
 // assertions.
 import { describe, it, expect } from 'vitest';
 import { getMediaCompletionPresentation, MEDIA_COMPLETION_JOURNEYS } from './mediaCompletionPresentation';
+import { ANYTIME_HANDOFF_EYEBROW, ANYTIME_HANDOFF_PROMPT } from '../components/AnytimeClosingHandoff';
 
 describe('getMediaCompletionPresentation - exact approved labels per context', () => {
   it('morning: gold tone, "Continue Morning Routine" primary, "Choose Another Session" secondary', () => {
@@ -68,5 +69,38 @@ describe('getMediaCompletionPresentation - exact approved labels per context', (
       expect(typeof p.primaryButtonClasses).toBe('string');
       expect(p.primaryButtonClasses.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// Anytime Visual Flow and Closing Handoff uplift (Part 9) — eyebrowLabel/
+// whatNextLabel let BetaVideoModal.jsx's own completion overlay show
+// "RESET COMPLETE"/"What feels right now?" for anytime specifically,
+// while every other journey keeps the exact original "Session Complete"/
+// "What would you like to do next?" strings, byte-identical.
+describe('getMediaCompletionPresentation - eyebrowLabel/whatNextLabel (Anytime Visual Flow and Closing Handoff uplift)', () => {
+  it('anytime alone overrides both to the shared handoff\'s own exact copy', () => {
+    const p = getMediaCompletionPresentation('anytime');
+    expect(p.eyebrowLabel).toBe('RESET COMPLETE');
+    expect(p.whatNextLabel).toBe('What feels right now?');
+  });
+
+  it('every other real journey (morning/evening/library/direct) keeps the exact original default strings, byte-identical', () => {
+    for (const journey of ['morning', 'evening', 'library', 'direct']) {
+      const p = getMediaCompletionPresentation(journey);
+      expect(p.eyebrowLabel).toBe('Session Complete');
+      expect(p.whatNextLabel).toBe('What would you like to do next?');
+    }
+  });
+
+  it('an unrecognised/missing journey falls back to the same neutral default eyebrow/prompt as "direct" - never the anytime override', () => {
+    const p = getMediaCompletionPresentation('not-a-real-journey');
+    expect(p.eyebrowLabel).toBe('Session Complete');
+    expect(p.whatNextLabel).toBe('What would you like to do next?');
+  });
+
+  it('the anytime eyebrow/prompt strings are imported from the shared AnytimeClosingHandoff module, not duplicated as a second literal copy', () => {
+    const p = getMediaCompletionPresentation('anytime');
+    expect(p.eyebrowLabel).toBe(ANYTIME_HANDOFF_EYEBROW);
+    expect(p.whatNextLabel).toBe(ANYTIME_HANDOFF_PROMPT);
   });
 });

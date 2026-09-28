@@ -56,15 +56,18 @@ describe('MusicPreferenceToggle — no page passes accent="evening" any more', (
     expect(eveningBreathingSource).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="evening" \/>/);
   });
 
-  // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
-  // standalone branch now passes the dynamic accent={journeyTone},
-  // inheriting whichever journey actually launched it, never a hardcoded
-  // literal of any kind.
-  it('QuietBreathing.jsx (Anytime-family) passes the dynamic accent={journeyTone}, never a hardcoded "evening"/"anytime" literal', () => {
+  // Anytime Visual Flow and Closing Handoff uplift (Part 7) —
+  // QuietBreathing.jsx's standalone branch now also renders
+  // CompactSoundControl (with the dynamic journeyTone={journeyTone}, never
+  // a hardcoded literal) instead of MusicPreferenceToggle, mirroring
+  // Breathe.jsx's/MorningFlow.jsx's/EveningBreathing.jsx's own equivalent
+  // switch. MusicPreferenceToggle is no longer rendered anywhere in this
+  // file at all (its own non-standalone/Support-embedded branch has never
+  // used it directly - that gate is MusicEntryChoice.jsx).
+  it('QuietBreathing.jsx no longer renders MusicPreferenceToggle at all - replaced by CompactSoundControl journeyTone={journeyTone}, never a hardcoded "evening"/"anytime" literal', () => {
     const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).not.toMatch(/accent="evening"/);
-    expect(callSite).not.toMatch(/accent="anytime"/);
-    expect(callSite).toMatch(/accent=\{journeyTone\}/);
+    expect(callSite).toBe('');
+    expect(quietBreathingSource).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone=\{journeyTone\} \/>/);
   });
 
   it('Breathe.jsx and MorningFlow.jsx (Morning) no longer render MusicPreferenceToggle at all (Morning Visual Uplift, Phase 6: replaced by CompactSoundControl journeyTone="morning") - never "evening" either way', () => {

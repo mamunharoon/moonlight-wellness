@@ -17,13 +17,21 @@
  * 'anytime' is only ever passed by AnytimeReset.jsx's own duration rows,
  * reusing the same mint tokens (tertiary/tertiary-tint) as the rest of
  * this phase's uplift.
+ *
+ * Anytime Visual Flow and Closing Handoff uplift — `icon` (additive,
+ * optional, default null): Meditate.jsx's own caller omits it and is
+ * completely unaffected (no icon column renders at all, exact original
+ * layout). AnytimeReset.jsx's own duration step now passes a real
+ * Material Symbol (e.g. "schedule") per Part 5's "clock/time icons"
+ * requirement - purely decorative (aria-hidden), never replacing the
+ * trailing chevron/check state glyph.
  */
 const ROW_ACCENT = {
   primary: { selected: 'border-primary bg-primary-container/20', text: 'text-primary' },
   anytime: { selected: 'border-tertiary bg-tertiary-tint/20', text: 'text-tertiary' }
 };
 
-export const SelectionRow = ({ label, description, selected, onClick, accent = 'primary' }) => {
+export const SelectionRow = ({ label, description, selected, onClick, accent = 'primary', icon = null }) => {
   const tokens = ROW_ACCENT[accent] ?? ROW_ACCENT.primary;
 
   return (
@@ -31,11 +39,16 @@ export const SelectionRow = ({ label, description, selected, onClick, accent = '
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`w-full text-left glass-panel rounded-2xl p-5 flex items-center justify-between gap-3 border transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.99] ${
+      className={`w-full text-left glass-panel rounded-2xl p-5 flex items-center gap-3 border transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.99] ${
         selected ? tokens.selected : 'border-white/10 hover:bg-white/5'
       }`}
     >
-      <span className="min-w-0">
+      {icon && (
+        <span className={`material-symbols-outlined shrink-0 ${selected ? tokens.text : 'text-on-surface-variant'}`} aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
         <span className={`block text-sm font-bold ${selected ? tokens.text : 'text-on-surface'}`}>{label}</span>
         {description && <span className="block text-xs text-on-surface-variant mt-0.5">{description}</span>}
       </span>

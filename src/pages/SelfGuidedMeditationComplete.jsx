@@ -14,6 +14,8 @@ import { useAlarm } from '../context/AlarmContext';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { CompletionReveal } from '../components/CompletionReveal';
+import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
+import { AnytimeClosingHandoff } from '../components/AnytimeClosingHandoff';
 
 /*
  * Self-Guided Meditation — completion screen.
@@ -37,6 +39,15 @@ export const SelfGuidedMeditationComplete = () => {
   const location = useLocation();
   const session = location.state || null;
   const context = resolveSelfGuidedMeditationContext(session?.from);
+  // Anytime Visual Flow and Closing Handoff uplift (Part 11, entry-context
+  // isolation) — the ONE explicit, validated marker this screen uses to
+  // know it was genuinely reached through Anytime Reset's own "Or choose
+  // another quick reset" - never the merely-cosmetic journeyTone (below),
+  // which also resolves to 'anytime' for an unrelated reason (a Home-
+  // direct Meditate tap, or a direct visit, during a plain midday
+  // daypart fallback - see dayPartJourneyTone.js). Computed here, ahead
+  // of every other value that depends on it.
+  const { anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination } = resolveAnytimeOrigin(session);
 
   // Context-aware Breathing/Meditation theming — reads back whatever
   // SelfGuidedMeditation.jsx's own setup screen already captured for
@@ -58,24 +69,23 @@ export const SelfGuidedMeditationComplete = () => {
   // fallback chain), so this is a direct, safe reuse rather than a
   // guess.
   //
-  // Anytime Meditation completion correction — journeyTone === 'anytime'
-  // (the primary, in-scope path this screen exists for) now uses the same
-  // shared getCompletionGreeting({journey, practice}) architecture as
-  // every other Morning/Evening/Anytime completion panel this pass and
-  // the two before it added, instead of the older per-calendar-day
-  // getOutcomeMessage headline/body pair. A direct/Home-launched visit
-  // whose journeyTone resolves to morning/evening (an unrelated daypart-
-  // based colour skin, not the Session Engine's own Morning/Evening
-  // routine) keeps the original getOutcomeMessage rotation completely
-  // unchanged - out of scope for this pass, matching QuietBreathing.jsx's
-  // own identical anytime-only gate.
+  // Anytime Meditation completion correction — genuinely reached through
+  // Anytime Reset (Part 11: anytimeOrigin, not the merely-cosmetic
+  // journeyTone) now uses the same shared getCompletionGreeting({journey,
+  // practice}) architecture as every other Morning/Evening/Anytime
+  // completion panel this pass and the two before it added, instead of
+  // the older per-calendar-day getOutcomeMessage headline/body pair. A
+  // direct/Home-launched visit (not anytimeOrigin) keeps the original
+  // getOutcomeMessage rotation completely unchanged - "existing direct
+  // completion behaviour," matching QuietBreathing.jsx's own identical
+  // gate.
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const { headline: completionHeadline, body: completionBody } = getOutcomeMessage(OUTCOME.COMPLETED, journeyTone, today);
   // Picked exactly once (lazy useState initializer - getCompletionGreeting
   // has real side effects: localStorage read/write + Math.random - never
   // safe to call on every render) and held stable for as long as this
   // screen stays mounted.
-  const [completionGreeting] = useState(() => (journeyTone === 'anytime' ? getCompletionGreeting({ journey: 'anytime', practice: 'meditation' }) : null));
+  const [completionGreeting] = useState(() => (anytimeOrigin ? getCompletionGreeting({ journey: 'anytime', practice: 'meditation' }) : null));
 
   const style = getMeditationStyleById(session?.styleId) || getMeditationStyleById(DEFAULT_MEDITATION_STYLE_ID);
   const duration = getMeditationDurationById(session?.durationId) || getMeditationDurationById(DEFAULT_MEDITATION_DURATION_ID);
@@ -88,23 +98,16 @@ export const SelfGuidedMeditationComplete = () => {
     exitPracticeToHome(navigate, context.fallback);
   };
 
-  // WakeWise DEV — Anytime completion correction: a practice reached
-  // through Anytime Reset's own quick-reset context (journeyTone ===
-  // 'anytime') gets the same two Anytime-specific actions
-  // QuietBreathing.jsx's own completion screen shows, instead of the
-  // generic Done/Meditate Again/Choose Another Meditation trio -
-  // "Choose another quick reset" returns to the real Anytime Reset
-  // recommendation/options screen (need+duration restored via the same
-  // allowlisted query-param mechanism AnytimeReset.jsx already uses for
-  // its post-sign-in restore, never auto-starting a new exercise),
-  // "Return to Home" clears the temporary practice context exactly like
-  // Done always has. Reached any other way (Home/Library's own Meditate
-  // tiles), journeyTone !== 'anytime' and this screen is completely
-  // unchanged.
-  const anytimeOrigin = Boolean(session?.anytimeNeed && session?.anytimeDuration);
-  const anytimeResetDestination = anytimeOrigin
-    ? `/anytime-reset?need=${encodeURIComponent(session.anytimeNeed)}&duration=${encodeURIComponent(session.anytimeDuration)}`
-    : '/anytime-reset';
+  // Anytime Visual Flow and Closing Handoff uplift (Part 9) — a practice
+  // reached through Anytime Reset's own quick-reset context (anytimeOrigin,
+  // computed above) gets the shared three-action AnytimeClosingHandoff
+  // (Continue My Day / Choose Another Reset / Explore More) instead of the
+  // generic Done/Meditate Again/Choose Another Meditation trio. Reached any
+  // other way (Home/Library's own Meditate tiles), anytimeOrigin is false
+  // and this screen is completely unchanged.
+  const anytimeExploreDestination = anytimeOrigin
+    ? `/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(anytimeNeed)}&duration=${encodeURIComponent(anytimeDuration)}`
+    : null;
   // WakeWise DEV — Anytime Back-navigation correction: this screen's own
   // top-left Back (there is no earlier in-flow step on the completion
   // screen itself) now returns to the preserved Anytime Reset
@@ -115,8 +118,11 @@ export const SelfGuidedMeditationComplete = () => {
   const handleChooseAnotherQuickReset = () => {
     exitPracticeToHome(navigate, anytimeResetDestination);
   };
-  const handleReturnToHome = () => {
+  const handleContinueMyDay = () => {
     exitPracticeToHome(navigate, '/');
+  };
+  const handleExploreMore = () => {
+    exitPracticeToHome(navigate, anytimeExploreDestination);
   };
 
   // Both restore the exact same style/duration/sound choices and land back
@@ -189,65 +195,50 @@ export const SelfGuidedMeditationComplete = () => {
           natural completion just now, never for a direct/stale visit -
           the exact same one-shot signal this file's own `session && (...)`
           detail-card guard already relies on below. */}
-      <CompletionReveal
-        active
-        isFresh={Boolean(session)}
-        journeyTone={journeyTone}
-        className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
-        stagger={[
-          // Anytime Meditation completion correction — the required
-          // completed/check visual, mint (tertiary) tokens matching every
-          // other Anytime card shell (bg-tertiary/10 + border-tertiary-
-          // tint/25 + shadow-mint-glow) - never Morning gold or Evening
-          // periwinkle. Non-Anytime tones keep the original bare icon,
-          // unchanged.
-          <div key="badge">
-            {journeyTone === 'anytime' ? (
-              <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
-              </div>
-            ) : (
-              <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
-            )}
-          </div>,
-          <div key="greeting" className="space-y-2">
-            {journeyTone === 'anytime' && (
-              <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Meditation Completed</span>
-            )}
-            <h1 className="font-serif italic text-3xl text-on-surface" role="status">{journeyTone === 'anytime' ? completionGreeting : completionHeadline}</h1>
-            {journeyTone !== 'anytime' && (
-              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
-            )}
-          </div>,
-          session ? (
-            <div key="session-detail" className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
-              <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
+      {anytimeOrigin ? (
+        // Anytime Visual Flow and Closing Handoff uplift (Part 9) — the
+        // one shared closing presentation, replacing this screen's own
+        // former hand-rolled mint badge/eyebrow/greeting/actions block.
+        // The style+duration detail card is preserved as the handoff's
+        // own optional `detail` slot - real, useful, factual information
+        // this pass's brief never asked to remove.
+        <AnytimeClosingHandoff
+          active
+          isFresh={Boolean(session)}
+          greeting={completionGreeting}
+          detail={
+            <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
+              <p className="text-xs text-tertiary font-bold uppercase tracking-wider">{style.label}</p>
               <p className="text-xs text-on-surface-variant">{duration.label}</p>
             </div>
-          ) : null
-        ].filter(Boolean)}
-      />
+          }
+          onContinueMyDay={handleContinueMyDay}
+          onChooseAnotherReset={handleChooseAnotherQuickReset}
+          onExploreMore={anytimeExploreDestination ? handleExploreMore : undefined}
+        />
+      ) : (
+        <>
+          <CompletionReveal
+            active
+            isFresh={Boolean(session)}
+            journeyTone={journeyTone}
+            className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
+            stagger={[
+              <span key="badge" className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>,
+              <div key="greeting" className="space-y-2">
+                <h1 className="font-serif italic text-3xl text-on-surface" role="status">{completionHeadline}</h1>
+                <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
+              </div>,
+              session ? (
+                <div key="session-detail" className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
+                  <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
+                  <p className="text-xs text-on-surface-variant">{duration.label}</p>
+                </div>
+              ) : null
+            ].filter(Boolean)}
+          />
 
-      <div className="space-y-3">
-        {journeyTone === 'anytime' ? (
-          <>
-            <button
-              type="button"
-              onClick={handleChooseAnotherQuickReset}
-              className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-            >
-              <span>Choose Another Reset</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleReturnToHome}
-              className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Return Home
-            </button>
-          </>
-        ) : (
-          <>
+          <div className="space-y-3">
             <button
               type="button"
               onClick={handleDone}
@@ -270,9 +261,9 @@ export const SelfGuidedMeditationComplete = () => {
             >
               Choose Another Meditation
             </button>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -38,7 +38,12 @@ describe('BetaVideoModal.jsx — natural `ended` event is the ONLY gate for the 
 
   it('picks the completion message exactly once, inside the same handleEnded callback, and only when completionContext is present - never for a caller that omitted it', () => {
     const body = source.match(/const handleEnded = \(\) => \{[\s\S]*?\n {4}\};/)?.[0] ?? '';
-    expect(body).toMatch(/if \(completionContext\) setCompletionMessage\(getMediaCompletionMessage\(\)\);/);
+    // Anytime Visual Flow and Closing Handoff uplift — an Anytime-origin
+    // completion now picks from the shared rotating Anytime pool
+    // (getCompletionGreeting) instead of the generic getMediaCompletionMessage()
+    // pool; every other journey keeps the original pool, unaffected.
+    expect(body).toMatch(/if \(completionContext\) \{/);
+    expect(body).toMatch(/completionContext\.journey === 'anytime'\s*\n\s*\? getCompletionGreeting\(\{ journey: 'anytime', practice: 'media' \}\)\s*\n\s*: getMediaCompletionMessage\(\)/);
   });
 
   it('the idempotency ref and the completion message are both reset on every fresh fetch (a genuinely different entry, or Retry) - a second natural completion in the same mounted instance always gets its own fresh pick', () => {
@@ -63,13 +68,15 @@ describe('BetaVideoModal.jsx — the shared completion overlay renders only for 
     expect(source).toMatch(/const mediaCompletionPresentation = completionContext \? getMediaCompletionPresentation\(completionContext\.journey\) : null;/);
   });
 
-  it('shows the required "Session Complete" label, the held completionMessage, and "What would you like to do next?" - never a hardcoded generic string instead of the real rotating message', () => {
+  it('shows the presentation\'s own eyebrow/prompt labels (default "Session Complete"/"What would you like to do next?", overridden to "RESET COMPLETE"/"What feels right now?" only for anytime - see mediaCompletionPresentation.js), the held completionMessage, never a hardcoded generic string instead of the real rotating message', () => {
     const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).not.toBe('');
-    expect(overlayBlock).toMatch(/Session Complete/);
+    expect(overlayBlock).toMatch(/\{mediaCompletionPresentation\.eyebrowLabel\}/);
     expect(overlayBlock).toMatch(/\{completionMessage\}/);
-    expect(overlayBlock).toMatch(/What would you like to do next\?/);
+    expect(overlayBlock).toMatch(/\{mediaCompletionPresentation\.whatNextLabel\}/);
     expect(overlayBlock).not.toMatch(/getMediaCompletionMessage\(\)/);
+    expect(overlayBlock).not.toMatch(/>Session Complete</);
+    expect(overlayBlock).not.toMatch(/>What would you like to do next\?</);
   });
 
   it('never renders both the new overlay and the old generic Done/Paused overlay at once - the old one\'s own guard explicitly excludes hasEnded && completionContext', () => {
@@ -185,8 +192,8 @@ describe('BetaVideoModal.jsx — looping Sleep Soundscapes preserve their existi
 });
 
 describe('BetaVideoModal.jsx — no dormant/unused Part B leftovers, no new content exposure', () => {
-  it('imports getMediaCompletionMessage from outcomeMessages.js (extending the existing shared model, not a competing utility) and getMediaCompletionPresentation from its own dedicated lib file', () => {
-    expect(source).toMatch(/import \{ getMediaCompletionMessage \} from '\.\.\/lib\/outcomeMessages';/);
+  it('imports getMediaCompletionMessage AND getCompletionGreeting from outcomeMessages.js (extending the existing shared model, not a competing utility) and getMediaCompletionPresentation from its own dedicated lib file', () => {
+    expect(source).toMatch(/import \{ getMediaCompletionMessage, getCompletionGreeting \} from '\.\.\/lib\/outcomeMessages';/);
     expect(source).toMatch(/import \{ getMediaCompletionPresentation \} from '\.\.\/lib\/mediaCompletionPresentation';/);
   });
 

@@ -46,3 +46,24 @@ describe('SelectionRow.jsx — Anytime Reset Visual Uplift: accent is additive, 
     expect(source).toMatch(/anytime: \{ selected: 'border-tertiary bg-tertiary-tint\/20', text: 'text-tertiary' \}/);
   });
 });
+
+describe('SelectionRow.jsx — Anytime Visual Flow and Closing Handoff uplift: icon is additive, default keeps Meditate.jsx byte-for-byte unchanged', () => {
+  it('icon defaults to null - Meditate.jsx (never passes icon) renders no icon column at all', () => {
+    expect(source).toMatch(/icon = null/);
+    expect(source).toMatch(/\{icon && \(/);
+  });
+
+  it('the icon, when supplied, is purely decorative (aria-hidden) and never replaces the trailing chevron/check selection glyph', () => {
+    const iconBlock = source.match(/\{icon && \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(iconBlock).toMatch(/aria-hidden="true"/);
+    expect(iconBlock).toMatch(/material-symbols-outlined/);
+    // The trailing selection glyph (chevron_right/check_circle) is a
+    // completely separate span, still present regardless of icon.
+    expect(source).toMatch(/\{selected \? 'check_circle' : 'chevron_right'\}/);
+  });
+
+  it('the icon colours match the row\'s own selected/unselected state (same tokens.text), never a fixed colour independent of selection', () => {
+    const iconBlock = source.match(/\{icon && \([\s\S]*?\)\}/)?.[0] ?? '';
+    expect(iconBlock).toMatch(/selected \? tokens\.text : 'text-on-surface-variant'/);
+  });
+});

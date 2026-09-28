@@ -555,6 +555,92 @@ describe('getCompletionGreeting - evening/routine pool (Rotating 100% Evening co
   });
 });
 
+// Anytime Visual Flow and Closing Handoff uplift (Part 9) — the shared
+// closing handoff (AnytimeClosingHandoff.jsx) reuses this same rotating-
+// pool architecture for Anytime-origin guided media/Instant Calm
+// completions (BetaVideoModal.jsx's own overlay, when
+// completionContext.journey === 'anytime'), replacing the generic,
+// journey-agnostic getMediaCompletionMessage() pool for that one case.
+describe('getCompletionGreeting - anytime/media pool (Anytime Visual Flow and Closing Handoff uplift)', () => {
+  const withMockLocalStorage = (fn) => {
+    const store = new Map();
+    const mock = {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => store.set(key, String(value)),
+      removeItem: (key) => store.delete(key)
+    };
+    const previous = globalThis.localStorage;
+    globalThis.localStorage = mock;
+    try {
+      return fn(mock);
+    } finally {
+      if (previous === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = previous;
+    }
+  };
+
+  const MEDIA_POOL = [
+    'You gave yourself a reset.',
+    'That pause was worth it.',
+    'You made space to reset.',
+    'A short reset can shift your day.',
+    'You’re ready for what comes next.'
+  ];
+
+  it('is exactly the five approved messages', () => {
+    for (let i = 0; i < 20; i += 1) {
+      expect(MEDIA_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'media' }));
+    }
+    expect(MEDIA_POOL).toHaveLength(5);
+  });
+
+  it('every message is short and warm (3-8 words, no statistics/streak language)', () => {
+    for (const message of MEDIA_POOL) {
+      const wordCount = message.trim().split(/\s+/).length;
+      expect(wordCount).toBeGreaterThanOrEqual(3);
+      expect(wordCount).toBeLessThanOrEqual(8);
+      expect(message).not.toMatch(/streak|day \d+|percent|%/i);
+    }
+  });
+
+  it('selects once and avoids immediate repetition, when localStorage is available', () => {
+    withMockLocalStorage(() => {
+      let previous = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+      for (let i = 0; i < 40; i += 1) {
+        const next = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+        expect(next).not.toBe(previous);
+        previous = next;
+      }
+    });
+  });
+
+  it('uses its own independent storage key, isolated from anytime/breathing and anytime/meditation - exhausting one\'s non-repeat memory never affects the others', () => {
+    withMockLocalStorage(() => {
+      const mediaFirst = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+      for (let i = 0; i < 10; i += 1) getCompletionGreeting({ journey: 'anytime', practice: 'breathing' });
+      for (let i = 0; i < 10; i += 1) getCompletionGreeting({ journey: 'anytime', practice: 'meditation' });
+      const mediaSecond = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+      expect(mediaSecond).not.toBe(mediaFirst);
+      expect(MEDIA_POOL).toContain(mediaSecond);
+    });
+  });
+
+  it('degrades safely with no localStorage - still a real pool message every call, just without the repeat-avoidance guarantee', () => {
+    const previous = globalThis.localStorage;
+    // @ts-ignore - deliberately removing localStorage to exercise the
+    // try/catch degrade path, mirroring this file's own established
+    // no-storage tests elsewhere.
+    delete globalThis.localStorage;
+    try {
+      for (let i = 0; i < 10; i += 1) {
+        expect(MEDIA_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'media' }));
+      }
+    } finally {
+      globalThis.localStorage = previous;
+    }
+  });
+});
+
 describe('getBreathingAcknowledgement - honest positive acknowledgement after a single natural breathing-pattern completion (mobile correction #4)', () => {
   it('returns the exact required copy for each real journey', () => {
     expect(getBreathingAcknowledgement(JOURNEY.MORNING)).toBe('Beautifully done. Carry this steady energy into your morning.');

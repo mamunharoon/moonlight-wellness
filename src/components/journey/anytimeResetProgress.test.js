@@ -127,19 +127,27 @@ describe('AnytimeResetProgress - getSegmentClassName: real computed classes, not
   });
 });
 
-describe('AnytimeReset.jsx wiring - separate component, JourneyHeader/Meditate untouched', () => {
-  it('imports and renders AnytimeResetProgress, passing the real stepIndex/stepCount=3', () => {
-    expect(anytimeResetSource).toMatch(/import \{ AnytimeResetProgress \} from '\.\.\/components\/journey\/AnytimeResetProgress';/);
-    expect(anytimeResetSource).toMatch(/<AnytimeResetProgress stepIndex=\{stepIndex\} stepCount=\{3\} \/>/);
+describe('AnytimeReset.jsx wiring - superseded by AnytimePathway (Anytime Visual Flow and Closing Handoff uplift), JourneyHeader/Meditate untouched', () => {
+  // Anytime Visual Flow and Closing Handoff uplift (Part 2) — AnytimeReset.jsx
+  // no longer renders AnytimeResetProgress at all; the Need -> Time -> Reset
+  // decision pathway (AnytimePathway.jsx) replaces it, unconditionally,
+  // outside the per-step ternary. AnytimeResetProgress.jsx itself (and its
+  // own getSegmentClassName, exercised by every describe block above) is
+  // kept, dormant, on disk - not deleted - matching this codebase's own
+  // established "keep dormant code" convention.
+  it('AnytimeReset.jsx no longer imports or renders AnytimeResetProgress', () => {
+    expect(anytimeResetSource).not.toMatch(/import \{ AnytimeResetProgress \}/);
+    expect(anytimeResetSource).not.toMatch(/<AnytimeResetProgress/);
   });
 
-  it('JourneyHeader is no longer passed stepIndex/stepCount here - its own dot block can never activate for this page any more', () => {
+  it('AnytimeReset.jsx instead imports and renders AnytimePathway, unconditionally (outside the step === \'need\'/\'duration\'/\'recommend\' branches), deriving currentStageId from the same live `step` state', () => {
+    expect(anytimeResetSource).toMatch(/import \{ AnytimePathway \} from '\.\.\/components\/AnytimePathway';/);
+    expect(anytimeResetSource).toMatch(/<AnytimePathway currentStageId=\{step === 'need' \? 'need' : step === 'duration' \? 'time' : 'reset'\} needSelected=\{Boolean\(needId\)\} timeSelected=\{Boolean\(durationId\)\} \/>/);
+  });
+
+  it('JourneyHeader is still never passed stepIndex/stepCount here - its own dot block can never activate for this page', () => {
     const headerCall = anytimeResetSource.match(/<JourneyHeader[\s\S]*?\/>/)?.[0] ?? '';
     expect(headerCall).not.toMatch(/stepIndex|stepCount/);
-  });
-
-  it('stepIndex itself is still computed the same real way from the live step - never a stale/hard-coded value', () => {
-    expect(anytimeResetSource).toMatch(/const stepIndex = step === 'need' \? 0 : step === 'duration' \? 1 : 2;/);
   });
 
   it('JourneyHeader.jsx itself is completely unmodified - still supports optional stepIndex/stepCount for its own dots (Meditate.jsx\'s own usage is untouched)', () => {

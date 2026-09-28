@@ -79,12 +79,13 @@ describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required 
     expect(source).not.toMatch(/OUTCOME\.COMPLETED/);
   });
 
-  it('the recommend step never renders a second, page-level completion panel any more - it always falls straight to the RecommendationCard (or the no-match state); the actual completion acknowledgement is BetaVideoModal\'s own overlay\'s "Choose Another Session"/"Return Home" pair', () => {
+  it('the recommend step never renders a second, page-level completion panel any more - it always falls straight to the RecommendationCard (or the no-match state); the actual completion acknowledgement is BetaVideoModal\'s own shared overlay, now the three-action AnytimeClosingHandoffActions row (Anytime Visual Flow and Closing Handoff uplift, Part 9)', () => {
     expect(recommendStep).toMatch(/\{current \? \(\s*\n\s*<RecommendationCard/);
     expect(recommendStep).not.toMatch(/isComplete \? \(/);
     const completionContextBlock = source.match(/completionContext=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
-    expect(completionContextBlock).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
-    expect(completionContextBlock).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\}/);
+    expect(completionContextBlock).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\},/);
+    expect(completionContextBlock).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
+    expect(completionContextBlock).toMatch(/onExploreMore: \(\) => \{/);
   });
 
   it('handlePlayAgain no longer exists - replaced by the plain setIsComplete(false) above, which reuses handleBegin\'s own guest/auth-verified path implicitly by simply re-showing the same RecommendationCard, never auto-starting anything', () => {

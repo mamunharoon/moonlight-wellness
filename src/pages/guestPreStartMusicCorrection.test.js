@@ -48,8 +48,8 @@ describe('1. Guest pre-start On/Off does not navigate or invoke authentication',
     });
   }
 
-  it('QuietBreathing.jsx standalone branch: same call site has neither prop either', () => {
-    const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
+  it('QuietBreathing.jsx standalone branch (Anytime Visual Flow and Closing Handoff uplift, Part 7): CompactSoundControl replaces MusicPreferenceToggle here and carries neither prop either - it never routes a guest to sign-in', () => {
+    const callSite = quietBreathingSource.match(/<CompactSoundControl[\s\S]{0,300}\/>/)?.[0] ?? '';
     expect(callSite).not.toBe('');
     expect(callSite).not.toMatch(/isGuest=/);
     expect(callSite).not.toMatch(/onSignIn=/);
@@ -203,11 +203,13 @@ describe('8. Morning, Evening, Anytime and standalone breathing styling remains 
   });
 
   // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
-  // standalone branch now passes the dynamic accent={journeyTone},
+  // standalone branch now passes the dynamic journeyTone (Anytime Visual
+  // Flow and Closing Handoff uplift, Part 7: CompactSoundControl's own
+  // `journeyTone` prop, replacing MusicPreferenceToggle's `accent` here),
   // inheriting whichever journey launched it, never a hardcoded literal.
-  it('QuietBreathing.jsx (Anytime-family/standalone) passes the dynamic accent={journeyTone}', () => {
-    const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent=\{journeyTone\}/);
+  it('QuietBreathing.jsx (Anytime-family/standalone) passes the dynamic journeyTone={journeyTone} to CompactSoundControl', () => {
+    const callSite = quietBreathingSource.match(/<CompactSoundControl[\s\S]{0,300}\/>/)?.[0] ?? '';
+    expect(callSite).toMatch(/journeyTone=\{journeyTone\}/);
   });
 
   it('the ACCENT_TOKENS map itself (primary/morning/evening) is completely unchanged by this correction', () => {

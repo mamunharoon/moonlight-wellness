@@ -52,28 +52,21 @@ describe('MusicPreferenceToggle — default behaviour is genuinely unchanged', (
   });
 });
 
-describe('MusicPreferenceToggle — real consumer inventory (Morning Visual Uplift Phase 6, then Evening Visual Uplift Phase 7: all three pre-start breathing screens now use the compact CompactSoundControl instead - see CompactSoundControl.test.js)', () => {
-  it('QuietBreathing.jsx (Anytime) still imports and renders MusicPreferenceToggle, untouched by this pass', () => {
-    expect(quietBreathingSource).toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
-    expect(quietBreathingSource).toMatch(/<MusicPreferenceToggle/);
-  });
-
-  it('Breathe.jsx, MorningFlow.jsx (Morning) and EveningBreathing.jsx (Evening Visual Uplift, Phase 7) no longer import or render MusicPreferenceToggle - each replaced by the compact CompactSoundControl in its own journeyTone', () => {
-    for (const [source, tone] of [[breatheSource, 'morning'], [morningFlowSource, 'morning'], [eveningBreathingSource, 'evening']]) {
+describe('MusicPreferenceToggle — real consumer inventory (Morning Visual Uplift Phase 6, Evening Visual Uplift Phase 7, then Anytime Visual Flow and Closing Handoff uplift: all four pre-start breathing screens now use the compact CompactSoundControl instead - see CompactSoundControl.test.js)', () => {
+  it('Breathe.jsx, MorningFlow.jsx (Morning), EveningBreathing.jsx (Evening) and QuietBreathing.jsx\'s standalone branch (Anytime) no longer import or render MusicPreferenceToggle - each replaced by the compact CompactSoundControl in its own journeyTone', () => {
+    for (const [source, tone] of [[breatheSource, 'morning'], [morningFlowSource, 'morning'], [eveningBreathingSource, 'evening'], [quietBreathingSource, '{journeyTone}']]) {
       expect(source).not.toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
       expect(source).not.toMatch(/<MusicPreferenceToggle/);
       expect(source).toMatch(/import \{ CompactSoundControl \} from '\.\.\/components\/CompactSoundControl';/);
-      expect(source).toMatch(new RegExp(`<CompactSoundControl isOn=\\{musicPreferenceOn\\} onToggle=\\{handleToggleMusicPreference\\} journeyTone="${tone}" \\/>`));
+      const toneAttr = tone === '{journeyTone}' ? 'journeyTone=\\{journeyTone\\}' : `journeyTone="${tone}"`;
+      expect(source).toMatch(new RegExp(`<CompactSoundControl isOn=\\{musicPreferenceOn\\} onToggle=\\{handleToggleMusicPreference\\} ${toneAttr} \\/>`));
     }
   });
 });
 
-describe('MusicPreferenceToggle — QuietBreathing.jsx is the only remaining real caller, and passes the dynamic accent={journeyTone}, never a hardcoded literal', () => {
-  it('QuietBreathing.jsx passes the dynamic accent={journeyTone} to MusicPreferenceToggle, never a hardcoded "morning"/"evening"/"anytime" literal', () => {
+describe('MusicPreferenceToggle — no real caller remains in any of Morning/Evening/Anytime\'s standalone breathing screens', () => {
+  it('QuietBreathing.jsx renders no MusicPreferenceToggle call site at all (its own non-standalone/Support-embedded branch has never used it directly - that gate is MusicEntryChoice.jsx)', () => {
     const callSite = quietBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).not.toMatch(/accent="morning"/);
-    expect(callSite).not.toMatch(/accent="evening"/);
-    expect(callSite).not.toMatch(/accent="anytime"/);
-    expect(callSite).toMatch(/accent=\{journeyTone\}/);
+    expect(callSite).toBe('');
   });
 });

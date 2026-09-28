@@ -207,6 +207,21 @@ const COMPLETION_GREETINGS = {
       'A few quiet minutes matter.',
       'Carry this clearer feeling forward.',
       'You chose a moment of stillness.'
+    ],
+    // Anytime Visual Flow and Closing Handoff uplift — the shared closing
+    // handoff (AnytimeClosingHandoff.jsx) reuses this exact same rotating-
+    // pool architecture for Anytime-origin guided media/Instant Calm
+    // completions, replacing the generic, journey-agnostic
+    // getMediaCompletionMessage() pool BetaVideoModal.jsx otherwise uses
+    // for every other journey (morning/evening/library/direct, all
+    // unaffected). A natural extension of this file's own established
+    // (journey, practice) shape, not a new architecture.
+    media: [
+      'You gave yourself a reset.',
+      'That pause was worth it.',
+      'You made space to reset.',
+      'A short reset can shift your day.',
+      'You’re ready for what comes next.'
     ]
   },
   // Evening Breathing/Meditation completion correction — breathing's own

@@ -27,14 +27,14 @@ const completedPanelEnd = source.indexOf(') : countdown.isActive ? (');
 const completedPanel = source.slice(completedPanelStart, completedPanelEnd);
 
 describe('QuietBreathing.jsx (standalone, Anytime) — completion is an explicit, authoritative state', () => {
-  it('the completion-detecting interval callback is the ONE place that detects completion and synchronously stops itself, stops music, picks the Anytime greeting (only when journeyTone === \'anytime\'), and sets isCompleted', () => {
-    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, journeyTone\]\);/)?.[0] ?? '';
+  it('the completion-detecting interval callback is the ONE place that detects completion and synchronously stops itself, stops music, picks the Anytime greeting (only when anytimeOrigin - Part 11 entry-context isolation, never the merely-cosmetic journeyTone), and sets isCompleted', () => {
+    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin\]\);/)?.[0] ?? '';
     expect(standaloneEffect).not.toBe('');
     expect(standaloneEffect).toMatch(/current\.tick\(\)/);
     const completedBranch = standaloneEffect.match(/if \(completed\) \{([\s\S]*?)setIsCompleted\(true\);\s*\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
     expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(completedBranch).toMatch(/if \(journeyTone === 'anytime'\) \{\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'anytime', practice: 'breathing' \}\)\);\s*\n\s*\}/);
+    expect(completedBranch).toMatch(/if \(anytimeOrigin\) \{\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'anytime', practice: 'breathing' \}\)\);\s*\n\s*\}/);
   });
 
   it('the effect never runs while !standalone, and refuses to (re)start once isCompleted or the Back/End-early dialog is open', () => {
@@ -42,7 +42,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion is an explicit
   });
 
   it('a fresh createBreathingSession is only ever created from countdown.onComplete (the one true "start a fresh session" entry point) - never re-created by the interval effect itself', () => {
-    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, journeyTone\]\);/)?.[0] ?? '';
+    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin\]\);/)?.[0] ?? '';
     expect(standaloneEffect).not.toMatch(/createBreathingSession/);
     const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);\s*\n\s*sessionRef\.current\.begin\(\);/);
@@ -64,40 +64,61 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion greeting is pi
     expect(setterCalls.filter((c) => c.includes('null')).length).toBe(2);
   });
 
-  it('the completed panel (Anytime tone only) renders the held completionGreeting value directly as the heading - never calls getCompletionGreeting again in JSX', () => {
+  it('Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 11) — the completed panel renders the held completionGreeting via the shared AnytimeClosingHandoffMessage, gated on the explicit anytimeOrigin marker (never journeyTone), and never calls getCompletionGreeting again in JSX', () => {
     expect(completedPanel).not.toBe('');
-    expect(completedPanel).toMatch(/journeyTone === 'anytime' \? completionGreeting : 'Breathing complete'/);
+    expect(completedPanel).toMatch(/isCompleted && anytimeOrigin \? \(/);
+    expect(completedPanel).toMatch(/<AnytimeClosingHandoffMessage active=\{showCompletionPanel\} greeting=\{completionGreeting\} \/>/);
     expect(completedPanel).not.toMatch(/getCompletionGreeting\(/);
   });
 });
 
-describe('QuietBreathing.jsx (standalone, Anytime) — mint completed/check visual, "Breathing Completed" label, never shown for early exit or non-Anytime tones', () => {
-  it('the mint badge and "Breathing Completed" label are gated on isCompleted && journeyTone === \'anytime\' - never rendered for earlyEnded or a non-Anytime completion', () => {
-    expect(completedPanel).toMatch(/isCompleted && journeyTone === 'anytime' \? \(\s*\n\s*<div key="badge" className="w-20 h-20 rounded-full bg-tertiary\/10 border border-tertiary-tint\/25 shadow-mint-glow flex items-center justify-center mx-auto">/);
-    expect(completedPanel).toMatch(/\{isCompleted && journeyTone === 'anytime' && \(\s*\n\s*<span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed<\/span>/);
+describe('QuietBreathing.jsx (standalone, Anytime) — mint completed/check visual, "RESET COMPLETE" eyebrow, never shown for early exit or non-Anytime tones', () => {
+  // Anytime Visual Flow and Closing Handoff uplift (Part 9) — the mint
+  // badge/eyebrow markup itself now lives once, shared, in
+  // AnytimeClosingHandoff.jsx (see anytimeClosingHandoff.test.js) rather
+  // than being duplicated inline here. This file only proves the GATE is
+  // correct: genuinely anytimeOrigin only, never a non-anytimeOrigin
+  // standalone visit or a genuine early exit (earlyEnded is a completely
+  // separate branch of the same outer ternary, never reaching
+  // AnytimeClosingHandoffMessage at all).
+  it('the shared closing handoff message is only ever reached via isCompleted && anytimeOrigin - a genuine early exit (earlyEnded) always falls to the plain CompletionReveal branch instead', () => {
+    expect(completedPanel).toMatch(/isCompleted && anytimeOrigin \? \(/);
+    const nonHandoffBranch = completedPanel.slice(completedPanel.indexOf(') : ('));
+    expect(nonHandoffBranch).toMatch(/earlyEnded \? 'Session ended early' : 'Breathing complete'/);
+    expect(nonHandoffBranch).not.toMatch(/AnytimeClosingHandoffMessage/);
   });
 
-  it('never uses Morning gold or Evening periwinkle tokens - only tertiary/mint', () => {
+  it('never uses Morning gold or Evening periwinkle tokens anywhere in this panel - only tertiary/mint (via the shared handoff) or the plain non-Anytime treatment', () => {
     expect(completedPanel).not.toMatch(/morning-accent|evening-accent/);
   });
 });
 
-describe('QuietBreathing.jsx (standalone, Anytime) — Choose Another Reset restores the exact prior recommendation; Return Home clears temporary context', () => {
-  it('"Choose Another Reset" calls exitPracticeToHome with the preserved anytimeResetDestination (need+duration restored via the existing allowlisted query-param mechanism) - never auto-starts a new exercise', () => {
+describe('QuietBreathing.jsx (standalone, Anytime) — Choose Another Reset restores the exact prior recommendation; Continue My Day clears temporary context', () => {
+  it('a genuine completion (isCompleted && anytimeOrigin) passes the shared AnytimeClosingHandoffActions its own onContinueMyDay/onChooseAnotherReset handlers, both routed through exitPracticeToHome - never auto-starting a new exercise', () => {
     // Completion-transition-tuning pass — these actions now render as
     // their own sibling, gated on the RAW isCompleted || earlyEnded
     // (immediate, never delayed behind CompletionReveal's own hold+
     // exit-fade+stagger sequence) - see that sibling block's own doc
     // comment. No longer inside completedPanel's own narrower slice.
     expect(source).toMatch(/\{\(isCompleted \|\| earlyEnded\) && \(/);
-    expect(source).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
-    expect(source).toMatch(/<span>Choose Another Reset<\/span>/);
-    expect(source).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return Home/);
+    expect(source).toMatch(/<AnytimeClosingHandoffActions\s*\n\s*onContinueMyDay=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}\s*\n\s*onChooseAnotherReset=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
+    // The shared component itself (AnytimeClosingHandoff.jsx) owns the
+    // real "Continue My Day"/"Choose Another Reset" button labels - see
+    // anytimeClosingHandoff.test.js for that coverage.
   });
 
-  it('anytimeResetDestination preserves needId/durationId via the same allowlisted ?need=&duration= shape AnytimeReset.jsx itself uses for its own post-sign-in restore - never a generic/bare destination when anytimeOrigin', () => {
-    expect(source).toMatch(/const anytimeOrigin = Boolean\(location\.state\?\.anytimeNeed && location\.state\?\.anytimeDuration\);/);
-    expect(source).toMatch(/const anytimeResetDestination = anytimeOrigin\s*\n\s*\? `\/anytime-reset\?need=\$\{encodeURIComponent\(location\.state\.anytimeNeed\)\}&duration=\$\{encodeURIComponent\(location\.state\.anytimeDuration\)\}`\s*\n\s*: '\/anytime-reset';/);
+  it('the earlyEnded && anytimeOrigin branch (a genuine early exit, not a completion) still renders its own inline "Choose Another Reset"/"Continue My Day" pair, routed through exitPracticeToHome the same way', () => {
+    expect(source).toMatch(/\) : earlyEnded && anytimeOrigin \? \(/);
+    const earlyEndedBlock = source.slice(source.indexOf(') : earlyEnded && anytimeOrigin ? ('), source.indexOf(') : (', source.indexOf(') : earlyEnded && anytimeOrigin ? (')));
+    expect(earlyEndedBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
+    expect(earlyEndedBlock).toMatch(/<span>Choose Another Reset<\/span>/);
+    expect(earlyEndedBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}/);
+    expect(earlyEndedBlock).toMatch(/Continue My Day/);
+  });
+
+  it('anytimeOrigin/anytimeResetDestination are now resolved via the shared, allowlist-validated resolveAnytimeOrigin helper (lib/anytimeOrigin.js) - never a generic/bare destination when genuinely anytimeOrigin (Anytime Visual Flow and Closing Handoff uplift, Part 11)', () => {
+    expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
   });
 });
 
@@ -172,8 +193,9 @@ describe('QuietBreathing.jsx (standalone) — starting another practice creates 
 });
 
 describe('QuietBreathing.jsx — Home/direct launch (no Anytime origin) is unaffected', () => {
-  it('a direct standalone visit (journeyTone resolves to something other than \'anytime\', or anytimeOrigin is false) still shows the original Done/Breathe again pair and the plain getBreathingAcknowledgement string - completely untouched by this pass\'s Anytime-specific additions', () => {
-    expect(source).toMatch(/journeyTone !== 'anytime' \? \(/);
+  it('a direct standalone visit (anytimeOrigin false - Part 11 entry-context isolation) still shows the original Done/Breathe again pair and the plain getBreathingAcknowledgement string - the final, unconditional else branch of the isCompleted && anytimeOrigin / earlyEnded && anytimeOrigin ternary chain, completely untouched by this pass\'s Anytime-specific additions', () => {
+    expect(source).toMatch(/isCompleted && anytimeOrigin \? \(/);
+    expect(source).toMatch(/\) : earlyEnded && anytimeOrigin \? \(/);
     expect(source).toMatch(/<span>Done<\/span>/);
     expect(source).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]{0,400}Breathe again/);
   });

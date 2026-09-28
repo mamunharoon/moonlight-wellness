@@ -41,7 +41,10 @@ describe('QuietBreathing.jsx (standalone) — isCompleted is an explicit, author
   });
 
   it('the standalone completion-detecting interval callback stops itself and any playing music synchronously, in the same step that sets isCompleted', () => {
-    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, journeyTone\]\);/)?.[0] ?? '';
+    // Anytime Visual Flow and Closing Handoff uplift (Part 11) — the
+    // effect's dependency array now closes over anytimeOrigin (the
+    // explicit, validated marker), not the merely-cosmetic journeyTone.
+    const standaloneEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!standalone\) return;\s*\n\s*if \(!hasBegun \|\| earlyEnded \|\| isCompleted \|\| endConfirmOpen\) return;[\s\S]*?\n\s*\}, \[standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin\]\);/)?.[0] ?? '';
     expect(standaloneEffect).not.toBe('');
     const completedBranch = standaloneEffect.match(/if \(completed\) \{([\s\S]*?)setIsCompleted\(true\);\s*\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).not.toBe('');
