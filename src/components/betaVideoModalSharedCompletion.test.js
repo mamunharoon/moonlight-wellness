@@ -20,7 +20,7 @@ const source = read('./BetaVideoModal.jsx');
 
 describe('BetaVideoModal.jsx — completionContext is additive and optional', () => {
   it('defaults to null - every existing caller that omits it is unaffected', () => {
-    expect(source).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded, completionContext = null \}\) => \{/);
+    expect(source).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded, completionContext = null, onDurationKnown \}\) => \{/);
   });
 
   it('this component still never imports react-router or the Session Engine - it can never navigate or record a host exercise\'s completion on its own, regardless of completionContext', () => {

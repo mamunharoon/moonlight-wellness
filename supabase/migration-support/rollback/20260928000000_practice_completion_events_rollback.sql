@@ -1,0 +1,21 @@
+-- Manual rollback for 20260928000000_practice_completion_events.sql.
+--
+-- NEVER auto-applied - the Supabase CLI only tracks files inside
+-- supabase/migrations/ as pending migrations (see
+-- supabase/migration-support/README.md). Run this by hand only, e.g.
+-- `supabase db query --linked -f <this file>`, and only against the
+-- linked DEV project (kvdxuhyndevrfvsalgnx / "Moonlight Wellness").
+--
+-- *** DESTRUCTIVE ***
+-- DROP TABLE removes every stored completion event for every user,
+-- permanently. This is a genuine record of real practice completions
+-- (Morning/Evening routines, guided-video meditations) - do not run this
+-- against DEV without deliberate intent to discard that history, and never
+-- against PROD (wqpszprbuqdjcfmdqdlv) under any circumstance; this table
+-- does not exist there and this script must never be pointed at it.
+--
+-- Scoped to ONLY this migration's own objects. Does not touch
+-- routine_responses, dailyCompletion.js's localStorage flags, or any other
+-- table - none of those are created or altered by the forward migration.
+
+DROP TABLE IF EXISTS public.practice_completion_events;

@@ -14,6 +14,7 @@ import { getEveningCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
+import { recordPracticeCompletion } from '../lib/practiceCompletions';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -102,6 +103,49 @@ export const EveningComplete = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.status, currentStep, completeSession]);
+
+  // "Your Momentum" foundation, Phase 2 — this new completion EVENT (a
+  // separate concern from the daily completion-date flag above - see
+  // practiceCompletions.js) mirrors this screen's own already-correct
+  // mount-time pattern: it fires the instant state.completionEventId is
+  // genuinely minted, never on a direct/stale visit (state.completionEventId
+  // is only ever set by a genuine COMPLETE_SESSION transition). A separate
+  // effect from the one above (keyed on completionEventId, not
+  // [state.status, currentStep, completeSession]) because completeSession()
+  // above only DISPATCHES the action that mints completionEventId - the
+  // minted value itself isn't available on `state` until the next render,
+  // which is exactly when this effect re-runs and reads it.
+  // recordPracticeCompletion's own database uniqueness constraint (never a
+  // React ref alone) is what actually keeps this to one row per id even if
+  // this effect is ever double-invoked (StrictMode) or this screen is
+  // later revisited.
+  //
+  // Duration policy correction — identical to Morning's own
+  // (SessionComplete.jsx): deliberately NULL, never
+  // state.updatedAt - state.startedAt. That elapsed wall-clock span
+  // includes any time genuinely spent interrupted/backgrounded mid-routine
+  // (INTERRUPT_SESSION/RESUME_SESSION both advance updatedAt), so it would
+  // silently overstate real engaged time - reported as fact, that is a
+  // false claim, not an honest estimate. The Session Engine has no
+  // accumulator that tracks only genuinely active (non-paused) time, and
+  // Phase 2 is deliberately not building one - see practiceCompletions.js's
+  // own doc comment. Routine mindful-minute insights are simply
+  // unavailable until a real, verified active-duration measurement exists;
+  // this column staying NULL for every Morning/Evening row is the honest
+  // reflection of that, not a bug to work around later by approximating it
+  // here.
+  useEffect(() => {
+    if (state.status !== 'completed' || !state.completionEventId) return;
+    recordPracticeCompletion({
+      userId,
+      isGuest: !userId,
+      sessionId: state.completionEventId,
+      journey: 'evening',
+      practiceType: 'full_routine',
+      durationSeconds: null,
+      timezone: effectiveTimezone
+    });
+  }, [state.status, state.completionEventId, userId, effectiveTimezone]);
 
   const handleReturnHome = () => {
     if (state.sessionId) {

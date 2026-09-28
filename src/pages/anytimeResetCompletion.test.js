@@ -26,7 +26,7 @@ const source = read('./AnytimeReset.jsx');
 
 describe('BetaVideoModal.jsx — new onEnded callback, additive', () => {
   it('accepts an optional onEnded prop, defaulting to undefined (plus the later, equally additive completionContext = null - guided-media completion phase)', () => {
-    expect(modalSource).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded, completionContext = null \}\) => \{/);
+    expect(modalSource).toMatch(/export const BetaVideoModal = \(\{ entry, onClose, showBetaBadge = false, onEnded, completionContext = null, onDurationKnown \}\) => \{/);
   });
 
   it('calls onEnded from the real native `ended` event handler, alongside the existing setHasEnded(true) - never from onClose', () => {

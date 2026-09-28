@@ -89,7 +89,7 @@ const formatRemaining = (ms) => {
  * whether a caller passes `completionContext` - their own existing
  * timerEnded/"Play again" contract, below, is completely unaffected.
  */
-export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded, completionContext = null }) => {
+export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded, completionContext = null, onDurationKnown }) => {
   const { isGuest } = useAuth();
   const isSleepSound = entry.category === 'Sleep Soundscapes';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
@@ -696,7 +696,19 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   setTimerEnded(false);
                 }}
                 onPause={() => setIsVideoPlaying(false)}
-                onLoadedMetadata={(e) => cacheDurationSeconds(entry.id, e.currentTarget.duration)}
+                onLoadedMetadata={(e) => {
+                  cacheDurationSeconds(entry.id, e.currentTarget.duration);
+                  // "Your Momentum" foundation, Phase 2 — the genuine,
+                  // exact-seconds media duration (this cosmetic cache above
+                  // only ever stores whole minutes), for a caller that
+                  // wants to credit a real completion with its real
+                  // duration rather than a selected/estimated one. Fires
+                  // once metadata is available, always well before `ended`
+                  // can ever fire for this same element - optional, additive;
+                  // every existing caller that omits this prop is
+                  // completely unaffected.
+                  onDurationKnown?.(e.currentTarget.duration);
+                }}
                 // Fallback-fullscreen, Defect 2 fix: the SAME <video>
                 // element is simply repositioned full-viewport via CSS
                 // when neither native fullscreen API is available -

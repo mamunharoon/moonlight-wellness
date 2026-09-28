@@ -14,6 +14,7 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
+import { recordPracticeCompletion } from '../lib/practiceCompletions';
 
 const RING_CIRCUMFERENCE = 276.46;
 
@@ -51,11 +52,81 @@ export const SessionComplete = () => {
   // an empty ring first.
   const [ringFilled, setRingFilled] = useState(() => !isFreshCompletion || reducedMotion);
 
+  // "Your Momentum" foundation, Phase 2 — integrity fix: the daily
+  // completion-date flag below used to be written only on "Continue to My
+  // Day" (handleReturnHome), which meant a genuinely completed Morning
+  // routine could be lost entirely if the app was closed/backgrounded
+  // before that tap. Moved here, into the same mount effect that already
+  // calls completeSession() - EveningComplete.jsx's own already-proven
+  // mount-time pattern - so both the flag and completeSession() fire
+  // together, synchronously, the instant this screen is genuinely reached
+  // via a real natural completion. The CTA (handleReturnHome) below is now
+  // navigation/cleanup only - it never needs to run for this flag to be
+  // set. Only ever runs when state.status is genuinely 'playing' at this
+  // exact terminal step - a direct/stale visit, or an already-completed
+  // remount/revisit, leaves this branch untouched (state.status is then
+  // never 'playing'), so the flag can never be set twice or set falsely.
   useEffect(() => {
     if (state.status === 'playing' && currentStep?.id === 'complete') {
       completeSession();
+      // "Repeat Morning Routine"/"Resume Previous Routine" remediation -
+      // a session resumed from a genuinely stale (prior local day)
+      // snapshot is pinned to its own original dateKey, so its completion
+      // credits that original day, never today; an ordinary session
+      // (including one spanning a local midnight) still credits "now".
+      // User-scoped: writes to the CURRENT identity's own key
+      // (dailyCompletion.js), so this completion is never later read back
+      // as a different user's.
+      const pinnedDateKey = getPinnedRoutineDate(state.sessionId);
+      const attributionDateKey = pinnedDateKey ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
+      const morningDoneKey = getMorningCompletionKey(userId);
+      if (shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
+        localStorage.setItem(morningDoneKey, attributionDateKey);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.status, currentStep, completeSession]);
+
+  // "Your Momentum" foundation, Phase 2 — this new completion EVENT (a
+  // separate concern from the daily completion-date flag above - see
+  // practiceCompletions.js) follows Evening's own proven mount-time
+  // pattern too: it fires the instant state.completionEventId is genuinely
+  // minted (the COMPLETE_SESSION transition above, or an already-completed
+  // remount/resume - never a direct/stale visit, since state.status is
+  // then never 'completed' with a real completionEventId to begin with).
+  // Keyed on completionEventId
+  // rather than [state.status, currentStep, completeSession] like the
+  // effect above, so it never re-fires on an unrelated re-render once this
+  // exact id has already been seen - and recordPracticeCompletion's own
+  // database uniqueness constraint (never a React ref alone) is what
+  // actually keeps this to one row per id even if this effect is ever
+  // double-invoked (StrictMode) or this screen is later revisited.
+  //
+  // Duration policy correction — deliberately NULL, never
+  // state.updatedAt - state.startedAt. That elapsed wall-clock span is not
+  // a mindful/active-duration measurement: it includes any time genuinely
+  // spent interrupted/backgrounded mid-routine (INTERRUPT_SESSION/
+  // RESUME_SESSION both advance updatedAt), so it would silently overstate
+  // real engaged time - reported as fact, that is a false claim, not an
+  // honest estimate. The Session Engine has no accumulator that tracks
+  // only genuinely active (non-paused) time, and Phase 2 is deliberately
+  // not building one - see practiceCompletions.js's own doc comment.
+  // Routine mindful-minute insights are simply unavailable until a real,
+  // verified active-duration measurement exists; this column staying NULL
+  // for every Morning/Evening row is the honest reflection of that, not a
+  // bug to work around later by approximating it here.
+  useEffect(() => {
+    if (state.status !== 'completed' || !state.completionEventId) return;
+    recordPracticeCompletion({
+      userId,
+      isGuest: !userId,
+      sessionId: state.completionEventId,
+      journey: 'morning',
+      practiceType: 'full_routine',
+      durationSeconds: null,
+      timezone: effectiveTimezone
+    });
+  }, [state.status, state.completionEventId, userId, effectiveTimezone]);
 
   useEffect(() => {
     if (ringFilled) return;
@@ -70,41 +141,17 @@ export const SessionComplete = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // "Your Momentum" foundation, Phase 2 — timing fix: this handler no
+  // longer writes the daily completion-date flag itself (moved to the
+  // mount effect above, alongside completeSession(), matching
+  // EveningComplete.jsx's own already-proven pattern) - by the time a user
+  // can even see this button, the flag has already been set if this was a
+  // genuine completion. This is now navigation/cleanup only: unpin/clear
+  // this routine's progress snapshot, reset the Session Engine's journey
+  // step, and go Home. Never required for the flag or the database
+  // completion event to have been recorded - closing/backgrounding the app
+  // before this tap is ever pressed loses nothing.
   const handleReturnHome = () => {
-    // "Repeat Morning Routine" / "Resume Previous Routine" remediation —
-    // a session resumed from a genuinely stale (prior local day) snapshot
-    // via resumeStaleRoutine() is pinned to ITS OWN original dateKey
-    // (routineProgress.js), so completing it credits that original day,
-    // never today - "today's routine must remain independently
-    // available" afterwards, which only holds if today's own completion
-    // flag was never touched by finishing yesterday's carried-over run.
-    // An ordinary (unpinned) session - including one that happens to
-    // span a local midnight during continuous play - still credits
-    // "now", exactly as before: global timezone correctness is
-    // getZonedParts' dateKey, never device toDateString().
-    const pinnedDateKey = getPinnedRoutineDate(state.sessionId);
-    const attributionDateKey = pinnedDateKey ?? getZonedParts(effectiveTimezone, devNow()).dateKey;
-    // Same-day-repeat / no-double-credit policy: this data model tracks
-    // daily completion as one boolean-per-day flag, not a counter or a
-    // per-session history table (see routineCardState.js's own doc
-    // comment on shouldWriteCompletionDate) - repeating Rise & Reset a
-    // second time today must not create a second "credit", so the write
-    // is skipped entirely once the flag already holds this exact value.
-    // User-scoped daily completion audit — writes to the CURRENT
-    // identity's own key (see dailyCompletion.js's own doc comment), so
-    // this completion is never later read back as a different user's.
-    const morningDoneKey = getMorningCompletionKey(userId);
-    // Outcome-contract correction — this write previously had no
-    // state.status check of its own, relying entirely on "this screen is
-    // only ever reached via a finished routine" (true today, since only
-    // Affirmation's Continue navigates here) rather than verifying it.
-    // Mirrors EveningComplete.jsx's own mount-effect guard (state.status
-    // === 'playing' && currentStep?.id === 'completion') so a direct/
-    // stale visit to this route can never credit today's Morning
-    // completion without the Session Engine having genuinely completed.
-    if (state.status === 'completed' && shouldWriteCompletionDate(localStorage.getItem(morningDoneKey), attributionDateKey)) {
-      localStorage.setItem(morningDoneKey, attributionDateKey);
-    }
     if (state.sessionId) {
       unpinRoutineDate(state.sessionId);
       clearRoutineProgress(state.sessionId);

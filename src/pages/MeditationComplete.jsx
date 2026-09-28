@@ -75,13 +75,25 @@ export const MeditationComplete = () => {
   // completion is never later read back as a different user's. Never
   // written for a genuine early exit (B4) - an ended_early outcome must
   // not record completion.
+  //
+  // "Your Momentum" foundation, Phase 2 — audit correction: this route is
+  // unlinked (nothing in the app navigates here anymore - Meditate.jsx's
+  // own guided-video completion is fully handled in-place via
+  // BetaVideoModal's shared overlay, see that file's own doc comment), so
+  // it is reachable only by a direct/typed URL visit, which always mounts
+  // with `session` (location.state) null. The guard used to be
+  // `!endedEarly` alone, which is true for a null session too (there is no
+  // session.endedEarly to read), so a bare direct visit followed by either
+  // button tap recorded a false "meditated today" completion. Now requires
+  // genuine session state as well - a direct visit can never write this
+  // flag, regardless of which button is tapped.
   const handleReturnHome = () => {
-    if (!endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
+    if (session && !endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
     navigate('/');
   };
 
   const handleChooseAnother = () => {
-    if (!endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
+    if (session && !endedEarly) localStorage.setItem(getMeditationCompletionKey(userId), today);
     navigate('/meditate');
   };
 

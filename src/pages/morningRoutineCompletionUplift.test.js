@@ -18,8 +18,8 @@ describe('SessionComplete.jsx (100% Morning routine completion) — reuses the e
     expect(source).toMatch(/export const SessionComplete = \(\) => \{/);
   });
 
-  it('completeSession() is only ever called from the pre-existing mount effect, gated on a genuine natural completion (state.status === \'playing\' && currentStep?.id === \'complete\') - this correction adds no new completion-recording path', () => {
-    const effectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(state\.status === 'playing' && currentStep\?\.id === 'complete'\) \{\s*\n\s*completeSession\(\);\s*\n\s*\}\s*\n\s*\}, \[state\.status, currentStep, completeSession\]\);/)?.[0] ?? '';
+  it('completeSession() is only ever called from the pre-existing mount effect, gated on a genuine natural completion (state.status === \'playing\' && currentStep?.id === \'complete\') - "Your Momentum" foundation Phase 2 additionally moved the daily completion-date flag write into this exact same gated block (previously CTA-gated - see practiceCompletionWiring.test.js), but never introduced a second completion-recording path or a second completeSession() call', () => {
+    const effectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(state\.status === 'playing' && currentStep\?\.id === 'complete'\) \{\s*\n\s*completeSession\(\);[\s\S]*?\n\s*\}\s*\n\s*\/\/ eslint-disable-next-line react-hooks\/exhaustive-deps\s*\n\s*\}, \[state\.status, currentStep, completeSession\]\);/)?.[0] ?? '';
     expect(effectBody).not.toBe('');
     const completeSessionCalls = source.match(/completeSession\(\);/g) ?? [];
     expect(completeSessionCalls.length).toBe(1);

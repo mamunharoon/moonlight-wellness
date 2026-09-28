@@ -14,6 +14,7 @@ import { setPendingContent } from '../lib/pendingContent';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getMeditationCompletionKey } from '../lib/dailyCompletion';
+import { recordPracticeCompletion } from '../lib/practiceCompletions';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
@@ -90,6 +91,26 @@ export const Meditate = () => {
   // so the second handleBegin invocation in the same tick sees the
   // updated value immediately.
   const verifyingAuthRef = useRef(false);
+  // "Your Momentum" foundation, Phase 2 — a fresh id per genuine guided-
+  // video "run" (opened below, or genuinely replayed after a real natural
+  // completion - a replay-then-complete-again is its own distinct session,
+  // never the same id twice; see the onEnded handler below), used as this
+  // completion event's session_id/idempotency_key
+  // (lib/practiceCompletions.js). Only this component ever reads it, right
+  // when a completion is recorded - a plain ref is enough.
+  const mediaSessionIdRef = useRef(null);
+  // The real, exact-seconds duration of whichever video is currently open
+  // (BetaVideoModal's own onDurationKnown, fired from its onLoadedMetadata
+  // - always well before `ended` can fire). Self-healing across a
+  // different video being opened next: onDurationKnown always fires again,
+  // with THAT open's own real value, before `ended` can ever fire for it -
+  // so a stale prior video's duration can never leak into a later one's
+  // completion event.
+  const mediaDurationRef = useRef(null);
+  const mintMediaSessionId = () =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `meditate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   const restoredNeed = searchParams.get('need');
   const restoredDuration = searchParams.get('duration');
@@ -115,6 +136,18 @@ export const Meditate = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+
+  // "Your Momentum" foundation, Phase 2 — mints this open's session id for
+  // the post-auth restore path specifically. Deliberately an effect, not
+  // inside the openVideoId lazy initializer above: refs must never be
+  // read/written during render (React rule of hooks) - this runs once,
+  // immediately after mount, well before the user can reach a real
+  // natural `ended` event, matching handleBegin/verifyAndOpenVideo's own
+  // mint-before-open ordering for every other path into this modal.
+  useEffect(() => {
+    if (openVideoId) mediaSessionIdRef.current = mintMediaSessionId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Strips the now-consumed params so they can't re-trigger on a later
   // re-render or a browser back/forward — touches only router state.
@@ -207,6 +240,7 @@ export const Meditate = () => {
         setSignInPromptOpen(true);
         return;
       }
+      mediaSessionIdRef.current = mintMediaSessionId();
       setOpenVideoId(id);
     } catch {
       setSignInPromptOpen(true);
@@ -383,9 +417,26 @@ export const Meditate = () => {
           // localStorage mechanism, same local dateKey - just written at
           // the actual moment of natural completion instead of via a
           // separate page's own button tap.
+          onDurationKnown={(seconds) => {
+            mediaDurationRef.current = Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+          }}
           onEnded={() => {
             const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
             localStorage.setItem(getMeditationCompletionKey(userId), today);
+            const sessionId = mediaSessionIdRef.current;
+            const durationSeconds = mediaDurationRef.current;
+            mediaSessionIdRef.current = mintMediaSessionId();
+            if (sessionId) {
+              recordPracticeCompletion({
+                userId,
+                isGuest,
+                sessionId,
+                journey: 'direct',
+                practiceType: 'meditation',
+                durationSeconds,
+                timezone: effectiveTimezone
+              });
+            }
           }}
           completionContext={{
             journey: 'direct',

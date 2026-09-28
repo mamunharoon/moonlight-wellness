@@ -72,11 +72,11 @@ describe('MeditationComplete.jsx — honest outcome, and completion is never rec
     expect(completeSource).toMatch(/const \{ headline, body: outcomeBody \} = endedEarly\s*\n\s*\? getOutcomeMessage\(OUTCOME\.ENDED_EARLY, JOURNEY\.ANYTIME, today\)\s*\n\s*: getOutcomeMessage\(OUTCOME\.COMPLETED, JOURNEY\.ANYTIME, today\);/);
   });
 
-  it('Return Home and Choose another BOTH gate the daily-completion write behind !endedEarly - a genuine early exit must never record completion', () => {
+  it('Return Home and Choose another BOTH gate the daily-completion write behind !endedEarly (plus, "Your Momentum" foundation Phase 2, genuine session state) - a genuine early exit, or a bare direct URL visit, must never record completion', () => {
     const returnHomeBody = completeSource.match(/const handleReturnHome = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     const chooseAnotherBody = completeSource.match(/const handleChooseAnother = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(returnHomeBody).toMatch(/if \(!endedEarly\) localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/);
-    expect(chooseAnotherBody).toMatch(/if \(!endedEarly\) localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/);
+    expect(returnHomeBody).toMatch(/if \(session && !endedEarly\) localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/);
+    expect(chooseAnotherBody).toMatch(/if \(session && !endedEarly\) localStorage\.setItem\(getMeditationCompletionKey\(userId\), today\);/);
   });
 
   it('renders {headline}/{outcomeBody} directly - no hardcoded "Meditation complete" string remains', () => {

@@ -99,8 +99,9 @@ describe('SelfGuidedMeditationComplete.jsx — natural-completion-only screen no
 describe('SessionComplete.jsx — Morning full-completion daily flag now verifies state.status, not just route reachability', () => {
   const source = read('./SessionComplete.jsx');
 
-  it('the write is gated by state.status === \'completed\' AND the existing same-day dedupe - mirrors EveningComplete.jsx\'s own mount-effect guard', () => {
-    expect(source).toMatch(/if \(state\.status === 'completed' && shouldWriteCompletionDate\(localStorage\.getItem\(morningDoneKey\), attributionDateKey\)\) \{/);
+  it('the write is gated by a genuine Session Engine transition (state.status === \'playing\' at this exact terminal step) AND the existing same-day dedupe - "Your Momentum" foundation Phase 2 moved this into the same mount effect that calls completeSession(), now TRULY mirroring EveningComplete.jsx\'s own mount-effect guard (previously only claimed to, while actually gating on the post-transition \'completed\' status from inside the CTA handler)', () => {
+    expect(source).toMatch(/if \(state\.status === 'playing' && currentStep\?\.id === 'complete'\) \{/);
+    expect(source).toMatch(/if \(shouldWriteCompletionDate\(localStorage\.getItem\(morningDoneKey\), attributionDateKey\)\) \{/);
   });
 });
 
