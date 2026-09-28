@@ -46,6 +46,7 @@ import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
 import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
 import { MORNING_PATHWAY_STAGES, EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
 import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
+import { JourneyConnector } from '../components/journey/JourneyConnector';
 import { computeStageStatus } from '../session/stageStatus';
 import { SESSION_STATUS } from '../session/sessionReducer';
 import { setPendingContent } from '../lib/pendingContent';
@@ -1490,12 +1491,13 @@ export const Home = () => {
               ExploreCard) - this row exists purely to make the card's
               flexible, non-linear purpose visually legible at a glance.
               Phase 9 — Truthful Journey Outcomes (Part 6b): three small
-              decorative connectors now sit between the four cues, matching
-              the exact chevron treatment MorningJourneyPathway.jsx/
-              EveningJourneyPathway.jsx/AnytimePathway.jsx already use
-              (aria-hidden, not a tap target, no completed/skipped/current
-              badge added to any cue - these four remain example choices,
-              never mandatory sequential stages). */}
+              decorative connectors now sit between the four cues, using the
+              shared JourneyConnector (line + arrowhead) every other
+              pathway (MorningJourneyPathway.jsx/EveningJourneyPathway.jsx/
+              AnytimePathway.jsx) already renders (aria-hidden, not a tap
+              target, no completed/skipped/current badge added to any cue -
+              these four remain example choices, never mandatory sequential
+              stages). */}
           <div className="flex items-center justify-center gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
             {[
               { icon: JOURNEY_STAGE_ICONS.breathe, label: 'Breathe' },
@@ -1503,7 +1505,7 @@ export const Home = () => {
               { icon: JOURNEY_STAGE_ICONS.instantCalm, label: 'Instant Calm' },
               { icon: JOURNEY_STAGE_ICONS.explore, label: 'Explore' }
             ].map((cue, idx, cues) => (
-              <span key={cue.label} className="flex items-center" aria-hidden="true">
+              <span key={cue.label} className="flex items-start" aria-hidden="true">
                 <span className="flex flex-col items-center gap-1 w-14">
                   <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-tertiary/15 text-tertiary">
                     <span className="material-symbols-outlined text-lg">{cue.icon}</span>
@@ -1511,7 +1513,10 @@ export const Home = () => {
                   <span className="text-[9px] font-semibold text-on-surface-variant leading-none">{cue.label}</span>
                 </span>
                 {idx < cues.length - 1 && (
-                  <span className="material-symbols-outlined text-on-surface-variant/30 text-xs -mt-4 shrink-0">chevron_right</span>
+                  /* w-9 h-9 (36px) icon circle - centre at 18px; connector
+                     is 11px tall (half = 5.5px) - 18 - 5.5 = 12.5px top
+                     margin centres it on the icon, not the label. */
+                  <JourneyConnector journeyTone="anytime" className="mt-[12.5px]" />
                 )}
               </span>
             ))}

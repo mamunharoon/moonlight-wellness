@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { StageOutcomeBadge } from './journey/StageOutcomeBadge';
+import { JourneyConnector } from './journey/JourneyConnector';
 import { MORNING_PATHWAY_STAGES } from '../session/pathwayStages';
 import { STAGE_STATUS_SR_TEXT } from '../session/stageStatus';
 
@@ -61,7 +62,7 @@ export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
           : 'bg-morning-accent-tint/15 border-morning-accent-tint/30 text-morning-accent';
         const labelClass = isCurrent ? 'text-morning-accent font-bold' : 'text-on-surface-variant font-semibold';
         return (
-          <div key={stage.id} className="flex items-center gap-0.5" role="listitem">
+          <div key={stage.id} className="flex items-start gap-0.5" role="listitem">
             <div className="flex flex-col items-center gap-1 w-11">
               <span className={`relative w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${badgeClass}`}>
                 <span className="material-symbols-outlined text-sm" aria-hidden="true">{stage.icon}</span>
@@ -73,7 +74,10 @@ export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
               </span>
             </div>
             {idx < stages.length - 1 && (
-              <span className="material-symbols-outlined text-on-surface-variant/30 text-xs -mt-4 shrink-0" aria-hidden="true">chevron_right</span>
+              /* w-7 h-7 (28px) icon circle - centre at 14px; connector is
+                 11px tall (half = 5.5px) - 14 - 5.5 = 8.5px top margin
+                 centres it exactly on the icon circle, not the label. */
+              <JourneyConnector journeyTone="morning" className="mt-[8.5px]" />
             )}
           </div>
         );

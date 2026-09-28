@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // Anytime Visual Flow and Closing Handoff uplift — the Anytime decision
 // pathway: Need -> Time -> Reset. Deliberately NOT a copy of Morning/
 // Evening's own five-stage practice pathway (MorningJourneyPathway.jsx/
@@ -20,6 +21,7 @@
 // recommendation is not a completion of anything, and Anytime never shows
 // a 100% indicator (Part 2's own explicit "Do not show 100% for Anytime").
 import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
+import { JourneyConnector } from './journey/JourneyConnector';
 
 const STAGES = [
   { id: 'need', label: 'Need', icon: JOURNEY_STAGE_ICONS.need },
@@ -43,7 +45,7 @@ export const AnytimePathway = ({ currentStageId = null, needSelected = false, ti
             : 'bg-tertiary-tint/15 border-tertiary-tint/30 text-tertiary';
           const labelClass = isCurrent ? 'text-tertiary font-bold' : 'text-on-surface-variant font-semibold';
           return (
-            <div key={stage.id} className="flex items-center gap-1" role="listitem">
+            <div key={stage.id} className="flex items-start gap-1" role="listitem">
               <div className="flex flex-col items-center gap-1 w-14">
                 <span className={`relative w-8 h-8 rounded-full border flex items-center justify-center shrink-0 ${badgeClass}`}>
                   <span className="material-symbols-outlined text-base" aria-hidden="true">{stage.icon}</span>
@@ -60,7 +62,10 @@ export const AnytimePathway = ({ currentStageId = null, needSelected = false, ti
                 </span>
               </div>
               {idx < STAGES.length - 1 && (
-                <span className="material-symbols-outlined text-on-surface-variant/30 text-sm -mt-5 shrink-0" aria-hidden="true">chevron_right</span>
+                /* w-8 h-8 (32px) icon circle - centre at 16px; connector is
+                   11px tall (half = 5.5px) - 16 - 5.5 = 10.5px top margin
+                   centres it exactly on the icon circle, not the label. */
+                <JourneyConnector journeyTone="anytime" className="mt-[10.5px]" />
               )}
             </div>
           );

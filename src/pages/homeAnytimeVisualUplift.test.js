@@ -54,18 +54,21 @@ describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Insta
 
   // Phase 9 — Truthful Journey Outcomes (Part 6b) explicitly reverses
   // Phase 8's own "no directional arrows" decision for this row: three
-  // small decorative connectors now sit between the four cues, matching
-  // the exact chevron treatment already used by MorningJourneyPathway.jsx/
-  // EveningJourneyPathway.jsx/AnytimePathway.jsx.
-  it('renders one connector between every adjacent pair of cues (idx < cues.length - 1), which - since the four cues are rendered via .map() - resolves at runtime to exactly 3 chevrons: one fewer than the number of cues, never one before the first or after the last', () => {
+  // small decorative connectors now sit between the four cues, using the
+  // shared JourneyConnector (a real line + arrowhead) every other pathway
+  // (MorningJourneyPathway.jsx/EveningJourneyPathway.jsx/AnytimePathway.jsx)
+  // already renders — a physical-iPhone correction replaced the original
+  // isolated chevron_right glyph, which had no visible connecting line.
+  it('renders one connector between every adjacent pair of cues (idx < cues.length - 1), which - since the four cues are rendered via .map() - resolves at runtime to exactly 3 connectors: one fewer than the number of cues, never one before the first or after the last', () => {
     expect(cardBlock).toMatch(/\{idx < cues\.length - 1 && \(/);
-    expect(cardBlock).toMatch(/<span className="material-symbols-outlined text-on-surface-variant\/30 text-xs -mt-4 shrink-0">chevron_right<\/span>/);
+    expect(cardBlock).toMatch(/<JourneyConnector journeyTone="anytime" className="mt-\[12\.5px\]" \/>/);
+    expect(cardBlock).not.toMatch(/chevron_right/);
   });
 
-  it('the connectors are purely decorative and never a tap target - aria-hidden, not wrapped in a <Link>/<button>', () => {
-    const chevronBlock = cardBlock.match(/<span className="material-symbols-outlined text-on-surface-variant\/30 text-xs -mt-4 shrink-0">chevron_right<\/span>/)?.[0] ?? '';
-    expect(chevronBlock).not.toBe('');
-    expect(chevronBlock).not.toMatch(/<Link|<button|onClick/);
+  it('the connectors are purely decorative and never a tap target - aria-hidden (via JourneyConnector itself and the enclosing per-cue span), not wrapped in a <Link>/<button>', () => {
+    const connectorBlock = cardBlock.match(/<JourneyConnector journeyTone="anytime" className="mt-\[12\.5px\]" \/>/)?.[0] ?? '';
+    expect(connectorBlock).not.toBe('');
+    expect(connectorBlock).not.toMatch(/<Link|<button|onClick/);
   });
 
   it('the connectors never carry a completed/skipped/current outcome badge - these four cues remain example choices, never mandatory sequential stages (no StageOutcomeBadge/status semantics anywhere in this row)', () => {
