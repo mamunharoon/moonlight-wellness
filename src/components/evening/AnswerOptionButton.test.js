@@ -66,8 +66,14 @@ describe('AnswerOptionButton - button interaction contract', () => {
     expect(source).toMatch(/\{label\}/);
   });
 
-  it('never renders a navigation chevron or a separate checkmark/tick icon - selection is conveyed by the radio glyph\'s own fill/dot, plus row tint/border/weight, never any icon glyph', () => {
-    expect(source).not.toMatch(/chevron_right|chevron_left|check_circle|material-symbols-outlined/);
+  it('never renders a navigation chevron or a separate checkmark/tick icon as the SELECTION indicator - selection is still conveyed only by the radio glyph\'s own fill/dot, plus row tint/border/weight, never a chevron/checkmark glyph', () => {
+    // Evening Visual Uplift (Phase 7) — the optional icon-card layout
+    // legitimately renders material-symbols-outlined now (a real, optional
+    // CONTENT icon per option, e.g. 'flag'/'spa' - see
+    // eveningOptionPresentation.js), so that class name alone is no longer
+    // asserted absent. What must still never appear anywhere is a
+    // chevron/checkmark used AS the selection indicator itself.
+    expect(source).not.toMatch(/chevron_right|chevron_left|check_circle/);
   });
 
   it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden) - the ring colour is journeyTone-driven (getJourneyToneTokens), \'primary\' resolving to the original ring-primary', () => {

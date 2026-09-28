@@ -308,46 +308,65 @@ export const EveningMeditate = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
-      {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
-          identical fix for the full rationale (ProgressIndicator's own
-          mobile compact block already shows "Step 5 of 7"). The former
-          per-screen span this comment used to describe is removed here
-          along with every other step page's own copy of it, except
-          EveningWindDown.jsx/EveningComplete.jsx, which render no
-          ProgressIndicator at all and so are not duplicates. */}
-      <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
+      {/* Physical-iPhone correction (mirrors MorningMeditate.jsx's
+          identical spacing fix) — EveningSceneShell's own content wrapper
+          uses `justify-between` (required there for screens like
+          EveningWindDown.jsx that deliberately push a primary action
+          toward the bottom - see that shell's own doc comment; never
+          touched here). With ProgressIndicator/ReviewModeBanner/
+          MeditationSetupPanel previously rendered as THREE separate flex
+          children of that same justify-between container, the shell
+          spread them across the full viewport height - the same root
+          cause as the excessive gap MorningMeditate.jsx had below its
+          own progress pathway. Wrapping all three in one div here makes
+          them a SINGLE flex child, so justify-between has nothing left
+          to distribute space between - content now sits together near
+          the top, with only this div's own space-y-4 governing the gap,
+          exactly matching the corrected Morning structure. No fixed
+          height introduced; EveningSceneShell's own scroll/safe-area
+          handling is completely unchanged. */}
+      <div className="space-y-4">
+        {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
+            identical fix for the full rationale (ProgressIndicator's own
+            mobile compact block already shows "Step 5 of 7"). The former
+            per-screen span this comment used to describe is removed here
+            along with every other step page's own copy of it, except
+            EveningWindDown.jsx/EveningComplete.jsx, which render no
+            ProgressIndicator at all and so are not duplicates. */}
+        <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
 
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
+        {isReviewMode && currentStep && (
+          <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+        )}
 
-      <MeditationSetupPanel
-        compact
-        journeyTone="evening"
-        purpose="A quiet pause to settle your mind before you rest."
-        recommendedDurationId={getRecommendedDurationId()}
-        // Defect fix — beginLabel omitted entirely: it previously
-        // hardcoded "Begin 5-Minute Meditation" regardless of the
-        // actually-selected duration, going stale the moment the user
-        // picked 2/10 minutes in "Choose style, time & sound". Omitting
-        // it lets MeditationSetupPanel.jsx compute the live label from
-        // `duration` (below) instead - see that file's own doc comment.
-        style={session.style}
-        duration={session.duration}
-        soundId={session.soundId}
-        onSelectStyle={session.selectStyle}
-        onSelectDuration={session.setDurationId}
-        onSelectSound={session.selectSound}
-        onBegin={handleBegin}
-        // Evening journey UX correction (mirrors MorningMeditate.jsx): no
-        // forward-skip action while reviewing an already-completed
-        // Meditation from a later Evening step - the ReviewModeBanner's own
-        // "Return to [current step]" already covers that.
-        onSkip={isReviewMode ? undefined : handleSkip}
-        skipLabel={hasStartedThisVisit ? 'Continue to Prepare for Rest' : 'Skip meditation'}
-        defaultExpanded={chooseAnotherExpanded}
-        onExpandedConsumed={() => setChooseAnotherExpanded(false)}
-      />
+        <MeditationSetupPanel
+          compact
+          journeyTone="evening"
+          purpose="A quiet pause to settle your mind before you rest."
+          recommendedDurationId={getRecommendedDurationId()}
+          // Defect fix — beginLabel omitted entirely: it previously
+          // hardcoded "Begin 5-Minute Meditation" regardless of the
+          // actually-selected duration, going stale the moment the user
+          // picked 2/10 minutes in "Choose style, time & sound". Omitting
+          // it lets MeditationSetupPanel.jsx compute the live label from
+          // `duration` (below) instead - see that file's own doc comment.
+          style={session.style}
+          duration={session.duration}
+          soundId={session.soundId}
+          onSelectStyle={session.selectStyle}
+          onSelectDuration={session.setDurationId}
+          onSelectSound={session.selectSound}
+          onBegin={handleBegin}
+          // Evening journey UX correction (mirrors MorningMeditate.jsx): no
+          // forward-skip action while reviewing an already-completed
+          // Meditation from a later Evening step - the ReviewModeBanner's own
+          // "Return to [current step]" already covers that.
+          onSkip={isReviewMode ? undefined : handleSkip}
+          skipLabel={hasStartedThisVisit ? 'Continue to Prepare for Rest' : 'Skip meditation'}
+          defaultExpanded={chooseAnotherExpanded}
+          onExpandedConsumed={() => setChooseAnotherExpanded(false)}
+        />
+      </div>
 
       <ConfirmDialog
         open={isConfirming}

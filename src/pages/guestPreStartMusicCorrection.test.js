@@ -192,9 +192,14 @@ describe('8. Morning, Evening, Anytime and standalone breathing styling remains 
     }
   });
 
-  it('EveningBreathing.jsx still passes accent="evening" - untouched by this correction', () => {
-    const callSite = eveningBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="evening"/);
+  // Evening Visual Uplift (Phase 7) — EveningBreathing.jsx now also uses
+  // CompactSoundControl journeyTone="evening" (mirroring Morning's own
+  // Phase 6 switch above), not MusicPreferenceToggle accent="evening" any
+  // more - see musicPreferenceToggleSharedConsumers.test.js's own updated
+  // coverage.
+  it('EveningBreathing.jsx passes journeyTone="evening" via CompactSoundControl', () => {
+    const callSite = eveningBreathingSource.match(/<CompactSoundControl[\s\S]{0,200}\/>/)?.[0] ?? '';
+    expect(callSite).toMatch(/journeyTone="evening"/);
   });
 
   // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's
@@ -225,8 +230,17 @@ describe('9. Guided catalogue media remains fully protected - this correction to
     expect(quietBreathingSource).toMatch(/<SignInPromptDialog\s*\n\s*open=\{promptOpen\}/);
   });
 
-  it('EveningBreathing.jsx has no guided-video rows at all (unaffected either way) - confirmSignInForMusic is now fully removed from real code (Build 18 part 2: ExercisePausedPanel no longer needs it either; only this file\'s own doc comment still mentions the removed name in prose)', () => {
-    expect(eveningBreathingSource).not.toMatch(/useProtectedVideo|BetaVideoModal/);
+  // Evening Visual Uplift (Phase 7) — EveningBreathing.jsx gained its own
+  // pre-start "Explore guided breathing" disclosure (it had none before
+  // this phase), gated through the exact same useProtectedVideo/
+  // SignInPromptDialog pattern as every other guided-video row in this
+  // app - never a second/looser gate for Evening. confirmSignInForMusic
+  // (the separate, unrelated music sign-in path this Build 18 correction
+  // removed) stays fully absent from real code either way - it has
+  // nothing to do with the new video-gating wiring.
+  it('EveningBreathing.jsx now gates its own guided videos through useProtectedVideo/SignInPromptDialog, same as Breathe.jsx/QuietBreathing.jsx - confirmSignInForMusic remains fully removed from real code', () => {
+    expect(eveningBreathingSource).toMatch(/import \{ useProtectedVideo \} from '\.\.\/hooks\/useProtectedVideo';/);
+    expect(eveningBreathingSource).toMatch(/<SignInPromptDialog\s*\n\s*open=\{videoPromptOpen\}/);
     const codeOnly = eveningBreathingSource.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(codeOnly).not.toMatch(/confirmSignInForMusic/);
   });

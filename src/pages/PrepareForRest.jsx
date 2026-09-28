@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { PrepareToggleRow } from '../components/evening/PrepareToggleRow';
 import { BedtimeMediaChooser } from '../components/evening/BedtimeMediaChooser';
@@ -257,6 +258,11 @@ export const PrepareForRest = () => {
           <h1 className="font-serif italic text-3xl text-on-surface">Prepare for Rest</h1>
           <p className="text-xs text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
         </div>
+
+        {/* Evening Visual Uplift (Phase 7) — the five-stage pathway, Rest
+            highlighted as current. This screen previously showed no
+            high-level journey context at all. */}
+        <EveningJourneyPathway currentStageId="rest" />
 
         <div className="space-y-2">
           {PREP_ITEMS.map((item) => (

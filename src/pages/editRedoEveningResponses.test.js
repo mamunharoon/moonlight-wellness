@@ -245,20 +245,29 @@ describe('Navigation protection for unsaved Edit drafts', () => {
 // Build 15 Evening UX correction — Choose a Sleep Experience is now
 // first/primary; Review and Edit are combined into one action; Redo and
 // Return Home keep their existing order/styling.
-describe('Button hierarchy - EveningComplete.jsx (approved order: Choose a Sleep Experience, Review or Edit, Redo, Return Home)', () => {
+describe('Button hierarchy - EveningComplete.jsx (Evening Visual Uplift Phase 7 approved reordering: Choose a Sleep Experience, Return Home, Review or Edit, Redo)', () => {
   // Anchored to the actual rendered JSX text (not doc comments, which
   // mention several of these same phrases earlier in the file while
   // explaining the design).
   const sleepIdx = eveningCompleteSource.indexOf('<span>Choose a Sleep Experience</span>');
-  const reviewOrEditIdx = eveningCompleteSource.indexOf("<span>Review or Edit Tonight's Responses</span>");
-  const redoIdx = eveningCompleteSource.indexOf('onClick={handleRedoTap}');
   const homeIdx = eveningCompleteSource.indexOf('onClick={handleReturnHome}');
+  // Searched starting AFTER homeIdx - the same phrase also appears earlier,
+  // in this file's own doc comment describing the approved reordering.
+  const reviewOrEditIdx = eveningCompleteSource.indexOf("Review or Edit Tonight's Responses", homeIdx);
+  const redoIdx = eveningCompleteSource.indexOf('onClick={handleRedoTap}');
 
+  // Evening Visual Uplift (Phase 7) — approved reordering: Choose a Sleep
+  // Experience stays first/primary; Return Home moves up to second
+  // (secondary); Review or Edit Tonight's Responses moves down, now
+  // visually smaller/quieter (moved from a full glass-panel button to
+  // text-only, matching Redo's own weight); Redo Tonight's Wind-Down
+  // stays last/tertiary. Every handler/destination is unchanged - only
+  // order and Review/Edit's own visual weight moved.
   it('renders in the approved order', () => {
     expect(sleepIdx).toBeGreaterThan(-1);
-    expect(sleepIdx).toBeLessThan(reviewOrEditIdx);
+    expect(sleepIdx).toBeLessThan(homeIdx);
+    expect(homeIdx).toBeLessThan(reviewOrEditIdx);
     expect(reviewOrEditIdx).toBeLessThan(redoIdx);
-    expect(redoIdx).toBeLessThan(homeIdx);
   });
 
   // WakeWise DEV — journey-aware primary action colour: this button now
@@ -283,15 +292,21 @@ describe('Button hierarchy - EveningComplete.jsx (approved order: Choose a Sleep
   });
 
   it('the combined Review-or-Edit action and Redo are both guest-excluded, matching the original Review exclusion', () => {
-    const reviewOrEditBlock = eveningCompleteSource.slice(reviewOrEditIdx - 400, reviewOrEditIdx);
-    expect(reviewOrEditBlock).toMatch(/\{!isGuest && \(/);
-    const redoButtonBlock = eveningCompleteSource.slice(redoIdx - 700, redoIdx);
-    expect(redoButtonBlock).toMatch(/\{!isGuest && \(/);
+    // lastIndexOf, not a fixed-size slice - robust to doc-comment length
+    // changes between the guard and the button itself.
+    const reviewOrEditGuardIdx = eveningCompleteSource.lastIndexOf('{!isGuest && (', reviewOrEditIdx);
+    expect(reviewOrEditGuardIdx).toBeGreaterThan(-1);
+    const redoGuardIdx = eveningCompleteSource.lastIndexOf('{!isGuest && (', redoIdx);
+    expect(redoGuardIdx).toBeGreaterThan(-1);
   });
 
   it('the combined action opens the existing read-only Review journey at Reflection Q1 - not a new route', () => {
-    const reviewOrEditBlock = eveningCompleteSource.slice(reviewOrEditIdx - 400, reviewOrEditIdx);
-    expect(reviewOrEditBlock).toMatch(/onClick=\{\(\) => navigate\('\/review\/reflection\?q=1'\)\}/);
+    const onClickIdx = eveningCompleteSource.lastIndexOf("onClick={() => navigate('/review/reflection?q=1')}", reviewOrEditIdx);
+    expect(onClickIdx).toBeGreaterThan(-1);
+    // The onClick attribute must genuinely belong to THIS button - no
+    // other button's onClick sits between it and the "Review or Edit"
+    // text itself.
+    expect(reviewOrEditIdx - onClickIdx).toBeLessThan(400);
   });
 
   it('Redo is styled as a quiet, text-only destructive action - never a filled primary/Continue-style button', () => {

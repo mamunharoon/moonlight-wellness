@@ -183,9 +183,15 @@ describe('Read-only presentation (item 5) - no Skip, no Clear response, no edita
 
   it('every AnswerOptionButton rendered by EveningReviewQuestion.jsx is readOnly - the saved preset (if any) is passed as `selected`, every option remains visible for context', () => {
     const reviewQuestionSource = read('../components/evening/EveningReviewQuestion.jsx');
-    expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}readOnly/);
+    // Evening Visual Uplift (Phase 7) — the block now also passes
+    // label/icon/descriptor (getOptionPresentation), so the tolerance
+    // between the opening tag and `readOnly` is widened accordingly.
+    expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,400}readOnly/);
     expect(reviewQuestionSource).toMatch(/selected=\{selectedOption === option\}/);
-    expect(reviewQuestionSource).toMatch(/\{prompt\.options\?\.map\(\(option\) => \(/);
+    // Evening Visual Uplift (Phase 7) — now a block body (computes
+    // `presentation` via getOptionPresentation before returning the JSX),
+    // not a bare parenthesised expression.
+    expect(reviewQuestionSource).toMatch(/\{prompt\.options\?\.map\(\(option\) => \{/);
   });
 
   it('a saved custom answer renders expanded, as a plain non-editable paragraph, labelled "Your own words" - never a textarea, never Save/Clear/Cancel', () => {

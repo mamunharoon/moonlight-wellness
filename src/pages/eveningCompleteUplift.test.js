@@ -21,8 +21,9 @@ describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
     );
   });
 
-  it('the "Step 7 of 7" eyebrow (Journey Embedding correction; was 6 of 6) is evening-accent, not the generic peach primary', () => {
-    expect(source).toMatch(/<span className="block text-\[10px\] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7<\/span>/);
+  it('Evening Visual Uplift (Phase 7) — the former "Step 7 of 7" eyebrow is replaced by a "100% Complete" badge, still evening-accent, never the generic peach primary', () => {
+    expect(source).not.toMatch(/Step 7 of 7/);
+    expect(source).toMatch(/text-evening-accent uppercase font-bold tracking-wider">\s*\n\s*<span className="material-symbols-outlined text-xs" aria-hidden="true">check_circle<\/span>\s*\n\s*100% Complete/);
   });
 
   it('the heading still uses the exact original Newsreader italic styling; the text itself now rotates via outcomeMessages.js (WakeWise Phase 2, B6 - see eveningCompleteOutcomeMessages.test.js)', () => {
@@ -31,21 +32,26 @@ describe('EveningComplete.jsx — periwinkle icon ring + eyebrow', () => {
 });
 
 describe('EveningComplete.jsx — all four real actions are unchanged: order, labels, handlers, guest gating', () => {
-  it('the four actions appear in the exact approved order: Sleep Experience, Review/Edit, Redo, Return Home', () => {
+  it('Evening Visual Uplift (Phase 7) — the four actions appear in the newly-approved order: Sleep Experience, Return Home, Review/Edit, Redo', () => {
     // Scoped to only the actual `return (` JSX block, not the whole file -
     // this file's own pre-existing doc comments (e.g. handleRedoTap's
     // JSDoc, which mentions "Redo Tonight's Wind-Down" in its own prose
     // well above the render) would otherwise give a false order.
     const jsxBlock = source.slice(source.indexOf('return (\n    <EveningSceneShell'));
     expect(jsxBlock.length).toBeGreaterThan(0);
-    const sleepIdx = jsxBlock.indexOf('Choose a Sleep Experience');
-    const reviewIdx = jsxBlock.indexOf('Review or Edit Tonight\'s Responses');
-    const redoIdx = jsxBlock.indexOf('handleRedoTap');
-    const homeIdx = jsxBlock.indexOf('handleReturnHome');
+    // The block's own leading doc comment names all four actions in prose
+    // (explaining the reorder) before any of them actually renders -
+    // each index below is searched starting just after the previous
+    // action's real occurrence, so a comment mention can never be
+    // mistaken for the real element.
+    const sleepIdx = jsxBlock.indexOf('onClick={() => navigate(\'/library?category=sleep-soundscapes&from=evening-summary\')}');
+    const homeIdx = jsxBlock.indexOf('handleReturnHome', sleepIdx);
+    const reviewIdx = jsxBlock.indexOf('Review or Edit Tonight\'s Responses', homeIdx);
+    const redoIdx = jsxBlock.indexOf('handleRedoTap', reviewIdx);
     expect(sleepIdx).toBeGreaterThan(-1);
-    expect(reviewIdx).toBeGreaterThan(sleepIdx);
+    expect(homeIdx).toBeGreaterThan(sleepIdx);
+    expect(reviewIdx).toBeGreaterThan(homeIdx);
     expect(redoIdx).toBeGreaterThan(reviewIdx);
-    expect(homeIdx).toBeGreaterThan(redoIdx);
   });
 
   it('Choose a Sleep Experience still navigates to the exact contextual Library URL', () => {
@@ -77,9 +83,9 @@ describe('EveningComplete.jsx — all four real actions are unchanged: order, la
   // "the primary button stays peach" decision - it now resolves to the
   // shared journey-action helper with journey='evening'. The two
   // glass-panel secondary buttons are genuinely unchanged.
-  it('the primary action resolves to the evening journey-action helper; the two glass-panel secondary actions are unchanged', () => {
+  it('the primary action resolves to the evening journey-action helper; Return Home keeps its glass-panel treatment; Review/Edit is now a smaller/quieter text-only action (Evening Visual Uplift, Phase 7)', () => {
     expect(source).toMatch(/className=\{`w-full \$\{getJourneyPrimaryActionClasses\('evening'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`\}/);
-    expect(source).toMatch(/className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white\/10 active:scale-95 transition-all border-white\/10 focus-visible:ring-2 focus-visible:ring-primary"/);
     expect(source).toMatch(/className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white\/10 active:scale-95 transition-all border-white\/10 focus-visible:ring-2 focus-visible:ring-primary"/);
+    expect(source).toMatch(/className="w-full py-3 text-center text-sm font-semibold text-on-surface-variant hover:text-on-surface active:scale-95 transition-all"/);
   });
 });

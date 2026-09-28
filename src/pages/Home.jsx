@@ -43,6 +43,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
 import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
+import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
+import { resolveEveningPathwayStage } from '../lib/eveningJourneyPathwayStage';
 import { setPendingContent } from '../lib/pendingContent';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
@@ -118,6 +120,22 @@ export const Home = () => {
   // number rather than via resolveStepLabel's own "Step X of Y" string so
   // the pathway can compute per-step completed/current directly.
   const morningCurrentPathwayStep = MORNING_DISPLAY_STEP_NUMBERS[getSessionById(RITUAL_SESSION_IDS.morning)?.steps[morningResolvedStepIndex]?.id];
+
+  // Evening Visual Uplift (Phase 7) — EveningJourneyPathway's own
+  // currentStageId, derived from the exact same resolved Evening step
+  // index resolveStepLabel already uses, via the pure
+  // resolveEveningPathwayStage helper (eveningJourneyPathwayStage.js) -
+  // no second/competing progress source. Physical-iPhone finding
+  // correction: this ONLY ever resolves which stage is current (fully
+  // reliable - real stepIndex position) - it never fabricates a
+  // completed/skipped stageStatus map, since the Session Engine has no
+  // reliable per-stage record of that (see EveningJourneyPathway.jsx's
+  // own doc comment for the full audit). Every stage other than the
+  // current one therefore always renders in its plain, undecorated look -
+  // no completion is ever inferred merely from route/step position.
+  const eveningCurrentStageId = resolveEveningPathwayStage(
+    getSessionById(RITUAL_SESSION_IDS.evening)?.steps[eveningResolvedStepIndex]?.id
+  );
 
   // "Yesterday's unfinished routine" remediation — a routine can have
   // genuinely nothing recorded for TODAY (morningCardState/
@@ -1140,6 +1158,11 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningNotStartedCard, undefined, 'evening')}
+              {/* Evening Visual Uplift — the five-stage pathway, plain/
+                  not-started look (no currentStepNumber), mirroring
+                  MorningJourneyPathway's identical not-started rendering
+                  on the Morning card. */}
+              <EveningJourneyPathway />
               <button
                 type="button"
                 onClick={handleEveningAction}
@@ -1157,6 +1180,15 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningInProgressCard, resolveStepLabel(RITUAL_SESSION_IDS.evening, eveningResolvedStepIndex), 'evening')}
+              {/* Evening Visual Uplift (Phase 7) — the current stage is
+                  highlighted, derived from the same resolved step index
+                  the card's own "Step X of Y" text above already uses.
+                  Physical-iPhone finding correction: no stageStatus is
+                  passed - other stages render in their plain, genuine-
+                  icon look, since the Session Engine cannot reliably tell
+                  completed from skipped for an individual stage (see
+                  EveningJourneyPathway.jsx's own doc comment). */}
+              <EveningJourneyPathway currentStageId={eveningCurrentStageId} />
               <button
                 type="button"
                 onClick={handleEveningAction}
@@ -1196,6 +1228,26 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-evening-tint) / 0.2)' }}
             >
               {nextStepCardBody(eveningCompletedCard, undefined, 'evening')}
+              {/* Evening Visual Uplift (Phase 7) — Physical-iPhone finding
+                  correction: unlike Morning's completed card (which marks
+                  every step checked), this renders with no currentStageId
+                  and no stageStatus at all - every stage keeps its plain,
+                  genuine icon. The Session Engine's real state.status
+                  === 'completed' reliably confirms the whole 7-step
+                  routine reached its terminal step via a genuine
+                  COMPLETE_SESSION dispatch, but it does NOT reliably tell
+                  us whether any individual stage (e.g. Reflection) was
+                  genuinely completed or explicitly skipped along the way
+                  (SKIP_STEP and ADVANCE_STEP both just advance the same
+                  stepIndex - see EveningJourneyPathway.jsx's own doc
+                  comment for the full audit) - so this deliberately never
+                  claims five individual completions it cannot verify.
+                  The card's own "Your Evening Wind-Down is complete" text
+                  above already communicates the real, reliable whole-
+                  routine outcome. The "100% vs skipped stages" per-stage
+                  completion-summary policy is a reported follow-up, not
+                  resolved in this pass. */}
+              <EveningJourneyPathway />
               {isGuest ? (
                 <button
                   type="button"

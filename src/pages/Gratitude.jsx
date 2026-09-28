@@ -167,6 +167,8 @@ export const Gratitude = () => {
               onAdvance={handleAdvance}
               onComplete={handleComplete}
               journeyTone="evening"
+              sectionLabel="Gratitude"
+              guidanceLabel="Need a gentle prompt?"
             />
           )}
         </div>

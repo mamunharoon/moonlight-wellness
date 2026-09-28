@@ -186,11 +186,17 @@ describe('Layout: every Reflection/Gratitude question renders its predefined opt
   });
 
   it('each AnswerOptionButton receives journeyTone (passed straight through from the page, not decided in PromptStepper) and groupName (the active question\'s own id, scoping native radio-group keyboard behaviour to this question only)', () => {
-    expect(promptStepperSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}journeyTone=\{journeyTone\}[\s\S]{0,60}groupName=\{activePrompt\.id\}/);
+    // Evening Visual Uplift (Phase 7) — the block now also passes
+    // label/icon/descriptor (getOptionPresentation) between the opening
+    // tag and journeyTone, so the tolerance is widened accordingly.
+    expect(promptStepperSource).toMatch(/<AnswerOptionButton[\s\S]{0,400}journeyTone=\{journeyTone\}[\s\S]{0,60}groupName=\{activePrompt\.id\}/);
   });
 
   it('Reflection "went-well" keeps its own (now purely historical, unread) layout: \'rows\' field - harmless since PromptStepper no longer branches on it, left as-is rather than editing data that already matches the new universal behaviour', () => {
-    expect(eveningQuestionsSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',\s*\n\s*layout: 'rows',/);
+    // Evening Visual Uplift (Phase 7) — a supportingText field (plus its
+    // own explanatory doc comment) was added between label and layout;
+    // the regex now tolerates arbitrary intervening content.
+    expect(eveningQuestionsSource).toMatch(/id: 'went-well',\s*\n\s*label: '[^']*',[\s\S]{0,400}layout: 'rows',/);
     expect(promptStepperSource).not.toMatch(/activePrompt\.layout ===/);
   });
 
@@ -310,7 +316,11 @@ describe('Evening journey-theme correction - both pages pass journeyTone="evenin
   });
 
   it('PromptStepper declares journeyTone as a prop (default \'primary\') and forwards it verbatim to every AnswerOptionButton - it resolves a shared token map for its own Next/Continue/"Add your own"/guidance focus ring, but never picks a colour itself for AnswerOptionButton', () => {
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' \}\) => \{/);
+    // Evening Visual Uplift (Phase 7) — the signature also gained two new,
+    // additive, optional params (sectionLabel/guidanceLabel, both
+    // defaulting so every existing caller renders unchanged) after
+    // journeyTone; the regex now tolerates trailing params.
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary'[\s\S]{0,120}\}\) => \{/);
     const journeyToneUsages = promptStepperSource.match(/journeyTone=\{journeyTone\}/g) ?? [];
     expect(journeyToneUsages.length).toBe(1); // one options render (the old rows/grid branch is gone)
   });

@@ -204,6 +204,8 @@ export const Reflection = () => {
               onAdvance={handleAdvance}
               onComplete={handleComplete}
               journeyTone="evening"
+              sectionLabel="Reflection"
+              guidanceLabel="Need a gentle prompt?"
             />
           )}
         </div>

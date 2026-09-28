@@ -118,10 +118,11 @@ describe('Explore Morning card — supporting sentence removed (Physical-iPhone 
     expect(block).toMatch(/itemCount=\{getMorningExploreCatalog\(\)\.length\}/);
   });
 
-  it('ExploreCard.jsx\'s own supportingText prop is additive-optional (only conditionally rendered) - Evening/Anytime callers keep passing it and are byte-unaffected', () => {
+  it('ExploreCard.jsx\'s own supportingText prop is additive-optional (only conditionally rendered) - Anytime\'s caller keeps passing it, byte-unaffected; Evening\'s own removal (Evening Visual Uplift, Phase 7) is covered separately in eveningCompleteVisualUplift.test.js', () => {
     const exploreCardSource = read('../components/ExploreCard.jsx');
     expect(exploreCardSource).toMatch(/\{supportingText && \(/);
-    expect(eveningCompleteSource).toMatch(/supportingText="Explore sleep stories, calming videos and soothing sounds\."/);
+    expect(anytimeResetSource).toMatch(/supportingText="Explore quick practices for the time and need you have\."/);
+    expect(eveningCompleteSource).not.toMatch(/supportingText="Explore sleep stories, calming videos and soothing sounds\."/);
   });
 
   it('the accessible label is untouched - it is built from ctaLabel/title only, never from supportingText', () => {

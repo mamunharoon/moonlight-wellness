@@ -34,9 +34,12 @@ describe('Phase 3A (R7) — Morning completed-card CTA matches Evening/Anytime\'
   });
 
   it('Evening\'s own completed-card primary action still uses the identical shared helper, confirming Morning now matches it rather than diverging', () => {
+    // Evening Visual Uplift (Phase 7) — widened from 2000 to 3500 chars:
+    // the completed-card block grew a long doc comment plus
+    // <EveningJourneyPathway /> before the primary action button.
     const eveningCompletedBlock = homeSource.slice(
       homeSource.indexOf("eveningCardState === 'completed' && ("),
-      homeSource.indexOf("eveningCardState === 'completed' && (") + 2000
+      homeSource.indexOf("eveningCardState === 'completed' && (") + 3500
     );
     expect(eveningCompletedBlock).toMatch(/\$\{getJourneyPrimaryActionClasses\('evening'\)\} font-bold/);
   });

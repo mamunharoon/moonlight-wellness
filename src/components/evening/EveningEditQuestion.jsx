@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { AnswerOptionButton } from './AnswerOptionButton';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
+import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
 
 // journeyTone.js's own focusRing field is the has-[:focus-visible]:ring-X
 // form (for a wrapping <label>); this textarea's plain `focus:ring-X`
@@ -69,16 +70,21 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
           narrow-screen fallback needed - genuine testing showed it
           stays readable at 320px). */}
       <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
-        {prompt.options?.map((option) => (
-          <AnswerOptionButton
-            key={option}
-            label={option}
-            selected={selectedOption === option}
-            onClick={() => handleSelectPreset(option)}
-            journeyTone={journeyTone}
-            groupName={groupName}
-          />
-        ))}
+        {prompt.options?.map((option) => {
+          const presentation = getOptionPresentation(prompt.id, option);
+          return (
+            <AnswerOptionButton
+              key={option}
+              label={presentation.label}
+              icon={presentation.icon}
+              descriptor={presentation.descriptor}
+              selected={selectedOption === option}
+              onClick={() => handleSelectPreset(option)}
+              journeyTone={journeyTone}
+              groupName={groupName}
+            />
+          );
+        })}
       </div>
 
       <div>

@@ -252,9 +252,19 @@ export const EveningComplete = () => {
             <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
               <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
             </span>
-            {/* Journey Embedding (correction) — Meditate is now a counted step,
-                so Evening Complete is Step 7 of 7, not 6 of 6. */}
-            <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7</span>
+            {/* Evening Visual Uplift (Phase 7) — a small "100% Complete"
+                badge, enhancing the existing completion visual to state
+                the real outcome plainly (this screen is only ever reached
+                via a genuine COMPLETE_SESSION at the terminal step of the
+                Evening routine's fixed 7-step structure - see this file's
+                own mount-effect doc comment above). Reuses the exact same
+                evening-accent token as every other badge on this screen,
+                never a new colour. Deliberately NOT applied to Anytime,
+                which has no fixed routine to be "100%" of. */}
+            <span className="inline-flex items-center gap-1 text-[10px] text-evening-accent uppercase font-bold tracking-wider">
+              <span className="material-symbols-outlined text-xs" aria-hidden="true">check_circle</span>
+              100% Complete
+            </span>
             <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
               You've reflected, appreciated the day and prepared for rest.
@@ -265,17 +275,19 @@ export const EveningComplete = () => {
       />
 
       <div className="space-y-3 w-full">
-        {/* Build 15 Evening UX correction — approved authenticated order:
-            (1) Choose a Sleep Experience, now first and primary;
-            (2) Review or Edit Tonight's Responses, combined into one
-            secondary action (opens read-only Review first; Edit is
-            reached from Review's own banner - see EveningReviewBanner.jsx);
-            (3) Redo Tonight's Wind-Down (unchanged); (4) Return Home
-            (unchanged). Guests never have persisted routine_responses
-            (Reflection.jsx/Gratitude.jsx both early-return before ever
-            writing for a guest), so Review/Edit/Redo would all open on
-            nothing genuine - guests see only Sleep Experience + Return
-            Home, both truthful for them either way. */}
+        {/* Evening Visual Uplift (Phase 7) — approved reordering: (1)
+            Choose a Sleep Experience, primary; (2) Return Home, secondary
+            (moved up from last); (3) Review or Edit Tonight's Responses,
+            now visually smaller/quieter (moved down, text-only like Redo
+            rather than a full glass-panel button); (4) the optional
+            Explore Evening card; (5) Redo Tonight's Wind-Down, tertiary.
+            Every handler/destination below is completely unchanged - only
+            order and Review/Edit's own visual weight moved. Guests never
+            have persisted routine_responses (Reflection.jsx/Gratitude.jsx
+            both early-return before ever writing for a guest), so
+            Review/Edit/Redo would all open on nothing genuine - guests
+            still see only Sleep Experience + Return Home, both truthful
+            for them either way. */}
         {/* Build 15 DEV correction — carries the allowlisted
             `from=evening-summary` entry context (see Library.jsx's own
             FROM_CONTEXTS) so Library shows a contextual "Back to Evening
@@ -288,61 +300,65 @@ export const EveningComplete = () => {
           <span>Choose a Sleep Experience</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </button>
-        {!isGuest && (
-          <button
-            onClick={() => navigate('/review/reflection?q=1')}
-            className="w-full glass-panel text-on-surface py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span>Review or Edit Tonight's Responses</span>
-          </button>
-        )}
-        {/* Redo Tonight's Wind-Down (Build 15) — quiet, destructive-tinted
-            text-only action, deliberately NOT a filled/primary Continue-
-            style button, so it never visually competes with the actions
-            above. */}
-        {!isGuest && (
-          <>
-            {redoError && (
-              <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
-                <p className="text-sm text-on-surface">
-                  Couldn't redo tonight's Wind-Down. Your existing journey is unchanged — please try again.
-                </p>
-              </div>
-            )}
-            <button
-              onClick={handleRedoTap}
-              className="w-full py-3 text-center text-sm font-semibold text-red-300 hover:text-red-200 active:scale-95 transition-all"
-            >
-              Redo Tonight's Wind-Down
-            </button>
-          </>
-        )}
         <button
           onClick={handleReturnHome}
           className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
         >
           Return Home
         </button>
+        {!isGuest && (
+          <button
+            onClick={() => navigate('/review/reflection?q=1')}
+            className="w-full py-3 text-center text-sm font-semibold text-on-surface-variant hover:text-on-surface active:scale-95 transition-all"
+          >
+            Review or Edit Tonight's Responses
+          </button>
+        )}
       </div>
 
       {/* "Explore More" discovery, Phase 5 — optional, secondary, placed
-          AFTER the primary completion/return action above (Return Home).
-          Distinct from "Choose a Sleep Experience" above it (which links
-          straight into the Sleep Soundscapes category only) - this is the
-          broader Evening/wind-down discovery entry point, covering
-          calming videos too, not just sleep sounds. journey="evening"
-          filters the Library to approved Evening/sleep/wind-down content
-          only (timeOfDay === 'evening' - never an energising Morning-only
-          item, see exploreFiltering.js's own documented rule). */}
+          AFTER the primary completion/return actions above. Distinct from
+          "Choose a Sleep Experience" above it (which links straight into
+          the Sleep Soundscapes category only) - this is the broader
+          Evening/wind-down discovery entry point, covering calming videos
+          too, not just sleep sounds. journey="evening" filters the
+          Library to approved Evening/sleep/wind-down content only
+          (timeOfDay === 'evening' - never an energising Morning-only
+          item, see exploreFiltering.js's own documented rule).
+          Evening Visual Uplift (Phase 7) — the longer supporting sentence
+          is removed (ExploreCard's own supportingText is now optional -
+          see ExploreCard.jsx's doc comment); title/CTA/route/item count/
+          accessibility label are all otherwise unchanged. */}
       <ExploreCard
         journey="evening"
         icon="nights_stay"
         title="Would more support help you unwind?"
-        supportingText="Explore sleep stories, calming videos and soothing sounds."
         ctaLabel="Explore Evening"
         to="/library?journey=evening&from=evening-summary"
         itemCount={getEveningExploreCatalog().length}
       />
+
+      {/* Redo Tonight's Wind-Down (Build 15, Evening Visual Uplift Phase 7
+          reordering) — quiet, destructive-tinted text-only action, now
+          the last/tertiary action on the screen so it never visually
+          competes with anything above it. */}
+      {!isGuest && (
+        <div className="w-full space-y-3">
+          {redoError && (
+            <div className="glass-panel rounded-2xl p-4 border-red-400/30 bg-red-500/10">
+              <p className="text-sm text-on-surface">
+                Couldn't redo tonight's Wind-Down. Your existing journey is unchanged — please try again.
+              </p>
+            </div>
+          )}
+          <button
+            onClick={handleRedoTap}
+            className="w-full py-3 text-center text-sm font-semibold text-red-300 hover:text-red-200 active:scale-95 transition-all"
+          >
+            Redo Tonight's Wind-Down
+          </button>
+        </div>
+      )}
 
       <ConfirmDialog
         open={redoConfirmOpen}

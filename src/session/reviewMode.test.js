@@ -274,7 +274,11 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
     // 'reflection'|'gratitude' prop that only ever resolved to the same
     // hardcoded peach) was replaced by `journeyTone` (default 'primary'),
     // the same shared contract every other journey-aware component uses.
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' \}\) => \{/);
+    // Evening Visual Uplift (Phase 7) — two additive, backward-compatible
+    // props appended (sectionLabel/guidanceLabel, both defaulting to
+    // values that reproduce the original substep/guidance text), never
+    // replacing activeIndex's own controlled-prop contract above.
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help\?' \}\) => \{/);
     expect(promptStepperSource).toMatch(/if \(activeIndex !== prevActiveIndex\) \{\s*\n\s*setPrevActiveIndex\(activeIndex\);\s*\n\s*setConfirmingClear\(false\);\s*\n\s*setGuidanceOpen\(false\);\s*\n\s*\}/);
     expect(promptStepperSource).not.toMatch(/useEffect\(/);
   });

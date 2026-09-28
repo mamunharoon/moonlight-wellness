@@ -136,7 +136,21 @@ describe('Regression - Support (non-standalone QuietBreathing) and Evening Breat
     expect(nonStandaloneReturn).not.toMatch(/guidedSessionsOpen|BetaVideoRow|BetaVideoModal|GUIDED_BREATHING_VIDEO_COUNT/);
   });
 
-  it('EveningBreathing.jsx is untouched - no guided-video disclosure, no import of the new shared catalogue, per this subphase\'s own explicit scope', () => {
-    expect(eveningBreathingSource).not.toMatch(/guidedBreathingVideos|GUIDED_BREATHING_VIDEO_COUNT|Explore guided breathing sessions/);
+  // Evening Visual Uplift (Phase 7) — this subphase's own explicit scope
+  // has since been superseded: EveningBreathing.jsx now DOES gain the same
+  // "Explore guided breathing" disclosure, reusing this exact shared
+  // catalogue (never a second/duplicate list) - see this file's own
+  // updated doc comment. The disclosure is pre-start only (no interrupt-
+  // to-watch wiring into the active exercise/timer/music), since opening
+  // a video before Begin Breathing has nothing to pause.
+  it('EveningBreathing.jsx now reuses the exact same shared guided-breathing catalogue Breathe.jsx does - never a second/duplicate list', () => {
+    expect(eveningBreathingSource).toMatch(/import \{ BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT \} from '\.\.\/lib\/guidedBreathingVideos';/);
+    expect(eveningBreathingSource).toMatch(/Explore guided breathing/);
+    expect(eveningBreathingSource).toMatch(/GUIDED_BREATHING_VIDEO_COUNT/);
+  });
+
+  it('EveningBreathing.jsx\'s own guided-breathing disclosure never touches the breathing controller/timer/music state - no hasBegun/manuallyPaused/interrupt wiring added alongside it', () => {
+    expect(eveningBreathingSource).not.toMatch(/videoOpenedDuringExercise/);
+    expect(eveningBreathingSource).toMatch(/guidedSessionsOpen/);
   });
 });

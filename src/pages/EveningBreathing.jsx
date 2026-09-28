@@ -8,13 +8,21 @@ import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { BreathingRing } from '../components/BreathingRing';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
-import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
-import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
+import { CompactSoundControl } from '../components/CompactSoundControl';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
+// Evening Visual Uplift (Phase 7) — same shared guided-breathing catalogue
+// Breathe.jsx's own "Explore guided breathing sessions" already uses
+// (BREATHE_VIDEOS/BREATHING_SESSION_VIDEOS/GUIDED_BREATHING_VIDEO_COUNT),
+// not a second/duplicate list.
+import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
+import { BetaVideoModal } from '../components/BetaVideoModal';
+import { BetaVideoRow } from '../components/BetaVideoRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { getZonedParts } from '../lib/timezone';
@@ -46,6 +54,20 @@ const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 // music) starts before "Begin Breathing" is tapped - same proven
 // pre-start shape already used by Breathe.jsx/QuietBreathing.jsx.
 const DEFAULT_PATTERN_ID = 'evening';
+
+// Evening Visual Uplift (Phase 7) — one real Material Symbol per real
+// breathing pattern (BreathingPatternRow's existing, additive `icon`
+// prop), the exact same mapping Breathe.jsx's own BREATHING_PATTERN_ICONS
+// already uses - the same activity, same icon, across journeys. No
+// pattern is renamed, reordered, or given a different cadence/timing to
+// acquire this icon.
+const BREATHING_PATTERN_ICONS = {
+  morning: 'air',
+  evening: 'bedtime',
+  quiet: 'self_improvement',
+  box: 'crop_square',
+  coherent: 'waves'
+};
 
 /*
  * Stage 4 Batch F6 — EveningBreathing
@@ -184,7 +206,24 @@ export const EveningBreathing = () => {
     });
   };
 
-  if (EveningSceneShell && BreathingRing && ProgressIndicator && BreathingPatternRow && BreathingPatternDescription && InteractiveAmbientMusic && MusicPreferenceToggle && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell && BreathingRing && ProgressIndicator && BreathingPatternRow && InteractiveAmbientMusic && CompactSoundControl && ExercisePausedPanel && ReviewModeBanner && ConfirmDialog && PreparationCountdown) { /* no-op to satisfy blind linter */ }
+
+  // Evening Visual Uplift (Phase 7) — collapsed-by-default guided-
+  // breathing disclosure, mirroring Breathe.jsx's own "Explore guided
+  // breathing sessions" precedent. Pre-start only (see this pass's own
+  // final report): nothing here touches hasBegun, the breathing
+  // controller/timer, or music at all - opening a video before Begin
+  // Breathing has nothing to pause.
+  const {
+    openVideo,
+    handleSelect: handleSelectVideo,
+    closeVideo,
+    promptOpen: videoPromptOpen,
+    dismissPrompt: dismissVideoPrompt,
+    confirmSignIn: confirmVideoSignIn,
+    confirmCreateAccount: confirmVideoCreateAccount
+  } = useProtectedVideo();
+  const [guidedSessionsOpen, setGuidedSessionsOpen] = useState(false);
 
   const hasMirroredExitRef = useRef(false);
   const mirrorExitRef = useRef(() => {});
@@ -462,6 +501,17 @@ export const EveningBreathing = () => {
               see handleBeginBreathing above for the one gesture that
               starts all three together. */}
           <div className="flex-1 flex flex-col justify-center space-y-6">
+            {/* Evening Visual Uplift (Phase 7) — compact Sound control,
+                replacing the large full-width MusicPreferenceToggle card,
+                matching Breathe.jsx's own corrected header placement.
+                Same musicPreferenceOn/handleToggleMusicPreference state
+                as before - no second audio state. */}
+            {musicEligible && (
+              <div className="flex justify-end">
+                <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="evening" />
+              </div>
+            )}
+
             <div className="text-center space-y-2">
               <h1 className="font-serif italic text-2xl text-on-surface">Breathe with the night.</h1>
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
@@ -469,36 +519,83 @@ export const EveningBreathing = () => {
               </p>
             </div>
 
-            {/* Build 16 physical-iPhone correction (F5) — compact
-                2-column grid, replacing the five full-width rows. Each
-                card shows its complete name only - the selected
-                pattern's full cadence and exact duration render once,
-                below the grid, via the shared
-                BreathingPatternDescription. */}
-            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
-              {BREATHING_PATTERNS.map((pattern, idx) => (
+            {/* Evening Visual Uplift (Phase 7) — vertically stacked,
+                full-width breathing option rows (matching Breathe.jsx's
+                own corrected structure), each with a real Material Symbol
+                and its complete cadence/exact duration shown inline - the
+                separate BreathingPatternDescription block below the old
+                2-column grid is no longer needed, its own information is
+                never duplicated. The exact same three real patterns, same
+                order - nothing renamed, reordered, or retimed. */}
+            <div className="space-y-2" role="radiogroup" aria-label="Choose your breathing practice">
+              {BREATHING_PATTERNS.map((pattern) => (
                 <BreathingPatternRow
                   key={pattern.id}
-                  compact
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
                   onSelect={handleSelectPattern}
                   groupName="evening-breathing-pattern"
                   accent="evening"
-                  className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
+                  icon={BREATHING_PATTERN_ICONS[pattern.id]}
                 />
               ))}
             </div>
-            <BreathingPatternDescription pattern={activePattern} />
 
-            {musicEligible && (
-              <MusicPreferenceToggle
-                isOn={musicPreferenceOn}
-                onToggle={handleToggleMusicPreference}
-                description="Play gentle music during your breathing practice."
-                accent="evening"
-              />
-            )}
+            {/* Evening Visual Uplift (Phase 7) — collapsed-by-default
+                "Explore guided breathing" disclosure (this screen had
+                none before this pass), mirroring Breathe.jsx's own
+                identical pre-start disclosure/catalogue. */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setGuidedSessionsOpen((v) => !v)}
+                aria-expanded={guidedSessionsOpen}
+                aria-controls="evening-breathing-guided-sessions"
+                className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-evening-accent"
+              >
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
+                  style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
+                  aria-hidden="true"
+                >
+                  expand_more
+                </span>
+              </button>
+              {guidedSessionsOpen && (
+                <div id="evening-breathing-guided-sessions" className="space-y-4">
+                  <div className="space-y-3">
+                    {BREATHE_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Breathing Sessions</h3>
+                    {BREATHING_SESSION_VIDEOS.map(({ id, blurb }) => {
+                      const entry = getBetaVideoById(id);
+                      if (!entry) return null;
+                      return (
+                        <BetaVideoRow
+                          key={id}
+                          title={entry.title}
+                          description={blurb}
+                          onClick={() => handleSelectVideo(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3 w-full">
@@ -657,6 +754,19 @@ export const EveningBreathing = () => {
         </div>
       )}
 
+      {openVideo && (
+        <BetaVideoModal
+          entry={openVideo}
+          onClose={closeVideo}
+          completionContext={{ journey: 'evening', onPrimaryAction: closeVideo, onSecondaryAction: closeVideo }}
+        />
+      )}
+      <SignInPromptDialog
+        open={videoPromptOpen}
+        onSignIn={confirmVideoSignIn}
+        onCreateAccount={confirmVideoCreateAccount}
+        onDismiss={dismissVideoPrompt}
+      />
       <ConfirmDialog
         open={isConfirming}
         title="Review an earlier step?"

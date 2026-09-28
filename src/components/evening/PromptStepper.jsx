@@ -9,6 +9,7 @@ import { getBetaVideoById } from '../../lib/betaVideoManifest';
 import { getCachedDurationMinutes } from '../../lib/durationCache';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
+import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
 
 // Evening journey-theme correction — Next/Continue, the "Add your own"
 // toggle, and the guidance disclosure's focus ring/chevron all used to be
@@ -142,7 +143,7 @@ const CHANGE_DEBOUNCE_MS = 400;
  *                 StressRelease.jsx (the one genuine non-Evening consumer)
  *                 passes "anytime".
  */
-export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary' }) => {
+export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help?' }) => {
   const tokens = getJourneyToneTokens(journeyTone);
   const primaryActionClasses = getJourneyPrimaryActionClasses(journeyTone);
   const guidanceFocusRing = GUIDANCE_FOCUS_RING[journeyTone] ?? GUIDANCE_FOCUS_RING.primary;
@@ -301,11 +302,23 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           fixed unconditionally to full-opacity on-surface-variant rather
           than needing a session check like ProgressIndicator's. */}
       <div className="text-center space-y-1">
+        {/* Evening Visual Uplift (Phase 7) — `sectionLabel` (additive,
+            optional): Reflection.jsx/Gratitude.jsx now pass their own
+            section name ("Reflection"/"Gratitude") for the approved
+            "1 of 3 · Reflection" substep indicator; StressRelease.jsx
+            (Anytime, the one other caller) omits it and keeps the exact
+            original "{n} of {m}" text. */}
         <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant font-bold">
-          {activeIndex + 1} of {prompts.length}
+          {activeIndex + 1} of {prompts.length}{sectionLabel ? ` · ${sectionLabel}` : ''}
         </p>
         <h2 className="font-serif italic text-2xl text-on-surface">{activePrompt.label}</h2>
-        <p className="text-xs text-on-surface-variant">Choose the option that feels closest, or add your own.</p>
+        {/* Evening Visual Uplift (Phase 7) — each Reflection/Gratitude
+            question now carries its own short, specific supportingText
+            (eveningJourneyQuestions.js) instead of one generic repeated
+            sentence; StressRelease.jsx's own prompts have no
+            supportingText field, so they keep the exact original
+            fallback line. */}
+        <p className="text-xs text-on-surface-variant">{activePrompt.supportingText ?? 'Choose the option that feels closest, or add your own.'}</p>
       </div>
 
       {/* Compact two-column layout (Build 16): every question now renders
@@ -342,16 +355,29 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           improvement for exactly the smallest real screens it matters
           most on. */}
       <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={activePrompt.label}>
-        {activePrompt.options?.map((option) => (
-          <AnswerOptionButton
-            key={option}
-            label={option}
-            selected={selectedOption === option}
-            onClick={() => handleSelectPreset(option)}
-            journeyTone={journeyTone}
-            groupName={activePrompt.id}
-          />
-        ))}
+        {activePrompt.options?.map((option) => {
+          // Evening Visual Uplift (Phase 7) — getOptionPresentation looks
+          // up a concise display label/icon/descriptor keyed by the
+          // UNCHANGED stored option string (the map's own safe fallback
+          // returns the original string with no icon for any prompt id
+          // it doesn't recognise, e.g. StressRelease.jsx's own prompts -
+          // see eveningOptionPresentation.js's own doc comment). `option`
+          // itself - never the display label - is still what's compared/
+          // selected/saved below.
+          const presentation = getOptionPresentation(activePrompt.id, option);
+          return (
+            <AnswerOptionButton
+              key={option}
+              label={presentation.label}
+              icon={presentation.icon}
+              descriptor={presentation.descriptor}
+              selected={selectedOption === option}
+              onClick={() => handleSelectPreset(option)}
+              journeyTone={journeyTone}
+              groupName={activePrompt.id}
+            />
+          );
+        })}
       </div>
 
       {/* Optional "Add your own" - collapsed by default, unless the
@@ -472,7 +498,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             aria-controls={`${activePrompt.id}-guidance`}
             className={`w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 ${guidanceFocusRing}`}
           >
-            <span className="text-sm font-semibold text-on-surface">Would some guidance help?</span>
+            <span className="text-sm font-semibold text-on-surface">{guidanceLabel}</span>
             <span
               className={`material-symbols-outlined transition-transform ${guidanceOpen ? tokens.text : 'text-on-surface-variant'}`}
               style={{ transform: guidanceOpen ? 'rotate(180deg)' : 'none' }}

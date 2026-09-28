@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { AnswerOptionButton } from './AnswerOptionButton';
 import { resolveSavedAnswerDisplay } from '../../lib/eveningJourneyQuestions';
+import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
 
 /*
  * Evening completed-review — EveningReviewQuestion
@@ -47,16 +48,21 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
           320px numbers this shares (no narrow-screen fallback needed -
           genuine testing showed it stays readable at 320px). */}
       <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
-        {prompt.options?.map((option) => (
-          <AnswerOptionButton
-            key={option}
-            label={option}
-            selected={selectedOption === option}
-            journeyTone={journeyTone}
-            groupName={groupName}
-            readOnly
-          />
-        ))}
+        {prompt.options?.map((option) => {
+          const presentation = getOptionPresentation(prompt.id, option);
+          return (
+            <AnswerOptionButton
+              key={option}
+              label={presentation.label}
+              icon={presentation.icon}
+              descriptor={presentation.descriptor}
+              selected={selectedOption === option}
+              journeyTone={journeyTone}
+              groupName={groupName}
+              readOnly
+            />
+          );
+        })}
       </div>
 
       {isCustomAnswer && (

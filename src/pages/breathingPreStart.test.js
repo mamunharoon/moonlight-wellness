@@ -355,7 +355,10 @@ describe('Breathe.jsx - Session Engine boundary unchanged (Morning-only advancem
 describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Evening-themed, same pre-start Begin discipline', () => {
   it('imports the shared BREATHING_PATTERNS/BreathingPatternRow, never a second, hand-typed pattern list', () => {
     expect(eveningBreathingSource).toMatch(/import \{ BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
-    expect(eveningBreathingSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
+    // Evening Visual Uplift (Phase 7) — vertically stacked list now
+    // (mirrors Breathe.jsx's own Phase 6 correction above), so no `idx`
+    // is needed for a col-span-2 last-item special case any more.
+    expect(eveningBreathingSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
   });
 
   it('renders inside role="radiogroup", one BreathingPatternRow per real pattern with the Evening accent, single groupName so only one can be checked at a time', () => {

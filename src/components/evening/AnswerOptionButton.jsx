@@ -140,8 +140,78 @@
 // Gratitude now opt into explicitly.
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 
-export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'primary', groupName, readOnly = false }) => {
+// Evening Visual Uplift (Phase 7) — icon badge tint per journeyTone,
+// mirroring the same established additive pattern MovementCheckboxRow.jsx/
+// BreathingPatternRow.jsx already use for their own icon badges. Only
+// used when the new, optional `icon` prop is supplied.
+const ICON_BADGE_TOKENS = {
+  primary: { selected: 'bg-primary/25 text-primary', unselected: 'bg-white/5 text-on-surface-variant' },
+  morning: { selected: 'bg-morning-accent-tint/25 text-morning-accent', unselected: 'bg-white/5 text-on-surface-variant' },
+  anytime: { selected: 'bg-tertiary-tint/25 text-tertiary', unselected: 'bg-white/5 text-on-surface-variant' },
+  evening: { selected: 'bg-evening-accent-tint/25 text-evening-accent', unselected: 'bg-white/5 text-on-surface-variant' }
+};
+
+// Evening Visual Uplift (Phase 7) — `icon`/`descriptor` (additive,
+// optional, default null): every existing caller that omits them
+// (StressRelease.jsx's own STRESS_PROMPTS, and any future caller with no
+// icon mapping) renders the exact original plain-pill layout below,
+// byte-identical to before this pass. Only Reflection/Gratitude/Edit/
+// Review (via eveningOptionPresentation.js's getOptionPresentation, keyed
+// by the UNCHANGED stored option string) now pass a real icon - this is a
+// pure presentation upgrade, never a second selection mechanism: the same
+// native radio input, the same `selected`/`onClick` contract, the same
+// stored value, just a richer visual card when a mapping exists.
+export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'primary', groupName, readOnly = false, icon = null, descriptor = null }) => {
   const tokens = getJourneyToneTokens(journeyTone);
+
+  if (icon) {
+    const badgeTokens = ICON_BADGE_TOKENS[journeyTone] ?? ICON_BADGE_TOKENS.primary;
+    return (
+      <label
+        className={`flex flex-col gap-2 w-full min-h-[64px] p-3 rounded-2xl border text-left transition-all duration-150 has-[:focus-visible]:ring-2 ${tokens.focusRing} has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface ${
+          readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.98]'
+        } ${
+          selected
+            ? tokens.selectedRow
+            : readOnly
+              ? tokens.unselectedRow.replace(' hover:bg-white/10', '')
+              : tokens.unselectedRow
+        }`}
+      >
+        <input
+          type="radio"
+          name={groupName}
+          checked={selected}
+          onChange={readOnly ? undefined : onClick}
+          disabled={readOnly}
+          className="sr-only"
+        />
+        <div className="flex items-start justify-between gap-2">
+          <span className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${selected ? badgeTokens.selected : badgeTokens.unselected}`}>
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
+          </span>
+          <span
+            aria-hidden="true"
+            className={`relative w-5 h-5 rounded-full border-2 shrink-0 transition-colors ${
+              selected ? tokens.selectedRing : tokens.unselectedRing
+            }`}
+          >
+            {selected && <span className={`absolute inset-0 m-auto w-2 h-2 rounded-full ${tokens.dot}`} />}
+          </span>
+        </div>
+        <span className={`block text-sm leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-semibold'}`}>
+          {label}
+          {/* Selected state never relies on colour alone - a real,
+              screen-reader-announced word alongside the visible ring/dot
+              and bold label above. */}
+          {selected && <span className="sr-only"> (selected)</span>}
+        </span>
+        {descriptor && (
+          <span className="block text-[11px] text-on-surface-variant leading-snug">{descriptor}</span>
+        )}
+      </label>
+    );
+  }
 
   return (
     <label

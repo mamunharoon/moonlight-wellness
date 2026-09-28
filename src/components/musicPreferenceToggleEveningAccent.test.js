@@ -40,10 +40,20 @@ describe('MusicPreferenceToggle — a genuinely new \'evening\' entry exists, re
   });
 });
 
-describe('MusicPreferenceToggle — only EveningBreathing.jsx passes accent="evening"', () => {
-  it('EveningBreathing.jsx\'s own call site passes accent="evening"', () => {
-    const callSite = eveningBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="evening"/);
+describe('MusicPreferenceToggle — no page passes accent="evening" any more', () => {
+  // Evening Visual Uplift (Phase 7) — EveningBreathing.jsx no longer
+  // renders MusicPreferenceToggle at all, mirroring Breathe.jsx/
+  // MorningFlow.jsx's own earlier Phase 6 switch to the compact
+  // CompactSoundControl (journeyTone="evening") - see
+  // musicPreferenceToggleSharedConsumers.test.js's own updated coverage
+  // and CompactSoundControl.test.js. The 'evening' token itself stays
+  // defined in MusicPreferenceToggle.jsx (kept, just no longer consumed
+  // by any real page today) - see the describe block above.
+  it('EveningBreathing.jsx no longer imports or renders MusicPreferenceToggle - replaced by CompactSoundControl journeyTone="evening"', () => {
+    expect(eveningBreathingSource).not.toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
+    expect(eveningBreathingSource).not.toMatch(/<MusicPreferenceToggle/);
+    expect(eveningBreathingSource).toMatch(/import \{ CompactSoundControl \} from '\.\.\/components\/CompactSoundControl';/);
+    expect(eveningBreathingSource).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="evening" \/>/);
   });
 
   // Context-aware Breathing/Meditation theming — QuietBreathing.jsx's

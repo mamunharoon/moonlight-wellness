@@ -62,7 +62,12 @@ describe('EveningComplete.jsx — ExploreCard placement and content', () => {
     expect(block).not.toBe('');
     expect(block).toMatch(/journey="evening"/);
     expect(block).toMatch(/title="Would more support help you unwind\?"/);
-    expect(block).toMatch(/supportingText="Explore sleep stories, calming videos and soothing sounds\."/);
+    // Evening Visual Uplift (Phase 7) — the longer supporting sentence is
+    // removed (ExploreCard's own supportingText prop is optional - see
+    // morningVisualUpliftPhase6.test.js's own updated coverage of the
+    // same removal on Morning's ExploreCard); title/CTA/route/itemCount
+    // are all otherwise unchanged.
+    expect(block).not.toMatch(/supportingText/);
     expect(block).toMatch(/ctaLabel="Explore Evening"/);
     expect(block).toMatch(/itemCount=\{getEveningExploreCatalog\(\)\.length\}/);
   });

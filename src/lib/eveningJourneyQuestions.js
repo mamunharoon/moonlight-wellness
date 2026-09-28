@@ -18,6 +18,10 @@ export const REFLECTION_PROMPTS = [
   {
     id: 'went-well',
     label: 'What went well today?',
+    // Evening Visual Uplift (Phase 7) — short, question-specific
+    // supporting line (PromptStepper.jsx's own approved copy), replacing
+    // the one generic repeated sentence every question previously shared.
+    supportingText: 'Choose the moment that feels closest to your day.',
     layout: 'rows',
     options: [
       'Reached a small milestone',
@@ -37,6 +41,7 @@ export const REFLECTION_PROMPTS = [
   {
     id: 'challenged',
     label: 'What challenged you today?',
+    supportingText: 'Acknowledge it gently, then let it go for tonight.',
     options: [
       'Too much to do',
       'Difficult conversation',
@@ -55,6 +60,7 @@ export const REFLECTION_PROMPTS = [
   {
     id: 'release',
     label: 'What are you ready to release?',
+    supportingText: 'Choose what you do not need to carry forward.',
     options: [
       "Today's stress",
       "A worry I'm carrying",
@@ -93,6 +99,7 @@ export const GRATITUDE_PROMPTS = [
   {
     id: 'appreciated-moment',
     label: 'Name one moment you appreciated today.',
+    supportingText: 'Notice one good moment before closing your day.',
     options: [
       'Morning stillness',
       'A comforting meal',
@@ -111,6 +118,7 @@ export const GRATITUDE_PROMPTS = [
   {
     id: 'who-made-better',
     label: 'Who made your day better?',
+    supportingText: 'Choose the person or connection that mattered.',
     options: [
       'Partner or family',
       'Friend',
@@ -128,6 +136,7 @@ export const GRATITUDE_PROMPTS = [
   {
     id: 'grateful-now',
     label: 'What are you grateful for right now?',
+    supportingText: 'Choose what feels meaningful tonight.',
     options: [
       'This quiet moment',
       'Someone who cares about me',

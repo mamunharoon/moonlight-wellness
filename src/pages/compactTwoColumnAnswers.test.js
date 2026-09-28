@@ -53,7 +53,10 @@ describe('2. Gratitude predefined options use a two-column grid', () => {
 describe('3. Original option order is preserved in DOM and reading order', () => {
   it('the grid container maps directly over activePrompt.options in place - no sort/reverse/shuffle anywhere near the render', () => {
     const optionsBlock = promptStepperSource.match(/<div className="grid grid-cols-2 gap-3" role="radiogroup"[\s\S]*?\n {6}<\/div>/)?.[0] ?? '';
-    expect(optionsBlock).toMatch(/activePrompt\.options\?\.map\(\(option\) => \(/);
+    // Evening Visual Uplift (Phase 7) — now a block body (computes
+    // `presentation` via getOptionPresentation before returning the JSX),
+    // not a bare parenthesised expression.
+    expect(optionsBlock).toMatch(/activePrompt\.options\?\.map\(\(option\) => \{/);
     expect(optionsBlock).not.toMatch(/\.sort\(|\.reverse\(|\.shuffle\(/);
   });
 
@@ -118,9 +121,15 @@ describe('7. Custom response remains full width', () => {
 });
 
 describe('8. Guidance remains full width', () => {
-  it('the "Would some guidance help?" disclosure button/list sit outside the grid container and keep their own w-full class', () => {
+  it('the guidance disclosure button/list sit outside the grid container and keep their own w-full class', () => {
     const gridEnd = promptStepperSource.indexOf('</div>', promptStepperSource.indexOf(GRID_CONTAINER));
-    const guidanceIndex = promptStepperSource.indexOf('Would some guidance help?');
+    // Evening Visual Uplift (Phase 7) — guidanceLabel is now a real,
+    // relabelable prop (default 'Would some guidance help?';
+    // Reflection.jsx/Gratitude.jsx now pass "Need a gentle prompt?"), so
+    // the JSX itself renders the variable {guidanceLabel}, not the
+    // literal default string - searching for that literal would instead
+    // find the earlier function-signature default, before the grid.
+    const guidanceIndex = promptStepperSource.indexOf('{guidanceLabel}');
     expect(guidanceIndex).toBeGreaterThan(gridEnd);
     // Evening journey-theme correction — the focus ring is now
     // journeyTone-driven, so className became a template literal.
@@ -158,9 +167,13 @@ describe('10. Edit Mode: intentional two-column grid, same interactive short-opt
 describe('11. Read-only Review remains semantically correct', () => {
   it('EveningReviewQuestion.jsx applies the same grid because its structure is already identical to the live/edit radiogroup - every option still rendered (not just the saved one), still exactly one shown selected via the same derived comparison, still fully readOnly/disabled - the grid changes column count only, not what is truthfully represented', () => {
     expect(reviewQuestionSource).toContain(GRID_CONTAINER);
-    expect(reviewQuestionSource).toMatch(/prompt\.options\?\.map\(\(option\) => \(/);
+    // Evening Visual Uplift (Phase 7) — now a block body (computes
+    // `presentation` via getOptionPresentation before returning the JSX).
+    expect(reviewQuestionSource).toMatch(/prompt\.options\?\.map\(\(option\) => \{/);
     expect(reviewQuestionSource).toMatch(/selected=\{selectedOption === option\}/);
-    expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,200}readOnly/);
+    // Evening Visual Uplift (Phase 7) — the block now also passes
+    // label/icon/descriptor, widening the tolerance accordingly.
+    expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,400}readOnly/);
   });
 
   it('Review still derives which option (if any) is selected the same way the live journey does - resolveSavedAnswerDisplay, never a second interpretation', () => {
