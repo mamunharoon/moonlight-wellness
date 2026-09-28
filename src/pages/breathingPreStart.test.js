@@ -266,34 +266,40 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(breatheSource).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and .start() is only called from the three legitimate resume/begin points (handleBeginBreathing/handleResume/keepBreathing - Morning breathing Back/early-exit correction added the third)', () => {
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points - see MorningFlow.jsx\'s own fix for why), hidden pre-start via hideToggle, and bare .start() is only called from the two legitimate resume points (handleResume/keepBreathing) - Begin itself now uses start(true), see the dedicated silent-music-fix test below', () => {
     expect(breatheSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (breatheSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = breatheSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    expect(startCalls.length).toBe(3);
+    expect(startCalls.length).toBe(2);
+    const mutedStartCalls = breatheSource.match(/musicPlayerRef\.current\?\.start\(true\);/g) ?? [];
+    expect(mutedStartCalls.length).toBe(1);
   });
 
-  // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now
-  // transitions into the shared 5-second preparation countdown instead
-  // of starting the timer/music immediately: handleBeginBreathing itself
-  // only guards against a double tap, preloads the music (if eligible+
-  // preferred), and starts the countdown; the countdown's own onComplete
-  // callback (fired at zero, or "Start now") is what actually resets
-  // secondsLeft/breatheState, sets hasBegun, and starts music - see
-  // MorningFlow.jsx's identical split for the full rationale.
-  it('handleBeginBreathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
+  // WakeWise DEV — Morning Breathing silent-music fix: handleBeginBreathing
+  // now calls the real, gesture-linked start(true) (muted) itself,
+  // synchronously within the Begin tap - the previous preload()-only shape
+  // deferred the real, audible play() call to the countdown's onComplete,
+  // several real seconds and a setInterval hop removed from the tap, which
+  // iOS/WKWebView silently rejected (same defect class already found and
+  // fixed for Anytime Breathing/Morning Stretch). The countdown's own
+  // onComplete callback (fired at zero, or "Start now") still resets
+  // secondsLeft/breatheState/sets hasBegun, but now only unmute()s the
+  // already-playing element - see InteractiveAmbientMusic.jsx's own
+  // start()/unmute() doc comment for the full rationale.
+  it('handleBeginBreathing guards against double taps and starts the preparation countdown (real start(true), muted, + countdown.start(), no direct state changes)', () => {
     const body = breatheSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.start\(true\);/);
+    expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
     expect(body).toMatch(/countdown\.start\(\);/);
     expect(body).not.toMatch(/setSecondsLeft|setBreatheState|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback creates a fresh createBreathingSession controller for the currently-selected pattern, begins it, seeds secondsLeft/breatheState from it, resets isCompleted/completionGreeting, sets hasBegun, and starts music only if eligible+preferred (Morning breathing completion correction)', () => {
+  it('the countdown\'s onComplete callback creates a fresh createBreathingSession controller for the currently-selected pattern, begins it, seeds secondsLeft/breatheState from it, resets isCompleted/completionGreeting, sets hasBegun, and only unmute()s music if eligible+preferred (Morning breathing completion correction) - never a second start() call here', () => {
     const countdownBlock = breatheSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
     expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
@@ -304,7 +310,8 @@ describe('Breathe.jsx - nothing starts on mount, Begin synchronises everything',
     expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.start\(\);/);
+    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.unmute\(\);/);
+    expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\);/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 
@@ -378,27 +385,33 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(eveningBreathingSource).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
   });
 
-  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle (Evening Breathing completion correction also folds in isCompleted/backConfirmOpen), and .start() is only called from the three legitimate resume/begin points (handleBeginBreathing/handleResume/keepBreathing)', () => {
+  it('InteractiveAmbientMusic is ONE stable instance (never two separate mount points), hidden pre-start via hideToggle (Evening Breathing completion correction also folds in isCompleted/backConfirmOpen), and bare .start() is only called from the two legitimate resume points (handleResume/keepBreathing) - Begin itself now uses start(true), see the dedicated silent-music-fix test below', () => {
     expect(eveningBreathingSource).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_BREATHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (eveningBreathingSource.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
     const startCalls = eveningBreathingSource.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    expect(startCalls.length).toBe(3);
+    expect(startCalls.length).toBe(2);
+    const mutedStartCalls = eveningBreathingSource.match(/musicPlayerRef\.current\?\.start\(true\);/g) ?? [];
+    expect(mutedStartCalls.length).toBe(1);
   });
 
-  // Build 16 physical-iPhone correction (F3/F4) — see breathingPreStart
-  // .test.js's identical Breathe.jsx split above for the full rationale.
-  it('Begin Breathing guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
+  // WakeWise DEV — Evening Breathing silent-music fix: handleBeginBreathing
+  // now calls the real, gesture-linked start(true) (muted) itself,
+  // synchronously within the Begin tap - see breathingPreStart.test.js's
+  // identical Breathe.jsx split above, and InteractiveAmbientMusic.jsx's
+  // own start()/unmute() doc comment, for the full rationale.
+  it('Begin Breathing guards against double taps and starts the preparation countdown (real start(true), muted, + countdown.start(), no direct state changes)', () => {
     const body = eveningBreathingSource.match(/const handleBeginBreathing = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.start\(true\);/);
+    expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
     expect(body).toMatch(/countdown\.start\(\);/);
     expect(body).not.toMatch(/setSecondsLeft|setHasBegun/);
     expect(body).not.toMatch(/!isGuest/);
   });
 
-  it('the countdown\'s onComplete callback locks the selected pattern, creates the pure breathing session controller, resets secondsLeft/breatheState from it, sets hasBegun, and starts music only if eligible+preferred (Build 18: guest no longer excluded; Evening Breathing completion correction: also creates a fresh createBreathingSession and clears isCompleted/completionGreeting)', () => {
+  it('the countdown\'s onComplete callback locks the selected pattern, creates the pure breathing session controller, resets secondsLeft/breatheState from it, sets hasBegun, and only unmute()s music if eligible+preferred (Build 18: guest no longer excluded; Evening Breathing completion correction: also creates a fresh createBreathingSession and clears isCompleted/completionGreeting) - never a second start() call here', () => {
     const countdownBlock = eveningBreathingSource.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(countdownBlock).not.toBe('');
     expect(countdownBlock).toMatch(/sessionRef\.current = createBreathingSession\(\{ pattern: activePattern, resolveBreathPhase \}\);/);
@@ -409,6 +422,8 @@ describe('EveningBreathing.jsx - real pattern choice, defaulting to 4-7-8, Eveni
     expect(countdownBlock).toMatch(/setCompletionGreeting\(null\);/);
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
     expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
+    expect(countdownBlock).toMatch(/musicPlayerRef\.current\?\.unmute\(\);/);
+    expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\);/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 

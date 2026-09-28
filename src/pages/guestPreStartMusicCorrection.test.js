@@ -95,30 +95,36 @@ describe('2 & 3. Guest choice is session-only; authenticated choice still persis
 });
 
 describe('4 & 5. Off -> Begin creates no audio instance; On -> Begin creates exactly one', () => {
-  // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
-  // into the shared 5-second preparation countdown before anything
-  // starts. The Begin handler itself only preloads (if eligible+
-  // preferred) and starts the countdown; the actual start() call - still
+  // WakeWise DEV — Morning Breathing/Morning Stretch/Evening Breathing
+  // silent-music fix: all three now use the same real, gesture-linked
+  // start(true) (muted) shape QuietBreathing.jsx already had (see that
+  // surface's own dedicated test below, and InteractiveAmbientMusic.jsx's
+  // own start()/unmute() doc comment, for the full root-cause rationale).
+  // Begin itself calls start(true) synchronously within the tap; the
+  // countdown's own onComplete callback (fired at zero, or "Start now")
+  // only unmute()s - a plain property set, never a second play() call -
   // gated by the exact same musicEligible && musicPreferenceOn condition,
-  // guest status still never excluding it - now lives in the countdown's
-  // own onComplete callback, fired at zero or "Start now".
+  // guest status still never excluding it.
   for (const { name, source } of SURFACES) {
-    it(`${name}: the Begin handler itself only preloads and starts the countdown - it never calls start() directly`, () => {
+    it(`${name}: the Begin handler itself calls the real start(true) (muted), never merely preload(), before starting the countdown`, () => {
       const body = source.match(/const handleBegin\w* = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toBe('');
-      expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.preload\(\);\s*\n\s*\}/);
+      expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(true\);\s*\n\s*\}/);
       expect(body).toMatch(/countdown\.start\(\);/);
-      expect(body).not.toMatch(/musicPlayerRef\.current\?\.start\(\)/);
+      expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
       expect(body).not.toMatch(/!isGuest/);
     });
 
-    it(`${name}: the countdown's own onComplete callback calls start() gated ONLY on musicEligible && musicPreferenceOn - guest status no longer excludes it`, () => {
+    it(`${name}: the countdown's own onComplete callback only unmute()s, gated ONLY on musicEligible && musicPreferenceOn - guest status no longer excludes it, and no second start() call is ever made here`, () => {
       const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
       expect(countdownBlock).not.toBe('');
-      expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+      expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.unmute\(\);\s*\n\s*\}/);
+      expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\);/);
       expect(countdownBlock).not.toMatch(/!isGuest/);
     });
+  }
 
+  for (const { name, source } of SURFACES) {
     it(`${name}: InteractiveAmbientMusic is still mounted exactly once (never two mount points across the pre-start/active transition) - a guest starting music can never create a duplicate instance`, () => {
       const mountCount = (source.match(/<InteractiveAmbientMusic/g) ?? []).length;
       expect(mountCount).toBe(1);

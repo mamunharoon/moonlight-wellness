@@ -299,12 +299,19 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
     expect(source).toMatch(/<InteractiveAmbientMusic\s*\n\s*ref=\{musicPlayerRef\}\s*\n\s*musicVariantId=\{INTERACTIVE_STRETCHING_MUSIC_ID\}\s*\n\s*suspended=\{hasBegun \? \(isCompleted \|\| Boolean\(openVideo\) \|\| manuallyPaused \|\| backConfirmOpen\) : false\}\s*\n\s*hideToggle=\{!hasBegun \|\| isCompleted\}\s*\n\s*\/>/);
     const mountCount = (source.match(/<InteractiveAmbientMusic/g) ?? []).length;
     expect(mountCount).toBe(1);
+    // WakeWise DEV — Morning Stretch silent-music fix: handleBeginStretching
+    // no longer calls the bare, unmuted start() - it calls the real,
+    // gesture-linked start(true) (muted) instead, synchronously within the
+    // Begin tap, so iOS/WKWebView still counts play() as issued within the
+    // genuine gesture. Only two bare start() call sites legitimately
+    // remain: handleResumeWithMusic and keepStretching (resuming music that
+    // was genuinely already playing before a guided video/Back-confirmation
+    // dialog paused it) - both real, synchronous click-handler gestures of
+    // their own, never a countdown/setTimeout-deferred call.
     const startCalls = source.match(/musicPlayerRef\.current\?\.start\(\);/g) ?? [];
-    // Exactly three legitimate call sites: handleBeginStretching,
-    // handleResumeWithMusic, and keepStretching (resuming music that was
-    // playing before a Back-confirmation dialog paused it) - never a
-    // fourth, and never inside a useEffect.
-    expect(startCalls.length).toBe(3);
+    expect(startCalls.length).toBe(2);
+    const mutedStartCalls = source.match(/musicPlayerRef\.current\?\.start\(true\);/g) ?? [];
+    expect(mutedStartCalls.length).toBe(1);
     const effectBodies = source.match(/useEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[[^\]]*\]\);/g) ?? [];
     // The new interval-management effect legitimately calls
     // musicPlayerRef.current?.stop() on natural completion - only .start()
@@ -324,21 +331,28 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
 //
 // Build 16 physical-iPhone correction (F3/F4) — Begin Stretching now
 // transitions into the shared 5-second preparation countdown instead of
-// starting the timer/animation/music immediately: handleBeginStretching
-// itself only guards against a double tap, preloads the music (if
-// eligible+preferred), and starts the countdown; the countdown's own
-// onComplete callback (fired at zero, or "Start now") is what actually
-// locks the sequence/resets activeStep+timeLeft/sets hasBegun/starts
-// music - see MorningMeditate.jsx's identical split for the full
-// rationale.
+// starting the timer/animation/music immediately.
+//
+// WakeWise DEV — Morning Stretch silent-music fix: handleBeginStretching
+// now calls the real, gesture-linked start(true) (muted) itself - the
+// previous preload()-only shape deferred the real, audible play() call to
+// the countdown's onComplete, several real seconds and a setInterval hop
+// removed from the tap, which iOS/WKWebView silently rejected (found live
+// on a physical iPhone). The countdown's own onComplete callback (fired at
+// zero, or "Start now") still locks the sequence/resets activeStep+
+// timeLeft/sets hasBegun, but now only unmute()s the already-playing
+// element - see InteractiveAmbientMusic.jsx's own start()/unmute() doc
+// comment, and QuietBreathing.jsx's identical, already-approved fix, for
+// the full rationale.
 describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music together, exactly once', () => {
-  it('handleBeginStretching guards against double taps and starts the preparation countdown (preload + countdown.start(), no direct state changes)', () => {
+  it('handleBeginStretching guards against double taps and starts the preparation countdown (real start(true), muted, + countdown.start(), no direct state changes)', () => {
     const body = source.match(/const handleBeginStretching = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(hasBegunOnceRef\.current\) return;/);
     expect(body).toMatch(/if \(selectedMovements\.size === 0\) return;/);
     expect(body).toMatch(/hasBegunOnceRef\.current = true;/);
     expect(body).toMatch(/if \(musicEligible && musicPreferenceOn\) \{/);
-    expect(body).toMatch(/musicPlayerRef\.current\?\.preload\(\);/);
+    expect(body).toMatch(/musicPlayerRef\.current\?\.start\(true\);/);
+    expect(body).not.toMatch(/musicPlayerRef\.current\?\.preload\(\)/);
     expect(body).toMatch(/countdown\.start\(\);/);
     expect(body).not.toMatch(/setActiveSequence|setActiveStep|setTimeLeft|setHasBegun/);
     // The double-tap guard is the very first statement, before anything else.
@@ -363,9 +377,10 @@ describe('Items 7/8/9/10 - Begin Stretching starts timer+animation+music togethe
     expect(countdownBlock).toMatch(/setHasBegun\(true\);/);
   });
 
-  it('the countdown\'s onComplete callback starts music only if eligible and preferred (Build 18: guest no longer excluded - IS01 is server-allowlisted) - disabled preference stays genuinely silent', () => {
+  it('the countdown\'s onComplete callback only unmute()s music if eligible and preferred (Build 18: guest no longer excluded - IS01 is server-allowlisted) - disabled preference stays genuinely silent, and no second start() call is ever made here (the real start(true) already happened in handleBeginStretching)', () => {
     const countdownBlock = source.match(/const countdown = usePreparationCountdown\(\{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
-    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.start\(\);\s*\n\s*\}/);
+    expect(countdownBlock).toMatch(/if \(musicEligible && musicPreferenceOn\) \{\s*\n\s*musicPlayerRef\.current\?\.unmute\(\);\s*\n\s*\}/);
+    expect(countdownBlock).not.toMatch(/musicPlayerRef\.current\?\.start\(\);/);
     expect(countdownBlock).not.toMatch(/!isGuest/);
   });
 

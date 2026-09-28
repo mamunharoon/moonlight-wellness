@@ -269,10 +269,24 @@ export const EveningBreathing = () => {
   // selectedPatternId can never change again once this fires.
   const hasBegunOnceRef = useRef(false);
 
-  // Build 16 physical-iPhone correction (F3/F4) — Begin Breathing now
-  // transitions into the shared 5-second preparation countdown instead of
-  // starting the timer/music immediately - see MorningFlow.jsx's
-  // identical block for the full rationale.
+  // WakeWise DEV — Evening Breathing silent-music fix. Root cause (traced
+  // live, same defect class already found and fixed for Anytime Breathing/
+  // Morning Stretch/Morning Breathing - see InteractiveAmbientMusic.jsx's
+  // own start()/unmute() doc comment for the full root-cause trace):
+  // handleBeginBreathing used to call only preload() (a network fetch,
+  // never touching playback) and deferred the real, audible start() call
+  // to this onComplete - which fires from usePreparationCountdown's own
+  // setInterval tick + effect, 5 REAL SECONDS after the Begin tap, not a
+  // synchronous continuation of it. iOS/WKWebView's gesture-before-
+  // unmuted-playback rule does not survive that gap, so audio.play() was
+  // silently rejected.
+  //
+  // Fix: onComplete now only unmute()s - the real start(true) call already
+  // happened synchronously in handleBeginBreathing below, at the moment of
+  // the actual tap, so audio is already genuinely playing (muted) by the
+  // time this fires; unmute() is a plain property set with no gesture
+  // requirement of its own, safe to call from this setInterval-derived
+  // callback.
   const countdown = usePreparationCountdown({
     seconds: 5,
     onComplete: () => {
@@ -289,16 +303,25 @@ export const EveningBreathing = () => {
       setCompletionGreeting(null);
       setHasBegun(true);
       if (musicEligible && musicPreferenceOn) {
-        musicPlayerRef.current?.start();
+        musicPlayerRef.current?.unmute();
       }
     }
   });
 
+  // WakeWise DEV — Evening Breathing silent-music fix (see the countdown's
+  // own doc comment above for the full root-cause trace). Calls the REAL
+  // start(true) (muted) here, synchronously within this actual tap - the
+  // one genuine user gesture this screen has - instead of only preload()
+  // (network fetch, no play()). A muted play() still passes iOS/WKWebView's
+  // gesture-before-playback check and produces no audible sound during the
+  // 5-second "get ready" countdown; the countdown's own onComplete then
+  // reveals it with a plain unmute() once the active breathing phase
+  // actually begins.
   const handleBeginBreathing = () => {
     if (hasBegunOnceRef.current) return;
     hasBegunOnceRef.current = true;
     if (musicEligible && musicPreferenceOn) {
-      musicPlayerRef.current?.preload();
+      musicPlayerRef.current?.start(true);
     }
     countdown.start();
   };
