@@ -68,7 +68,26 @@
 -- rejected at the database, never relying on a React ref alone.
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.practice_completion_events (
+-- Deliberately plain CREATE TABLE, no IF NOT EXISTS - a documented,
+-- reasoned divergence from this repo's usual convention (every other
+-- table-creating migration except 20260918100000_checkout_attempts_
+-- concurrency_guard.sql uses IF NOT EXISTS, precisely so a legitimate
+-- re-run against a project where the table already exists correctly is a
+-- no-op rather than an error - see 20260801000000's own doc comment).
+-- That benefit does not apply here: this migration is confirmed unapplied
+-- everywhere (a genuine first creation, not a known-good redo), and none
+-- of the ALTER TABLE ADD CONSTRAINT statements below are themselves
+-- re-run-safe anyway (Postgres has no "ADD CONSTRAINT IF NOT EXISTS" for
+-- a CHECK/UNIQUE constraint) - a partial-apply retry would already fail
+-- loudly on the first repeated ADD CONSTRAINT regardless of this choice.
+-- Given IF NOT EXISTS buys no real safety here, the risk it WOULD
+-- introduce - silently accepting an unexpected, incompatible pre-existing
+-- table of this exact name and letting every ALTER TABLE below run
+-- against whatever that table actually is - is not worth taking. Plain
+-- CREATE TABLE instead fails immediately and unambiguously
+-- ("relation already exists") the moment that assumption is ever wrong,
+-- exactly like checkout_attempts' own precedent.
+CREATE TABLE public.practice_completion_events (
   event_id          uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id           uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id        text NOT NULL,
@@ -78,14 +97,18 @@ CREATE TABLE IF NOT EXISTS public.practice_completion_events (
   -- deliberately spoofed; the moment this row is genuinely inserted is
   -- already, at most, a network round-trip away from the real completion
   -- moment, which is accurate enough for a completion record and never
-  -- trusts the caller's own Date.now().
-  completed_at      timestamptz NOT NULL DEFAULT timezone('utc'::text, now()),
+  -- trusts the caller's own Date.now(). Plain now() (not
+  -- timezone('utc', now())) is enough here: both columns are timestamptz,
+  -- which always stores an absolute UTC instant internally regardless of
+  -- session timezone - the timezone('utc', ...) wrap only matters for a
+  -- plain `timestamp` (no time zone) column, which neither of these is.
+  completed_at      timestamptz NOT NULL DEFAULT now(),
   duration_seconds  integer,
   local_date        date NOT NULL,
   timezone          text NOT NULL,
   outcome           text NOT NULL DEFAULT 'completed',
   idempotency_key   text NOT NULL,
-  created_at        timestamptz NOT NULL DEFAULT timezone('utc'::text, now())
+  created_at        timestamptz NOT NULL DEFAULT now()
 );
 
 -- ============================================================================

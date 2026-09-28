@@ -37,10 +37,15 @@ FROM pg_constraint
 WHERE conrelid = 'public.practice_completion_events'::regclass
   AND contype = 'u';
 
--- 5. All three expected indexes exist.
--- Expected: 3 rows — user_completed_at_idx, user_local_date_idx,
--- user_journey_practice_idx (plus the PK's own implicit index, not listed
--- here since pg_indexes includes it too — 4 total if you count that one).
+-- 5. All expected indexes exist - pg_indexes includes every index on the
+-- table, not only the three explicit CREATE INDEX statements: Postgres
+-- also auto-creates one implicit index for the PRIMARY KEY and one for
+-- the UNIQUE constraint, so the real total is 5, not 3.
+-- Expected: 5 rows — practice_completion_events_pkey (PRIMARY KEY, on
+-- event_id), practice_completion_events_owner_idempotency_key (UNIQUE, on
+-- user_id, idempotency_key), practice_completion_events_user_completed_at_idx,
+-- practice_completion_events_user_local_date_idx,
+-- practice_completion_events_user_journey_practice_idx.
 SELECT indexname, indexdef
 FROM pg_indexes
 WHERE schemaname = 'public' AND tablename = 'practice_completion_events'

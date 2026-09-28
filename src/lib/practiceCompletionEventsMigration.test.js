@@ -97,6 +97,19 @@ describe('practice_completion_events — validation constraints', () => {
   it('user_id cascades on auth.users delete, matching every other user-owned table', () => {
     expect(migrationSource).toMatch(/user_id\s+uuid NOT NULL REFERENCES auth\.users\(id\) ON DELETE CASCADE,/);
   });
+
+  it('completed_at and created_at both default to plain now() - never timezone(\'utc\', now()), which is only meaningful for a plain timestamp (no time zone) column and neither of these is one', () => {
+    expect(migrationSource).toMatch(/completed_at\s+timestamptz NOT NULL DEFAULT now\(\),/);
+    expect(migrationSource).toMatch(/created_at\s+timestamptz NOT NULL DEFAULT now\(\)\n\);/);
+    expect(migrationSource).not.toMatch(/timezone\('utc'::text, now\(\)\)/);
+  });
+});
+
+describe('practice_completion_events — table creation deliberately fails loudly rather than silently accepting an incompatible pre-existing table', () => {
+  it('uses plain CREATE TABLE, never IF NOT EXISTS - this migration is a confirmed-unapplied first creation, and none of the ALTER TABLE ADD CONSTRAINT statements below it are themselves re-run-safe anyway, so IF NOT EXISTS would buy no genuine idempotency while still risking a silent accept of an unexpected same-named table', () => {
+    expect(migrationSource).toMatch(/CREATE TABLE public\.practice_completion_events \(/);
+    expect(migrationSource).not.toMatch(/CREATE TABLE IF NOT EXISTS public\.practice_completion_events/);
+  });
 });
 
 describe('practice_completion_events — indexes exist for the documented future access patterns', () => {
@@ -130,6 +143,13 @@ describe('practice_completion_events — paired migration-support files are scop
       .join('\n');
     expect(withoutComments).not.toMatch(/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE)\b/i);
     expect(validateSource.match(/SELECT/g)?.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('the index-count expectation is correctly 5, not 3 - pg_indexes also returns the PRIMARY KEY\'s and the UNIQUE constraint\'s own implicit indexes, not only the three explicit CREATE INDEX statements', () => {
+    expect(validateSource).toMatch(/Expected: 5 rows/);
+    expect(validateSource).not.toMatch(/Expected: 3 rows/);
+    expect(validateSource).toMatch(/practice_completion_events_pkey/);
+    expect(validateSource).toMatch(/practice_completion_events_owner_idempotency_key/);
   });
 
   it('the forward migration never touches the unrelated rhythms migration', () => {
