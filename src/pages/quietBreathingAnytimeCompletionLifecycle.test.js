@@ -73,7 +73,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion greeting is pi
 
 describe('QuietBreathing.jsx (standalone, Anytime) — mint completed/check visual, "Breathing Completed" label, never shown for early exit or non-Anytime tones', () => {
   it('the mint badge and "Breathing Completed" label are gated on isCompleted && journeyTone === \'anytime\' - never rendered for earlyEnded or a non-Anytime completion', () => {
-    expect(completedPanel).toMatch(/\{isCompleted && journeyTone === 'anytime' && \(\s*\n\s*<div className="w-20 h-20 rounded-full bg-tertiary\/10 border border-tertiary-tint\/25 shadow-mint-glow flex items-center justify-center">/);
+    expect(completedPanel).toMatch(/isCompleted && journeyTone === 'anytime' \? \(\s*\n\s*<div key="badge" className="w-20 h-20 rounded-full bg-tertiary\/10 border border-tertiary-tint\/25 shadow-mint-glow flex items-center justify-center mx-auto">/);
     expect(completedPanel).toMatch(/\{isCompleted && journeyTone === 'anytime' && \(\s*\n\s*<span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed<\/span>/);
   });
 

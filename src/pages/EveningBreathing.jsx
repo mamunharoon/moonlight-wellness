@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
@@ -31,6 +32,7 @@ import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
+import { CompletionReveal } from '../components/CompletionReveal';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md).
@@ -528,20 +530,34 @@ export const EveningBreathing = () => {
         // tokens (EveningComplete.jsx's own bg-evening-accent/10 +
         // border-evening-accent-tint/25 + shadow-evening-glow badge
         // shape) - never the Morning gold or Anytime mint treatment.
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-          <div className="w-20 h-20 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
-            <span className="material-symbols-outlined text-evening-accent text-4xl" aria-hidden="true">check_circle</span>
-          </div>
-          <div className="space-y-2">
-            <span className="font-label-sm text-xs text-evening-accent uppercase tracking-widest font-bold">Breathing Completed</span>
-            <h2 className="font-serif italic text-2xl text-on-surface max-w-xs mx-auto" role="status">
-              {completionGreeting}
-            </h2>
-            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              Carry this calm with you as your evening continues.
-            </p>
-          </div>
-        </div>
+        // "Your Momentum" foundation, Phase 3 — the shared completion-
+        // reveal transition. isCompleted starts false and flips true
+        // exactly once per genuine completion, so CompletionReveal's
+        // auto-freshness detection applies directly - no explicit
+        // isFresh needed, matching every other ternary-swap screen.
+        // Evening Breathing alone is not one of the three Phase 2 tracked
+        // activities (only the full Evening routine is), so there is no
+        // factual insight/milestone to show here - this is the shared
+        // visual transition only.
+        <CompletionReveal
+          active={isCompleted}
+          journeyTone="evening"
+          className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
+          stagger={[
+            <div key="badge" className="w-20 h-20 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-evening-accent text-4xl" aria-hidden="true">check_circle</span>
+            </div>,
+            <div key="greeting" className="space-y-2">
+              <span className="font-label-sm text-xs text-evening-accent uppercase tracking-widest font-bold">Breathing Completed</span>
+              <h2 className="font-serif italic text-2xl text-on-surface max-w-xs mx-auto" role="status">
+                {completionGreeting}
+              </h2>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Carry this calm with you as your evening continues.
+              </p>
+            </div>
+          ]}
+        />
       ) : (
         <>
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
@@ -28,6 +29,7 @@ import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJou
 import { getJourneyToneTokens } from '../lib/journeyTone';
 import { getBreathingAcknowledgement, getCompletionGreeting } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
+import { CompletionReveal } from '../components/CompletionReveal';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -512,85 +514,105 @@ export const QuietBreathing = ({ standalone = false }) => {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive} alwaysFallback={anytimeOrigin}>
         {isCompleted || earlyEnded ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-            {/* Anytime Breathing completion correction — the required
-                completed/check visual, mint (tertiary) tokens matching
-                every other Anytime card shell (bg-tertiary/10 + border-
-                tertiary-tint/25 + shadow-mint-glow) - never Morning gold
-                or Evening periwinkle. Early exit never shows this badge
-                or "BREATHING COMPLETED" - "Session ended early" keeps its
-                exact existing honest wording/icon-less layout below. */}
-            {isCompleted && journeyTone === 'anytime' && (
-              <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center">
-                <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+          // "Your Momentum" foundation, Phase 3 — the shared completion-
+          // reveal transition. isCompleted/earlyEnded both start false;
+          // exactly one of them flips true per genuine end, so
+          // CompletionReveal's auto-freshness detection applies directly.
+          // celebratory is gated on isCompleted alone (never earlyEnded) -
+          // per the approved brief, a real early exit gets only a plain
+          // supportive cross-fade, never the completed-check scale/glow
+          // treatment this same shared block also renders for a genuine
+          // completion. Standalone Anytime Breathing alone is not one of
+          // the three Phase 2 tracked activities, so there is no factual
+          // insight/milestone to show here - this is the shared visual
+          // transition only.
+          <CompletionReveal
+            active={isCompleted || earlyEnded}
+            journeyTone={journeyTone}
+            celebratory={isCompleted}
+            className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
+            stagger={[
+              // Anytime Breathing completion correction — the required
+              // completed/check visual, mint (tertiary) tokens matching
+              // every other Anytime card shell (bg-tertiary/10 + border-
+              // tertiary-tint/25 + shadow-mint-glow) - never Morning gold
+              // or Evening periwinkle. Early exit never shows this badge
+              // or "BREATHING COMPLETED" - "Session ended early" keeps its
+              // exact existing honest wording/icon-less layout below.
+              isCompleted && journeyTone === 'anytime' ? (
+                <div key="badge" className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center mx-auto">
+                  <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+                </div>
+              ) : null,
+              <div key="greeting" className="space-y-2">
+                {isCompleted && journeyTone === 'anytime' && (
+                  <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed</span>
+                )}
+                <h2 className="text-2xl font-bold text-on-surface" role={isCompleted ? 'status' : undefined}>
+                  {earlyEnded ? 'Session ended early' : (journeyTone === 'anytime' ? completionGreeting : 'Breathing complete')}
+                </h2>
+                {earlyEnded ? (
+                  <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                    Your {activePattern.label} session ended before the timer finished.
+                  </p>
+                ) : journeyTone !== 'anytime' ? (
+                  <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                    {getBreathingAcknowledgement(journeyTone)}
+                  </p>
+                ) : null}
               </div>
-            )}
-            <div className="space-y-2">
-              {isCompleted && journeyTone === 'anytime' && (
-                <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Breathing Completed</span>
-              )}
-              <h2 className="text-2xl font-bold text-on-surface" role={isCompleted ? 'status' : undefined}>
-                {earlyEnded ? 'Session ended early' : (journeyTone === 'anytime' ? completionGreeting : 'Breathing complete')}
-              </h2>
-              {earlyEnded ? (
-                <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                  Your {activePattern.label} session ended before the timer finished.
-                </p>
-              ) : journeyTone !== 'anytime' ? (
-                <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-                  {getBreathingAcknowledgement(journeyTone)}
-                </p>
-              ) : null}
-            </div>
-            <div className="space-y-3 w-full">
-              {/* WakeWise DEV — Anytime completion correction: a practice
-                  reached through Anytime's own quick-reset context
-                  (journeyTone === 'anytime') gets the two Anytime-
-                  specific actions instead of Done/Breathe again - "Choose
-                  Another Reset" returns to the real Anytime Reset
-                  recommendation/options screen (never auto-starts a new
-                  exercise), "Return Home" clears the temporary practice
-                  context exactly like the Done button always has.
-                  Morning/Evening-themed and primary/default standalone
-                  completions (journeyTone !== 'anytime') are completely
-                  untouched - same Done/Breathe again pair as before. */}
-              {journeyTone === 'anytime' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
-                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-                  >
-                    <span>Choose Another Reset</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => exitPracticeToHome(navigate, '/')}
-                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    Return Home
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => exitPracticeToHome(navigate, '/')}
-                    className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-                  >
-                    <span>Done</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleBreatheAgain}
-                    className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    Breathe again
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+            ].filter(Boolean)}
+            actions={
+              // WakeWise DEV — Anytime completion correction: a practice
+              // reached through Anytime's own quick-reset context
+              // (journeyTone === 'anytime') gets the two Anytime-
+              // specific actions instead of Done/Breathe again - "Choose
+              // Another Reset" returns to the real Anytime Reset
+              // recommendation/options screen (never auto-starts a new
+              // exercise), "Return Home" clears the temporary practice
+              // context exactly like the Done button always has.
+              // Morning/Evening-themed and primary/default standalone
+              // completions (journeyTone !== 'anytime') are completely
+              // untouched - same Done/Breathe again pair as before.
+              <div className="space-y-3 w-full">
+                {journeyTone === 'anytime' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
+                      className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                    >
+                      <span>Choose Another Reset</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => exitPracticeToHome(navigate, '/')}
+                      className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Return Home
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => exitPracticeToHome(navigate, '/')}
+                      className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                    >
+                      <span>Done</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBreatheAgain}
+                      className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Breathe again
+                    </button>
+                  </>
+                )}
+              </div>
+            }
+          />
         ) : countdown.isActive ? (
           // Build 16 physical-iPhone correction (F3) — shared preparation
           // countdown. Back/Cancel is handled entirely by this screen's

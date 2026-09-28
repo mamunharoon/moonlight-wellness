@@ -107,7 +107,7 @@ describe('the real, asynchronous native exit events - not a synchronous guess an
   });
 
   it('the completion overlay\'s own render guard already requires !isFullscreen && !fallbackFullscreen, and now only the real native/standard exit events (or the synchronous corrections above) can ever flip those - so it only ever becomes visible once the native presentation genuinely no longer obscures it', () => {
-    expect(source).toMatch(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(\(\) => \{/);
+    expect(source).toMatch(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(/);
   });
 });
 

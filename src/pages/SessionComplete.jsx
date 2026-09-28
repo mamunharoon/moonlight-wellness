@@ -15,6 +15,9 @@ import { JourneyGlow } from '../components/JourneyGlow';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
+import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
+import { CompletionReveal } from '../components/CompletionReveal';
+import { MomentumPanel } from '../components/MomentumPanel';
 
 const RING_CIRCUMFERENCE = 276.46;
 
@@ -115,8 +118,23 @@ export const SessionComplete = () => {
   // verified active-duration measurement exists; this column staying NULL
   // for every Morning/Evening row is the honest reflection of that, not a
   // bug to work around later by approximating it here.
+  // "Your Momentum" foundation, Phase 3 — the write's own resolution is
+  // now captured (previously fire-and-forget): `confirmedSessionId` only
+  // ever holds a completionEventId once recordPracticeCompletion has
+  // genuinely resolved ok (a fresh insert or a safely-deduplicated
+  // retry) for that EXACT id - this is the "current event confirmed or
+  // safely deduplicated" gate useMomentumCompletion below requires before
+  // it ever queries. Never a persistence redesign: recordPracticeCompletion
+  // itself, and the identity it's called with, are completely unchanged -
+  // only this local component now also listens for the result it already
+  // returned. A stale response (e.g. this effect re-firing for a NEW
+  // completionEventId before the OLD one's write settled) is discarded via
+  // the `cancelled` flag, matching every other cleanup-guarded async
+  // effect in this app.
+  const [confirmedSessionId, setConfirmedSessionId] = useState(null);
   useEffect(() => {
     if (state.status !== 'completed' || !state.completionEventId) return;
+    let cancelled = false;
     recordPracticeCompletion({
       userId,
       isGuest: !userId,
@@ -125,8 +143,27 @@ export const SessionComplete = () => {
       practiceType: 'full_routine',
       durationSeconds: null,
       timezone: effectiveTimezone
+    }).then((result) => {
+      if (!cancelled && result.ok) setConfirmedSessionId(state.completionEventId);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [state.status, state.completionEventId, userId, effectiveTimezone]);
+
+  // "Your Momentum" foundation, Phase 3 — factual insight + gentle
+  // milestone for this exact, already-confirmed completion event. Never
+  // blocks/delays Continue to My Day, which renders unconditionally below
+  // regardless of this hook's own status (idle/loading/success/error/
+  // guest) - see useMomentumCompletion.js's own doc comment.
+  const momentum = useMomentumCompletion({
+    ready: confirmedSessionId === state.completionEventId,
+    userId,
+    isGuest: !userId,
+    sessionId: state.completionEventId,
+    journey: 'morning',
+    practiceType: 'full_routine'
+  });
 
   useEffect(() => {
     if (ringFilled) return;
@@ -236,16 +273,29 @@ export const SessionComplete = () => {
         </div>
       </div>
 
-      {/* Text Success Header — small warm-gold eyebrow label reusing
-          Breathe.jsx/MorningFlow.jsx/MorningMeditate.jsx's own completion-
-          panel placement/styling (never a new colour). The old separate
-          supporting body paragraph is dropped - the Summary card below
-          already carries the supporting content, and one rotating
-          headline is enough. */}
-      <div className="text-center space-y-2">
-        <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete</span>
-        <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{completionGreeting}</h2>
-      </div>
+      {/* "Your Momentum" foundation, Phase 3 — shared completion-reveal
+          transition wraps the greeting/insight/milestone/summary content
+          only; the ring above keeps its own pre-existing, independent
+          fresh-completion animation untouched, and the primary action
+          below stays outside this wrapper entirely - always immediately
+          rendered and reachable, never gated on any fade timing.
+          isFresh is this file's own pre-existing isFreshCompletion signal
+          (a direct/stale visit or revisit never animates) - CompletionReveal
+          cannot auto-detect freshness here since this whole screen only
+          ever shows the completed state, unlike a ternary-swap screen. */}
+      <CompletionReveal
+        active
+        isFresh={isFreshCompletion}
+        journeyTone="morning"
+        className="space-y-3"
+        stagger={[
+          <div key="greeting" className="text-center space-y-2">
+            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete</span>
+            <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{completionGreeting}</h2>
+          </div>,
+          <MomentumPanel key="momentum" insight={momentum.insight} milestone={momentum.milestone} />
+        ]}
+      />
 
       {/* Summary card */}
       <div className="glass-panel p-5 rounded-2xl text-left text-xs text-on-surface-variant w-full max-w-sm mx-auto space-y-2 shadow-sm">

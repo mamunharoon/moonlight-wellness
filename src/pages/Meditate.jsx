@@ -15,6 +15,7 @@ import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
+import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
@@ -107,6 +108,37 @@ export const Meditate = () => {
   // so a stale prior video's duration can never leak into a later one's
   // completion event.
   const mediaDurationRef = useRef(null);
+  // "Your Momentum" foundation, Phase 3 — activeCompletionSessionId holds
+  // the CURRENT guided-video completion's own session id, set the instant
+  // onEnded fires below (before mediaSessionIdRef.current is rotated for
+  // whatever plays next) - this is what useMomentumCompletion queries
+  // against, completely independent of the ref's own rotation. Reset to
+  // null whenever the modal is closed (handleVideoClose below) so a later
+  // reopen/replay never shows a stale prior completion's insight/milestone
+  // before its own genuinely fresh onEnded has fired again.
+  // confirmedSessionId mirrors SessionComplete.jsx's own established
+  // pattern exactly: recordPracticeCompletion's fire-and-forget call is
+  // now also observed for its resolution, and only a genuinely ok result
+  // (a fresh insert or a safely-deduplicated retry) for this EXACT id
+  // marks it confirmed - the "confirmed or safely deduplicated" gate
+  // useMomentumCompletion requires before it ever queries. Never a
+  // persistence redesign: recordPracticeCompletion itself, and the
+  // identity it's called with, are completely unchanged.
+  const [activeCompletionSessionId, setActiveCompletionSessionId] = useState(null);
+  const [confirmedSessionId, setConfirmedSessionId] = useState(null);
+  // "Your Momentum" foundation, Phase 3 — factual insight + gentle
+  // milestone for this exact, already-confirmed guided-video completion.
+  // Never blocks/delays BetaVideoModal's own overlay, which renders
+  // unconditionally regardless of this hook's own status (idle/loading/
+  // success/error/guest) - see useMomentumCompletion.js's own doc comment.
+  const momentum = useMomentumCompletion({
+    ready: confirmedSessionId === activeCompletionSessionId,
+    userId,
+    isGuest,
+    sessionId: activeCompletionSessionId,
+    journey: 'direct',
+    practiceType: 'meditation'
+  });
   const mintMediaSessionId = () =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -273,7 +305,11 @@ export const Meditate = () => {
   // for Grounding.jsx's own separate, non-video 5-4-3-2-1 exercise (that
   // route is /support-complete, a different page, but the same
   // don't-delete-the-page rule applies here).
-  const handleVideoClose = () => setOpenVideoId(null);
+  const handleVideoClose = () => {
+    setOpenVideoId(null);
+    setActiveCompletionSessionId(null);
+    setConfirmedSessionId(null);
+  };
 
   // Build 15 Phase B — "Back/Close alignment" per the approved design:
   // Anytime Reset's header already carries a Close control that returns
@@ -427,6 +463,7 @@ export const Meditate = () => {
             const durationSeconds = mediaDurationRef.current;
             mediaSessionIdRef.current = mintMediaSessionId();
             if (sessionId) {
+              setActiveCompletionSessionId(sessionId);
               recordPracticeCompletion({
                 userId,
                 isGuest,
@@ -435,19 +472,23 @@ export const Meditate = () => {
                 practiceType: 'meditation',
                 durationSeconds,
                 timezone: effectiveTimezone
+              }).then((result) => {
+                if (result.ok) setConfirmedSessionId(sessionId);
               });
             }
           }}
           completionContext={{
             journey: 'direct',
-            onPrimaryAction: () => setOpenVideoId(null),
+            momentumInsight: momentum.insight,
+            momentumMilestone: momentum.milestone,
+            onPrimaryAction: handleVideoClose,
             // "Explore Another Session" only when a genuinely different
             // session is actually available to cycle to - matching the
             // Direct/unknown row's own "only when valid" allowance.
             onSecondaryAction: items.length > 1
               ? () => {
                   handleChooseAnother();
-                  setOpenVideoId(null);
+                  handleVideoClose();
                 }
               : undefined
           }}

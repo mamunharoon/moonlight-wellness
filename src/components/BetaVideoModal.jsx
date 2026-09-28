@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { cacheDurationSeconds, getCachedDurationMinutes } from '../lib/durationCache';
@@ -8,6 +9,20 @@ import { resolvePlaybackId, shouldShowMusicToggle } from '../lib/backgroundMusic
 import { useAuth } from '../context/AuthContext';
 import { getMediaCompletionMessage } from '../lib/outcomeMessages';
 import { getMediaCompletionPresentation } from '../lib/mediaCompletionPresentation';
+import { CompletionReveal } from './CompletionReveal';
+import { MomentumPanel } from './MomentumPanel';
+
+// Maps completionContext.journey onto CompletionReveal's `journeyTone` -
+// only 'morning'/'evening'/'anytime' have an approved glow token
+// (GLOW_CLASSES in CompletionReveal.jsx itself); 'library'/'direct' share
+// mediaCompletionPresentation.js's own existing neutral, no-glow
+// treatment, so they resolve to undefined here (CompletionReveal already
+// renders no glow class for any tone it doesn't recognise).
+const GLOW_JOURNEY_TONE = Object.freeze({
+  morning: 'morning',
+  evening: 'evening',
+  anytime: 'anytime'
+});
 
 // Sleep Soundscapes timer options, minutes only - release-blocking fix:
 // the previous no-auto-stop option is removed entirely, no indefinite-
@@ -169,6 +184,14 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
   // reinvented).
   const previouslyFocusedRef = useRef(null);
   const completionPrimaryButtonRef = useRef(null);
+  // Computed unconditionally, right here in the component's own top-level
+  // scope (not inside a nested render callback) - this repo's eslint
+  // config has no react plugin providing JSX-scope usage tracking, so a
+  // component identifier (CompletionReveal/MomentumPanel, below) that's
+  // only ever referenced from within a nested function's own JSX wrongly
+  // reports as unused. getMediaCompletionPresentation is side-effect-free
+  // and safe to compute even on renders where its result goes unused.
+  const mediaCompletionPresentation = completionContext ? getMediaCompletionPresentation(completionContext.journey) : null;
   // Shared guided-media completion correction — a REF, not derived from
   // the hasEnded state closure, so the idempotency guard in handleEnded
   // below is immune to stale-closure timing (a ref is read/written
@@ -788,31 +811,48 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   trio's own existing guard. `overflow-y-auto` on the
                   inner content lets a short viewport (320x568) scroll
                   safely within this frame rather than clipping the
-                  actions - required per the approved brief. */}
-              {hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && (() => {
-                const presentation = getMediaCompletionPresentation(completionContext.journey);
-                return (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6">
-                    <div
-                      role="status"
-                      className="w-full max-h-full overflow-y-auto flex flex-col items-center text-center gap-4 py-2"
-                    >
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 ${presentation.badgeClasses}`}>
-                        <span className={`material-symbols-outlined text-3xl ${presentation.iconClasses}`} aria-hidden="true">check_circle</span>
-                      </div>
-                      <div className="space-y-2">
-                        <span className={`font-label-sm text-xs uppercase tracking-widest font-bold ${presentation.labelClasses}`}>Session Complete</span>
+                  actions - required per the approved brief.
+                  "Your Momentum" foundation, Phase 3 — this exact render
+                  condition (hasEnded && completionContext && !isFullscreen
+                  && !fallbackFullscreen) already starts false and becomes
+                  true exactly once per genuine natural completion +
+                  fullscreen exit (see this file's own doc comment on that
+                  sequencing) - CompletionReveal's own auto-freshness
+                  detection is used directly (no explicit isFresh needed).
+                  `momentumInsight`/`momentumMilestone` are additive,
+                  optional fields on completionContext - only Meditate.jsx
+                  currently passes them (the one Phase 2 practice_type
+                  this table tracks); every other existing caller
+                  (AnytimeReset.jsx, Support.jsx, Grounding.jsx) omits them
+                  and MomentumPanel simply renders nothing, completely
+                  unaffected. */}
+              {hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6">
+                  <CompletionReveal
+                    active
+                    journeyTone={GLOW_JOURNEY_TONE[completionContext.journey]}
+                    className="w-full max-h-full overflow-y-auto flex flex-col items-center text-center gap-4 py-2"
+                    role="status"
+                    stagger={[
+                      <div key="badge" className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 mx-auto ${mediaCompletionPresentation.badgeClasses}`}>
+                        <span className={`material-symbols-outlined text-3xl ${mediaCompletionPresentation.iconClasses}`} aria-hidden="true">check_circle</span>
+                      </div>,
+                      <div key="message" className="space-y-2 text-center">
+                        <span className={`font-label-sm text-xs uppercase tracking-widest font-bold ${mediaCompletionPresentation.labelClasses}`}>Session Complete</span>
                         <p className="text-sm text-white font-semibold max-w-xs mx-auto leading-relaxed">{completionMessage}</p>
+                        <MomentumPanel insight={completionContext.momentumInsight} milestone={completionContext.momentumMilestone} />
                         <p className="text-xs text-white/70">What would you like to do next?</p>
                       </div>
-                      <div className="flex flex-col gap-2 w-full max-w-[240px]">
+                    ]}
+                    actions={
+                      <div className="flex flex-col gap-2 w-full max-w-[240px] mx-auto">
                         <button
                           ref={completionPrimaryButtonRef}
                           type="button"
                           onClick={completionContext.onPrimaryAction}
-                          className={`min-h-[44px] px-5 py-2.5 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${presentation.primaryButtonClasses}`}
+                          className={`min-h-[44px] px-5 py-2.5 rounded-full font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${mediaCompletionPresentation.primaryButtonClasses}`}
                         >
-                          {presentation.primaryLabel}
+                          {mediaCompletionPresentation.primaryLabel}
                         </button>
                         {/* "only when a valid destination exists" - a
                             caller that omits onSecondaryAction hides this
@@ -823,14 +863,14 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                             onClick={completionContext.onSecondaryAction}
                             className="min-h-[44px] px-5 py-2.5 rounded-full glass-panel text-on-surface-variant text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           >
-                            {presentation.secondaryLabel}
+                            {mediaCompletionPresentation.secondaryLabel}
                           </button>
                         )}
                       </div>
-                    </div>
-                  </div>
-                );
-              })()}
+                    }
+                  />
+                </div>
+              )}
 
               {/* Returned-to-preview state, Defect 2 fix: shown once
                   playback has started AND fullscreen (native or fallback)

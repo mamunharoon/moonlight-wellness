@@ -34,8 +34,11 @@ describe('Meditate.jsx — natural end is acknowledged in-modal, never a separat
     expect(meditateSource).not.toMatch(/navigate\('\/meditation-complete'/);
   });
 
-  it('handleVideoClose is now a plain, one-line close - no natural-end branching of its own (that lives in BetaVideoModal)', () => {
-    expect(meditateSource).toMatch(/const handleVideoClose = \(\) => setOpenVideoId\(null\);/);
+  it('handleVideoClose only clears local state (openVideoId, and since "Your Momentum" Phase 3 the momentum-tracking session ids alongside it) - no natural-end branching of its own (that lives in BetaVideoModal)', () => {
+    const closeBody = meditateSource.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n\s*\};/)?.[0] ?? '';
+    expect(closeBody).not.toBe('');
+    expect(closeBody).toMatch(/setOpenVideoId\(null\);/);
+    expect(closeBody).not.toMatch(/hasEnded|isFullscreen/);
   });
 
   it('BetaVideoModal is wired with completionContext (journey: \'direct\')', () => {
@@ -54,8 +57,8 @@ describe('Meditate.jsx — natural end is acknowledged in-modal, never a separat
 
   it('the primary action just closes the modal (stays right here); the secondary "Explore Another Session" only cycles when a genuinely different item exists (items.length > 1)', () => {
     const block = meditateSource.match(/completionContext=\{\{[\s\S]*?\n\s*\}\}/)?.[0] ?? '';
-    expect(block).toMatch(/onPrimaryAction: \(\) => setOpenVideoId\(null\),/);
-    expect(block).toMatch(/onSecondaryAction: items\.length > 1\s*\n\s*\? \(\) => \{\s*\n\s*handleChooseAnother\(\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\}\s*\n\s*: undefined/);
+    expect(block).toMatch(/onPrimaryAction: handleVideoClose,/);
+    expect(block).toMatch(/onSecondaryAction: items\.length > 1\s*\n\s*\? \(\) => \{\s*\n\s*handleChooseAnother\(\);\s*\n\s*handleVideoClose\(\);\s*\n\s*\}\s*\n\s*: undefined/);
   });
 });
 

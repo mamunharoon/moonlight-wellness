@@ -15,6 +15,9 @@ import { redoEveningWindDown } from '../lib/routineResponses';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
+import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
+import { CompletionReveal } from '../components/CompletionReveal';
+import { MomentumPanel } from '../components/MomentumPanel';
 
 /*
  * Stage 4 Batch F3 — EveningComplete
@@ -81,6 +84,17 @@ export const EveningComplete = () => {
   const [headline] = useState(() => getCompletionGreeting({ journey: 'evening', practice: 'routine' }));
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
 
+  // "Your Momentum" foundation, Phase 3 — captured once, before the mount
+  // effect below can flip state.status to 'completed': true only for a
+  // genuine natural completion arriving with the session still 'playing'
+  // (the exact same signal the effect itself gates completeSession() on -
+  // mirrors SessionComplete.jsx's own established isFreshCompletion
+  // precedent). A direct/refreshed visit, or a later revisit after the
+  // engine has reset to idle, never animates the completion-reveal below.
+  // Reduced Motion detection itself lives entirely inside
+  // CompletionReveal.jsx - never duplicated here.
+  const [isFreshCompletion] = useState(() => state.status === 'playing');
+
   if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   useEffect(() => {
@@ -134,8 +148,14 @@ export const EveningComplete = () => {
   // this column staying NULL for every Morning/Evening row is the honest
   // reflection of that, not a bug to work around later by approximating it
   // here.
+  // "Your Momentum" foundation, Phase 3 — the write's own resolution is
+  // now captured (previously fire-and-forget) - see SessionComplete.jsx's
+  // identical addition for the full rationale. recordPracticeCompletion
+  // itself, and the identity it's called with, are completely unchanged.
+  const [confirmedSessionId, setConfirmedSessionId] = useState(null);
   useEffect(() => {
     if (state.status !== 'completed' || !state.completionEventId) return;
+    let cancelled = false;
     recordPracticeCompletion({
       userId,
       isGuest: !userId,
@@ -144,8 +164,26 @@ export const EveningComplete = () => {
       practiceType: 'full_routine',
       durationSeconds: null,
       timezone: effectiveTimezone
+    }).then((result) => {
+      if (!cancelled && result.ok) setConfirmedSessionId(state.completionEventId);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [state.status, state.completionEventId, userId, effectiveTimezone]);
+
+  // "Your Momentum" foundation, Phase 3 — factual insight + gentle
+  // milestone for this exact, already-confirmed completion event. Never
+  // blocks/delays any of this screen's existing actions, all of which
+  // render unconditionally below regardless of this hook's own status.
+  const momentum = useMomentumCompletion({
+    ready: confirmedSessionId === state.completionEventId,
+    userId,
+    isGuest: !userId,
+    sessionId: state.completionEventId,
+    journey: 'evening',
+    practiceType: 'full_routine'
+  });
 
   const handleReturnHome = () => {
     if (state.sessionId) {
@@ -191,24 +229,38 @@ export const EveningComplete = () => {
 
   return (
     <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/" alwaysFallback>
-      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-        {/* Evening Visual Uplift (Build 17) — periwinkle badge/icon ring,
-            the same restrained circular-icon shape SessionComplete.jsx's
-            own Morning-gold version already established (Build 16), just
-            evening-accent instead of morning-accent. Heading (already
-            Newsreader italic), body copy, and all four action buttons
-            below (order, labels, handlers) are completely untouched. */}
-        <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
-          <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
-        </span>
-        {/* Journey Embedding (correction) — Meditate is now a counted step,
-            so Evening Complete is Step 7 of 7, not 6 of 6. */}
-        <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
-        <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-          You've reflected, appreciated the day and prepared for rest.
-        </p>
-      </div>
+      {/* "Your Momentum" foundation, Phase 3 — shared completion-reveal
+          transition, mirroring SessionComplete.jsx's own identical
+          wiring. The four action buttons below stay outside this
+          wrapper entirely - always immediately rendered and reachable,
+          never gated on any fade timing. */}
+      <CompletionReveal
+        active
+        isFresh={isFreshCompletion}
+        journeyTone="evening"
+        className="flex-1 flex flex-col items-center justify-center w-full"
+        stagger={[
+          <div key="greeting" className="flex flex-col items-center text-center space-y-4">
+            {/* Evening Visual Uplift (Build 17) — periwinkle badge/icon ring,
+                the same restrained circular-icon shape SessionComplete.jsx's
+                own Morning-gold version already established (Build 16), just
+                evening-accent instead of morning-accent. Heading (already
+                Newsreader italic), body copy, and all four action buttons
+                below (order, labels, handlers) are completely untouched. */}
+            <span className="w-16 h-16 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
+              <span className="material-symbols-outlined text-evening-accent text-3xl">bedtime</span>
+            </span>
+            {/* Journey Embedding (correction) — Meditate is now a counted step,
+                so Evening Complete is Step 7 of 7, not 6 of 6. */}
+            <span className="block text-[10px] text-evening-accent uppercase font-bold tracking-wider">Step 7 of 7</span>
+            <h1 className="font-serif italic text-3xl text-on-surface">{headline}</h1>
+            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+              You've reflected, appreciated the day and prepared for rest.
+            </p>
+          </div>,
+          <MomentumPanel key="momentum" insight={momentum.insight} milestone={momentum.milestone} />
+        ]}
+      />
 
       <div className="space-y-3 w-full">
         {/* Build 15 Evening UX correction — approved authenticated order:

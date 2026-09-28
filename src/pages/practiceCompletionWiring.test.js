@@ -104,8 +104,9 @@ describe('Meditate.jsx — guided-video meditation completion event, natural `en
     expect(onEndedBody).toMatch(/practiceType: 'meditation'/);
   });
 
-  it('handleVideoClose (early close/Escape/backdrop/manual close) never records a completion - it only clears openVideoId', () => {
-    const closeBody = meditateSource.match(/const handleVideoClose = \(\) => [^\n]*;/)?.[0] ?? '';
+  it('handleVideoClose (early close/Escape/backdrop/manual close) never records a completion - it only clears openVideoId (and, since Phase 3, the momentum-tracking session state alongside it)', () => {
+    const closeBody = meditateSource.match(/const handleVideoClose = \(\) => \{[\s\S]*?\n\s*\};/)?.[0] ?? '';
+    expect(closeBody).not.toBe('');
     expect(closeBody).not.toMatch(/recordPracticeCompletion/);
     expect(closeBody).toMatch(/setOpenVideoId\(null\)/);
   });

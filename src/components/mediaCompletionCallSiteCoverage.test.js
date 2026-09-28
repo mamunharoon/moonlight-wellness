@@ -54,7 +54,7 @@ describe('Every migrated call site passes a real, allowlisted completionContext.
     expect(source).not.toMatch(/journeyTone|journey="/);
     const block = source.match(/completionContext=\{\{[\s\S]*?\n\s*\}\}/)?.[0] ?? '';
     expect(block).toMatch(/journey: 'direct',/);
-    expect(block).toMatch(/onPrimaryAction: \(\) => setOpenVideoId\(null\),/);
+    expect(block).toMatch(/onPrimaryAction: handleVideoClose,/);
     expect(block).toMatch(/onSecondaryAction: items\.length > 1/);
   });
 

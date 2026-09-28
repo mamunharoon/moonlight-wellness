@@ -13,6 +13,7 @@ import { OUTCOME, getOutcomeMessage, getCompletionGreeting } from '../lib/outcom
 import { useAlarm } from '../context/AlarmContext';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
+import { CompletionReveal } from '../components/CompletionReveal';
 
 /*
  * Self-Guided Meditation — completion screen.
@@ -176,34 +177,56 @@ export const SelfGuidedMeditationComplete = () => {
         />
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-        {/* Anytime Meditation completion correction — the required
-            completed/check visual, mint (tertiary) tokens matching every
-            other Anytime card shell (bg-tertiary/10 + border-tertiary-
-            tint/25 + shadow-mint-glow) - never Morning gold or Evening
-            periwinkle. Non-Anytime tones keep the original bare icon,
-            unchanged. */}
-        {journeyTone === 'anytime' ? (
-          <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center">
-            <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
-          </div>
-        ) : (
-          <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
-        )}
-        {journeyTone === 'anytime' && (
-          <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Meditation Completed</span>
-        )}
-        <h1 className="font-serif italic text-3xl text-on-surface" role="status">{journeyTone === 'anytime' ? completionGreeting : completionHeadline}</h1>
-        {journeyTone !== 'anytime' && (
-          <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
-        )}
-        {session && (
-          <div className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
-            <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
-            <p className="text-xs text-on-surface-variant">{duration.label}</p>
-          </div>
-        )}
-      </div>
+      {/* "Your Momentum" foundation, Phase 3 — the shared completion-
+          reveal transition. This screen is always-rendered (reached only
+          via SelfGuidedMeditation.jsx's own natural-completion router
+          state per this file's own top-of-file doc comment), so `active`
+          is unconditionally true from the very first render -
+          CompletionReveal's auto-freshness detection can't distinguish
+          "genuine" from "a direct/stale URL revisit" for a screen like
+          that (see its own doc comment), so isFresh is passed explicitly:
+          `session` (location.state) is only ever present for a genuine
+          natural completion just now, never for a direct/stale visit -
+          the exact same one-shot signal this file's own `session && (...)`
+          detail-card guard already relies on below. */}
+      <CompletionReveal
+        active
+        isFresh={Boolean(session)}
+        journeyTone={journeyTone}
+        className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
+        stagger={[
+          // Anytime Meditation completion correction — the required
+          // completed/check visual, mint (tertiary) tokens matching every
+          // other Anytime card shell (bg-tertiary/10 + border-tertiary-
+          // tint/25 + shadow-mint-glow) - never Morning gold or Evening
+          // periwinkle. Non-Anytime tones keep the original bare icon,
+          // unchanged.
+          <div key="badge">
+            {journeyTone === 'anytime' ? (
+              <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary-tint/25 shadow-mint-glow flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span>
+              </div>
+            ) : (
+              <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-4xl`} aria-hidden="true">self_improvement</span>
+            )}
+          </div>,
+          <div key="greeting" className="space-y-2">
+            {journeyTone === 'anytime' && (
+              <span className="font-label-sm text-xs text-tertiary uppercase tracking-widest font-bold">Meditation Completed</span>
+            )}
+            <h1 className="font-serif italic text-3xl text-on-surface" role="status">{journeyTone === 'anytime' ? completionGreeting : completionHeadline}</h1>
+            {journeyTone !== 'anytime' && (
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">{completionBody}</p>
+            )}
+          </div>,
+          session ? (
+            <div key="session-detail" className="glass-panel rounded-2xl p-5 space-y-1 text-left max-w-xs mx-auto">
+              <p className={`text-xs ${getJourneyToneTokens(journeyTone).text} font-bold uppercase tracking-wider`}>{style.label}</p>
+              <p className="text-xs text-on-surface-variant">{duration.label}</p>
+            </div>
+          ) : null
+        ].filter(Boolean)}
+      />
 
       <div className="space-y-3">
         {journeyTone === 'anytime' ? (

@@ -17,6 +17,7 @@ import { MeditationActiveSession } from '../components/journey/MeditationActiveS
 import { getRecommendedDurationId } from '../lib/meditationDurations';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
+import { CompletionReveal } from '../components/CompletionReveal';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — Evening embedded
@@ -208,20 +209,41 @@ export const EveningMeditate = () => {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
         <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-          <div className="w-20 h-20 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center">
-            <span className="material-symbols-outlined text-evening-accent text-4xl" aria-hidden="true">check_circle</span>
-          </div>
-          <div className="space-y-2">
-            <span className="font-label-sm text-xs text-evening-accent uppercase tracking-widest font-bold">Meditation Completed</span>
-            <h2 className="font-serif italic text-2xl text-on-surface max-w-xs mx-auto" role="status">
-              {completionGreeting}
-            </h2>
-            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              Carry this quiet with you as your evening continues.
-            </p>
-          </div>
-        </div>
+        {/* "Your Momentum" foundation, Phase 3 — the shared completion-
+            reveal transition. This is an early-return architecture: the
+            branch above only ever renders once isCompleted is ALREADY
+            true (it's skipped entirely while false), so CompletionReveal
+            would only ever mount here with active already true from its
+            own very first render - its usual auto-freshness detection
+            (comparing `active` at its own mount) would then incorrectly
+            read "already active at mount" and skip the entrance
+            animation for a genuine live completion. isCompleted's own
+            initializer above is a hardcoded `false`, never restored from
+            persisted/session state, so reaching this branch at all
+            necessarily means it just flipped true during this exact
+            mount - isFresh is passed explicitly as `true` for that
+            reason, the same "always-rendered completion" case
+            SessionComplete.jsx's own isFreshCompletion already handles. */}
+        <CompletionReveal
+          active
+          isFresh
+          journeyTone="evening"
+          className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
+          stagger={[
+            <div key="badge" className="w-20 h-20 rounded-full bg-evening-accent/10 border border-evening-accent-tint/25 shadow-evening-glow flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-evening-accent text-4xl" aria-hidden="true">check_circle</span>
+            </div>,
+            <div key="greeting" className="space-y-2">
+              <span className="font-label-sm text-xs text-evening-accent uppercase tracking-widest font-bold">Meditation Completed</span>
+              <h2 className="font-serif italic text-2xl text-on-surface max-w-xs mx-auto" role="status">
+                {completionGreeting}
+              </h2>
+              <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Carry this quiet with you as your evening continues.
+              </p>
+            </div>
+          ]}
+        />
         <div className="space-y-3 w-full">
           <button
             onClick={advanceToPrepareForRest}

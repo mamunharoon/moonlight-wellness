@@ -35,6 +35,7 @@ import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
+import { CompletionReveal } from '../components/CompletionReveal';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -710,20 +711,35 @@ export const Breathe = () => {
         // SessionComplete.jsx's own bg-morning-accent/10 + border-
         // morning-accent-tint/25 + shadow-morning-glow badge shape) -
         // never a new colour, never a literal Stitch copy.
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <div className="w-20 h-20 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center">
-            <span className="material-symbols-outlined text-morning-accent text-4xl" aria-hidden="true">check_circle</span>
-          </div>
-          <div className="space-y-2">
-            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Exercise Completed</span>
-            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
-              {completionGreeting}
-            </h2>
-            <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              Take this steadiness with you as you continue your morning.
-            </p>
-          </div>
-        </div>
+        // "Your Momentum" foundation, Phase 3 — the shared completion-
+        // reveal transition. isCompleted starts false and flips true
+        // exactly once per genuine completion with zero renders in
+        // between (see this state's own doc comment above), so
+        // CompletionReveal's auto-freshness detection applies directly -
+        // no explicit isFresh needed, matching every other ternary-swap
+        // screen. Morning Breathing alone is not one of the three Phase 2
+        // tracked activities (only the full Morning routine is), so
+        // there is no factual insight/milestone to show here - this is
+        // the shared visual transition only.
+        <CompletionReveal
+          active={isCompleted}
+          journeyTone="morning"
+          className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
+          stagger={[
+            <div key="badge" className="w-20 h-20 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 shadow-morning-glow flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-morning-accent text-4xl" aria-hidden="true">check_circle</span>
+            </div>,
+            <div key="greeting" className="space-y-2">
+              <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Exercise Completed</span>
+              <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+                {completionGreeting}
+              </h2>
+              <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                Take this steadiness with you as you continue your morning.
+              </p>
+            </div>
+          ]}
+        />
       ) : (
         <>
           <div className="text-center space-y-2">
