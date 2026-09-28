@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+/* eslint-disable no-unused-vars */
+import { Fragment, useEffect, useState } from 'react';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
 // "Your Momentum" foundation, Phase 3 — the ONE shared, accessible
@@ -17,11 +18,13 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 // with zero visual effect.
 //
 // WHEN IT ANIMATES (and when it deliberately does not):
-//   - Reduced Motion (getReducedMotionPreference() OR the OS media query)
-//     always renders fully settled immediately - no opacity/scale
-//     transition, no stagger, nothing delayed. VoiceOver focus is never
-//     held up by this component either way (it never manages focus
-//     itself - callers keep their own existing focus behaviour).
+//   - Reduced Motion (getReducedMotionPreference() OR the OS media query),
+//     for a genuinely fresh completion, plays a short, plain opacity
+//     cross-fade only (REDUCED_MOTION_TRANSITION_MS) - never the scale/
+//     glow/stagger treatment. The CTA and every piece of VoiceOver-
+//     readable content are already in the DOM (and already interactive -
+//     pointer-events are never disabled) the instant this fades in, so
+//     nothing is ever functionally held up by the fade itself.
 //   - A genuinely FRESH completion (this exact mount's own `active`
 //     transitioning from false -> true) plays the entrance once.
 //   - A screen that is ALREADY showing its completed content on this
@@ -89,20 +92,29 @@ const GLOW_CLASSES = Object.freeze({
   anytime: 'shadow-mint-glow'
 });
 
-// Physical-iPhone integration review — true end-to-end settle time is
-// FRAME_TRANSITION_MS/stagger delay/STAGGER_TRANSITION_MS combined, not
-// FRAME_TRANSITION_MS alone (measured, e.g. a 2-item stagger: 20ms initial
-// commit delay + STAGGER_BASE_DELAY_MS + 1*STAGGER_STEP_MS +
-// STAGGER_TRANSITION_MS ≈ 950ms). Retuned from an earlier pass that
-// genuinely settled faster than the approved ~800-1200ms target (was
-// BASE=100/STEP=120/TRANSITION=400, settling ~640-760ms) - STAGGER_STEP_MS
-// stays within the approved 100-150ms-per-item range (now at its top);
-// STAGGER_BASE_DELAY_MS is a separate initial settle-in delay before the
-// first staggered item begins, not itself bound by that per-item range.
+// Physical-iPhone completion-transition-tuning pass — this component's
+// own settle time is only PART of the true end-to-end visible transition;
+// the other part (the HOLD + EXIT FADE of the outgoing active view, for
+// every ternary-swap/early-return screen) happens entirely BEFORE this
+// component ever mounts, in useCompletionHandoff.js - see that hook's own
+// doc comment for the full rhythm and why the abruptness was never really
+// about duration alone. COMMIT_DELAY_MS (20ms -> 100ms) is a slightly more
+// deliberate settle before the entrance itself begins - also what gives
+// BetaVideoModal.jsx's guided-video overlay its own short, permitted
+// "visual settle delay after the genuine fullscreen-end event" (see that
+// file's own doc comment - never used to determine whether fullscreen
+// ended, only to pace what happens once it genuinely has).
+// STAGGER_STEP_MS stays within the approved 100-150ms-per-item range.
+// Combined with useCompletionHandoff's own 550ms hold+exit-fade prefix,
+// a typical 2-item stagger now settles at ~550+100+150+120+400=1320ms -
+// squarely inside the approved ~1.2-1.5s target (verified in this file's
+// own test suite, not just asserted here).
+const COMMIT_DELAY_MS = 100;
 const FRAME_TRANSITION_MS = 550;
-const STAGGER_TRANSITION_MS = 500;
-const STAGGER_STEP_MS = 150;
-const STAGGER_BASE_DELAY_MS = 300;
+const STAGGER_TRANSITION_MS = 400;
+const STAGGER_STEP_MS = 120;
+const STAGGER_BASE_DELAY_MS = 150;
+const REDUCED_MOTION_TRANSITION_MS = 200;
 
 export const CompletionReveal = ({
   active,
@@ -123,7 +135,12 @@ export const CompletionReveal = ({
   // above for why the always-rendered completion pages must do this).
   const [wasInactiveAtMount] = useState(() => !active);
   const genuinelyFresh = isFresh !== undefined ? Boolean(isFresh) : wasInactiveAtMount;
-  const shouldAnimate = genuinelyFresh && !reducedMotion;
+  // A revisit/non-fresh render never animates at all, regardless of
+  // motion preference - there is no live event to mark. A genuinely
+  // fresh completion always animates in SOME form: the full scale/glow/
+  // stagger treatment normally, or - under Reduced Motion - a short,
+  // plain opacity cross-fade only (see the render branches below).
+  const shouldAnimate = genuinelyFresh;
 
   const [entered, setEntered] = useState(() => !shouldAnimate);
 
@@ -133,7 +150,7 @@ export const CompletionReveal = ({
     // reliably commits the initial "not entered" paint first - the exact
     // same reasoning SessionComplete.jsx's own ring-fill effect already
     // documents for the identical reason.
-    const timer = setTimeout(() => setEntered(true), 20);
+    const timer = setTimeout(() => setEntered(true), COMMIT_DELAY_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
@@ -141,11 +158,28 @@ export const CompletionReveal = ({
   if (!active) return null;
 
   if (!shouldAnimate) {
-    // Reduced Motion, or a revisit/non-fresh render - fully settled
-    // immediately, no transition classes, no stagger delay at all.
+    // A revisit/non-fresh render - fully settled immediately, no
+    // transition classes, no stagger delay at all.
     return (
       <div className={className} {...rest}>
         {stagger ? stagger.map((node, i) => <div key={i}>{node}</div>) : children}
+        {actions}
+      </div>
+    );
+  }
+
+  if (reducedMotion) {
+    // Genuinely fresh, but Reduced Motion is on - a short, plain opacity
+    // cross-fade for the WHOLE panel at once, never per-item (no stagger),
+    // never scale/glow. `stagger`'s own nodes are simply flattened here,
+    // not individually delayed.
+    return (
+      <div
+        className={className}
+        style={{ opacity: entered ? 1 : 0, transition: `opacity ${REDUCED_MOTION_TRANSITION_MS}ms ease-out` }}
+        {...rest}
+      >
+        {stagger ? stagger.map((node, i) => <Fragment key={i}>{node}</Fragment>) : children}
         {actions}
       </div>
     );

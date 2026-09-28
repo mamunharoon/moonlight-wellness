@@ -151,7 +151,7 @@ describe('Dynamic pre-start copy and Begin label - real execution', () => {
 // -> Exit routine. Verified by comparing each landmark's own index() in
 // the pre-start branch's source text, in the approved order.
 describe('Compact Stretch pre-start order', () => {
-  const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+  const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        // Completion-transition-tuning pass'));
 
   it('landmarks appear in the exact approved order: summary -> music -> Begin -> movements grid -> guided sessions -> Skip -> Exit', () => {
     const iSummary = preStartBranch.indexOf('total');
@@ -195,7 +195,7 @@ describe('Compact Stretch pre-start order', () => {
 describe('Stretch pre-start disclosures - collapse/expand behaviour', () => {
   it('the movements grid always renders unconditionally pre-start - no movementsOpen state exists any more', () => {
     expect(source).not.toMatch(/movementsOpen/);
-    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        // Completion-transition-tuning pass'));
     expect(preStartBranch).toMatch(/role="group" aria-label="Choose your movements"/);
     expect(preStartBranch).not.toMatch(/aria-expanded=\{.*movements/);
   });
@@ -287,7 +287,7 @@ describe('Items 4/5/6 - timer, animation and music never start on mount', () => 
   });
 
   it('the active movement list (the only place a "current" highlighted movement/animation-style state renders) is entirely inside the hasBegun branch - never rendered pre-start', () => {
-    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        <>\n          {/* Progress visual bar */}'));
+    const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        // Completion-transition-tuning pass'));
     expect(preStartBranch).not.toMatch(/Stretching Progress/);
   });
 

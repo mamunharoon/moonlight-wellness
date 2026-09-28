@@ -49,7 +49,7 @@ describe('Breathe.jsx — completion is an explicit, authoritative state, never 
 
   it('0s left cannot remain indefinitely in the active state - the interval effect re-runs and refuses to start a new interval once isCompleted, and the active ring branch is only reachable while !isCompleted', () => {
     expect(source).toMatch(/if \(!hasBegun \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
-    expect(source).toMatch(/\) : isCompleted \? \(/);
+    expect(source).toMatch(/\) : showCompletionPanel \? \(/);
   });
 });
 
@@ -80,14 +80,14 @@ describe('Breathe.jsx — completion greeting is picked exactly once per complet
   });
 
   it('the completed panel renders the held completionGreeting value directly - never calls getBreathingCompletionGreeting(\'morning\') again in JSX', () => {
-    const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(/)?.[1] ?? '';
+    const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(/)?.[1] ?? '';
     expect(completedPanel).toMatch(/\{completionGreeting\}/);
     expect(completedPanel).not.toMatch(/getBreathingCompletionGreeting\('morning'\)/);
   });
 });
 
 describe('Breathe.jsx — dedicated completion panel fully replaces the active exercise interface (never just overlaid on top of it)', () => {
-  const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(/)?.[1] ?? '';
+  const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(/)?.[1] ?? '';
 
   it('the completed branch contains no BreathingRing, no "Center Yourself" copy, and no pattern-label pill - the active view is gone, not hidden behind it', () => {
     expect(completedPanel).not.toMatch(/BreathingRing/);

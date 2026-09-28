@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const source = read('./QuietBreathing.jsx');
-const completedPanelStart = source.indexOf('{isCompleted || earlyEnded ? (');
+const completedPanelStart = source.indexOf('{showCompletionPanel ? (');
 const completedPanelEnd = source.indexOf(') : countdown.isActive ? (');
 const completedPanel = source.slice(completedPanelStart, completedPanelEnd);
 
@@ -84,9 +84,15 @@ describe('QuietBreathing.jsx (standalone, Anytime) — mint completed/check visu
 
 describe('QuietBreathing.jsx (standalone, Anytime) — Choose Another Reset restores the exact prior recommendation; Return Home clears temporary context', () => {
   it('"Choose Another Reset" calls exitPracticeToHome with the preserved anytimeResetDestination (need+duration restored via the existing allowlisted query-param mechanism) - never auto-starts a new exercise', () => {
-    expect(completedPanel).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
-    expect(completedPanel).toMatch(/<span>Choose Another Reset<\/span>/);
-    expect(completedPanel).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return Home/);
+    // Completion-transition-tuning pass — these actions now render as
+    // their own sibling, gated on the RAW isCompleted || earlyEnded
+    // (immediate, never delayed behind CompletionReveal's own hold+
+    // exit-fade+stagger sequence) - see that sibling block's own doc
+    // comment. No longer inside completedPanel's own narrower slice.
+    expect(source).toMatch(/\{\(isCompleted \|\| earlyEnded\) && \(/);
+    expect(source).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, anytimeResetDestination\)\}/);
+    expect(source).toMatch(/<span>Choose Another Reset<\/span>/);
+    expect(source).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Return Home/);
   });
 
   it('anytimeResetDestination preserves needId/durationId via the same allowlisted ?need=&duration= shape AnytimeReset.jsx itself uses for its own post-sign-in restore - never a generic/bare destination when anytimeOrigin', () => {
@@ -169,7 +175,7 @@ describe('QuietBreathing.jsx — Home/direct launch (no Anytime origin) is unaff
   it('a direct standalone visit (journeyTone resolves to something other than \'anytime\', or anytimeOrigin is false) still shows the original Done/Breathe again pair and the plain getBreathingAcknowledgement string - completely untouched by this pass\'s Anytime-specific additions', () => {
     expect(source).toMatch(/journeyTone !== 'anytime' \? \(/);
     expect(source).toMatch(/<span>Done<\/span>/);
-    expect(completedPanel).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]{0,400}Breathe again/);
+    expect(source).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]{0,400}Breathe again/);
   });
 });
 

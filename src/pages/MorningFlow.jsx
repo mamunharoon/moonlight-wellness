@@ -32,6 +32,7 @@ import { PreparationCountdown } from '../components/PreparationCountdown';
 import { createStretchSession } from '../lib/stretchSession';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { CompletionReveal } from '../components/CompletionReveal';
+import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -326,6 +327,12 @@ export const MorningFlow = () => {
   const sessionRef = useRef(null);
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  // Completion-transition-tuning pass — purely additive/visual; isCompleted
+  // itself (above) keeps its exact original timing for every other
+  // consumer (suspension, toggles, the "Continue to Breathe" CTA below).
+  // Only the render ternary below swaps from isCompleted to
+  // showCompletionPanel - see useCompletionHandoff.js's own doc comment.
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
   const [completionGreeting, setCompletionGreeting] = useState(null);
   // Back/early-exit correction (reusing Breathe.jsx's proven pattern) -
   // gates the same interval-management effect and InteractiveAmbientMusic's
@@ -778,7 +785,7 @@ export const MorningFlow = () => {
             </button>
           </div>
         </>
-      ) : isCompleted ? (
+      ) : showCompletionPanel ? (
         // Morning Stretch completion correction — a genuine dedicated
         // completed panel, replacing the active exercise interface
         // entirely (progress bar, movement list are ALL gone here, not
@@ -788,18 +795,19 @@ export const MorningFlow = () => {
         // Breathe.jsx's own bg-morning-accent/10 + border-morning-
         // accent-tint/25 + shadow-morning-glow badge shape) - never a
         // new colour.
-        // "Your Momentum" foundation, Phase 3 — the shared completion-
-        // reveal transition. isCompleted starts false and flips true
-        // exactly once per genuine completion with zero renders in
-        // between (see this state's own doc comment above), so
-        // CompletionReveal's auto-freshness detection applies directly -
-        // no explicit isFresh needed, matching every other ternary-swap
-        // screen. Morning Stretch alone is not one of the three Phase 2
-        // tracked activities (only the full Morning routine is), so
-        // there is no factual insight/milestone to show here - this is
-        // the shared visual transition only.
+        // "Your Momentum" foundation, Phase 3, retuned by the
+        // completion-transition-tuning pass — the shared completion-
+        // reveal transition. showCompletionPanel (useCompletionHandoff)
+        // starts false and flips true exactly once per genuine
+        // completion, after its own brief hold+exit-fade of the active
+        // view below, so CompletionReveal's auto-freshness detection
+        // applies directly - no explicit isFresh needed, matching every
+        // other ternary-swap screen. Morning Stretch alone is not one of
+        // the three Phase 2 tracked activities (only the full Morning
+        // routine is), so there is no factual insight/milestone to show
+        // here - this is the shared visual transition only.
         <CompletionReveal
-          active={isCompleted}
+          active={showCompletionPanel}
           journeyTone="morning"
           className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
           stagger={[
@@ -818,7 +826,30 @@ export const MorningFlow = () => {
           ]}
         />
       ) : (
-        <>
+        // Completion-transition-tuning pass — the outgoing active view
+        // (below) is held at full opacity during the brief hold, then
+        // fades over EXIT_FADE_MS (useCompletionHandoff.js) once
+        // activeViewExiting is true, rather than being unmounted the
+        // instant isCompleted flips true - the fix for "the completion
+        // transition still feels slightly too quick/abrupt": there is no
+        // more hard, silent cut to an empty frame before the completion
+        // panel starts fading in. `space-y-3` replicates the outer page
+        // container's own spacing class exactly, since this wrapper div
+        // (unlike the Fragment it replaces) now sits between this
+        // branch's own children and that container - a real box is
+        // required here for opacity/transition to actually apply
+        // (`display: contents` would not paint them at all).
+        // pointerEvents is set to 'none' from the very instant isCompleted
+        // is true (the whole hold+exiting window, not merely once fading
+        // starts) - the exercise has already genuinely finished
+        // (timer/audio/recording all already happened synchronously,
+        // unaffected by any of this), so its own Skip/Exit/video-row
+        // controls must never remain tappable behind the completion
+        // panel, even while still visible during the hold.
+        <div
+          className="space-y-3"
+          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+        >
           {/* Progress visual bar */}
           <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
             <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
@@ -907,7 +938,7 @@ export const MorningFlow = () => {
               );
             })}
           </div>
-        </>
+        </div>
       ))}
 
       {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,

@@ -246,7 +246,7 @@ describe('Early-end result correction — "End early" no longer silently duplica
   });
 
   it('the result panel renders truthfully distinct copy for earlyEnded vs. genuine natural completion - never claims "Breathing complete" for an early end, and the completion case uses the honest, journey-aware acknowledgement (mobile correction #4) for non-Anytime tones (Anytime Breathing completion correction: anytime tone instead shows the new rotating completionGreeting, checked below)', () => {
-    expect(source).toMatch(/\{isCompleted \|\| earlyEnded \? \(/);
+    expect(source).toMatch(/\{showCompletionPanel \? \(/);
     expect(source).toMatch(/\{earlyEnded \? 'Session ended early' : \(journeyTone === 'anytime' \? completionGreeting : 'Breathing complete'\)\}/);
     expect(source).toMatch(/getBreathingAcknowledgement\(journeyTone\)/);
   });

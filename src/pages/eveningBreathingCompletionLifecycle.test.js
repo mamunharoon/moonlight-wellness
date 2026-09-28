@@ -42,7 +42,7 @@ describe('EveningBreathing.jsx — completion is an explicit, authoritative stat
 
   it('0s left cannot remain indefinitely in the active state - the interval effect refuses to start a new interval once isCompleted, and the active ring branch is only reachable while !isCompleted', () => {
     expect(source).toMatch(/if \(!hasBegun \|\| manuallyPaused \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
-    expect(source).toMatch(/\) : isCompleted \? \(/);
+    expect(source).toMatch(/\) : showCompletionPanel \? \(/);
   });
 });
 
@@ -72,7 +72,7 @@ describe('EveningBreathing.jsx — completion greeting is picked exactly once pe
   });
 
   it('the completed panel renders the held completionGreeting value directly - never calls getCompletionGreeting again in JSX', () => {
-    const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*<>\s*\n\s*<div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">\s*\n\s*<div className="space-y-2">/)?.[1] ?? '';
+    const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*\/\/ Completion-transition-tuning pass/)?.[1] ?? '';
     expect(completedPanel).not.toBe('');
     expect(completedPanel).toMatch(/\{completionGreeting\}/);
     expect(completedPanel).not.toMatch(/getCompletionGreeting\(/);
@@ -80,7 +80,7 @@ describe('EveningBreathing.jsx — completion greeting is picked exactly once pe
 });
 
 describe('EveningBreathing.jsx — dedicated completion panel fully replaces the active exercise interface (never just overlaid on top of it)', () => {
-  const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*<>\s*\n\s*<div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">\s*\n\s*<div className="space-y-2">/)?.[1] ?? '';
+  const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*\/\/ Completion-transition-tuning pass/)?.[1] ?? '';
 
   it('the completed branch contains no BreathingRing and no "Breathe with the night." heading - the active view is gone, not hidden behind it', () => {
     expect(completedPanel).not.toBe('');

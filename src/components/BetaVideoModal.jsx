@@ -522,21 +522,58 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     };
   }, []);
 
+  // Completion-transition-tuning pass — a short, fixed visual settle delay
+  // between the overlay's real, event-driven render condition genuinely
+  // becoming true and the overlay actually appearing, addressing "video
+  // fullscreen exit reveals the overlay too abruptly." This NEVER
+  // determines whether fullscreen ended - `hasEnded && completionContext
+  // && !isFullscreen && !fallbackFullscreen` (below) is exactly the same
+  // real, event-driven condition as before, completely unchanged; this
+  // effect only ever fires AFTER that condition is already true, and only
+  // delays when the overlay is ALLOWED to render, matching the approved
+  // brief's own "a short visual settle delay after the genuine
+  // fullscreen-end event is acceptable" allowance. Resets to false
+  // immediately (no delay) the instant the real condition goes false
+  // again (Retry/a different entry/a fresh natural end), so a later
+  // completion never inherits a stale "ready" flag.
+  const overlayShouldRender = hasEnded && completionContext && !isFullscreen && !fallbackFullscreen;
+  const [overlayReady, setOverlayReady] = useState(false);
+  useEffect(() => {
+    if (!overlayShouldRender) return;
+    // Resets to false synchronously at the start of every fresh
+    // "overlay allowed to render" cycle - the first step of kicking off
+    // this effect's own 150ms settle timer below (the same sanctioned
+    // timer-kickoff idiom useCompletionHandoff.js's own hold-phase reset
+    // already documents), not the "you might not need an Effect"
+    // anti-pattern react-hooks/set-state-in-effect otherwise guards
+    // against. Required: without it, a second natural completion in the
+    // same mounted instance (Retry, a different entry) would inherit the
+    // PREVIOUS cycle's stale "ready" value and skip the settle delay.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOverlayReady(false);
+    const settleTimer = setTimeout(() => setOverlayReady(true), 150);
+    return () => clearTimeout(settleTimer);
+  }, [overlayShouldRender]);
+  // Derived: the settle delay only ever matters while the real,
+  // event-driven condition is true - overlayReady's own possibly-stale
+  // internal value is irrelevant whenever it isn't.
+  const overlayVisible = overlayShouldRender && overlayReady;
+
   // Moves focus to the new completion overlay's own primary action button
   // the instant it actually appears - which, per the physical-iPhone
   // completion-overlay defect fix above, is only once isFullscreen/
   // fallbackFullscreen have genuinely cleared (the same guard the overlay's
-  // own render condition uses), not merely once hasEnded/completionContext
-  // are true - a real native fullscreen exit is asynchronous, so this must
-  // re-run again once that real exit event lands, not just once at the
-  // moment `ended` fires while still fullscreen. A screen-reader user then
-  // lands directly on "Session Complete... {primaryLabel}" rather than
-  // staying wherever focus was during playback (typically nowhere in
-  // particular, since native <video> controls own their own focus during
-  // playback).
+  // own render condition uses) AND the short visual settle delay above has
+  // elapsed, not merely once hasEnded/completionContext are true - a real
+  // native fullscreen exit is asynchronous, so this must re-run again once
+  // that real exit event lands, not just once at the moment `ended` fires
+  // while still fullscreen. A screen-reader user then lands directly on
+  // "Session Complete... {primaryLabel}" rather than staying wherever
+  // focus was during playback (typically nowhere in particular, since
+  // native <video> controls own their own focus during playback).
   useEffect(() => {
-    if (hasEnded && completionContext && !isFullscreen && !fallbackFullscreen) completionPrimaryButtonRef.current?.focus();
-  }, [hasEnded, completionContext, isFullscreen, fallbackFullscreen]);
+    if (overlayVisible) completionPrimaryButtonRef.current?.focus();
+  }, [overlayVisible]);
 
   const handleVideoError = () => {
     // A playback error once a URL is already loaded most likely means the
@@ -826,7 +863,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   (AnytimeReset.jsx, Support.jsx, Grounding.jsx) omits them
                   and MomentumPanel simply renders nothing, completely
                   unaffected. */}
-              {hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && (
+              {overlayVisible && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6">
                   <CompletionReveal
                     active

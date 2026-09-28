@@ -40,7 +40,7 @@ describe('MorningFlow.jsx (Stretch) — completion is an explicit, authoritative
 
   it('0s left cannot remain indefinitely in the active state - the interval effect refuses to start a new interval once isCompleted, and the active step-list branch is only reachable while !isCompleted', () => {
     expect(source).toMatch(/if \(!hasBegun \|\| !activeSequence \|\| isInterrupted \|\| isRepeatGated \|\| isConfirming \|\| isCompleted \|\| backConfirmOpen\) return;/);
-    expect(source).toMatch(/\) : isCompleted \? \(/);
+    expect(source).toMatch(/\) : showCompletionPanel \? \(/);
   });
 
   it('a manual "Next Movement"/"Continue" tap (handleNextStep) makes the exact same completion decision as the timer, via the shared advanceMovement() - never a second, independently-derived completion path', () => {
@@ -82,7 +82,7 @@ describe('MorningFlow.jsx (Stretch) — completion greeting is picked exactly on
   });
 
   it('the completed panel renders the held completionGreeting value directly - never calls getCompletionGreeting again in JSX', () => {
-    const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*<>\s*\n\s*\{\/\* Progress visual bar \*\/\}/)?.[1] ?? '';
+    const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*\/\/ Completion-transition-tuning pass/)?.[1] ?? '';
     expect(completedPanel).not.toBe('');
     expect(completedPanel).toMatch(/\{completionGreeting\}/);
     expect(completedPanel).not.toMatch(/getCompletionGreeting\(/);
@@ -90,7 +90,7 @@ describe('MorningFlow.jsx (Stretch) — completion greeting is picked exactly on
 });
 
 describe('MorningFlow.jsx (Stretch) — dedicated completion panel fully replaces the active exercise interface (never just overlaid on top of it)', () => {
-  const completedPanel = source.match(/\) : isCompleted \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*<>\s*\n\s*\{\/\* Progress visual bar \*\/\}/)?.[1] ?? '';
+  const completedPanel = source.match(/\) : showCompletionPanel \? \(([\s\S]*?)\n\s*\) : \(\s*\n\s*\/\/ Completion-transition-tuning pass/)?.[1] ?? '';
 
   it('the completed branch contains no "Stretching Progress" bar and no movement list - the active view is gone, not hidden behind it', () => {
     expect(completedPanel).not.toMatch(/Stretching Progress/);

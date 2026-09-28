@@ -106,8 +106,9 @@ describe('the real, asynchronous native exit events - not a synchronous guess an
     expect(fullscreenEffectBody).not.toMatch(/setTimeout|setInterval|requestAnimationFrame/);
   });
 
-  it('the completion overlay\'s own render guard already requires !isFullscreen && !fallbackFullscreen, and now only the real native/standard exit events (or the synchronous corrections above) can ever flip those - so it only ever becomes visible once the native presentation genuinely no longer obscures it', () => {
-    expect(source).toMatch(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(/);
+  it('the completion overlay\'s own render guard already requires !isFullscreen && !fallbackFullscreen (folded into overlayShouldRender/overlayVisible - completion-transition-tuning pass), and now only the real native/standard exit events (or the synchronous corrections above) can ever flip those - so it only ever becomes visible once the native presentation genuinely no longer obscures it, plus a short fixed settle delay that never itself determines fullscreen state', () => {
+    expect(source).toMatch(/const overlayShouldRender = hasEnded && completionContext && !isFullscreen && !fallbackFullscreen;/);
+    expect(source).toMatch(/\{overlayVisible && \(/);
   });
 });
 
@@ -129,9 +130,9 @@ describe('native controls are disabled once hasEnded - closes the one live nativ
 });
 
 describe('focus moves to the completion overlay only once it is actually visible', () => {
-  it('the focus effect now depends on isFullscreen/fallbackFullscreen too, and gates on both being clear - re-running once the real exit event lands, not just once at the moment `ended` fires', () => {
-    expect(source).toMatch(/if \(hasEnded && completionContext && !isFullscreen && !fallbackFullscreen\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
-    expect(source).toMatch(/\}, \[hasEnded, completionContext, isFullscreen, fallbackFullscreen\]\);/);
+  it('the focus effect now depends on overlayVisible (itself derived from isFullscreen/fallbackFullscreen, plus the short settle delay) - re-running once the real exit event lands and the settle delay elapses, not just once at the moment `ended` fires', () => {
+    expect(source).toMatch(/if \(overlayVisible\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
+    expect(source).toMatch(/\}, \[overlayVisible\]\);/);
   });
 });
 

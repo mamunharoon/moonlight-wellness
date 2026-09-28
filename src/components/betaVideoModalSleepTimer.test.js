@@ -53,7 +53,15 @@ describe('Live countdown - tied to the <video> element\'s own native play/pause 
   });
 
   it('iOS-interruption fix: the countdown effect depends on isVideoPlaying, so any native pause (interruption or explicit) freezes it - it never uses a raw wall-clock setTimeout scheduled once at start', () => {
-    expect(source).not.toMatch(/setTimeout\(/);
+    // Completion-transition-tuning pass — this file now legitimately uses
+    // setTimeout elsewhere (the completion overlay's own short, permitted
+    // visual settle delay after a genuine fullscreen-end event - never
+    // used to determine fullscreen state itself, see overlayShouldRender/
+    // overlayReady below). The countdown effect specifically must still
+    // never use one - scoped to that exact effect body, not the whole file.
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isSleepSound \|\| !hasStarted \|\| !isVideoPlaying \|\| timerEnded\) return;[\s\S]*?\n {2}\}, \[isSleepSound, hasStarted, isVideoPlaying, timerEnded\]\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).not.toMatch(/setTimeout\(/);
   });
 });
 

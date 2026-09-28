@@ -30,6 +30,7 @@ import { getJourneyToneTokens } from '../lib/journeyTone';
 import { getBreathingAcknowledgement, getCompletionGreeting } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
+import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -307,6 +308,13 @@ export const QuietBreathing = ({ standalone = false }) => {
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [completionGreeting, setCompletionGreeting] = useState(null);
+  // Completion-transition-tuning pass — purely additive/visual; isCompleted/
+  // earlyEnded themselves keep their exact original timing for every other
+  // consumer. Only the render ternary below (standalone branch) swaps from
+  // isCompleted || earlyEnded to showCompletionPanel - see
+  // useCompletionHandoff.js's own doc comment. Fed the combined flag since
+  // EITHER genuinely ends the active exercise the same way here.
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted || earlyEnded);
   // Back/early-exit pause correction — found live: endConfirmOpen never
   // gated the timer/music at all, so both kept running behind "End this
   // breathing session?" (the same "doesn't pause behind the dialog"
@@ -513,21 +521,24 @@ export const QuietBreathing = ({ standalone = false }) => {
   if (standalone) {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey={journeyTone} showBack backFallback={backFallback} onBeforeLeave={handleBackFromActive} alwaysFallback={anytimeOrigin}>
-        {isCompleted || earlyEnded ? (
-          // "Your Momentum" foundation, Phase 3 — the shared completion-
-          // reveal transition. isCompleted/earlyEnded both start false;
-          // exactly one of them flips true per genuine end, so
-          // CompletionReveal's auto-freshness detection applies directly.
-          // celebratory is gated on isCompleted alone (never earlyEnded) -
-          // per the approved brief, a real early exit gets only a plain
-          // supportive cross-fade, never the completed-check scale/glow
-          // treatment this same shared block also renders for a genuine
-          // completion. Standalone Anytime Breathing alone is not one of
-          // the three Phase 2 tracked activities, so there is no factual
-          // insight/milestone to show here - this is the shared visual
-          // transition only.
+        {showCompletionPanel ? (
+          // "Your Momentum" foundation, Phase 3, retuned by the
+          // completion-transition-tuning pass — the shared completion-
+          // reveal transition. showCompletionPanel (useCompletionHandoff,
+          // fed isCompleted || earlyEnded) starts false and flips true
+          // exactly once per genuine end, after its own brief hold+exit-
+          // fade of the active view below, so CompletionReveal's auto-
+          // freshness detection applies directly. celebratory is gated on
+          // isCompleted alone (never earlyEnded) - per the approved
+          // brief, a real early exit gets only a plain supportive
+          // cross-fade, never the completed-check scale/glow treatment
+          // this same shared block also renders for a genuine completion.
+          // Standalone Anytime Breathing alone is not one of the three
+          // Phase 2 tracked activities, so there is no factual insight/
+          // milestone to show here - this is the shared visual transition
+          // only.
           <CompletionReveal
-            active={isCompleted || earlyEnded}
+            active={showCompletionPanel}
             journeyTone={journeyTone}
             celebratory={isCompleted}
             className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
@@ -562,56 +573,6 @@ export const QuietBreathing = ({ standalone = false }) => {
                 ) : null}
               </div>
             ].filter(Boolean)}
-            actions={
-              // WakeWise DEV — Anytime completion correction: a practice
-              // reached through Anytime's own quick-reset context
-              // (journeyTone === 'anytime') gets the two Anytime-
-              // specific actions instead of Done/Breathe again - "Choose
-              // Another Reset" returns to the real Anytime Reset
-              // recommendation/options screen (never auto-starts a new
-              // exercise), "Return Home" clears the temporary practice
-              // context exactly like the Done button always has.
-              // Morning/Evening-themed and primary/default standalone
-              // completions (journeyTone !== 'anytime') are completely
-              // untouched - same Done/Breathe again pair as before.
-              <div className="space-y-3 w-full">
-                {journeyTone === 'anytime' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
-                      className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-                    >
-                      <span>Choose Another Reset</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => exitPracticeToHome(navigate, '/')}
-                      className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      Return Home
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => exitPracticeToHome(navigate, '/')}
-                      className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
-                    >
-                      <span>Done</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleBreatheAgain}
-                      className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      Breathe again
-                    </button>
-                  </>
-                )}
-              </div>
-            }
           />
         ) : countdown.isActive ? (
           // Build 16 physical-iPhone correction (F3) — shared preparation
@@ -731,7 +692,23 @@ export const QuietBreathing = ({ standalone = false }) => {
             </div>
           </>
         ) : (
-          <>
+          // Completion-transition-tuning pass — the outgoing active view
+          // (below) is held at full opacity during the brief hold, then
+          // fades over EXIT_FADE_MS (useCompletionHandoff.js) once
+          // activeViewExiting is true, rather than being unmounted the
+          // instant isCompleted/earlyEnded flips true. `flex-1 flex
+          // flex-col justify-between` replicates EveningSceneShell's own
+          // content-container class exactly, since this wrapper div
+          // (unlike the Fragment it replaces) now sits between this
+          // branch's own children and that container. pointerEvents is
+          // set to 'none' from the very instant isCompleted/earlyEnded is
+          // true (the whole hold+exiting window) - the exercise has
+          // already genuinely ended, so its own End early/video-row
+          // controls must never remain tappable behind the result panel.
+          <div
+            className="flex-1 flex flex-col justify-between"
+            style={(isCompleted || earlyEnded) ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+          >
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
                 Just breathe. There is nowhere else to be.
@@ -808,7 +785,66 @@ export const QuietBreathing = ({ standalone = false }) => {
                 </div>
               )}
             </div>
-          </>
+          </div>
+        )}
+
+        {/* Completion-transition-tuning pass — rendered as its own
+            sibling, gated on the RAW isCompleted || earlyEnded (never
+            showCompletionPanel), so these actions stay visible/tappable
+            immediately per the approved brief's "keep the CTA visible/
+            tappable early" - never delayed behind CompletionReveal's own
+            hold+exit-fade+stagger sequence above, matching
+            MorningFlow.jsx/Breathe.jsx/EveningBreathing.jsx's own
+            identical pattern (their own CTA also lives outside
+            CompletionReveal). WakeWise DEV — Anytime completion
+            correction: a practice reached through Anytime's own
+            quick-reset context (journeyTone === 'anytime') gets the two
+            Anytime-specific actions instead of Done/Breathe again -
+            "Choose Another Reset" returns to the real Anytime Reset
+            recommendation/options screen (never auto-starts a new
+            exercise), "Return Home" clears the temporary practice
+            context exactly like the Done button always has.
+            Morning/Evening-themed and primary/default standalone
+            completions (journeyTone !== 'anytime') are completely
+            untouched - same Done/Breathe again pair as before. */}
+        {(isCompleted || earlyEnded) && (
+          <div className="space-y-3 w-full">
+            {journeyTone === 'anytime' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => exitPracticeToHome(navigate, anytimeResetDestination)}
+                  className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                >
+                  <span>Choose Another Reset</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exitPracticeToHome(navigate, '/')}
+                  className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Return Home
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => exitPracticeToHome(navigate, '/')}
+                  className={`w-full ${getJourneyPrimaryActionClasses(journeyTone)} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+                >
+                  <span>Done</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBreatheAgain}
+                  className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Breathe again
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic

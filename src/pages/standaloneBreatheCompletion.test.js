@@ -86,19 +86,25 @@ describe('QuietBreathing.jsx (standalone) — natural completion: distinct "Brea
   // standaloneBreathe.test.js) - this file keeps its focus on the
   // genuine natural-completion path, which is otherwise unchanged.
   it('isCompleted (or earlyEnded) renders before the !hasBegun/active ternary, with the exact required natural-completion heading, and an honest, journey-aware acknowledgement (mobile correction #4) for non-Anytime tones rather than a hardcoded string', () => {
-    expect(standaloneBlock).toMatch(/\{isCompleted \|\| earlyEnded \? \(/);
+    expect(standaloneBlock).toMatch(/\{showCompletionPanel \? \(/);
     expect(standaloneBlock).toMatch(/Breathing complete/);
     expect(standaloneBlock).toMatch(/getBreathingAcknowledgement\(journeyTone\)/);
     expect(standaloneBlock).not.toMatch(/Take a moment to notice how you feel\./);
   });
 
   it('primary "Done" navigates to Home ("/"), secondary "Breathe again" calls handleBreatheAgain', () => {
-    const completionBlock = standaloneBlock.slice(standaloneBlock.indexOf('{isCompleted || earlyEnded ? ('), standaloneBlock.indexOf(') : countdown.isActive ? ('));
+    // Completion-transition-tuning pass — these actions now render as
+    // their own sibling, gated on the RAW isCompleted || earlyEnded
+    // (immediate, never delayed behind CompletionReveal's own hold+
+    // exit-fade+stagger sequence), so they're checked against the wider
+    // standaloneBlock rather than the narrower CompletionReveal-only
+    // completionBlock slice.
     // Context-aware Breathing/Meditation theming — Done routes through
     // the centralized exitPracticeToHome helper (clears the captured
     // practice journey tone, then navigates) - see practiceJourneyContext.js.
-    expect(completionBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Done/);
-    expect(completionBlock).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]*?Breathe again/);
+    expect(standaloneBlock).toMatch(/\{\(isCompleted \|\| earlyEnded\) && \(/);
+    expect(standaloneBlock).toMatch(/onClick=\{\(\) => exitPracticeToHome\(navigate, '\/'\)\}[\s\S]*?Done/);
+    expect(standaloneBlock).toMatch(/onClick=\{handleBreatheAgain\}[\s\S]*?Breathe again/);
   });
 
   it('handleBreatheAgain resets the double-tap guard, hasBegun, earlyEnded, isCompleted and completionGreeting - returning to this screen\'s own setup, not a direct restart', () => {

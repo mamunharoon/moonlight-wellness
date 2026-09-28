@@ -36,6 +36,7 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
+import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -265,6 +266,11 @@ export const Breathe = () => {
   const sessionRef = useRef(null);
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  // Completion-transition-tuning pass — purely additive/visual; isCompleted
+  // itself (above) keeps its exact original timing for every other
+  // consumer. Only the render ternary below swaps from isCompleted to
+  // showCompletionPanel - see useCompletionHandoff.js's own doc comment.
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
   // Picked exactly once, the instant natural completion is detected
   // (inside the interval callback below) - never recomputed on
   // re-render, and never touched by Skip/Exit/interruption, which never
@@ -700,7 +706,7 @@ export const Breathe = () => {
             )}
           </div>
         </>
-      ) : isCompleted ? (
+      ) : showCompletionPanel ? (
         // Morning breathing completion correction — a genuine dedicated
         // completed panel, replacing the active exercise interface
         // entirely (ring, the active screen's own heading copy, pattern-
@@ -711,18 +717,19 @@ export const Breathe = () => {
         // SessionComplete.jsx's own bg-morning-accent/10 + border-
         // morning-accent-tint/25 + shadow-morning-glow badge shape) -
         // never a new colour, never a literal Stitch copy.
-        // "Your Momentum" foundation, Phase 3 — the shared completion-
-        // reveal transition. isCompleted starts false and flips true
-        // exactly once per genuine completion with zero renders in
-        // between (see this state's own doc comment above), so
-        // CompletionReveal's auto-freshness detection applies directly -
-        // no explicit isFresh needed, matching every other ternary-swap
-        // screen. Morning Breathing alone is not one of the three Phase 2
-        // tracked activities (only the full Morning routine is), so
-        // there is no factual insight/milestone to show here - this is
-        // the shared visual transition only.
+        // "Your Momentum" foundation, Phase 3, retuned by the
+        // completion-transition-tuning pass — the shared completion-
+        // reveal transition. showCompletionPanel (useCompletionHandoff)
+        // starts false and flips true exactly once per genuine
+        // completion, after its own brief hold+exit-fade of the active
+        // view below, so CompletionReveal's auto-freshness detection
+        // applies directly - no explicit isFresh needed, matching every
+        // other ternary-swap screen. Morning Breathing alone is not one
+        // of the three Phase 2 tracked activities (only the full Morning
+        // routine is), so there is no factual insight/milestone to show
+        // here - this is the shared visual transition only.
         <CompletionReveal
-          active={isCompleted}
+          active={showCompletionPanel}
           journeyTone="morning"
           className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
           stagger={[
@@ -741,7 +748,22 @@ export const Breathe = () => {
           ]}
         />
       ) : (
-        <>
+        // Completion-transition-tuning pass — the outgoing active view
+        // (below) is held at full opacity during the brief hold, then
+        // fades over EXIT_FADE_MS (useCompletionHandoff.js) once
+        // activeViewExiting is true, rather than being unmounted the
+        // instant isCompleted flips true. `space-y-5` replicates the
+        // outer page container's own spacing class exactly, since this
+        // wrapper div (unlike the Fragment it replaces) now sits between
+        // this branch's own children and that container.
+        // pointerEvents is set to 'none' from the very instant isCompleted
+        // is true (the whole hold+exiting window) - the exercise has
+        // already genuinely finished, so its own controls must never
+        // remain tappable behind the completion panel.
+        <div
+          className="space-y-5"
+          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+        >
           <div className="text-center space-y-2">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Grounding Exercise</span>
             <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Center Yourself</h2>
@@ -758,7 +780,7 @@ export const Breathe = () => {
               {activePattern.supportingLabel ? `${activePattern.supportingLabel} (${activePattern.label})` : activePattern.label}
             </span>
           </div>
-        </>
+        </div>
       ))}
 
       {/* Build 15 fix — a SINGLE, stable InteractiveAmbientMusic instance,

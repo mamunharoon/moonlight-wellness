@@ -53,8 +53,10 @@ describe('BetaVideoModal.jsx — natural `ended` event is the ONLY gate for the 
 });
 
 describe('BetaVideoModal.jsx — the shared completion overlay renders only for a genuine natural end with an opted-in caller', () => {
-  it('gated on hasEnded && completionContext && !isFullscreen && !fallbackFullscreen', () => {
-    expect(source).toMatch(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(/);
+  it('gated on hasEnded && completionContext && !isFullscreen && !fallbackFullscreen, plus (completion-transition-tuning pass) a short fixed visual settle delay - overlayShouldRender/overlayReady/overlayVisible, never used to determine fullscreen state itself', () => {
+    expect(source).toMatch(/const overlayShouldRender = hasEnded && completionContext && !isFullscreen && !fallbackFullscreen;/);
+    expect(source).toMatch(/const overlayVisible = overlayShouldRender && overlayReady;/);
+    expect(source).toMatch(/\{overlayVisible && \(/);
   });
 
   it('resolves presentation via getMediaCompletionPresentation(completionContext.journey) - the one shared, allowlisted lookup, never a hand-rolled per-caller colour/label. Computed unconditionally in the component\'s own top-level scope (not inside a nested render callback) - this repo\'s eslint config has no react plugin providing JSX-scope usage tracking, so a component identifier referenced only from within a nested function\'s own JSX would otherwise wrongly report as unused', () => {
@@ -62,7 +64,7 @@ describe('BetaVideoModal.jsx — the shared completion overlay renders only for 
   });
 
   it('shows the required "Session Complete" label, the held completionMessage, and "What would you like to do next?" - never a hardcoded generic string instead of the real rotating message', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).not.toBe('');
     expect(overlayBlock).toMatch(/Session Complete/);
     expect(overlayBlock).toMatch(/\{completionMessage\}/);
@@ -75,23 +77,23 @@ describe('BetaVideoModal.jsx — the shared completion overlay renders only for 
   });
 
   it('does not autoplay another item and does not automatically advance a guided journey - the overlay renders only the two caller-supplied action buttons, no third "play next" control of any kind', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).not.toMatch(/autoplay|\.play\(\)|handleBegin|handleResumeOrReplay/);
   });
 
   it('renders inside the shared CompletionReveal transition (celebratory, journey-toned) - the one reusable natural-completion reveal every migrated surface uses, replacing an abrupt conditional-render swap', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).toMatch(/<CompletionReveal\s*\n\s*active\s*\n\s*journeyTone=\{GLOW_JOURNEY_TONE\[completionContext\.journey\]\}/);
   });
 
   it('renders the optional MomentumPanel (factual insight + gentle milestone) between the completion message and "What would you like to do next?" - additive and optional, driven entirely by completionContext.momentumInsight/momentumMilestone which every existing non-meditation caller simply omits', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).toMatch(/<MomentumPanel insight=\{completionContext\.momentumInsight\} milestone=\{completionContext\.momentumMilestone\} \/>/);
   });
 });
 
 describe('BetaVideoModal.jsx — context-aware actions', () => {
-  const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+  const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
 
   it('the primary button always renders, calling completionContext.onPrimaryAction with presentation.primaryLabel', () => {
     expect(overlayBlock).toMatch(/onClick=\{completionContext\.onPrimaryAction\}/);
@@ -124,25 +126,25 @@ describe('BetaVideoModal.jsx — safe focus handling and restoration', () => {
   // completionContext are true - a real native fullscreen exit is
   // asynchronous, so this effect must re-run again once that real exit
   // event lands, matching the overlay's own render guard exactly.
-  it('moves focus to the completion overlay\'s own primary action button only once it is actually visible (hasEnded && completionContext && !isFullscreen && !fallbackFullscreen)', () => {
-    expect(source).toMatch(/if \(hasEnded && completionContext && !isFullscreen && !fallbackFullscreen\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
-    expect(source).toMatch(/\}, \[hasEnded, completionContext, isFullscreen, fallbackFullscreen\]\);/);
+  it('moves focus to the completion overlay\'s own primary action button only once it is actually visible (overlayVisible - completion-transition-tuning pass)', () => {
+    expect(source).toMatch(/if \(overlayVisible\) completionPrimaryButtonRef\.current\?\.focus\(\);/);
+    expect(source).toMatch(/\}, \[overlayVisible\]\);/);
   });
 
   it('the primary button carries the completionPrimaryButtonRef', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).toMatch(/ref=\{completionPrimaryButtonRef\}/);
   });
 
   it('the overlay\'s live-region root uses role="status" for a single, non-repeated announcement - never aria-live layered redundantly on top of it', () => {
-    const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+    const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
     expect(overlayBlock).toMatch(/role="status"/);
     expect(overlayBlock).not.toMatch(/aria-live/);
   });
 });
 
 describe('BetaVideoModal.jsx — mobile layout: 44x44 targets, safe scrolling, reduced motion', () => {
-  const overlayBlock = source.match(/\{hasEnded && completionContext && !isFullscreen && !fallbackFullscreen && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
+  const overlayBlock = source.match(/\{overlayVisible && \(([\s\S]*?)\n {14}\)\}/)?.[1] ?? '';
 
   it('both action buttons carry min-h-[44px] - meets the 44x44 minimum tap target on every real viewport', () => {
     const buttonBlocks = overlayBlock.match(/<button[\s\S]*?<\/button>/g) ?? [];

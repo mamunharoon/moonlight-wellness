@@ -92,7 +92,7 @@ describe('Each of the two Evening completion surfaces requests its own, correct 
 describe('Evening\'s own periwinkle visual tokens never leak Morning gold or Anytime mint', () => {
   it('EveningBreathing.jsx\'s and EveningMeditate.jsx\'s completed panels use only evening-accent tokens - never morning-accent/anytime-accent', () => {
     for (const source of [eveningBreathingSource, eveningMeditateSource]) {
-      const completedPanel = source.match(/(?:\) : isCompleted \? \(|if \(isCompleted\) \{)([\s\S]*?)(?:\n\s*\) : \(|\n {2}\}\s*\n\s*\n {2}if \(session\.phase)/)?.[1] ?? '';
+      const completedPanel = source.match(/(?:\) : showCompletionPanel \? \(|if \(isCompleted\) \{)([\s\S]*?)(?:\n\s*\) : \(|\n {2}\}\s*\n\s*\n {2}if \(session\.phase)/)?.[1] ?? '';
       expect(completedPanel).not.toBe('');
       expect(completedPanel).toMatch(/evening-accent/);
       expect(completedPanel).not.toMatch(/morning-accent|anytime-accent/);

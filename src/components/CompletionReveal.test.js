@@ -1,4 +1,5 @@
-// "Your Momentum" foundation, Phase 3 — source-level regression guard for
+// "Your Momentum" foundation, Phase 3, retuned by the
+// completion-transition-tuning pass — source-level regression guard for
 // CompletionReveal.jsx, matching this repo's established convention for
 // components with no DOM rendering available (see
 // interactiveAmbientMusic.test.js's own identical note). The reduced-
@@ -42,21 +43,47 @@ describe('CompletionReveal — freshness detection: only a genuine fresh complet
   it('an explicit isFresh prop always overrides the auto-detected value - required for always-rendered completion pages whose active prop is unconditionally true from the start', () => {
     expect(source).toMatch(/const genuinelyFresh = isFresh !== undefined \? Boolean\(isFresh\) : wasInactiveAtMount;/);
   });
+
+  it('a non-fresh render (revisit/stale) never animates, regardless of Reduced Motion - shouldAnimate depends only on genuinelyFresh', () => {
+    expect(source).toMatch(/const shouldAnimate = genuinelyFresh;/);
+    expect(source).not.toMatch(/const shouldAnimate = genuinelyFresh && !reducedMotion;/);
+  });
 });
 
-describe('CompletionReveal — Reduced Motion disables scale/glow/stagger entirely, never delays content', () => {
+describe('CompletionReveal — completion-transition-tuning pass: Reduced Motion, for a genuinely fresh completion, plays a short plain cross-fade - never the old hard instant snap', () => {
   it('reduced motion is detected via the same established try/catch pattern as every other screen (getReducedMotionPreference() OR the OS media query)', () => {
     expect(source).toMatch(/Boolean\(getReducedMotionPreference\(\) \|\| window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\);/);
   });
 
-  it('shouldAnimate is false whenever reducedMotion is true, regardless of freshness', () => {
-    expect(source).toMatch(/const shouldAnimate = genuinelyFresh && !reducedMotion;/);
-  });
-
-  it('the non-animated path renders children (or stagger nodes) immediately with no transition style and no per-node delay at all', () => {
+  it('the non-animated path (revisit/stale, never Reduced Motion alone) renders children (or stagger nodes) immediately with no transition style and no per-node delay at all', () => {
     const block = codeOnly.match(/if \(!shouldAnimate\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(block).not.toBe('');
     expect(block).not.toMatch(/transition|transitionDelay/);
+  });
+
+  it('the reducedMotion branch is checked only AFTER the !shouldAnimate (non-fresh) branch already returned - Reduced Motion never applies to a non-fresh render, only to a genuinely fresh one', () => {
+    const shouldAnimateIdx = codeOnly.indexOf('if (!shouldAnimate)');
+    const reducedMotionIdx = codeOnly.indexOf('if (reducedMotion)');
+    expect(shouldAnimateIdx).toBeGreaterThan(-1);
+    expect(reducedMotionIdx).toBeGreaterThan(shouldAnimateIdx);
+  });
+
+  it('the Reduced Motion cross-fade is a short, single, plain opacity transition on the whole panel (REDUCED_MOTION_TRANSITION_MS) - never scale, never glow, never per-item stagger delay', () => {
+    const block = codeOnly.match(/if \(reducedMotion\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(block).not.toBe('');
+    expect(block).toMatch(/transition: `opacity \$\{REDUCED_MOTION_TRANSITION_MS\}ms ease-out`/);
+    expect(block).not.toMatch(/scale-|GLOW_CLASSES|transitionDelay/);
+    expect(source).toMatch(/const REDUCED_MOTION_TRANSITION_MS = 200;/);
+  });
+
+  it('stagger content is flattened (Fragment, no individual wrapper/delay) under Reduced Motion - the array structure is reused but never staggered', () => {
+    const block = codeOnly.match(/if \(reducedMotion\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(block).toMatch(/stagger\.map\(\(node, i\) => <Fragment key=\{i\}>\{node\}<\/Fragment>\)/);
+  });
+
+  it('actions and CTA content are already in the DOM and interactive under Reduced Motion too - never gated behind the cross-fade completing', () => {
+    const block = codeOnly.match(/if \(reducedMotion\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(block).toMatch(/\{actions\}/);
   });
 });
 
@@ -81,8 +108,8 @@ describe('CompletionReveal — journey glow reuses existing, already-approved to
 });
 
 describe('CompletionReveal — stagger reveals children with an incremental, approved delay; the primary action is never held back by the frame\'s own opacity', () => {
-  it('stagger step is within the approved 100-150ms per-item range (150ms, its top)', () => {
-    expect(source).toMatch(/const STAGGER_STEP_MS = 150;/);
+  it('stagger step is within the approved 100-150ms per-item range', () => {
+    expect(source).toMatch(/const STAGGER_STEP_MS = 120;/);
   });
 
   it('each staggered node gets its own transitionDelay proportional to its index - never all revealed simultaneously', () => {
@@ -94,19 +121,24 @@ describe('CompletionReveal — stagger reveals children with an incremental, app
   });
 });
 
-describe('CompletionReveal — true end-to-end settle time matches the approved ~800-1200ms target (including stagger), not merely the frame\'s own 550ms', () => {
-  it('a 1-item stagger settles at 20 + STAGGER_BASE_DELAY_MS + STAGGER_TRANSITION_MS ≈ 820ms', () => {
-    expect(source).toMatch(/const STAGGER_BASE_DELAY_MS = 300;/);
-    expect(source).toMatch(/const STAGGER_TRANSITION_MS = 500;/);
+describe('CompletionReveal — completion-transition-tuning pass: true end-to-end settle time, combined with useCompletionHandoff\'s own hold+exit-fade prefix, lands inside the approved ~1.2-1.5s target', () => {
+  it('the retuned constants exist exactly as specified', () => {
+    expect(source).toMatch(/const COMMIT_DELAY_MS = 100;/);
+    expect(source).toMatch(/const STAGGER_BASE_DELAY_MS = 150;/);
+    expect(source).toMatch(/const STAGGER_TRANSITION_MS = 400;/);
   });
 
-  it('a 2-item stagger settles at ~970ms and a 3-item stagger at ~1120ms - both inside the approved window', () => {
-    // 20 (initial commit delay) + 300 (base) + i*150 (step) + 500 (own transition)
-    const settleMs = (i) => 20 + 300 + i * 150 + 500;
-    expect(settleMs(1)).toBeGreaterThanOrEqual(800);
-    expect(settleMs(1)).toBeLessThanOrEqual(1200);
-    expect(settleMs(2)).toBeGreaterThanOrEqual(800);
-    expect(settleMs(2)).toBeLessThanOrEqual(1200);
+  it('a 1/2/3-item stagger, combined with useCompletionHandoff\'s 550ms hold+exit-fade prefix, all settle within 1150-1500ms (the approved ~1.2-1.5s target, with reasonable tolerance at the lower bound)', () => {
+    const HOLD_PLUS_EXIT_MS = 550; // useCompletionHandoff.js: HOLD_MS(200) + EXIT_FADE_MS(350)
+    const COMMIT_DELAY_MS = 100;
+    const STAGGER_BASE_DELAY_MS = 150;
+    const STAGGER_STEP_MS = 120;
+    const STAGGER_TRANSITION_MS = 400;
+    const settleMs = (i) => HOLD_PLUS_EXIT_MS + COMMIT_DELAY_MS + STAGGER_BASE_DELAY_MS + i * STAGGER_STEP_MS + STAGGER_TRANSITION_MS;
+    for (const i of [0, 1, 2]) {
+      expect(settleMs(i)).toBeGreaterThanOrEqual(1150);
+      expect(settleMs(i)).toBeLessThanOrEqual(1500);
+    }
   });
 });
 
@@ -125,18 +157,18 @@ describe('CompletionReveal — `actions` renders without any additional delay ("
 });
 
 describe('CompletionReveal — forwards arbitrary extra props (e.g. role="status") onto its own wrapper, in every render path', () => {
-  it('spreads ...rest onto the non-animated wrapper, the plain animated wrapper, and the staggered wrapper alike', () => {
+  it('spreads ...rest onto all four wrappers: non-animated, Reduced-Motion cross-fade, plain animated, and staggered animated alike', () => {
     const matches = codeOnly.match(/\{\.\.\.rest\}/g) ?? [];
-    expect(matches.length).toBe(3);
+    expect(matches.length).toBe(4);
   });
 });
 
-describe('CompletionReveal — timing matches the approved 800-1200ms total sequence', () => {
+describe('CompletionReveal — frame entrance timing', () => {
   it('the frame entrance transition is within the approved 450-600ms range', () => {
     expect(source).toMatch(/const FRAME_TRANSITION_MS = 550;/);
   });
 
   it('a short delayed state flip (not a bare synchronous setState) reliably lets the browser commit the initial paint first, matching SessionComplete.jsx\'s own established reasoning', () => {
-    expect(source).toMatch(/setTimeout\(\(\) => setEntered\(true\), 20\);/);
+    expect(source).toMatch(/setTimeout\(\(\) => setEntered\(true\), COMMIT_DELAY_MS\);/);
   });
 });
