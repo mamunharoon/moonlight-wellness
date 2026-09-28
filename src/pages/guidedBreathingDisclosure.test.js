@@ -43,7 +43,7 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
     expect(body).not.toMatch(/setGuidedSessionsOpen/);
   });
 
-  it('the disclosure sits after Skip this step/Exit routine in the pre-start branch', () => {
+  it('Morning Visual Uplift (Phase 6) — the disclosure now sits BEFORE Begin Breathing/Skip this step/Exit routine in the pre-start branch (the approved Stitch-direction order: choices first, one obvious primary action last)', () => {
     // isRepeatGated hidden-options defect fix removed the whole-screen
     // "Repeat this exercise?" branch that used to precede this ternary -
     // it now opens directly with `{!hasBegun ? (`, no leading `: `.
@@ -52,12 +52,18 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
     // sibling state - the preparation countdown - that doesn't change
     // this test's own concern: ordering within the pre-start branch).
     const preStartBranch = breatheSource.slice(breatheSource.indexOf('{!countdown.isActive && (!hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
+    const iDisclosure = preStartBranch.indexOf('Explore guided breathing sessions');
+    // The actual Begin button element, not the word "Begin Breathing" -
+    // that phrase also appears earlier in this branch's own doc comment
+    // explaining the Phase 6 reorder, which would otherwise throw off a
+    // plain text search.
+    const iBegin = preStartBranch.indexOf('onClick={handleBeginBreathing}');
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
-    const iDisclosure = preStartBranch.indexOf('Explore guided breathing sessions');
-    expect(iSkip).toBeGreaterThanOrEqual(0);
+    expect(iDisclosure).toBeGreaterThanOrEqual(0);
+    expect(iBegin).toBeGreaterThan(iDisclosure);
+    expect(iSkip).toBeGreaterThan(iBegin);
     expect(iExit).toBeGreaterThan(iSkip);
-    expect(iDisclosure).toBeGreaterThan(iExit);
   });
 
   it('selecting a video from either collection uses the existing handleSelectVideo wrapper (interrupt-to-watch), never the raw handleSelect', () => {

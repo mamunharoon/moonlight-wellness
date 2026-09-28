@@ -22,8 +22,9 @@ describe('MorningFlow.jsx (Stretch) — compaction reduces inter-section gaps, n
     expect(source).not.toMatch(/space-y-5 select-none/);
   });
 
-  it('the movements grid tightened from gap-3 to gap-2', () => {
-    expect(source).toMatch(/<div className="grid grid-cols-2 gap-2" role="group" aria-label="Choose your movements">/);
+  it('Morning Visual Uplift (Phase 6) — the movements area is now a vertically stacked list (space-y-2), not the former 2-column gap-2 grid', () => {
+    expect(source).toMatch(/<div className="space-y-2" role="group" aria-label="Choose your movements">/);
+    expect(source).not.toMatch(/grid grid-cols-2/);
   });
 
   it('safe-area top/left/right padding is completely untouched', () => {

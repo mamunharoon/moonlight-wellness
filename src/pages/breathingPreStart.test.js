@@ -214,7 +214,9 @@ describe('formatCadence - real execution, the exact approved copy for every patt
 describe('Breathe.jsx - real pattern choices before Start, single-select radio semantics', () => {
   it('imports the shared BREATHING_PATTERNS/BreathingPatternRow, never a second, hand-typed pattern list', () => {
     expect(breatheSource).toMatch(/import \{ BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase \} from '\.\.\/lib\/breathingPatterns';/);
-    expect(breatheSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
+    // Morning Visual Uplift (Phase 6) — vertically stacked list now, so no
+    // `idx` is needed for a col-span-2 last-item special case any more.
+    expect(breatheSource).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
   });
 
   it('renders inside role="radiogroup", one BreathingPatternRow per real pattern, single groupName so only one can be checked at a time', () => {

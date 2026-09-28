@@ -25,17 +25,17 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const source = read('./Breathe.jsx');
 
 describe('Breathe.jsx — pre-start pattern-selection view', () => {
-  it('"Mindful Breathing" eyebrow is gold; "Choose Your Breathing Practice" uses the new Playfair Display token', () => {
+  it('Morning Visual Uplift (Phase 6) — "Mindful Breathing" eyebrow is gold; heading is now "Choose Your Breath" (Playfair Display), replacing the longer original', () => {
     expect(source).toMatch(/text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing/);
-    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breathing Practice/);
+    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breath<\/h2>/);
   });
 
-  it('the real supporting copy is unchanged', () => {
-    expect(source).toMatch(/Choose a breathing rhythm, then begin when you&rsquo;re ready\./);
+  it('Morning Visual Uplift (Phase 6) — the supporting copy is now the shorter approved "Choose a rhythm that feels right."', () => {
+    expect(source).toMatch(/Choose a rhythm that feels right\./);
   });
 
   it('all 5 real breathing patterns are still rendered via BreathingPatternRow with accent="morning" (shared-component safety proven separately)', () => {
-    expect(source).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern, idx\) => \(/);
+    expect(source).toMatch(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \(/);
     const callSite = source.match(/<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
     expect(callSite).toMatch(/accent="morning"/);
   });
@@ -61,11 +61,11 @@ describe('Breathe.jsx — active "Center Yourself" grounding view', () => {
 });
 
 describe('Breathe.jsx — real functional contract untouched by the restyle', () => {
-  it('MusicPreferenceToggle keeps its real isOn/onToggle/description wiring alongside the new accent="morning" prop', () => {
-    const callSite = source.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
+  it('Morning Visual Uplift (Phase 6) — the compact CompactSoundControl keeps the real isOn/onToggle wiring MusicPreferenceToggle used to have; no second audio/preference state was created', () => {
+    const callSite = source.match(/<CompactSoundControl[\s\S]{0,200}\/>/)?.[0] ?? '';
     expect(callSite).toMatch(/isOn=\{musicPreferenceOn\}/);
-    expect(callSite).toMatch(/description="Play gentle music during your breathing practice\."/);
-    expect(callSite).toMatch(/accent="morning"/);
+    expect(callSite).toMatch(/onToggle=\{handleToggleMusicPreference\}/);
+    expect(callSite).toMatch(/journeyTone="morning"/);
   });
 
   it('the ProgressIndicator breadcrumb is still rendered with activeStep="breathe" - the Morning gold branch lives entirely inside ProgressIndicator.jsx itself, not duplicated here', () => {

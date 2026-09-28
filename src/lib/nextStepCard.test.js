@@ -24,11 +24,11 @@ describe('resolveNextStepCard — Morning, not-started', () => {
       cardState: 'not-started',
       morningDaypart: MORNING_DAYPART.MORNING
     });
-    expect(card.eyebrow).toBe('YOUR NEXT STEP');
+    expect(card.eyebrow).toBe('MORNING RESET');
     expect(card.title).toBe('Start your Morning Reset');
-    expect(card.supportingText).toBe('Begin with today’s intention, then move through gentle stretching, grounding and a closing affirmation.');
-    expect(card.duration).toBe('About 5–10 minutes, plus optional meditation');
-    expect(card.buttonLabel).toBe('Begin My Morning');
+    expect(card.supportingText).toBe('A gentle start for a positive day.');
+    expect(card.duration).toBe('5–10 min');
+    expect(card.buttonLabel).toBe('Begin Morning Reset');
   });
 
   // F2 (pre-Build-15 usability pass) — found live: both off-hours
@@ -123,19 +123,26 @@ describe('resolveNextStepCard — Evening (no daypart variation)', () => {
 });
 
 describe('Journey Embedding — truthful duration copy, never a flat range that understates the optional-meditation maximum', () => {
-  it('Morning and Evening not-started cards both name the optional addition rather than a fixed range', () => {
+  it('Evening not-started names the optional addition rather than a fixed range; Morning (Phase 6 Visual Uplift) shows the shorter approved "5–10 min" badge instead', () => {
     const morning = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.MORNING });
     const evening = resolveNextStepCard({ period: 'evening', cardState: 'not-started' });
-    expect(morning.duration).toBe('About 5–10 minutes, plus optional meditation');
+    expect(morning.duration).toBe('5–10 min');
     expect(evening.duration).toBe('About 5–10 minutes, plus optional meditation');
+  });
+
+  it('Morning\'s off-hours daypart variants (afternoon/evening-night) keep the original longer duration copy - only the default MORNING daypart got the Phase 6 shorter badge', () => {
+    const afternoon = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.AFTERNOON });
+    const eveningNight = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.EVENING_NIGHT });
+    expect(afternoon.duration).toBe('About 5–10 minutes, plus optional meditation');
+    expect(eveningNight.duration).toBe('About 5–10 minutes, plus optional meditation');
   });
 
   it('never claims a single fixed upper bound wider than the approved 5-10 baseline (e.g. "5-15"/"5-12"/"5-20 minutes") that would misstate the true maximum or wrongly imply a cap', () => {
     const morning = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.MORNING });
     const evening = resolveNextStepCard({ period: 'evening', cardState: 'not-started' });
-    // The approved baseline "5–10 minutes" is expected and fine; only a
-    // DIFFERENT, wider range (the audit's own rejected "5-12"/"5-15"
-    // proposals) would be a real problem here.
+    // The approved baseline "5–10 minutes"/"5–10 min" is expected and
+    // fine; only a DIFFERENT, wider range (the audit's own rejected
+    // "5-12"/"5-15" proposals) would be a real problem here.
     expect(morning.duration).not.toMatch(/5[-–](?:11|12|13|14|15|20) minutes/);
     expect(evening.duration).not.toMatch(/5[-–](?:11|12|13|14|15|20) minutes/);
   });

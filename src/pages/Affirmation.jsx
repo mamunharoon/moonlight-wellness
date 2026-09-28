@@ -174,7 +174,7 @@ export const Affirmation = () => {
       )}
 
       <p className="text-xs text-on-surface-variant text-center max-w-xs mx-auto leading-relaxed">
-        Begin with a supportive thought to shape how you meet the day.
+        Carry this thought into your day.
       </p>
 
       <div className="space-y-6 text-center relative overflow-hidden p-5 rounded-3xl bg-gradient-to-tr from-morning-affirmation-from via-morning-affirmation-via to-morning-affirmation-to border border-morning-accent-tint/15 shadow-[0_8px_30px_rgba(149,72,53,0.04)]">
@@ -187,13 +187,26 @@ export const Affirmation = () => {
           <h2 className="text-3xl font-morning-display italic font-semibold text-on-morning-affirmation leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
-          <div className="space-y-3">
+          {/* Morning Visual Uplift (Phase 6) — a visible divider now
+              separates Primary from Supporting whenever both are shown
+              (clear visual separation, per the approved Stitch-direction
+              redesign), and the quote text now reuses the same warm
+              on-morning-affirmation token the role label already uses
+              (previously a cool grey, text-slate-600, at odds with the
+              warm cream/gold surface) - no new colour introduced, only an
+              existing token applied more consistently. Role label bumped
+              9px -> 10px and quote text xs -> sm, matching this app's own
+              established micro-label/body-copy size floors. */}
+          <div className="space-y-4">
             {affirmations.map(({ intention, affirmation }, idx) => (
-              <div key={intention.toLowerCase()} className="space-y-1">
+              <div
+                key={intention.toLowerCase()}
+                className={`space-y-1 ${idx > 0 ? 'pt-4 border-t border-morning-accent-tint/20' : ''}`}
+              >
                 {affirmations.length > 1 && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
                 )}
-                <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed font-medium">
+                <p className="text-sm text-on-morning-affirmation/90 max-w-xs mx-auto leading-relaxed font-medium">
                   "{affirmation}"
                 </p>
               </div>
@@ -219,7 +232,7 @@ export const Affirmation = () => {
               onClick={handleNext}
               className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
-              <span>Continue</span>
+              <span>Complete Affirmation</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
             <button

@@ -79,9 +79,9 @@ describe('MorningFlow — real functional contract untouched by the restyle', ()
     expect(source).toMatch(/\{ title: 'Gentle Twist', desc: 'Slowly rotate your torso from side to side\.', icon: 'spa' \}/);
   });
 
-  it('MusicPreferenceToggle is passed accent="morning" (additive prop, shared-component safety already covered by musicPreferenceToggleSharedConsumers.test.js) and its real isOn/onToggle/isGuest wiring is untouched', () => {
-    const callSite = source.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="morning"/);
+  it('Morning Visual Uplift (Phase 6) — the compact CompactSoundControl is passed journeyTone="morning" (replacing MusicPreferenceToggle in the header) and its real isOn/onToggle wiring is untouched - no second audio state', () => {
+    const callSite = source.match(/<CompactSoundControl[\s\S]{0,200}\/>/)?.[0] ?? '';
+    expect(callSite).toMatch(/journeyTone="morning"/);
     expect(callSite).toMatch(/isOn=\{musicPreferenceOn\}/);
     expect(callSite).toMatch(/onToggle=\{handleToggleMusicPreference\}/);
   });

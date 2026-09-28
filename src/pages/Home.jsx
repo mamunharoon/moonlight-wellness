@@ -42,6 +42,7 @@ import { TimezoneBanner } from '../components/TimezoneBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { ActiveIntentionCard } from '../components/ActiveIntentionCard';
+import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
 import { setPendingContent } from '../lib/pendingContent';
 import { getMorningCompletionKey, getEveningCompletionKey, getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { redoEveningWindDown } from '../lib/routineResponses';
@@ -1005,6 +1006,14 @@ export const Home = () => {
               style={{ backgroundColor: 'rgb(var(--color-morning-tint) / 0.1)' }}
             >
               {nextStepCardBody(morningNotStartedCard, undefined, 'morning')}
+              {/* Morning Visual Uplift (Phase 6) — the five-step visual
+                  pathway, only on the not-started card (the card that
+                  introduces the routine before it begins) - never shown
+                  on the in-progress/completed cards above, which already
+                  have their own real progress signal (stepProgressLabel/
+                  Repeat). Purely additive/decorative; MorningJourneyPathway
+                  itself navigates nowhere and reads no new state. */}
+              <MorningJourneyPathway />
               <button
                 type="button"
                 onClick={handleMorningAction}

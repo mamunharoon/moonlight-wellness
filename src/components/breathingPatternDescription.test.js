@@ -68,9 +68,8 @@ describe('BreathingPatternRow — compact grid-card variant (F5)', () => {
   });
 });
 
-describe('Standalone Breathe / Morning Breathe / Evening Breathing — compact grid + shared description, consistently applied', () => {
+describe('Standalone Breathe / Evening Breathing — compact grid + shared description, consistently applied (Morning Visual Uplift, Phase 6, does not touch these two)', () => {
   const pages = [
-    ['Breathe.jsx (Morning)', breatheSource],
     ['EveningBreathing.jsx', eveningBreathingSource],
     ['QuietBreathing.jsx (standalone)', quietBreathingSource]
   ];
@@ -100,5 +99,24 @@ describe('Standalone Breathe / Morning Breathe / Evening Breathing — compact g
     expect(descriptionIndex).toBeGreaterThan(gridIndex);
     // Nothing but the grid's own closing markup sits between them.
     expect(descriptionIndex - gridIndex).toBeLessThan(700);
+  });
+});
+
+describe('Morning Breathe.jsx — Morning Visual Uplift (Phase 6): vertically stacked rows replace the compact grid + shared description', () => {
+  it('no longer imports or renders BreathingPatternDescription - each stacked row already shows its own full cadence/duration inline', () => {
+    expect(breatheSource).not.toMatch(/import \{ BreathingPatternDescription \}/);
+    expect(breatheSource).not.toMatch(/<BreathingPatternDescription/);
+  });
+
+  it('renders BREATHING_PATTERNS as a vertically stacked list (space-y-2), not a 2-column grid', () => {
+    expect(breatheSource).toMatch(/className="space-y-2" role="radiogroup" aria-label="Choose your breathing practice"/);
+    expect(breatheSource).not.toMatch(/grid grid-cols-2 gap-3/);
+  });
+
+  it('no BreathingPatternRow call site passes compact - every row is the full, non-compact row (with an icon)', () => {
+    const mapBlock = breatheSource.match(/\{BREATHING_PATTERNS\.map\(\(pattern\) => \([\s\S]*?<BreathingPatternRow[\s\S]*?\/>/)?.[0] ?? '';
+    expect(mapBlock).not.toBe('');
+    expect(mapBlock).not.toMatch(/\bcompact\b/);
+    expect(mapBlock).toMatch(/icon=\{BREATHING_PATTERN_ICONS\[pattern\.id\]\}/);
   });
 });

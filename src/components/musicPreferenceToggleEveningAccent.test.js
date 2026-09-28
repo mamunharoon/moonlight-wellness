@@ -57,11 +57,11 @@ describe('MusicPreferenceToggle — only EveningBreathing.jsx passes accent="eve
     expect(callSite).toMatch(/accent=\{journeyTone\}/);
   });
 
-  it('Breathe.jsx and MorningFlow.jsx (Morning) still pass accent="morning", never "evening"', () => {
+  it('Breathe.jsx and MorningFlow.jsx (Morning) no longer render MusicPreferenceToggle at all (Morning Visual Uplift, Phase 6: replaced by CompactSoundControl journeyTone="morning") - never "evening" either way', () => {
     for (const source of [breatheSource, morningFlowSource]) {
       const callSite = source.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-      expect(callSite).toMatch(/accent="morning"/);
-      expect(callSite).not.toMatch(/accent="evening"/);
+      expect(callSite).toBe('');
+      expect(source).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="morning" \/>/);
     }
   });
 });

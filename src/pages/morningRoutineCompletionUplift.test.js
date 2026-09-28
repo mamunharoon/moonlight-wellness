@@ -33,8 +33,8 @@ describe('SessionComplete.jsx (100% Morning routine completion) — required war
     expect(source).toMatch(/<span className="text-\[10px\] text-on-surface-variant uppercase tracking-wider font-semibold">Complete<\/span>/);
   });
 
-  it('shows the required small "Morning Complete" eyebrow label, using the same warm-gold token as every other Morning completion panel this pass added - never a new colour', () => {
-    expect(source).toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
+  it('Morning completion screen refinement — the "Morning Complete" eyebrow is removed (the 100%/check_circle ring above already communicates completion; this line only repeated it) - never re-added', () => {
+    expect(source).not.toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
   });
 
   it('shows exactly one rotating final message (completionGreeting) from the routine pool - no separate supporting body paragraph was added back', () => {

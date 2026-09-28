@@ -247,7 +247,7 @@ export const SessionComplete = () => {
       </div>
 
       {/* Circular Gauge */}
-      <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-6 rounded-full shadow-morning-glow">
+      <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-4 rounded-full shadow-morning-glow">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle cx="50" cy="50" fill="transparent" r="44" stroke="rgba(255,255,255,0.05)" strokeWidth="4"></circle>
           {/* WakeWise Phase 3B (3B.1) — animates from empty to full only on
@@ -291,8 +291,11 @@ export const SessionComplete = () => {
         journeyTone="morning"
         className="space-y-3"
         stagger={[
-          <div key="greeting" className="text-center space-y-2">
-            <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete</span>
+          <div key="greeting" className="text-center">
+            {/* Morning completion screen refinement — the "Morning
+                Complete" eyebrow removed: the 100% ring/checkmark above
+                already communicates completion, so this line only
+                repeated it. The rotating greeting itself is unchanged. */}
             <h2 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">{completionGreeting}</h2>
           </div>,
           <MomentumPanel key="momentum" insight={momentum.insight} milestone={momentum.milestone} />

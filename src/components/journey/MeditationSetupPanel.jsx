@@ -49,6 +49,13 @@ import { getJourneyToneTokens } from '../../lib/journeyTone';
  */
 export const MeditationSetupPanel = ({
   compact = false,
+  // Morning Visual Uplift (Phase 6) — `heading` (additive, optional,
+  // default 'Take a Mindful Pause' - Evening/standalone both omit it and
+  // render byte-identically to before). Only MorningMeditate.jsx passes
+  // its own shorter 'Mindful Pause' per the approved Stitch-direction
+  // copy; this changes text only, never the underlying recommendation/
+  // session logic below.
+  heading = 'Take a Mindful Pause',
   purpose,
   recommendedDurationId,
   beginLabel = null,
@@ -120,7 +127,7 @@ export const MeditationSetupPanel = ({
       {compact ? (
         <div className="space-y-1">
           <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-3xl`} aria-hidden="true">self_improvement</span>
-          <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take a Mindful Pause</h1>
+          <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">{heading}</h1>
           {purpose && <p className="text-xs text-on-surface-variant">{purpose}</p>}
           <div className="glass-panel rounded-2xl p-4 mt-3 space-y-1.5 text-left">
             <p className={`text-[10px] uppercase tracking-wider font-bold ${getJourneyToneTokens(journeyTone).text}`}>Recommended for you</p>
@@ -131,7 +138,7 @@ export const MeditationSetupPanel = ({
       ) : (
         <div className="space-y-1">
           <span className={`material-symbols-outlined ${getJourneyToneTokens(journeyTone).text} text-3xl`} aria-hidden="true">self_improvement</span>
-          <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">Take a Mindful Pause</h1>
+          <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight mt-2">{heading}</h1>
           <p className="text-xs text-on-surface-variant">Choose how you would like to meditate and how much time you have.</p>
         </div>
       )}

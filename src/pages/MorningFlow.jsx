@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
-import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
+import { CompactSoundControl } from '../components/CompactSoundControl';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -618,8 +618,18 @@ export const MorningFlow = () => {
           that as an additional, more specific Morning-gold layer, not a
           replacement for it. */}
       <JourneyGlow journey="morning" />
-      <div className="flex items-center gap-3">
+      {/* Morning Visual Uplift (Phase 6) — compact Sound control, top-right,
+          replacing the large full-width Background Music card below. Same
+          musicPreferenceOn/handleToggleMusicPreference state as before -
+          no second audio state. Hidden once hasBegun (matching the
+          original MusicPreferenceToggle's own pre-start-only scope;
+          InteractiveAmbientMusic renders its own toggle once active) and
+          during the preparation countdown. */}
+      <div className="flex items-center justify-between gap-3">
         <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
+        {musicEligible && !hasBegun && !countdown.isActive && (
+          <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
+        )}
       </div>
       <ProgressIndicator activeStep="stretch" onReviewStep={requestReview} />
 
@@ -665,41 +675,19 @@ export const MorningFlow = () => {
             </span>
           </div>
 
-          {musicEligible && (
-            <MusicPreferenceToggle
-              isOn={musicPreferenceOn}
-              onToggle={handleToggleMusicPreference}
-              description="Play gentle music during your stretch."
-              accent="morning"
-            />
-          )}
-
-          <div className="space-y-3 w-full">
-            <button
-              type="button"
-              onClick={handleBeginStretching}
-              disabled={selectedMovements.size === 0}
-              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50`}
-            >
-              <span>{beginLabel}</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-          </div>
-
-          {/* Build 16 physical-iPhone correction (F2) — all four movements
-              now render directly on the setup screen (no more collapsed
-              "Choose movements" disclosure hiding them), as a compact
-              2-column x 2-row grid. Each card is still a real checkbox
-              (MovementCheckboxRow's `compact` variant) - tapping it IS
-              "choosing movements," so the selection affordance stays
-              fully available without a separate toggle to open first. */}
+          {/* Morning Visual Uplift (Phase 6) — movements now render as a
+              vertically stacked list (MovementCheckboxRow's full-width,
+              non-compact row: icon, title, purpose, duration and a large
+              check state all on one row), replacing the former compact
+              2x2 grid, per the approved Stitch-direction restructure.
+              Same real checkbox input/label wrapping, selection state and
+              journeyTone as before - only the layout changed; tapping a
+              row IS "choosing movements," same as before. */}
           <div className="space-y-2">
-            <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-1">Choose your movements</h3>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Choose your movements">
+            <div className="space-y-2" role="group" aria-label="Choose your movements">
               {steps.map((step, idx) => (
                 <MovementCheckboxRow
                   key={idx}
-                  compact
                   title={step.title}
                   description={step.desc}
                   durationLabel={`0:${getStepDuration().toString().padStart(2, '0')}`}
@@ -756,6 +744,21 @@ export const MorningFlow = () => {
           </div>
 
           <div className="space-y-3 w-full">
+            {/* Morning Visual Uplift (Phase 6) — Begin Stretching now sits
+                after the movement list and Explore entry (the approved
+                Stitch-direction order: choices first, one obvious primary
+                action last), rather than above the movement list. Same
+                handler/disabled guard as before - only its position
+                moved. */}
+            <button
+              type="button"
+              onClick={handleBeginStretching}
+              disabled={selectedMovements.size === 0}
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg disabled:opacity-50`}
+            >
+              <span>{beginLabel}</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
             <button
               onClick={handleSkip}
               className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"

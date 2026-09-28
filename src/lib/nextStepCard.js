@@ -39,20 +39,36 @@ export const MORNING_DAYPART = Object.freeze({
 // "afternoon" and "evening/night" framing once neither is allowed to call
 // itself a reset) - the daypart split itself is untouched, matching the
 // approved "correct copy only, no route/handler change" scope.
+// Morning Visual Uplift (Phase 6) — the MORNING daypart variant's own
+// eyebrow/explanation/duration/buttonLabel are the exact approved copy
+// from the Stitch-direction Morning Home redesign ("MORNING RESET" /
+// "A gentle start for a positive day." / "5–10 min" / "Begin Morning
+// Reset"), replacing the longer, more explanatory originals per the
+// approved "reduce text and cognitive load" objective. AFTERNOON/
+// EVENING_NIGHT are untouched (not covered by the approved mock, and this
+// pass is scoped to the default/morning-daypart card only) - each keeps
+// its own original eyebrow/duration alongside its own pre-existing
+// title/explanation/buttonLabel, exactly as before this change.
 const MORNING_NOT_STARTED_BY_DAYPART = {
   [MORNING_DAYPART.MORNING]: {
+    eyebrow: 'MORNING RESET',
     title: 'Start your Morning Reset',
-    explanation: 'Begin with today’s intention, then move through gentle stretching, grounding and a closing affirmation.',
-    buttonLabel: 'Begin My Morning'
+    explanation: 'A gentle start for a positive day.',
+    duration: '5–10 min',
+    buttonLabel: 'Begin Morning Reset'
   },
   [MORNING_DAYPART.AFTERNOON]: {
+    eyebrow: 'YOUR NEXT STEP',
     title: 'Revisit your morning routine',
     explanation: 'Move through intention, stretching, breathing, meditation and affirmation at your own pace.',
+    duration: 'About 5–10 minutes, plus optional meditation',
     buttonLabel: 'Start Morning Routine'
   },
   [MORNING_DAYPART.EVENING_NIGHT]: {
+    eyebrow: 'YOUR NEXT STEP',
     title: 'Revisit your morning routine',
     explanation: 'Move through intention, stretching, breathing, meditation and affirmation at your own pace.',
+    duration: 'About 5–10 minutes, plus optional meditation',
     buttonLabel: 'Start Morning Routine'
   }
 };
@@ -87,18 +103,10 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
     }
     const variant = MORNING_NOT_STARTED_BY_DAYPART[morningDaypart] ?? MORNING_NOT_STARTED_BY_DAYPART[MORNING_DAYPART.MORNING];
     return {
-      eyebrow: 'YOUR NEXT STEP',
+      eyebrow: variant.eyebrow,
       title: variant.title,
       supportingText: variant.explanation,
-      // Journey Embedding — the optional Meditate/Meditation step (2, 5 or
-      // 10 minutes, user's own choice, skippable to zero) can extend the
-      // routine beyond the old flat "About 5–10 minutes" range, which is
-      // now inaccurate at the high end for anyone who takes it. Never
-      // states a recommended duration as the maximum possible total (the
-      // 10-minute meditation choice would make that claim false) -
-      // "plus optional meditation" names the addition without pretending
-      // to total it, matching the approved copy exactly.
-      duration: 'About 5–10 minutes, plus optional meditation',
+      duration: variant.duration,
       buttonLabel: variant.buttonLabel
     };
   }

@@ -31,7 +31,7 @@ describe('SessionComplete.jsx — rotating completion message wiring', () => {
     expect(source).not.toMatch(/\{body\}/);
   });
 
-  it('shows the required "Morning Complete" eyebrow label, reusing the same warm-gold token as Breathe.jsx/MorningFlow.jsx/MorningMeditate.jsx\'s own completion panels - never a new colour', () => {
-    expect(source).toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
+  it('Morning completion screen refinement — the "Morning Complete" eyebrow no longer appears (redundant with the 100% ring above); the rotating greeting itself is untouched', () => {
+    expect(source).not.toMatch(/<span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Complete<\/span>/);
   });
 });

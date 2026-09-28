@@ -10,9 +10,8 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getStepLabel } from '../lib/stepLabels';
 import { BreathingRing } from '../components/BreathingRing';
 import { BreathingPatternRow } from '../components/BreathingPatternRow';
-import { BreathingPatternDescription } from '../components/BreathingPatternDescription';
 import { InteractiveAmbientMusic } from '../components/InteractiveAmbientMusic';
-import { MusicPreferenceToggle } from '../components/MusicPreferenceToggle';
+import { CompactSoundControl } from '../components/CompactSoundControl';
 import { ExercisePausedPanel } from '../components/ExercisePausedPanel';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -43,6 +42,19 @@ import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 
 const DEFAULT_PATTERN_ID = 'morning';
+
+// Morning Visual Uplift (Phase 6) — one real Material Symbol per real
+// breathing pattern (BreathingPatternRow's new, additive `icon` prop),
+// purely a presentation lookup keyed by the existing pattern ids from
+// breathingPatterns.js - no pattern is renamed, reordered, or given a
+// different cadence/timing to acquire this icon.
+const BREATHING_PATTERN_ICONS = {
+  morning: 'air',
+  evening: 'bedtime',
+  quiet: 'self_improvement',
+  box: 'crop_square',
+  coherent: 'waves'
+};
 
 /*
  * Build 15 — Morning Breathe pre-start screen. The three real breathing
@@ -538,8 +550,18 @@ export const Breathe = () => {
           (setup, prep countdown, and active phase all share this one
           root - see this file's own single-return structure). */}
       <JourneyGlow journey="morning" />
-      <div className="flex items-center gap-3">
+      {/* Morning Visual Uplift (Phase 6) — compact Sound control, top-right,
+          replacing the large full-width Background Music card below. Same
+          musicPreferenceOn/handleToggleMusicPreference state as before -
+          no second audio state. Hidden once hasBegun (InteractiveAmbientMusic
+          renders its own toggle once active) and during the preparation
+          countdown - matching the original MusicPreferenceToggle's own
+          pre-start-only scope. */}
+      <div className="flex items-center justify-between gap-3">
         <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
+        {musicEligible && !hasBegun && !countdown.isActive && (
+          <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
+        )}
       </div>
       <ProgressIndicator activeStep="breathe" onReviewStep={requestReview} />
 
@@ -568,9 +590,9 @@ export const Breathe = () => {
               all three together. */}
           <div className="text-center space-y-1.5">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing</span>
-            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breathing Practice</h2>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breath</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
-              Choose a breathing rhythm, then begin when you&rsquo;re ready.
+              Choose a rhythm that feels right.
             </p>
           </div>
 
@@ -585,75 +607,38 @@ export const Breathe = () => {
             </p>
           )}
 
-          {/* Build 16 physical-iPhone correction (F5) — compact 2-column
-              grid (4-4-6 | 4-7-8 / 4-4-8 | Box / Coherent full-width),
-              replacing the five full-width rows that made this screen too
-              long. Each card shows its complete name only - the selected
-              pattern's full cadence and exact duration render once, below
-              the grid, via the shared BreathingPatternDescription. */}
-          <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Choose your breathing practice">
-            {BREATHING_PATTERNS.map((pattern, idx) => (
+          {/* Morning Visual Uplift (Phase 6) — vertically stacked,
+              scannable breathing option cards (BreathingPatternRow's
+              full-width, non-compact row, now with a real Material Symbol
+              per pattern), replacing the compact 2-column grid. Each row
+              already shows the pattern's complete cadence and exact
+              duration inline (formatCadence/formatBreathingDuration), so
+              the separate BreathingPatternDescription block below the grid
+              is no longer needed - its information is never duplicated.
+              The exact same five real patterns, in their existing order -
+              nothing renamed, reordered, or retimed. */}
+          <div className="space-y-2" role="radiogroup" aria-label="Choose your breathing practice">
+            {BREATHING_PATTERNS.map((pattern) => (
               <BreathingPatternRow
                 key={pattern.id}
-                compact
                 pattern={pattern}
                 selected={selectedPatternId === pattern.id}
                 onSelect={setSelectedPatternId}
                 groupName="breathing-pattern"
                 accent="morning"
-                className={idx === BREATHING_PATTERNS.length - 1 ? 'col-span-2' : undefined}
+                icon={BREATHING_PATTERN_ICONS[pattern.id]}
               />
             ))}
-          </div>
-          <BreathingPatternDescription pattern={activePattern} />
-
-          {musicEligible && (
-            <MusicPreferenceToggle
-              isOn={musicPreferenceOn}
-              onToggle={handleToggleMusicPreference}
-              description="Play gentle music during your breathing practice."
-              accent="morning"
-            />
-          )}
-
-          <div className="space-y-3 w-full">
-            <button
-              type="button"
-              onClick={handleBeginBreathing}
-              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-            >
-              <span>Begin Breathing</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-            {/* Morning journey UX correction — Skip has no meaning while
-                reviewing an already-completed Breathe from a later step
-                (Meditate/Affirm): the ReviewModeBanner's own "Return to
-                [current step]" above already covers that, and "remains
-                available only before the activity has ever been started in
-                that forward visit" excludes review entirely. The
-                whole-routine exit link below stays available either way -
-                leaving the routine is valid regardless of review state,
-                matching MorningMeditate.jsx's identical precedent. */}
-            {!isReviewMode && (
-              <button
-                onClick={handleSkip}
-                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
-              >
-                Skip this step
-              </button>
-            )}
-            <button
-              onClick={handleExitRoutine}
-              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
-            >
-              Exit routine
-            </button>
           </div>
 
           {/* Release-quality guided-breathing discoverability — collapsed
               by default, mirrors PrepareForRest.jsx's own "Choose a
               bedtime video or sleep sound" precedent: aria-expanded/
-              aria-controls, never navigates. */}
+              aria-controls, never navigates. Morning Visual Uplift (Phase
+              6) — moved above Begin Breathing (the approved Stitch-
+              direction order: choices first, one obvious primary action
+              last); same guidedSessionsOpen state/content as before, only
+              its position moved. */}
           <div className="space-y-2">
             <button
               type="button"
@@ -704,6 +689,40 @@ export const Breathe = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="space-y-3 w-full">
+            <button
+              type="button"
+              onClick={handleBeginBreathing}
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+            >
+              <span>Begin Breathing</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+            {/* Morning journey UX correction — Skip has no meaning while
+                reviewing an already-completed Breathe from a later step
+                (Meditate/Affirm): the ReviewModeBanner's own "Return to
+                [current step]" above already covers that, and "remains
+                available only before the activity has ever been started in
+                that forward visit" excludes review entirely. The
+                whole-routine exit link below stays available either way -
+                leaving the routine is valid regardless of review state,
+                matching MorningMeditate.jsx's identical precedent. */}
+            {!isReviewMode && (
+              <button
+                onClick={handleSkip}
+                className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10"
+              >
+                Skip this step
+              </button>
+            )}
+            <button
+              onClick={handleExitRoutine}
+              className="w-full text-center text-xs text-on-surface-variant/70 font-semibold hover:text-on-surface-variant transition-colors -my-1.5 py-3.5"
+            >
+              Exit routine
+            </button>
           </div>
         </>
       ) : showCompletionPanel ? (

@@ -52,26 +52,25 @@ describe('MusicPreferenceToggle — default behaviour is genuinely unchanged', (
   });
 });
 
-describe('MusicPreferenceToggle — real consumer inventory', () => {
-  it('Breathe.jsx, MorningFlow.jsx (Morning), EveningBreathing.jsx, and QuietBreathing.jsx (Anytime) all import and render MusicPreferenceToggle', () => {
-    for (const source of [breatheSource, morningFlowSource, eveningBreathingSource, quietBreathingSource]) {
+describe('MusicPreferenceToggle — real consumer inventory (Morning Visual Uplift, Phase 6: Breathe.jsx/MorningFlow.jsx switched to the new compact CompactSoundControl instead - see compactSoundControl.test.js)', () => {
+  it('EveningBreathing.jsx and QuietBreathing.jsx (Anytime) still import and render MusicPreferenceToggle, untouched by this pass', () => {
+    for (const source of [eveningBreathingSource, quietBreathingSource]) {
       expect(source).toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
       expect(source).toMatch(/<MusicPreferenceToggle/);
     }
   });
+
+  it('Breathe.jsx and MorningFlow.jsx (Morning) no longer import or render MusicPreferenceToggle - replaced by the new compact CompactSoundControl in the header', () => {
+    for (const source of [breatheSource, morningFlowSource]) {
+      expect(source).not.toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
+      expect(source).not.toMatch(/<MusicPreferenceToggle/);
+      expect(source).toMatch(/import \{ CompactSoundControl \} from '\.\.\/components\/CompactSoundControl';/);
+      expect(source).toMatch(/<CompactSoundControl isOn=\{musicPreferenceOn\} onToggle=\{handleToggleMusicPreference\} journeyTone="morning" \/>/);
+    }
+  });
 });
 
-describe('MusicPreferenceToggle — only Breathe.jsx and MorningFlow.jsx (Morning) pass accent="morning"', () => {
-  it('Breathe.jsx\'s own call site passes accent="morning"', () => {
-    const callSite = breatheSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="morning"/);
-  });
-
-  it('MorningFlow.jsx\'s own call site passes accent="morning"', () => {
-    const callSite = morningFlowSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
-    expect(callSite).toMatch(/accent="morning"/);
-  });
-
+describe('MusicPreferenceToggle — only EveningBreathing.jsx (of the two remaining literal-accent callers) passes accent="evening"', () => {
   it('EveningBreathing.jsx passes accent="evening" (Build 17), never "morning"', () => {
     const callSite = eveningBreathingSource.match(/<MusicPreferenceToggle[\s\S]{0,400}\/>/)?.[0] ?? '';
     expect(callSite).not.toMatch(/accent="morning"/);

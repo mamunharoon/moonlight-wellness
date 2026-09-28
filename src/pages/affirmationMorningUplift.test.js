@@ -73,7 +73,11 @@ describe('Affirmation.jsx — real, computed WCAG contrast fix for the PRIMARY/S
   });
 
   it('the label\'s own className in source no longer carries the failing /70 opacity modifier', () => {
-    expect(source).toMatch(/text-\[9px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
+    // Morning Visual Uplift (Phase 6) — bumped 9px -> 10px (still the same
+    // full-opacity on-morning-affirmation colour verified above; only the
+    // size changed, matching this app's own established micro-label size
+    // floor elsewhere).
+    expect(source).toMatch(/text-\[10px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
     expect(source).not.toMatch(/text-primary\/70/);
   });
 });
@@ -89,8 +93,8 @@ describe('Affirmation.jsx — real dynamic, intention-matched affirmation logic 
     expect(source).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
   });
 
-  it('the real supporting copy above the card is unchanged', () => {
-    expect(source).toMatch(/Begin with a supportive thought to shape how you meet the day\./);
+  it('the supporting copy above the card is the Morning Visual Uplift (Phase 6) approved instruction line', () => {
+    expect(source).toMatch(/Carry this thought into your day\./);
   });
 
   it('Continue calls handleNext, which always advances to session-complete exactly once; Morning journey UX correction removed the redundant Skip (it called the exact same handler)', () => {

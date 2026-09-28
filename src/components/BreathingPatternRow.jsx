@@ -83,6 +83,21 @@ import { JOURNEY_TONE_TOKENS } from '../lib/journeyTone';
 // the same object JOURNEY_TONE_TOKENS is, not a fork of it.
 const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;
 
+// Morning Visual Uplift (Phase 6) — `icon` (additive, optional, default
+// undefined): renders a small icon badge on the non-compact full-width
+// row only, matching MovementCheckboxRow's own established icon-badge
+// shape (tinted when selected, neutral white/5 otherwise). Every existing
+// caller (Evening/Anytime/standalone Breathe, and Morning's own former
+// `compact` usage) omits this prop entirely and renders byte-identically
+// to before - only Morning's new vertically-stacked Breathing setup
+// screen passes it, one Material Symbol per real pattern.
+const ICON_BADGE_TOKENS = {
+  primary: { selected: 'bg-primary/25 text-primary', unselected: 'bg-white/5 text-on-surface-variant' },
+  morning: { selected: 'bg-morning-accent-tint/25 text-morning-accent', unselected: 'bg-white/5 text-on-surface-variant' },
+  anytime: { selected: 'bg-tertiary-tint/25 text-tertiary', unselected: 'bg-white/5 text-on-surface-variant' },
+  evening: { selected: 'bg-evening-accent-tint/25 text-evening-accent', unselected: 'bg-white/5 text-on-surface-variant' }
+};
+
 // Build 16 physical-iPhone correction (F5) — `compact` renders a grid-
 // card variant: pattern name only, no cadence/duration on the card
 // itself (a shared description area below the grid shows the currently
@@ -93,8 +108,9 @@ const ACCENT_TOKENS = JOURNEY_TONE_TOKENS;
 // only the layout and the omitted cadence/duration differ. The full
 // name is never abbreviated. min-h-[44px] keeps the touch target at the
 // established minimum even in a 2-column grid on a 320px-wide screen.
-export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, accent = 'primary', compact = false, className = '' }) => {
+export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, accent = 'primary', compact = false, className = '', icon }) => {
   const tokens = ACCENT_TOKENS[accent];
+  const iconBadgeTokens = ICON_BADGE_TOKENS[accent] || ICON_BADGE_TOKENS.primary;
 
   if (compact) {
     return (
@@ -138,6 +154,11 @@ export const BreathingPatternRow = ({ pattern, selected, onSelect, groupName, ac
         onChange={() => onSelect(pattern.id)}
         className="sr-only"
       />
+      {icon && (
+        <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${selected ? iconBadgeTokens.selected : iconBadgeTokens.unselected}`}>
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">{icon}</span>
+        </span>
+      )}
       <span className="flex-1 min-w-0">
         <span className={`block text-sm leading-snug ${selected ? tokens.selectedLabel : 'text-on-surface font-medium'}`}>
           {pattern.label}

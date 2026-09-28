@@ -498,7 +498,8 @@ export const MorningMeditate = () => {
       <MeditationSetupPanel
         compact
         journeyTone="morning"
-        purpose="A short pause to settle your mind before your affirmation."
+        heading="Mindful Pause"
+        purpose="A quiet moment before your affirmation."
         recommendedDurationId={getRecommendedDurationId(MEDITATION_CONTEXTS.MORNING_EMBEDDED)}
         // Defect fix — beginLabel omitted entirely: it previously
         // hardcoded "Begin 2-Minute Meditation" regardless of the

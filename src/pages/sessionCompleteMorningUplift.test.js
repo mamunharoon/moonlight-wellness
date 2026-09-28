@@ -26,8 +26,8 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
     expect(source).not.toMatch(/stroke="var\(--color-primary\)"/);
   });
 
-  it('the ring sits in a restrained morning-glow shadow container - sparing, per that token\'s own comment', () => {
-    expect(source).toMatch(/w-40 h-40 mx-auto flex items-center justify-center mt-6 rounded-full shadow-morning-glow/);
+  it('the ring sits in a restrained morning-glow shadow container - sparing, per that token\'s own comment (mt-4, tightened by the Morning completion screen refinement that removed the "Morning Complete" eyebrow below it)', () => {
+    expect(source).toMatch(/w-40 h-40 mx-auto flex items-center justify-center mt-4 rounded-full shadow-morning-glow/);
   });
 
   it('the checkmark icon and both intention-summary labels (eyebrow + PRIMARY/SUPPORTING role) use morning-accent gold, not the generic peach they used before', () => {

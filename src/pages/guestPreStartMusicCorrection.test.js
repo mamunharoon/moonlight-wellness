@@ -40,8 +40,8 @@ describe('1. Guest pre-start On/Off does not navigate or invoke authentication',
   });
 
   for (const { name, source } of SURFACES) {
-    it(`${name}: its own MusicPreferenceToggle call site passes neither isGuest nor onSignIn`, () => {
-      const callSite = source.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
+    it(`${name}: its own MusicPreferenceToggle (or, for Breathe.jsx/MorningFlow.jsx since Morning Visual Uplift Phase 6, the new CompactSoundControl that replaced it) call site passes neither isGuest nor onSignIn`, () => {
+      const callSite = (source.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0]) || (source.match(/<CompactSoundControl[\s\S]{0,200}\/>/)?.[0]) || '';
       expect(callSite).not.toBe('');
       expect(callSite).not.toMatch(/isGuest=/);
       expect(callSite).not.toMatch(/onSignIn=/);
@@ -185,10 +185,10 @@ describe('7. Timer/phase/movement state is unaffected by the music toggle', () =
 });
 
 describe('8. Morning, Evening, Anytime and standalone breathing styling remains exactly as delivered by the visual uplift phases', () => {
-  it('Breathe.jsx and MorningFlow.jsx (Morning) still pass accent="morning" - untouched by this correction', () => {
+  it('Breathe.jsx and MorningFlow.jsx (Morning) still pass journeyTone="morning" via CompactSoundControl (Morning Visual Uplift Phase 6 replaced MusicPreferenceToggle there) - untouched by this correction otherwise', () => {
     for (const source of [breatheSource, morningFlowSource]) {
-      const callSite = source.match(/<MusicPreferenceToggle[\s\S]{0,300}\/>/)?.[0] ?? '';
-      expect(callSite).toMatch(/accent="morning"/);
+      const callSite = source.match(/<CompactSoundControl[\s\S]{0,200}\/>/)?.[0] ?? '';
+      expect(callSite).toMatch(/journeyTone="morning"/);
     }
   });
 

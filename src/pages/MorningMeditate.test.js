@@ -65,10 +65,13 @@ describe('MorningMeditate.jsx — context-specific defaults: Mindful Pause, 2 mi
 
 describe('MorningMeditate.jsx — compact setup: purpose, recommended choice, disclosure, Skip', () => {
   it('renders MeditationSetupPanel in compact mode with a purpose string and a conditional onSkip handler (Morning journey UX correction: hidden entirely in review mode, otherwise handleSkip)', () => {
-    // WakeWise DEV — journey-aware primary action colour: accent="morning"
-    // now sits between compact and purpose=, so this regex allows an
-    // optional line in between rather than requiring them adjacent.
-    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n(\s*.*\n)?\s*purpose=/);
+    // WakeWise DEV — journey-aware primary action colour: journeyTone="morning"
+    // sits between compact and purpose=. Morning Visual Uplift (Phase 6)
+    // added a further heading="Mindful Pause" line in between too - this
+    // regex allows any number of optional lines rather than requiring a
+    // fixed count, so it stays correct as additive props are added.
+    expect(source).toMatch(/<MeditationSetupPanel\s*\n\s*compact\s*\n[\s\S]*?purpose=/);
+    expect(source).toMatch(/heading="Mindful Pause"/);
     expect(source).toMatch(/onSkip=\{isReviewMode \? undefined : handleSkip\}/);
     expect(source).toMatch(/skipLabel=\{hasStartedThisVisit \? 'Continue to Affirmation' : 'Skip meditation'\}/);
   });

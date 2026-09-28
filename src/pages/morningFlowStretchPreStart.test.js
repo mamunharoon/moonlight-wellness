@@ -77,10 +77,10 @@ describe('Item 1/2 - real movements only, exact approved wording, nothing fabric
     expect(durationDisplays.length).toBeGreaterThan(0);
   });
 
-  it('never fabricates a named music track ("Calm Dawn Acoustic" or similar) - only the real, shared MusicPreferenceToggle (default label "Background music") is used', () => {
+  it('never fabricates a named music track ("Calm Dawn Acoustic" or similar) - only the real CompactSoundControl (Morning Visual Uplift, Phase 6 - replaced the full-width MusicPreferenceToggle in the header) is used, driving the same musicPreferenceOn state', () => {
     expect(source).not.toMatch(/Calm Dawn Acoustic|Ambient Music —/);
-    expect(source).toMatch(/<MusicPreferenceToggle/);
-    expect(source).toMatch(/import \{ MusicPreferenceToggle \} from '\.\.\/components\/MusicPreferenceToggle';/);
+    expect(source).toMatch(/<CompactSoundControl/);
+    expect(source).toMatch(/import \{ CompactSoundControl \} from '\.\.\/components\/CompactSoundControl';/);
   });
 
   it('does not offer "Customise Moves & Duration" - the visible movement selection IS the customisation, and duration is not independently customisable', () => {
@@ -145,43 +145,47 @@ describe('Dynamic pre-start copy and Begin label - real execution', () => {
   });
 });
 
-// Build 16 physical-iPhone correction (F2) — compact pre-start order:
-// Back/Progress -> heading -> summary -> music -> Begin -> always-visible
-// movements grid -> Explore guided stretching sessions disclosure -> Skip
-// -> Exit routine. Verified by comparing each landmark's own index() in
-// the pre-start branch's source text, in the approved order.
+// Morning Visual Uplift (Phase 6) — restructured pre-start order per the
+// approved Stitch-direction redesign: Back/compact Sound control (now in
+// the shared header, above this branch entirely - see
+// morningFlowMorningUplift.test.js) -> heading -> summary -> always-visible
+// movements list -> Explore guided stretching sessions disclosure -> Begin
+// (moved to AFTER the choices, no longer before the movements list) ->
+// Skip -> Exit routine. Verified by comparing each landmark's own index()
+// in the pre-start branch's source text, in the approved order.
 describe('Compact Stretch pre-start order', () => {
   const preStartBranch = source.slice(source.indexOf('{!countdown.isActive && (!hasBegun ? ('), source.indexOf(') : (\n        // Completion-transition-tuning pass'));
 
-  it('landmarks appear in the exact approved order: summary -> music -> Begin -> movements grid -> guided sessions -> Skip -> Exit', () => {
+  it('landmarks appear in the exact approved order: summary -> movements list -> guided sessions -> Begin -> Skip -> Exit', () => {
     const iSummary = preStartBranch.indexOf('total');
-    const iMusic = preStartBranch.indexOf('<MusicPreferenceToggle');
-    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
     const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
     const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
 
-    for (const idx of [iSummary, iMusic, iBegin, iMovementsGrid, iGuidedSessions, iSkip, iExit]) {
+    for (const idx of [iSummary, iMovementsGrid, iGuidedSessions, iBegin, iSkip, iExit]) {
       expect(idx).toBeGreaterThanOrEqual(0);
     }
-    expect(iSummary).toBeLessThan(iMusic);
-    expect(iMusic).toBeLessThan(iBegin);
-    expect(iBegin).toBeLessThan(iMovementsGrid);
+    expect(iSummary).toBeLessThan(iMovementsGrid);
     expect(iMovementsGrid).toBeLessThan(iGuidedSessions);
-    expect(iGuidedSessions).toBeLessThan(iSkip);
+    expect(iGuidedSessions).toBeLessThan(iBegin);
+    expect(iBegin).toBeLessThan(iSkip);
     expect(iSkip).toBeLessThan(iExit);
   });
 
-  it('Begin appears before the movements grid and the guided-sessions disclosure, and both appear before Skip/Exit', () => {
-    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
+  it('the movements list and guided-sessions disclosure both appear before Begin, and Begin appears before Skip/Exit (choices first, one obvious primary action last)', () => {
     const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
     const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
     const iSkip = preStartBranch.indexOf('Skip this step');
-    expect(iBegin).toBeLessThan(iMovementsGrid);
-    expect(iBegin).toBeLessThan(iGuidedSessions);
-    expect(iMovementsGrid).toBeLessThan(iSkip);
-    expect(iGuidedSessions).toBeLessThan(iSkip);
+    expect(iMovementsGrid).toBeLessThan(iBegin);
+    expect(iGuidedSessions).toBeLessThan(iBegin);
+    expect(iBegin).toBeLessThan(iSkip);
+  });
+
+  it('the compact Sound control is not rendered inside this pre-start branch at all - it now lives in the shared header alongside BackButton', () => {
+    expect(preStartBranch).not.toMatch(/CompactSoundControl/);
   });
 });
 
