@@ -84,6 +84,14 @@ describe('Reflection.jsx/Gratitude.jsx — a genuine Skip on the final question 
   });
 });
 
+describe('PromptStepper — the one genuine no-argument onComplete caller (StressRelease.jsx) is unaffected by the wasSkipped signature change', () => {
+  it('StressRelease.jsx\'s handleComplete takes zero parameters and is passed directly as onComplete - JS silently ignores PromptStepper\'s two call-time arguments (answers, { wasSkipped }) for a callback that declares none, so this caller was never at risk from the additive second argument', () => {
+    const stressReleaseSource = read('./StressRelease.jsx');
+    expect(stressReleaseSource).toMatch(/const handleComplete = \(\) => \{/);
+    expect(stressReleaseSource).toMatch(/onComplete=\{handleComplete\}/);
+  });
+});
+
 describe('sessionDefinitions.js — reflection/gratitude were always meant to reach skipStep() from here', () => {
   it('both steps are skippable, and the registry\'s own comment already named PromptStepper\'s Skip control as the reason why', () => {
     const source = read('../session/sessionDefinitions.js');

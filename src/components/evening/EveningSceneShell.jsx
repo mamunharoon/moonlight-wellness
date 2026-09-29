@@ -199,9 +199,25 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
         {glowJourney ? (
           <JourneyGlow journey={glowJourney} />
         ) : (
+          // Release-blocking runtime fix — this AtmosphereManager previously
+          // copied the DEFAULT branch's own `z-[100]` literally, but the
+          // default branch pairs it with a `z-[101]` scroll owner (see
+          // below); this protectedHeader branch's own nav row/content are
+          // only `z-20`/`z-10`, both LOWER than 100. Since this wrapper and
+          // its siblings all sit in the same local stacking context (the
+          // parent `fixed inset-0 flex flex-col` above never sets its own
+          // z-index), a real z-index comparison put this atmosphere ABOVE
+          // the nav row and all real content, hiding Back/Exit/every
+          // Evening Breathing/Evening Meditate control behind an opaque-
+          // gradient background - reproduced live via getComputedStyle/
+          // elementsFromPoint (DOM/accessibility tree fully populated and
+          // correct; nothing painted was visible). `-z-10` (JourneyGlow's
+          // own proven convention just above) keeps this decorative layer
+          // behind real content regardless of DOM order, without needing
+          // to touch the nav row's or content's own z-index at all.
           <AtmosphereManager
             {...atmosphere}
-            className={`fixed inset-0 z-[100] pointer-events-none ${className}`.trim()}
+            className={`fixed inset-0 -z-10 pointer-events-none ${className}`.trim()}
           />
         )}
 

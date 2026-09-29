@@ -71,6 +71,52 @@ describe('sessionPersistence.js — stepOutcomes legacy safety and round-trip', 
   });
 });
 
+// WakeWise DEV — release-blocking runtime investigation (Evening Breathing
+// blank-screen fix). This code path (missing key / legacy version) turned
+// out to be completely unrelated to the actual root cause (a pure CSS
+// stacking bug in EveningSceneShell.jsx - see
+// eveningSceneShellStackingOrder.test.js), but was explicitly required
+// verification during that investigation: a real, authenticated user's
+// persisted 'evening-wind-down' session at stepIndex 3 (Breathing),
+// status 'playing', restored completely correctly through this exact
+// module - the blank screen was never a session-restore defect. These two
+// tests close the remaining gap this file's own suite didn't yet cover
+// explicitly: no stored key at all, and a stale/legacy version number.
+describe('sessionPersistence.js — missing key and legacy version safety (release-blocking runtime investigation)', () => {
+  it('no stored key at all restores to null (idle) - never throws, never fabricates a session', async () => {
+    const { loadSessionState } = await import('./sessionPersistence');
+    expect(loadSessionState()).toBeNull();
+  });
+
+  it('a stored blob under an OLDER version number (a real, valid v3-shaped state that predates the current SESSION_STORAGE_VERSION) is rejected wholesale, not partially trusted - the exact real-world scenario a physical device with an older cached deploy could reach', async () => {
+    const { saveSessionState, loadSessionState, SESSION_STORAGE_KEY, SESSION_STORAGE_VERSION } = await import('./sessionPersistence');
+    const state = {
+      sessionId: 'evening-wind-down',
+      stepIndex: 3,
+      status: 'playing',
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      interruptionReason: null,
+      completionEventId: null,
+      stepOutcomes: { windDown: 'completed', reflection: 'completed', gratitude: 'completed' },
+    };
+    // Save under the REAL current version first (proving the state shape
+    // itself is genuinely valid), then overwrite with the same state under
+    // an older version number - the only thing that changed is `version`.
+    saveSessionState(state);
+    expect(loadSessionState()).not.toBeNull();
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ version: SESSION_STORAGE_VERSION - 1, state }));
+    expect(loadSessionState()).toBeNull();
+  });
+
+  it('corrupt JSON in the stored key is rejected safely, never thrown', async () => {
+    const { loadSessionState, SESSION_STORAGE_KEY } = await import('./sessionPersistence');
+    localStorage.setItem(SESSION_STORAGE_KEY, '{not valid json');
+    expect(() => loadSessionState()).not.toThrow();
+    expect(loadSessionState()).toBeNull();
+  });
+});
+
 describe('routineProgress.js — stepOutcomes inherits the existing sign-out/user-switch isolation guarantee', () => {
   it('clearAllRoutineProgress() (already wired into AuthContext.signOut per this repo\'s own established isolation suite) wipes a routine\'s stepOutcomes along with the rest of its snapshot', async () => {
     const { saveRoutineProgress, getRoutineProgress, clearAllRoutineProgress } = await import('./routineProgress');
