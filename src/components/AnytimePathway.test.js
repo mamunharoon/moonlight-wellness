@@ -36,8 +36,9 @@ describe('AnytimePathway - genuine stage icons are always the primary visual', (
     expect(JOURNEY_STAGE_ICONS.reset).toBe('auto_awesome');
   });
 
-  it('the main badge always renders stage.icon unconditionally - there is no conditional swapping it for a checkmark/tick icon', () => {
-    expect(code).toMatch(/<span className="material-symbols-outlined text-base" aria-hidden="true">\{stage\.icon\}<\/span>/);
+  it('the main badge always renders stage.icon unconditionally, at a large, clearly-visible clamp-scaled size (Part 3\'s own tile realignment) - there is no conditional swapping it for a checkmark/tick icon', () => {
+    expect(code).toMatch(/<span className="material-symbols-outlined" style=\{ICON_GLYPH_STYLE\} aria-hidden="true">\{stage\.icon\}<\/span>/);
+    expect(code).toMatch(/const ICON_GLYPH_STYLE = \{ fontSize: 'clamp\(/);
     expect(code).not.toMatch(/stage\.icon\s*:\s*'check/);
     expect(code).not.toMatch(/isCurrent\s*\?\s*'check/);
   });
@@ -100,9 +101,34 @@ describe('AnytimePathway - accessible names and VoiceOver announcements', () => 
   });
 });
 
+describe('AnytimePathway - Part 3 direction markers remain between adjacent stages (Need > Time > Reset IS a genuine sequence)', () => {
+  it('renders exactly one small standalone ">" (chevron_right) between every adjacent pair, aria-hidden and never conditioned on status', () => {
+    expect(code).toMatch(/idx < STAGES\.length - 1/);
+    const markerBlock = code.match(/\{idx < STAGES\.length - 1 && \(([\s\S]*?)\)\}/)?.[1] ?? '';
+    expect(markerBlock).not.toBe('');
+    expect(markerBlock).toMatch(/chevron_right/);
+    expect(markerBlock).toMatch(/aria-hidden="true"/);
+    expect(markerBlock).not.toMatch(/isCurrent|selected/);
+  });
+
+  it('the marker is absolute-positioned against the icon (never a margin-based hack) and is not a tap target', () => {
+    expect(code).toMatch(/absolute top-1\/2 -translate-y-1\/2/);
+    expect(code).not.toMatch(/<JourneyConnector/);
+    const markerBlock = code.match(/\{idx < STAGES\.length - 1 && \(([\s\S]*?)\)\}/)?.[1] ?? '';
+    expect(markerBlock).not.toMatch(/onClick|<Link|<button|tabIndex/);
+  });
+});
+
 describe('AnytimePathway - structural safety and colour tokens', () => {
-  it('wraps in overflow-x-auto scroll-hide, matching the established 320px safety pattern (EveningJourneyPathway.jsx/MorningJourneyPathway.jsx)', () => {
-    expect(source).toMatch(/overflow-x-auto scroll-hide/);
+  // Anytime visual-choice uplift (Part 3) - realigned onto
+  // MorningJourneyPathway.jsx's own approved fix: a real CSS grid
+  // (`grid-cols-3`, minmax(0, 1fr) columns) fits all 3 stages within
+  // 320-430px by construction, with no horizontal scroll container needed
+  // at all - never clipped, never scrolled.
+  it('uses a real grid-cols-3 (minmax(0,1fr) columns), never a horizontal-scroll wrapper', () => {
+    expect(source).toMatch(/grid grid-cols-3 gap-1/);
+    expect(source).not.toMatch(/overflow-x-auto/);
+    expect(source).not.toMatch(/scroll-hide/);
   });
 
   it('uses only existing mint (tertiary) tokens - no raw hex, no new colour tokens, and never Morning gold or Evening periwinkle', () => {

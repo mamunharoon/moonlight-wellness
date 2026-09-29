@@ -417,7 +417,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       if (completionContext) {
         setCompletionMessage(
           completionContext.journey === 'anytime'
-            ? getCompletionGreeting({ journey: 'anytime', practice: 'media' })
+            ? getCompletionGreeting({ journey: 'anytime', practice: 'reset' })
             : getMediaCompletionMessage()
         );
       }
@@ -897,25 +897,25 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                     ]}
                     actions={
                       // Anytime Visual Flow and Closing Handoff uplift —
-                      // an Anytime-origin completion with a real
-                      // `onExploreMore` destination (AnytimeReset.jsx's own
-                      // two completionContext call sites both supply one)
-                      // renders the SAME shared three-action row
-                      // (AnytimeClosingHandoffActions) Breathing/Meditation's
-                      // own closing handoff already uses, instead of this
-                      // overlay's own generic primary/secondary pair - "one
-                      // shared implementation, never four unrelated ones."
-                      // Every other journey (morning/evening/library/direct,
-                      // and any future anytime caller that genuinely has no
-                      // Explore destination) keeps the original two-button
-                      // presentation, completely unaffected.
-                      completionContext.journey === 'anytime' && completionContext.onExploreMore ? (
+                      // an Anytime-origin completion renders the SAME
+                      // shared two-action row (AnytimeClosingHandoffActions)
+                      // Breathing/Meditation's own closing handoff already
+                      // uses, instead of this overlay's own generic
+                      // primary/secondary pair - "one shared implementation,
+                      // never four unrelated ones." WakeWise DEV —
+                      // simplified Anytime completion panel: "Explore More"
+                      // was removed from this shared row entirely (an
+                      // explicit, later product decision) - Library/Explore
+                      // access elsewhere in the app is unaffected. Every
+                      // other journey (morning/evening/library/direct)
+                      // keeps the original two-button presentation,
+                      // completely unaffected.
+                      completionContext.journey === 'anytime' ? (
                         <div className="w-full max-w-[280px] mx-auto">
                           <AnytimeClosingHandoffActions
                             primaryButtonRef={completionPrimaryButtonRef}
                             onContinueMyDay={completionContext.onPrimaryAction}
                             onChooseAnotherReset={completionContext.onSecondaryAction}
-                            onExploreMore={completionContext.onExploreMore}
                           />
                         </div>
                       ) : (

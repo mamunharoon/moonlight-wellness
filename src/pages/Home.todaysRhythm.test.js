@@ -73,8 +73,13 @@ describe('Today\'s Rhythm — Anytime detail card is honest, non-tracked content
     expect(anytimeBlock.length).toBeGreaterThan(0);
   });
 
-  it('uses the truthful "Available anytime" framing, not a fabricated not-started/in-progress/completed state machine (no such tracking exists for Anytime Reset)', () => {
-    expect(anytimeBlock).toMatch(/Available anytime/);
+  // Anytime visual-choice uplift (Part 2) — the original "Available
+  // anytime" framing this test once checked was itself replaced by the
+  // approved concise eyebrow/heading pair in an earlier pass (see
+  // homeAnytimeVisualUplift.test.js's own dedicated coverage); this test
+  // now checks that CURRENT honest, non-tracked copy instead.
+  it('uses truthful, non-tracked framing, not a fabricated not-started/in-progress/completed state machine (no such tracking exists for Anytime Reset)', () => {
+    expect(anytimeBlock).toMatch(/Anytime Reset/);
     expect(anytimeBlock).not.toMatch(/anytimeCardState/);
   });
 

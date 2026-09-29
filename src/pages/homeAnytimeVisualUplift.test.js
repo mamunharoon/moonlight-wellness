@@ -29,8 +29,13 @@ describe('Home.jsx — Anytime card, approved concise copy', () => {
     expect(code).not.toMatch(/A short guided pause whenever you need one/);
   });
 
-  it('shows an accurate duration range, computed from the same real practice durations AnytimeReset.jsx\'s own QUICK_RESET_ALTERNATIVES already state (Breathe ~1-2 min, Meditate 2/5/10 min, Instant Calm ~2 min) - never an invented figure', () => {
-    expect(cardBlock).toMatch(/About 1-10 minutes/);
+  // Anytime visual-choice uplift (Part 2) - the honest "About 1-10 minutes"
+  // duration line is removed entirely per this pass's own explicit
+  // instruction; the four tiles below already make the real practice
+  // durations legible without a separate summary line.
+  it('no longer shows a separate "About 1-10 minutes" duration line', () => {
+    const code = cardBlock.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/About 1-10 minutes/);
   });
 
   it('Start Anytime Reset is preserved exactly - same destination, same label, same primary styling', () => {
@@ -52,26 +57,36 @@ describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Insta
     expect(exploreIdx).toBeGreaterThan(instantCalmIdx);
   });
 
-  // Phase 9 — Truthful Journey Outcomes (Part 6b) explicitly reverses
-  // Phase 8's own "no directional arrows" decision for this row: three
-  // small decorative connectors now sit between the four cues, using the
-  // shared JourneyConnector (a real line + arrowhead) every other pathway
-  // (MorningJourneyPathway.jsx/EveningJourneyPathway.jsx/AnytimePathway.jsx)
-  // already renders — a physical-iPhone correction replaced the original
-  // isolated chevron_right glyph, which had no visible connecting line.
-  it('renders one connector between every adjacent pair of cues (idx < cues.length - 1), which - since the four cues are rendered via .map() - resolves at runtime to exactly 3 connectors: one fewer than the number of cues, never one before the first or after the last', () => {
-    expect(cardBlock).toMatch(/\{idx < cues\.length - 1 && \(/);
-    expect(cardBlock).toMatch(/<JourneyConnector journeyTone="anytime" className="mt-\[12\.5px\]" \/>/);
+  // Anytime visual-choice uplift (Part 2) — reverses Phase 9's own
+  // "reintroduce connectors" decision for this row specifically: these
+  // four cues are independent alternatives, never a required order, so a
+  // connector implying a sequence between them was always misleading. Zero
+  // connectors now (not replaced with ">" markers either) - a real,
+  // equally-sized tile grid using the same strong visual language
+  // MorningJourneyPathway.jsx/EveningJourneyPathway.jsx already established
+  // for Morning/Evening's own genuinely sequential pathway.
+  it('renders a real grid of four equally-sized tiles (grid-cols-4), with zero connectors of any kind between them', () => {
+    expect(cardBlock).toMatch(/grid grid-cols-4 gap-1/);
+    expect(cardBlock).not.toMatch(/idx < cues\.length - 1/);
+    expect(cardBlock).not.toMatch(/<JourneyConnector/);
     expect(cardBlock).not.toMatch(/chevron_right/);
   });
 
-  it('the connectors are purely decorative and never a tap target - aria-hidden (via JourneyConnector itself and the enclosing per-cue span), not wrapped in a <Link>/<button>', () => {
-    const connectorBlock = cardBlock.match(/<JourneyConnector journeyTone="anytime" className="mt-\[12\.5px\]" \/>/)?.[0] ?? '';
-    expect(connectorBlock).not.toBe('');
-    expect(connectorBlock).not.toMatch(/<Link|<button|onClick/);
+  it('each tile is a bordered, rounded-2xl mint tile with a large, clamp-scaled icon (never clipped or tiny from 320-430px) and a wrapping, non-truncated label', () => {
+    expect(cardBlock).toMatch(/rounded-2xl border border-tertiary-tint\/25 bg-tertiary-tint\/5/);
+    expect(cardBlock).toMatch(/width: 'clamp\(/);
+    expect(cardBlock).toMatch(/fontSize: 'clamp\(/);
+    expect(cardBlock).toMatch(/text-xs leading-tight text-center break-words/);
   });
 
-  it('the connectors never carry a completed/skipped/current outcome badge - these four cues remain example choices, never mandatory sequential stages (no StageOutcomeBadge/status semantics anywhere in this row)', () => {
+  it('each tile is purely decorative and never a tap target - aria-hidden, not wrapped in a <Link>/<button> (the grid itself, not the "Start Anytime Reset" CTA that follows it in the same card)', () => {
+    expect(cardBlock).toMatch(/<div key=\{cue\.label\} className="min-w-0" aria-hidden="true">/);
+    const gridBlock = cardBlock.match(/<div className="grid grid-cols-4 gap-1"[\s\S]*?\n {10}<\/div>/)?.[0] ?? '';
+    expect(gridBlock).not.toBe('');
+    expect(gridBlock).not.toMatch(/<Link|<button|onClick/);
+  });
+
+  it('the tiles never carry a completed/skipped/current outcome badge - these four remain example choices, never mandatory sequential stages (no StageOutcomeBadge/status semantics anywhere in this row)', () => {
     expect(cardBlock).not.toMatch(/StageOutcomeBadge|stage\.status|isFullyCompleted/);
   });
 

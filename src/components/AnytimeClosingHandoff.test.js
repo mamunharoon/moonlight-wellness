@@ -23,22 +23,25 @@ describe('AnytimeClosingHandoff - exported copy constants (real execution)', () 
   });
 });
 
-describe('AnytimeClosingHandoffActions - exactly three actions, in the approved order', () => {
+describe('AnytimeClosingHandoffActions - exactly two actions, in the approved order', () => {
   const actionsSource = source.slice(source.indexOf('export const AnytimeClosingHandoffActions'), source.indexOf('export const AnytimeClosingHandoffMessage'));
 
-  it('renders Continue My Day (primary), Choose Another Reset (secondary), and Explore More (tertiary, optional) - in exactly this order', () => {
+  // WakeWise DEV — simplified Anytime completion panel: "Explore More" was
+  // removed from this panel entirely (an explicit, later product
+  // decision); Library/Explore access elsewhere in the app (Home's own
+  // Explore tile, the Library nav item, AnytimeReset.jsx's own separate
+  // "Want another way to reset?" ExploreCard) is unaffected.
+  it('renders exactly Continue My Day (primary) then Choose Another Reset (secondary), with no third action of any kind', () => {
     const continueIdx = actionsSource.indexOf('Continue My Day');
     const chooseIdx = actionsSource.indexOf('Choose Another Reset');
-    const exploreIdx = actionsSource.indexOf('Explore More');
     expect(continueIdx).toBeGreaterThan(-1);
     expect(chooseIdx).toBeGreaterThan(continueIdx);
-    expect(exploreIdx).toBeGreaterThan(chooseIdx);
+    expect(actionsSource).not.toMatch(/Explore More|onExploreMore/);
   });
 
-  it('Continue My Day and Choose Another Reset are always rendered (never optional); Explore More is the ONLY conditional action, gated on the caller supplying onExploreMore', () => {
+  it('Continue My Day and Choose Another Reset are both always rendered - neither is conditional', () => {
     expect(actionsSource).toMatch(/onClick=\{onContinueMyDay\}/);
     expect(actionsSource).toMatch(/onClick=\{onChooseAnotherReset\}/);
-    expect(actionsSource).toMatch(/\{onExploreMore && \(/);
   });
 
   it('Continue My Day resolves the mint (anytime) primary action classes - never a different journey tone', () => {
@@ -101,7 +104,7 @@ describe('AnytimeClosingHandoffMessage - badge, eyebrow, rotating greeting, prom
 describe('AnytimeClosingHandoff - the full, self-contained panel used by QuietBreathing.jsx/SelfGuidedMeditationComplete.jsx', () => {
   const fullSource = source.slice(source.indexOf('export const AnytimeClosingHandoff = ('));
 
-  it('renders the message half, then the three actions as a plain, immediately-visible sibling - never delayed behind CompletionReveal\'s own hold/stagger timing (Part 9: "Actions should be visible and tappable promptly")', () => {
+  it('renders the message half, then the two actions as a plain, immediately-visible sibling - never delayed behind CompletionReveal\'s own hold/stagger timing (Part 9: "Actions should be visible and tappable promptly")', () => {
     expect(fullSource).toMatch(/<AnytimeClosingHandoffMessage active=\{active\} isFresh=\{isFresh\} greeting=\{greeting\} detail=\{detail\} className=\{className\} \/>/);
     expect(fullSource).toMatch(/\{active && \(/);
     expect(fullSource).toMatch(/<AnytimeClosingHandoffActions/);
@@ -112,6 +115,6 @@ describe('AnytimeClosingHandoff - the full, self-contained panel used by QuietBr
     expect(actionsGate).not.toBe('');
     expect(actionsGate).toMatch(/onContinueMyDay=\{onContinueMyDay\}/);
     expect(actionsGate).toMatch(/onChooseAnotherReset=\{onChooseAnotherReset\}/);
-    expect(actionsGate).toMatch(/onExploreMore=\{onExploreMore\}/);
+    expect(actionsGate).not.toMatch(/onExploreMore/);
   });
 });

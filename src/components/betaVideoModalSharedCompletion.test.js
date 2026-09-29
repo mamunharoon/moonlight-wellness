@@ -43,7 +43,7 @@ describe('BetaVideoModal.jsx — natural `ended` event is the ONLY gate for the 
     // (getCompletionGreeting) instead of the generic getMediaCompletionMessage()
     // pool; every other journey keeps the original pool, unaffected.
     expect(body).toMatch(/if \(completionContext\) \{/);
-    expect(body).toMatch(/completionContext\.journey === 'anytime'\s*\n\s*\? getCompletionGreeting\(\{ journey: 'anytime', practice: 'media' \}\)\s*\n\s*: getMediaCompletionMessage\(\)/);
+    expect(body).toMatch(/completionContext\.journey === 'anytime'\s*\n\s*\? getCompletionGreeting\(\{ journey: 'anytime', practice: 'reset' \}\)\s*\n\s*: getMediaCompletionMessage\(\)/);
   });
 
   it('the idempotency ref and the completion message are both reset on every fresh fetch (a genuinely different entry, or Retry) - a second natural completion in the same mounted instance always gets its own fresh pick', () => {

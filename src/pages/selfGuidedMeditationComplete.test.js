@@ -93,7 +93,7 @@ describe('SelfGuidedMeditationComplete.jsx — a visible accessible Back control
 
   it('backDestination resolves to the preserved Anytime Reset recommendation via the explicit, allowlist-validated anytimeOrigin marker (resolveAnytimeOrigin - never journeyTone/browser history), falling back to context.fallback (Home) only when not genuinely reached from Anytime Reset', () => {
     expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
-    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(session\);/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeResetDestination \} = resolveAnytimeOrigin\(session\);/);
     expect(source).toMatch(/const backDestination = anytimeOrigin \? anytimeResetDestination : context\.fallback;/);
   });
 });
@@ -107,20 +107,22 @@ describe('SelfGuidedMeditationComplete.jsx — touch targets', () => {
 
 // Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 11) — a
 // Meditate practice reached through Anytime Reset's own "Or choose
-// another quick reset" gets the shared three-action AnytimeClosingHandoff
-// (Continue My Day / Choose Another Reset / Explore More), gated on the
-// explicit, allowlist-validated anytimeOrigin marker - never the merely-
-// cosmetic journeyTone - instead of the generic Done/Meditate Again/
-// Choose Another Meditation trio. Reached any other way (Home/Library's
-// Meditate tiles), anytimeOrigin is false and the trio is completely
-// unchanged.
+// another quick reset" gets the shared two-action AnytimeClosingHandoff
+// (Continue My Day / Choose Another Reset), gated on the explicit,
+// allowlist-validated anytimeOrigin marker - never the merely-cosmetic
+// journeyTone - instead of the generic Done/Meditate Again/Choose Another
+// Meditation trio. WakeWise DEV — simplified Anytime completion panel:
+// "Explore More" was removed from this panel entirely; Library/Explore
+// access elsewhere in the app is unaffected. Reached any other way (Home/
+// Library's Meditate tiles), anytimeOrigin is false and the trio is
+// completely unchanged.
 describe('SelfGuidedMeditationComplete.jsx — Anytime-only completion gating', () => {
   it('renders the shared AnytimeClosingHandoff only when anytimeOrigin, the generic trio only otherwise', () => {
     expect(source).toMatch(/\{anytimeOrigin \? \(/);
     expect(source).toMatch(/<AnytimeClosingHandoff/);
     expect(source).toMatch(/onContinueMyDay=\{handleContinueMyDay\}/);
     expect(source).toMatch(/onChooseAnotherReset=\{handleChooseAnotherQuickReset\}/);
-    expect(source).toMatch(/onExploreMore=\{anytimeExploreDestination \? handleExploreMore : undefined\}/);
+    expect(source).not.toMatch(/onExploreMore/);
   });
 
   it('"Choose another quick reset" restores the exact need/duration this practice was entered with, via the same allowlisted ?need=&duration= restore AnytimeReset.jsx already uses after sign-in - never a bare navigate that would restart the wizard from step 1', () => {
@@ -129,11 +131,6 @@ describe('SelfGuidedMeditationComplete.jsx — Anytime-only completion gating', 
 
   it('"Continue My Day" is a plain exitPracticeToHome to \'/\', clearing the temporary practice context exactly like Done always has', () => {
     expect(source).toMatch(/const handleContinueMyDay = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, '\/'\);\s*\n\s*\};/);
-  });
-
-  it('"Explore More" opens the filtered Anytime Library, preserving this exact need/duration selection', () => {
-    expect(source).toMatch(/const anytimeExploreDestination = anytimeOrigin\s*\n\s*\? `\/library\?journey=anytime&from=anytime-recommend&need=\$\{encodeURIComponent\(anytimeNeed\)\}&duration=\$\{encodeURIComponent\(anytimeDuration\)\}`\s*\n\s*: null;/);
-    expect(source).toMatch(/const handleExploreMore = \(\) => \{\s*\n\s*exitPracticeToHome\(navigate, anytimeExploreDestination\);\s*\n\s*\};/);
   });
 
   it('the generic Done/Meditate Again/Choose Another Meditation trio is unreachable while anytimeOrigin - it sits in the else branch of the same top-level conditional', () => {

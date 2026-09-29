@@ -123,14 +123,7 @@ export const QuietBreathing = ({ standalone = false }) => {
   // Step 1 -> Calm -> Breathe -> Back from the pre-start/pattern-picker
   // screen fell straight through to backFallback='/' unconditionally,
   // with no memory of the Anytime Reset screen it came from).
-  const { anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination } = resolveAnytimeOrigin(location.state);
-  // Anytime Visual Flow and Closing Handoff uplift (Part 11, entry-context
-  // isolation) — "Explore More" needs the exact Need/Time selection to
-  // build a safe destination the same way AnytimeReset.jsx's own "Explore
-  // Anytime" card already does; only meaningful when anytimeOrigin.
-  const anytimeExploreDestination = anytimeOrigin
-    ? `/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(anytimeNeed)}&duration=${encodeURIComponent(anytimeDuration)}`
-    : null;
+  const { anytimeOrigin, anytimeResetDestination } = resolveAnytimeOrigin(location.state);
 
   // Context-aware Breathing/Meditation theming — standalone only (see
   // usePracticeJourneyTone's own `enabled` doc comment for why this is
@@ -382,7 +375,7 @@ export const QuietBreathing = ({ standalone = false }) => {
         stopBreathingInterval();
         musicPlayerRef.current?.stop();
         if (anytimeOrigin) {
-          setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'breathing' }));
+          setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'reset' }));
         }
         setIsCompleted(true);
       }
@@ -831,23 +824,23 @@ export const QuietBreathing = ({ standalone = false }) => {
             Part 11 entry-context isolation) — gated on the explicit,
             validated `anytimeOrigin` marker, never the merely-cosmetic
             journeyTone. A genuine completion (isCompleted) gets the
-            shared three-action AnytimeClosingHandoffActions row (Continue
-            My Day / Choose Another Reset / Explore More) - the same
-            shared component BetaVideoModal.jsx's own overlay uses. An
-            honest early exit (earlyEnded, never isCompleted) gets only
-            "Choose Another Reset"/"Continue My Day" - no "Explore More"
-            (nothing was completed to explore further from), no
-            RESET COMPLETE styling above (see the CompletionReveal branch
-            this replaces). Every other standalone visit (not
-            anytimeOrigin) is completely untouched - same Done/Breathe
-            again pair as before. */}
+            shared two-action AnytimeClosingHandoffActions row (Continue
+            My Day / Choose Another Reset) - the same shared component
+            BetaVideoModal.jsx's own overlay uses. WakeWise DEV —
+            simplified Anytime completion panel: "Explore More" was
+            removed from this panel entirely; Library/Explore access
+            elsewhere in the app is unaffected. An honest early exit
+            (earlyEnded, never isCompleted) gets the same "Choose Another
+            Reset"/"Continue My Day" pair, no RESET COMPLETE styling above
+            (see the CompletionReveal branch this replaces). Every other
+            standalone visit (not anytimeOrigin) is completely untouched -
+            same Done/Breathe again pair as before. */}
         {(isCompleted || earlyEnded) && (
           <div className="space-y-3 w-full">
             {isCompleted && anytimeOrigin ? (
               <AnytimeClosingHandoffActions
                 onContinueMyDay={() => exitPracticeToHome(navigate, '/')}
                 onChooseAnotherReset={() => exitPracticeToHome(navigate, anytimeResetDestination)}
-                onExploreMore={anytimeExploreDestination ? () => exitPracticeToHome(navigate, anytimeExploreDestination) : undefined}
               />
             ) : earlyEnded && anytimeOrigin ? (
               <>

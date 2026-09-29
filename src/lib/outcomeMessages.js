@@ -154,6 +154,20 @@ export const getBreathingAcknowledgement = (journey) =>
 // Anytime/Evening, and Stretch/Meditation/routine messages can never leak
 // into each other, by construction (each is its own array, its own
 // storage key).
+//
+// Anytime visual-choice uplift (Part 5) — the exact approved 7-message
+// pool shared by every eligible Anytime activity (interactive Breathing,
+// timer-based Meditation, guided media/Instant Calm), verbatim.
+const ANYTIME_RESET_GREETINGS = [
+  'You made space for yourself in a busy moment.',
+  'A small pause can change the shape of your day.',
+  'You gave your mind a moment to reset.',
+  'That was time well spent on yourself.',
+  'You paused, breathed and created a little more space.',
+  'Even a brief reset can help you move forward gently.',
+  'You listened to what you needed in this moment.'
+];
+
 const COMPLETION_GREETINGS = {
   morning: {
     breathing: [
@@ -185,44 +199,32 @@ const COMPLETION_GREETINGS = {
       'Take this calm and confidence with you.'
     ]
   },
-  // Anytime completion correction — breathing's own wording replaced with
-  // the exact copy approved for this pass (the earlier pool was never
-  // wired to any live UI yet - QuietBreathing.jsx/SelfGuidedMeditation.jsx
-  // still called the older single getBreathingAcknowledgement('anytime')/
-  // getOutcomeMessage('anytime') strings until this pass); meditation is
-  // a new pool. Anytime's own stretching/routine equivalents don't exist
-  // (Anytime has no Stretch step and no dedicated whole-routine-completion
-  // screen of its own) - out of scope, not merely deferred.
+  // Anytime visual-choice uplift (Part 5) — ONE shared pool used by every
+  // eligible Anytime activity (interactive Breathing, timer-based
+  // Meditation, guided media/Instant Calm) under a single 'reset' practice
+  // key, replacing the three separate breathing/meditation/media pools
+  // this module previously kept (each near-duplicate wording, each with
+  // its own independent avoid-immediate-repeat storage key - meaning the
+  // same message could show back-to-back across two different activity
+  // types, which "ONE shared closing presentation" argues against). All
+  // three real hosts (QuietBreathing.jsx, SelfGuidedMeditationComplete.jsx,
+  // BetaVideoModal.jsx via AnytimeReset.jsx) now request
+  // getCompletionGreeting({ journey: 'anytime', practice: 'reset' }) - the
+  // exact approved 7-message pool, verbatim. Anytime's own stretching/
+  // routine equivalents don't exist (Anytime has no Stretch step and no
+  // dedicated whole-routine-completion screen of its own) - out of scope,
+  // not merely deferred.
   anytime: {
-    breathing: [
-      'You gave yourself a moment.',
-      'Carry this calm with you.',
-      'A short reset can shift your day.',
-      'You made space to breathe.',
-      'You’re ready for what comes next.'
-    ],
-    meditation: [
-      'You made room for yourself.',
-      'Let this calm stay with you.',
-      'A few quiet minutes matter.',
-      'Carry this clearer feeling forward.',
-      'You chose a moment of stillness.'
-    ],
-    // Anytime Visual Flow and Closing Handoff uplift — the shared closing
-    // handoff (AnytimeClosingHandoff.jsx) reuses this exact same rotating-
-    // pool architecture for Anytime-origin guided media/Instant Calm
-    // completions, replacing the generic, journey-agnostic
-    // getMediaCompletionMessage() pool BetaVideoModal.jsx otherwise uses
-    // for every other journey (morning/evening/library/direct, all
-    // unaffected). A natural extension of this file's own established
-    // (journey, practice) shape, not a new architecture.
-    media: [
-      'You gave yourself a reset.',
-      'That pause was worth it.',
-      'You made space to reset.',
-      'A short reset can shift your day.',
-      'You’re ready for what comes next.'
-    ]
+    // `breathing` is the exact same array reference as `reset` (never a
+    // duplicated literal) - kept so getBreathingCompletionGreeting's own
+    // documented "unrecognised journey falls back to the anytime pool"
+    // contract still resolves to real, current copy rather than silently
+    // degrading to the generic BREATHING_ACKNOWLEDGEMENT_FALLBACK string;
+    // no real caller actually requests { journey: 'anytime', practice:
+    // 'breathing' } any more (QuietBreathing.jsx now requests 'reset'
+    // directly, matching the other two eligible-activity hosts).
+    reset: ANYTIME_RESET_GREETINGS,
+    breathing: ANYTIME_RESET_GREETINGS
   },
   // Evening Breathing/Meditation completion correction — breathing's own
   // wording replaced with the exact copy approved for this pass (the

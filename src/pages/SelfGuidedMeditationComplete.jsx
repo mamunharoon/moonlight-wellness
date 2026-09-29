@@ -47,7 +47,7 @@ export const SelfGuidedMeditationComplete = () => {
   // direct Meditate tap, or a direct visit, during a plain midday
   // daypart fallback - see dayPartJourneyTone.js). Computed here, ahead
   // of every other value that depends on it.
-  const { anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination } = resolveAnytimeOrigin(session);
+  const { anytimeOrigin, anytimeResetDestination } = resolveAnytimeOrigin(session);
 
   // Context-aware Breathing/Meditation theming — reads back whatever
   // SelfGuidedMeditation.jsx's own setup screen already captured for
@@ -85,7 +85,7 @@ export const SelfGuidedMeditationComplete = () => {
   // has real side effects: localStorage read/write + Math.random - never
   // safe to call on every render) and held stable for as long as this
   // screen stays mounted.
-  const [completionGreeting] = useState(() => (anytimeOrigin ? getCompletionGreeting({ journey: 'anytime', practice: 'meditation' }) : null));
+  const [completionGreeting] = useState(() => (anytimeOrigin ? getCompletionGreeting({ journey: 'anytime', practice: 'reset' }) : null));
 
   const style = getMeditationStyleById(session?.styleId) || getMeditationStyleById(DEFAULT_MEDITATION_STYLE_ID);
   const duration = getMeditationDurationById(session?.durationId) || getMeditationDurationById(DEFAULT_MEDITATION_DURATION_ID);
@@ -100,14 +100,13 @@ export const SelfGuidedMeditationComplete = () => {
 
   // Anytime Visual Flow and Closing Handoff uplift (Part 9) — a practice
   // reached through Anytime Reset's own quick-reset context (anytimeOrigin,
-  // computed above) gets the shared three-action AnytimeClosingHandoff
-  // (Continue My Day / Choose Another Reset / Explore More) instead of the
-  // generic Done/Meditate Again/Choose Another Meditation trio. Reached any
-  // other way (Home/Library's own Meditate tiles), anytimeOrigin is false
-  // and this screen is completely unchanged.
-  const anytimeExploreDestination = anytimeOrigin
-    ? `/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(anytimeNeed)}&duration=${encodeURIComponent(anytimeDuration)}`
-    : null;
+  // computed above) gets the shared two-action AnytimeClosingHandoff
+  // (Continue My Day / Choose Another Reset) instead of the generic Done/
+  // Meditate Again/Choose Another Meditation trio. WakeWise DEV —
+  // simplified Anytime completion panel: "Explore More" was removed from
+  // this panel entirely; Library/Explore access elsewhere in the app is
+  // unaffected. Reached any other way (Home/Library's own Meditate tiles),
+  // anytimeOrigin is false and this screen is completely unchanged.
   // WakeWise DEV — Anytime Back-navigation correction: this screen's own
   // top-left Back (there is no earlier in-flow step on the completion
   // screen itself) now returns to the preserved Anytime Reset
@@ -120,9 +119,6 @@ export const SelfGuidedMeditationComplete = () => {
   };
   const handleContinueMyDay = () => {
     exitPracticeToHome(navigate, '/');
-  };
-  const handleExploreMore = () => {
-    exitPracticeToHome(navigate, anytimeExploreDestination);
   };
 
   // Both restore the exact same style/duration/sound choices and land back
@@ -214,7 +210,6 @@ export const SelfGuidedMeditationComplete = () => {
           }
           onContinueMyDay={handleContinueMyDay}
           onChooseAnotherReset={handleChooseAnotherQuickReset}
-          onExploreMore={anytimeExploreDestination ? handleExploreMore : undefined}
         />
       ) : (
         <>

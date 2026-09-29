@@ -57,9 +57,15 @@ describe('Home — quick-action row stays exactly three tiles, unchanged destina
 
   it('the row is a 3-column grid, evenly sharing the available width - not a leftover 4-column grid with an empty cell', () => {
     expect(source).toMatch(/<div className="grid grid-cols-3 gap-2\.5">/);
-    // Comments legitimately name "grid-cols-4" in prose explaining the
-    // change (grid-cols-4 -> grid-cols-3) - only the real code matters.
-    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    // Scoped to this row's own section (from its heading onward) - Home's
+    // separate, unrelated Anytime preview row (Part 2 of the Anytime
+    // visual-choice uplift) legitimately uses its own real grid-cols-4 for
+    // its four independent Breathe/Meditate/Instant Calm/Explore tiles,
+    // well above this section; comments here also legitimately name
+    // "grid-cols-4" in prose explaining this row's own change
+    // (grid-cols-4 -> grid-cols-3) - only the real code in THIS row matters.
+    const quickActionSection = source.slice(source.lastIndexOf('Or choose something quick'));
+    const codeOnly = quickActionSection.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(codeOnly).not.toMatch(/grid-cols-4/);
   });
 

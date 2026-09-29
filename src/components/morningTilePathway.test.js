@@ -221,10 +221,17 @@ describe('12. Anytime pathway rendering is unaffected by the Morning/Evening til
     expect(stages).toHaveLength(5);
   });
 
-  it('AnytimePathway still renders its own three decision stages via the real line-and-arrowhead JourneyConnector, byte-behaviourally unchanged', () => {
+  // Anytime visual-choice uplift (Part 3) — AnytimePathway.jsx now joins
+  // Morning/Evening's own approved tile treatment for its direction
+  // markers too (a small standalone ">" / chevron_right, never the
+  // line-and-arrowhead JourneyConnector) - see pathwayConnectors.test.js's
+  // own dedicated coverage of this change. Its 3-stage structure and
+  // honest badge-only-when-genuinely-selected contract are unaffected.
+  it('AnytimePathway still renders its own three decision stages, now via the same small standalone chevron_right marker Morning/Evening use, never the old JourneyConnector', () => {
     const source = read('./AnytimePathway.jsx');
-    expect(source).toMatch(/import \{ JourneyConnector \} from '\.\/journey\/JourneyConnector';/);
-    expect(source).toMatch(/<JourneyConnector journeyTone="anytime"/);
+    expect(source).not.toMatch(/import \{ JourneyConnector \}/);
+    expect(source).not.toMatch(/<JourneyConnector/);
+    expect(source).toMatch(/chevron_right/);
     const element = AnytimePathway({}).props.children;
     const stages = element.props.children.filter((c) => c?.props?.role === 'listitem');
     expect(stages).toHaveLength(3);

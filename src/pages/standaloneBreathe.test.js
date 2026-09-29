@@ -294,7 +294,7 @@ describe('QuietBreathing.jsx (standalone) — "Choose another quick reset" resto
     expect(source).toMatch(/import \{ useNavigate, useLocation \} from 'react-router-dom';/);
     expect(source).toMatch(/const location = useLocation\(\);/);
     expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
-    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
   });
 
   it('the anytime-tone completion screen\'s "Choose another quick reset" button uses this computed destination, never a bare literal \'/anytime-reset\'', () => {

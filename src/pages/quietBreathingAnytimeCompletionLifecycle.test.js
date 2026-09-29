@@ -34,7 +34,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion is an explicit
     const completedBranch = standaloneEffect.match(/if \(completed\) \{([\s\S]*?)setIsCompleted\(true\);\s*\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
     expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
-    expect(completedBranch).toMatch(/if \(anytimeOrigin\) \{\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'anytime', practice: 'breathing' \}\)\);\s*\n\s*\}/);
+    expect(completedBranch).toMatch(/if \(anytimeOrigin\) \{\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'anytime', practice: 'reset' \}\)\);\s*\n\s*\}/);
   });
 
   it('the effect never runs while !standalone, and refuses to (re)start once isCompleted or the Back/End-early dialog is open', () => {
@@ -58,7 +58,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion greeting is pi
   it('completionGreeting is React state, set only from the shared getCompletionGreeting({journey: \'anytime\', practice: \'breathing\'}) API when journeyTone is genuinely anytime', () => {
     expect(source).toMatch(/const \[completionGreeting, setCompletionGreeting\] = useState\(null\);/);
     const setterCalls = source.match(/setCompletionGreeting\([^)]*\)/g) ?? [];
-    expect(setterCalls.filter((c) => c.includes("getCompletionGreeting({ journey: 'anytime', practice: 'breathing' })")).length).toBe(1);
+    expect(setterCalls.filter((c) => c.includes("getCompletionGreeting({ journey: 'anytime', practice: 'reset' })")).length).toBe(1);
     // Resets to null: a fresh Begin (countdown.onComplete) and Breathe
     // again - never a third, render-time call.
     expect(setterCalls.filter((c) => c.includes('null')).length).toBe(2);
@@ -118,7 +118,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — Choose Another Reset rest
 
   it('anytimeOrigin/anytimeResetDestination are now resolved via the shared, allowlist-validated resolveAnytimeOrigin helper (lib/anytimeOrigin.js) - never a generic/bare destination when genuinely anytimeOrigin (Anytime Visual Flow and Closing Handoff uplift, Part 11)', () => {
     expect(source).toMatch(/import \{ resolveAnytimeOrigin \} from '\.\.\/lib\/anytimeOrigin';/);
-    expect(source).toMatch(/const \{ anytimeOrigin, anytimeNeed, anytimeDuration, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
+    expect(source).toMatch(/const \{ anytimeOrigin, anytimeResetDestination \} = resolveAnytimeOrigin\(location\.state\);/);
   });
 });
 

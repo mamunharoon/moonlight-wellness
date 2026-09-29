@@ -9,15 +9,15 @@
 //
 // Two exports, deliberately split so this one shared vocabulary can be
 // reused by hosts with genuinely different structural shells:
-//   - `AnytimeClosingHandoffActions` — the three action buttons alone
-//     (Continue My Day / Choose Another Reset / Explore More), used
-//     directly by BetaVideoModal.jsx's own completion overlay (which
-//     already owns its own CompletionReveal wrapper, badge and greeting -
-//     nesting a second full CompletionReveal there would be exactly the
-//     "stacking another panel beneath it" this pass's own brief forbids).
+//   - `AnytimeClosingHandoffActions` — the two action buttons alone
+//     (Continue My Day / Choose Another Reset), used directly by
+//     BetaVideoModal.jsx's own completion overlay (which already owns its
+//     own CompletionReveal wrapper, badge and greeting - nesting a second
+//     full CompletionReveal there would be exactly the "stacking another
+//     panel beneath it" this pass's own brief forbids).
 //   - `AnytimeClosingHandoff` — the FULL self-contained panel (badge +
 //     eyebrow + rotating greeting + "What feels right now?" + the same
-//     three actions), for the two full-page completion screens
+//     two actions), for the two full-page completion screens
 //     (QuietBreathing.jsx's standalone branch, SelfGuidedMeditationComplete.jsx)
 //     to render in place of their own former hand-rolled block.
 //
@@ -31,12 +31,13 @@
 //
 // Every action here is a plain caller-supplied callback - this component
 // never imports react-router or the Session Engine, exactly like
-// BetaVideoModal.jsx's own completionContext contract. `onExploreMore` is
-// optional (omitting it hides that action) for the one case where no
-// live Need/Time selection exists to build a safe Explore destination
-// from - in practice, every real Anytime-origin completion has one
-// (anytimeOrigin implies real needId/durationId), so this is a defensive
-// allowance, not an expected path.
+// BetaVideoModal.jsx's own completionContext contract. WakeWise DEV —
+// simplified Anytime completion panel: "Explore More" was removed from
+// this panel entirely (an explicit, later product decision) - Library/
+// Explore access elsewhere in the app (Home's own Explore tile, the
+// Library nav item, AnytimeReset.jsx's own separate "Want another way to
+// reset?" ExploreCard) is completely unaffected; this component simply no
+// longer offers a third action here.
 import { CompletionReveal } from './CompletionReveal';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
@@ -49,7 +50,7 @@ export const ANYTIME_HANDOFF_PROMPT = 'What feels right now?';
 // that file's own established focus-management doc comment); passing this
 // through here is what preserves that exact contract for the Anytime path
 // too, instead of silently dropping focus management only for Anytime.
-export const AnytimeClosingHandoffActions = ({ onContinueMyDay, onChooseAnotherReset, onExploreMore, primaryButtonRef }) => (
+export const AnytimeClosingHandoffActions = ({ onContinueMyDay, onChooseAnotherReset, primaryButtonRef }) => (
   <div className="flex flex-col gap-2 w-full">
     <button
       ref={primaryButtonRef}
@@ -66,15 +67,6 @@ export const AnytimeClosingHandoffActions = ({ onContinueMyDay, onChooseAnotherR
     >
       Choose Another Reset
     </button>
-    {onExploreMore && (
-      <button
-        type="button"
-        onClick={onExploreMore}
-        className="w-full min-h-[44px] py-2.5 text-center text-sm font-semibold text-tertiary hover:text-tertiary/80 active:scale-95 transition-all"
-      >
-        Explore More
-      </button>
-    )}
   </div>
 );
 
@@ -113,7 +105,7 @@ export const AnytimeClosingHandoffMessage = ({
   />
 );
 
-// Full panel: the message above, plus the three actions rendered as a
+// Full panel: the message above, plus the two actions rendered as a
 // PLAIN, immediately-visible sibling - never delayed behind
 // CompletionReveal's own hold/stagger timing. Matches the established,
 // pre-existing timing contract both of this component's real hosts
@@ -137,7 +129,6 @@ export const AnytimeClosingHandoff = ({
   detail,
   onContinueMyDay,
   onChooseAnotherReset,
-  onExploreMore,
   className
 }) => (
   <>
@@ -147,7 +138,6 @@ export const AnytimeClosingHandoff = ({
         <AnytimeClosingHandoffActions
           onContinueMyDay={onContinueMyDay}
           onChooseAnotherReset={onChooseAnotherReset}
-          onExploreMore={onExploreMore}
         />
       </div>
     )}

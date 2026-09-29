@@ -46,7 +46,6 @@ import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
 import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
 import { MORNING_PATHWAY_STAGES, EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
 import { JOURNEY_STAGE_ICONS } from '../session/journeyIcons';
-import { JourneyConnector } from '../components/journey/JourneyConnector';
 import { computeStageStatus } from '../session/stageStatus';
 import { SESSION_STATUS } from '../session/sessionReducer';
 import { setPendingContent } from '../lib/pendingContent';
@@ -1457,16 +1456,14 @@ export const Home = () => {
           className="glass-panel p-5 rounded-3xl text-center space-y-5 border-tertiary-tint/40 shadow-mint-glow"
           style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
         >
-          {/* Anytime Visual Flow and Closing Handoff uplift (Part 3) —
-              concise eyebrow/heading per the approved copy, replacing the
-              former "Available anytime" / "Take a moment to reset" /
-              longer paragraph trio with one short line. The accurate
-              duration range (1-10 minutes) is the real, honest span
-              across every real Anytime practice this card's own compact
-              cues below link to (Breathe ~1-2 min, Meditate 2/5/10 min,
-              Instant Calm ~2 min - see AnytimeReset.jsx's own
-              QUICK_RESET_ALTERNATIVES for the exact same figures), never
-              a guess. */}
+          {/* Anytime visual-choice uplift (Part 2) — concise eyebrow/
+              heading, matching the approved copy. The former honest
+              "About 1-10 minutes" duration line is removed per this pass's
+              own explicit instruction (the four tiles below already make
+              the range legible at a glance via AnytimeReset.jsx's own
+              QUICK_RESET_ALTERNATIVES figures - Breathe ~1-2 min, Meditate
+              2/5/10 min, Instant Calm ~2 min - without a separate summary
+              line). */}
           <div className="space-y-1.5">
             <span className="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-tint/15 border border-tertiary-tint/30 text-tertiary text-[10px] font-bold uppercase tracking-wider">
               Anytime Reset
@@ -1474,52 +1471,56 @@ export const Home = () => {
             <h3 className="text-xl font-bold leading-tight text-on-surface pt-1">
               Choose what fits your moment.
             </h3>
-            <p className="text-xs text-on-surface-variant font-medium">About 1-10 minutes</p>
           </div>
-          {/* Compact visual cues for what's inside an Anytime Reset -
-              Breathe/Meditate/Instant Calm/Explore, the same real,
-              already-shipped practices AnytimeReset.jsx's own Step 3
-              "Or choose another quick reset" already offers. Decorative
-              only (no individual tap targets - they are alternatives, not
-              a required order): Breathe and Meditate already have their
-              own full, prominent, directly-tappable quick-action tiles
-              immediately below (see "Or choose something quick"), so a
-              second, competing set of interactive tiles here would only
-              duplicate them; Instant Calm has no standalone route of its
-              own to link to outside the wizard, and Explore Anytime is
-              already one tap beyond "Start Anytime Reset" (Step 3's own
-              ExploreCard) - this row exists purely to make the card's
-              flexible, non-linear purpose visually legible at a glance.
-              Phase 9 — Truthful Journey Outcomes (Part 6b): three small
-              decorative connectors now sit between the four cues, using the
-              shared JourneyConnector (line + arrowhead) - the same
-              component AnytimePathway.jsx renders (Morning/Evening pathway
-              parity replaced this with a small standalone ">" direction
-              marker instead - see MorningJourneyPathway.jsx/
-              EveningJourneyPathway.jsx). Aria-hidden, not a tap target, no
-              completed/skipped/current badge added to any cue - these four
-              remain example choices, never mandatory sequential stages). */}
-          <div className="flex items-center justify-center gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
+          {/* Anytime visual-choice uplift (Part 2) — four equally-sized,
+              fitted tiles for what's inside an Anytime Reset (Breathe/
+              Meditate/Instant Calm/Explore, the same real, already-shipped
+              practices AnytimeReset.jsx's own Step 3 "Or choose another
+              quick reset" already offers), now using the same strong tile
+              visual language MorningJourneyPathway.jsx/
+              EveningJourneyPathway.jsx already established for Morning/
+              Evening's own approved pathway (bordered rounded-2xl tile,
+              clamp-scaled icon so it stays clearly visible from 320-430px
+              with no horizontal clipping, wrapping label). The three
+              decorative JourneyConnector arrows previously sitting between
+              these four cues are removed entirely (not replaced with ">"
+              direction markers either) - these four are independent
+              alternatives, never a required order, so implying a sequence
+              between them was always misleading; AnytimePathway.jsx's own
+              genuine Need -> Time -> Reset sequence keeps its own small
+              ">" markers (see that component). Still purely decorative (no
+              individual tap targets - they are alternatives, not a required
+              order): Breathe and Meditate already have their own full,
+              prominent, directly-tappable quick-action tiles immediately
+              below (see "Or choose something quick"), so a second,
+              competing set of interactive tiles here would only duplicate
+              them; Instant Calm has no standalone route of its own to link
+              to outside the wizard, and Explore Anytime is already one tap
+              beyond "Start Anytime Reset" (Step 3's own ExploreCard). One
+              accessible group label names all four; each tile itself stays
+              aria-hidden, matching this row's original non-interactive
+              contract exactly - no completed/skipped/current badge added to
+              any tile either (anytimeIntegrityScenarios.test.js's own
+              scenario 12 still holds: this row is a static literal array,
+              never driven by session state). */}
+          <div className="grid grid-cols-4 gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
             {[
               { icon: JOURNEY_STAGE_ICONS.breathe, label: 'Breathe' },
               { icon: JOURNEY_STAGE_ICONS.meditate, label: 'Meditate' },
               { icon: JOURNEY_STAGE_ICONS.instantCalm, label: 'Instant Calm' },
               { icon: JOURNEY_STAGE_ICONS.explore, label: 'Explore' }
-            ].map((cue, idx, cues) => (
-              <span key={cue.label} className="flex items-start" aria-hidden="true">
-                <span className="flex flex-col items-center gap-1 w-14">
-                  <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-tertiary/15 text-tertiary">
-                    <span className="material-symbols-outlined text-lg">{cue.icon}</span>
+            ].map((cue) => (
+              <div key={cue.label} className="min-w-0" aria-hidden="true">
+                <div className="flex flex-col items-center gap-1 w-full rounded-2xl border border-tertiary-tint/25 bg-tertiary-tint/5 p-1">
+                  <span
+                    className="rounded-xl flex items-center justify-center shrink-0 bg-tertiary/15 text-tertiary"
+                    style={{ width: 'clamp(38px, 11vw, 46px)', height: 'clamp(38px, 11vw, 46px)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }} aria-hidden="true">{cue.icon}</span>
                   </span>
-                  <span className="text-[9px] font-semibold text-on-surface-variant leading-none">{cue.label}</span>
-                </span>
-                {idx < cues.length - 1 && (
-                  /* w-9 h-9 (36px) icon circle - centre at 18px; connector
-                     is 11px tall (half = 5.5px) - 18 - 5.5 = 12.5px top
-                     margin centres it on the icon, not the label. */
-                  <JourneyConnector journeyTone="anytime" className="mt-[12.5px]" />
-                )}
-              </span>
+                  <span className="text-xs leading-tight text-center break-words text-on-surface-variant font-semibold">{cue.label}</span>
+                </div>
+              </div>
             ))}
           </div>
           <Link

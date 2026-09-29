@@ -65,9 +65,15 @@ describe('Home.jsx — Anytime detail card uses mint accents with an unchanged p
     expect(anytimeBlock).not.toMatch(/bg-primary text-on-primary/);
   });
 
-  it('copy, navigation, and the honest "Available anytime" framing are unchanged - no completion state introduced', () => {
-    expect(anytimeBlock).toMatch(/Available anytime/);
-    expect(anytimeBlock).toMatch(/Take a moment to reset/);
+  // Anytime visual-choice uplift (Part 2) — the original "Available
+  // anytime" / "Take a moment to reset" copy this test once checked was
+  // itself replaced by the approved concise eyebrow/heading pair in an
+  // earlier pass (see homeAnytimeVisualUplift.test.js's own dedicated
+  // coverage); this test now checks that CURRENT copy instead, plus the
+  // same "no completion state introduced" invariant.
+  it('copy, navigation are the current approved concise eyebrow/heading/CTA - no completion state introduced', () => {
+    expect(anytimeBlock).toMatch(/Anytime Reset/);
+    expect(anytimeBlock).toMatch(/Choose what fits your moment\./);
     expect(anytimeBlock).toMatch(/to="\/anytime-reset"/);
     expect(anytimeBlock).not.toMatch(/anytimeCardState|anytimeCompletionKey|getAnytimeCompletionKey/);
   });

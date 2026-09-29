@@ -92,14 +92,22 @@ describe('Anytime/Evening have no Stretch step and no dedicated whole-routine-co
   // EveningComplete.jsx, migrated onto this shared architecture); Anytime
   // still has no Stretch step and no dedicated whole-routine-completion
   // screen of its own, so it correctly still has neither.
-  it('COMPLETION_GREETINGS: anytime has breathing AND meditation pools, no stretching/routine pool; evening has breathing, meditation AND routine pools, no stretching pool', () => {
+  //
+  // Anytime visual-choice uplift (Part 5) — Anytime's own three separate
+  // breathing/meditation/media pools were consolidated into ONE shared
+  // 'reset' pool (used by every eligible Anytime activity), with
+  // 'breathing' kept only as an alias of the same array/key so
+  // getBreathingCompletionGreeting's own anytime-fallback still resolves
+  // real content - see outcomeMessages.js's own doc comment. There is no
+  // longer a separate 'meditation' key under anytime at all.
+  it('COMPLETION_GREETINGS: anytime has a shared reset pool (aliased as breathing), no separate meditation/stretching/routine pool; evening has breathing, meditation AND routine pools, no stretching pool', () => {
     const completionGreetingsBlock = outcomeMessagesSource.match(/const COMPLETION_GREETINGS = \{([\s\S]*?)\n\};/)?.[1] ?? '';
     expect(completionGreetingsBlock).not.toBe('');
     const anytimeBlock = completionGreetingsBlock.match(/anytime: \{([\s\S]*?)\n {2}\},/)?.[1] ?? '';
     const eveningBlock = completionGreetingsBlock.match(/evening: \{([\s\S]*?)\n {2}\}\s*$/)?.[1] ?? '';
+    expect(anytimeBlock).toMatch(/reset:/);
     expect(anytimeBlock).toMatch(/breathing:/);
-    expect(anytimeBlock).toMatch(/meditation:/);
-    expect(anytimeBlock).not.toMatch(/stretching:|routine:/);
+    expect(anytimeBlock).not.toMatch(/meditation:|stretching:|routine:/);
     expect(eveningBlock).toMatch(/breathing:/);
     expect(eveningBlock).toMatch(/meditation:/);
     expect(eveningBlock).toMatch(/routine:/);

@@ -147,16 +147,19 @@ describe('getBreathingCompletionGreeting - three separate, journey-scoped rotati
       'A steady start makes a difference.',
       'You showed up for yourself.'
     ],
-    // Anytime completion correction - exact copy approved for this pass,
-    // replacing the earlier placeholder pool (never wired to any live UI
-    // yet - QuietBreathing.jsx still called the older single
-    // getBreathingAcknowledgement('anytime') string until this pass).
+    // Anytime visual-choice uplift (Part 5) - the single shared 7-message
+    // 'reset' pool, also aliased under 'breathing' so
+    // getBreathingCompletionGreeting's own documented anytime-fallback
+    // still resolves to real content (see outcomeMessages.js's own doc
+    // comment on ANYTIME_RESET_GREETINGS).
     anytime: [
-      'You gave yourself a moment.',
-      'Carry this calm with you.',
-      'A short reset can shift your day.',
-      'You made space to breathe.',
-      'You’re ready for what comes next.'
+      'You made space for yourself in a busy moment.',
+      'A small pause can change the shape of your day.',
+      'You gave your mind a moment to reset.',
+      'That was time well spent on yourself.',
+      'You paused, breathed and created a little more space.',
+      'Even a brief reset can help you move forward gently.',
+      'You listened to what you needed in this moment.'
     ],
     // Evening Breathing/Meditation completion correction - exact copy
     // approved for this pass, replacing the earlier placeholder pool
@@ -181,13 +184,17 @@ describe('getBreathingCompletionGreeting - three separate, journey-scoped rotati
     }
   });
 
-  it('every greeting in every pool is short (3-8 words) and free of clinical/instructional language (a casual "Breathe out" is warm phrasing, not an instruction - "inhale/exhale for N seconds" would be)', () => {
+  // Anytime visual-choice uplift (Part 5) - the approved 7-message anytime
+  // pool includes a couple of slightly longer (9-word) lines, so the upper
+  // bound here is widened to 10 to accommodate them; Morning/Evening's own
+  // pools are all still comfortably within the original 3-8 word range.
+  it('every greeting in every pool is short (3-10 words) and free of clinical/instructional language (a casual "Breathe out" is warm phrasing, not an instruction - "inhale/exhale for N seconds" would be)', () => {
     const CLINICAL_WORDS = /\b(exercise|session|practice|inhale|exhale|protocol|technique)\b/i;
     for (const pool of Object.values(POOLS)) {
       for (const greeting of pool) {
         const wordCount = greeting.trim().split(/\s+/).length;
         expect(wordCount).toBeGreaterThanOrEqual(3);
-        expect(wordCount).toBeLessThanOrEqual(8);
+        expect(wordCount).toBeLessThanOrEqual(10);
         expect(greeting).not.toMatch(CLINICAL_WORDS);
       }
     }
@@ -555,13 +562,14 @@ describe('getCompletionGreeting - evening/routine pool (Rotating 100% Evening co
   });
 });
 
-// Anytime Visual Flow and Closing Handoff uplift (Part 9) — the shared
-// closing handoff (AnytimeClosingHandoff.jsx) reuses this same rotating-
-// pool architecture for Anytime-origin guided media/Instant Calm
-// completions (BetaVideoModal.jsx's own overlay, when
-// completionContext.journey === 'anytime'), replacing the generic,
-// journey-agnostic getMediaCompletionMessage() pool for that one case.
-describe('getCompletionGreeting - anytime/media pool (Anytime Visual Flow and Closing Handoff uplift)', () => {
+// Anytime visual-choice uplift (Part 5) — ONE shared 7-message 'reset' pool
+// now used by every eligible Anytime activity (QuietBreathing.jsx,
+// SelfGuidedMeditationComplete.jsx, and BetaVideoModal.jsx's own overlay
+// when completionContext.journey === 'anytime'), replacing the three
+// separate 5-message breathing/meditation/media pools this module
+// previously kept (each with its own independent avoid-immediate-repeat
+// storage key).
+describe('getCompletionGreeting - anytime/reset pool (Anytime visual-choice uplift)', () => {
   const withMockLocalStorage = (fn) => {
     const store = new Map();
     const mock = {
@@ -579,49 +587,49 @@ describe('getCompletionGreeting - anytime/media pool (Anytime Visual Flow and Cl
     }
   };
 
-  const MEDIA_POOL = [
-    'You gave yourself a reset.',
-    'That pause was worth it.',
-    'You made space to reset.',
-    'A short reset can shift your day.',
-    'You’re ready for what comes next.'
+  const RESET_POOL = [
+    'You made space for yourself in a busy moment.',
+    'A small pause can change the shape of your day.',
+    'You gave your mind a moment to reset.',
+    'That was time well spent on yourself.',
+    'You paused, breathed and created a little more space.',
+    'Even a brief reset can help you move forward gently.',
+    'You listened to what you needed in this moment.'
   ];
 
-  it('is exactly the five approved messages', () => {
+  it('is exactly the seven approved messages', () => {
     for (let i = 0; i < 20; i += 1) {
-      expect(MEDIA_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'media' }));
+      expect(RESET_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'reset' }));
     }
-    expect(MEDIA_POOL).toHaveLength(5);
+    expect(RESET_POOL).toHaveLength(7);
   });
 
-  it('every message is short and warm (3-8 words, no statistics/streak language)', () => {
-    for (const message of MEDIA_POOL) {
+  it('every message is short and warm (3-10 words, no statistics/streak language)', () => {
+    for (const message of RESET_POOL) {
       const wordCount = message.trim().split(/\s+/).length;
       expect(wordCount).toBeGreaterThanOrEqual(3);
-      expect(wordCount).toBeLessThanOrEqual(8);
+      expect(wordCount).toBeLessThanOrEqual(10);
       expect(message).not.toMatch(/streak|day \d+|percent|%/i);
     }
   });
 
   it('selects once and avoids immediate repetition, when localStorage is available', () => {
     withMockLocalStorage(() => {
-      let previous = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+      let previous = getCompletionGreeting({ journey: 'anytime', practice: 'reset' });
       for (let i = 0; i < 40; i += 1) {
-        const next = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
+        const next = getCompletionGreeting({ journey: 'anytime', practice: 'reset' });
         expect(next).not.toBe(previous);
         previous = next;
       }
     });
   });
 
-  it('uses its own independent storage key, isolated from anytime/breathing and anytime/meditation - exhausting one\'s non-repeat memory never affects the others', () => {
+  it('is genuinely ONE shared pool/storage key across every eligible activity - requesting it as if from Breathing, Meditation, or guided media all resolve the exact same "reset" key (practice: \'breathing\' is a deliberate alias of the same array/key, kept only for getBreathingCompletionGreeting\'s own anytime-fallback), so completions across different activity types share one non-repeat memory rather than three independent ones', () => {
     withMockLocalStorage(() => {
-      const mediaFirst = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
-      for (let i = 0; i < 10; i += 1) getCompletionGreeting({ journey: 'anytime', practice: 'breathing' });
-      for (let i = 0; i < 10; i += 1) getCompletionGreeting({ journey: 'anytime', practice: 'meditation' });
-      const mediaSecond = getCompletionGreeting({ journey: 'anytime', practice: 'media' });
-      expect(mediaSecond).not.toBe(mediaFirst);
-      expect(MEDIA_POOL).toContain(mediaSecond);
+      const first = getCompletionGreeting({ journey: 'anytime', practice: 'reset' });
+      const second = getCompletionGreeting({ journey: 'anytime', practice: 'reset' });
+      expect(second).not.toBe(first);
+      expect(RESET_POOL).toContain(second);
     });
   });
 
@@ -633,7 +641,7 @@ describe('getCompletionGreeting - anytime/media pool (Anytime Visual Flow and Cl
     delete globalThis.localStorage;
     try {
       for (let i = 0; i < 10; i += 1) {
-        expect(MEDIA_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'media' }));
+        expect(RESET_POOL).toContain(getCompletionGreeting({ journey: 'anytime', practice: 'reset' }));
       }
     } finally {
       globalThis.localStorage = previous;
