@@ -312,7 +312,7 @@ export const DeleteAccount = () => {
           <div className="space-y-1.5">
             <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">What will be deleted</p>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              Your profile, wake/bed time and timezone settings, journal entries, and intentions.
+              Your profile, wake/bed time and timezone settings, journal entries, intentions, and your practice-completion and Momentum history.
             </p>
           </div>
           <div className="space-y-1.5">

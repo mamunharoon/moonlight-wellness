@@ -16,6 +16,7 @@ import { OnboardingGate } from './components/OnboardingGate';
 import { RoutineRestoreGuard } from './components/RoutineRestoreGuard';
 import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
+import { useRevenueCatIdentity } from './hooks/useRevenueCatIdentity';
 
 // Mobile navigation repair, Phase 4 (performance): route-level code
 // splitting. The audit found a single ~670KB (170KB gzip) JS chunk
@@ -145,6 +146,18 @@ function MorningReminderTapHandler() {
   return null;
 }
 
+// WakeWise Phase 2B — RevenueCat identity lifecycle (see
+// useRevenueCatIdentity.js's own doc comment). Same isolated pattern as
+// NativeDeepLinkHandler/MorningReminderTapHandler above — mounted inside
+// <Router>, inside <AuthProvider>, so it can call useAuth(); renders
+// nothing itself. Entirely inert on web or wherever no RevenueCat public
+// key is configured (isRevenueCatSupported() gates every real action
+// inside the hook itself).
+function RevenueCatIdentityHandler() {
+  useRevenueCatIdentity();
+  return null;
+}
+
 // Remove Routines from the Visible User Flow — safe, deterministic
 // destinations for the three known historical Routine Detail URLs, plus
 // a Home fallback for anything else. Deliberately NOT a blind 1:1 redirect
@@ -213,6 +226,7 @@ function App() {
                 <NavigationHistoryProvider>
                 <NativeDeepLinkHandler />
                 <MorningReminderTapHandler />
+                <RevenueCatIdentityHandler />
                 {/* Safe backward navigation ("Review Mode") fix: mounted
                     once here, outside <Layout>, so it survives for the
                     whole app session instead of resetting every time

@@ -20,6 +20,7 @@
     "@capacitor/ios": "^7.6.9",
     "@capacitor/local-notifications": "^7.0.7",
     "@capgo/native-purchases": "7.19.3",
+    "@revenuecat/purchases-capacitor": "11.3.2",
     "@supabase/supabase-js": "^2.112.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

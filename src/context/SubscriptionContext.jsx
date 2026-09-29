@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 import { getEntitlements } from '../lib/entitlements';
 import { applySubscriptionOverride } from '../lib/subscriptionOverride';
+import { fetchEntitlementRecords } from '../lib/entitlementSnapshot';
+import { resolveUnifiedEntitlement, ENTITLEMENT_STATES } from '../lib/entitlementResolver';
 
 const SubscriptionContext = createContext();
 
@@ -119,8 +121,52 @@ export const SubscriptionProvider = ({ children }) => {
 
   const refreshSubscription = () => loadSubscription(user);
 
+  // WakeWise Phase 2B — the unified, multi-provider entitlement result
+  // (see entitlementResolver.js's own header). Deliberately a SEPARATE
+  // read/state from `subscription` above rather than woven into it: every
+  // existing consumer of `subscription`/useEntitlements() (AudioDetails.jsx,
+  // Subscription.jsx, DeleteAccount.jsx, etc.) keeps reading exactly the
+  // same legacy-table-only value it always has, completely unchanged by
+  // this addition — this phase explicitly does not redesign or cut over
+  // the existing entitlement check. `entitlement` is additive, consumed
+  // only by the new Phase 2B integration points (Profile's membership
+  // status row).
+  const [entitlement, setEntitlement] = useState(() => resolveUnifiedEntitlement({ loading: true }, []));
+
+  const loadEntitlement = async (currentUser) => {
+    if (!currentUser || currentUser.is_anonymous) {
+      setEntitlement(resolveUnifiedEntitlement({ loading: false }, []));
+      return;
+    }
+    setEntitlement((current) => (current.state === ENTITLEMENT_STATES.LOADING ? current : resolveUnifiedEntitlement({ loading: true }, [])));
+    const { records, error: fetchError } = await fetchEntitlementRecords(supabase, currentUser.id);
+    setEntitlement(resolveUnifiedEntitlement({ loading: false, error: fetchError }, records));
+  };
+
+  useEffect(() => {
+    // Mirrors the `subscription` effect above's own shape exactly (a
+    // nested async function, invoked once) — not merely stylistic:
+    // calling loadEntitlement(user) directly as this effect's own body
+    // trips react-hooks/set-state-in-effect, since loadEntitlement's
+    // guest/no-user branch can call setEntitlement synchronously, before
+    // any await. Wrapping the call moves that possible synchronous
+    // setState out of the effect body's own top level.
+    const load = async () => {
+      if (authLoading) return;
+      await loadEntitlement(user);
+    };
+    load();
+    // `subscription` is an intentional dependency: a refreshSubscription()
+    // call (e.g. after a Stripe checkout return) updates the legacy row
+    // this effect's own fetchEntitlementRecords call also reads, so the
+    // unified result must be recomputed whenever that happens, not just
+    // once per sign-in.
+  }, [user, authLoading, subscription]);
+
+  const refreshEntitlement = () => loadEntitlement(user);
+
   return (
-    <SubscriptionContext.Provider value={{ subscription, loading, error, refreshSubscription }}>
+    <SubscriptionContext.Provider value={{ subscription, loading, error, refreshSubscription, entitlement, refreshEntitlement }}>
       {children}
     </SubscriptionContext.Provider>
   );
@@ -137,3 +183,8 @@ export const useEntitlements = () => {
   const { subscription } = useSubscription();
   return getEntitlements(subscription);
 };
+
+// WakeWise Phase 2B — the unified, multi-provider entitlement result (see
+// entitlementResolver.js). A thin, named convenience matching
+// useEntitlements()'s own shape; Profile.jsx is its first consumer.
+export const useUnifiedEntitlement = () => useSubscription().entitlement;

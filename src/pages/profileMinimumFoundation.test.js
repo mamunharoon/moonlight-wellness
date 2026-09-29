@@ -82,12 +82,11 @@ describe('Profile.jsx — Data Export restored (Phase 2A correction)', () => {
 });
 
 describe('Profile.jsx — no fabricated membership status', () => {
-  it('reads status from the trusted useSubscription() context, via the pure getMembershipStatusLabel helper — never a hardcoded/guessed label', () => {
-    expect(source).toMatch(/import \{ useSubscription \} from '\.\.\/context\/SubscriptionContext';/);
-    expect(source).toMatch(/import \{ getMembershipStatusLabel \} from '\.\.\/lib\/membershipStatus';/);
-    expect(source).toMatch(
-      /const membershipStatusLabel = getMembershipStatusLabel\(subscription, \{\s*\n\s*loading: subscriptionLoading,\s*\n\s*error: subscriptionError\s*\n\s*\}\);/
-    );
+  it('reads status from the trusted, unified (multi-provider) entitlement resolver — never a hardcoded/guessed label (WakeWise Phase 2B correction: Phase 2A read the legacy-only useSubscription() context directly; this now reads useUnifiedEntitlement(), which additionally combines Apple/Google provider_subscriptions data)', () => {
+    expect(source).toMatch(/import \{ useUnifiedEntitlement \} from '\.\.\/context\/SubscriptionContext';/);
+    expect(source).toMatch(/import \{ getMembershipStatusLabelFromEntitlement \} from '\.\.\/lib\/membershipStatus';/);
+    expect(source).toMatch(/const entitlement = useUnifiedEntitlement\(\);/);
+    expect(source).toMatch(/const membershipStatusLabel = getMembershipStatusLabelFromEntitlement\(entitlement\);/);
   });
 
   it('never reads plan/status from localStorage/sessionStorage directly', () => {

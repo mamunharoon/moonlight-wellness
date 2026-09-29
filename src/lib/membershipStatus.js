@@ -19,6 +19,7 @@
 // schema, which Phase 2A is explicitly not cutting over to — this is a
 // disclosed, honest limitation, not an oversight (see the Phase 2A report).
 import { formatExpiryDate } from './subscriptionStatusMessages';
+import { ENTITLEMENT_STATES } from './entitlementResolver';
 
 export const MEMBERSHIP_STATUS_UNAVAILABLE = 'Membership details unavailable';
 export const MEMBERSHIP_STATUS_LOADING = 'Loading…';
@@ -54,4 +55,43 @@ export const getMembershipStatusLabel = (subscription, { loading = false, error 
   // An unrecognised status value — never guess which of the honest states
   // above it might mean.
   return MEMBERSHIP_STATUS_UNAVAILABLE;
+};
+
+// WakeWise Phase 2B — the unified, multi-provider label. Profile.jsx now
+// uses this one (built from useUnifiedEntitlement(), which combines the
+// legacy `subscriptions` table with Apple/Google's provider_subscriptions
+// rows) instead of the function above, which is kept only for its own
+// tests and any other still-legacy-only caller — see the Phase 2B report
+// for why the switch is additive, not a redesign. Unlike the function
+// above, this one CAN genuinely say 'Plus — Grace period' and
+// 'Plus — Billing issue': the richer schema this reads from actually
+// distinguishes those states, closing the exact gap Phase 2A's own report
+// disclosed as impossible with the legacy table alone.
+export const getMembershipStatusLabelFromEntitlement = (entitlement) => {
+  if (!entitlement || typeof entitlement.state !== 'string') return MEMBERSHIP_STATUS_UNAVAILABLE;
+
+  switch (entitlement.state) {
+    case ENTITLEMENT_STATES.LOADING:
+      return MEMBERSHIP_STATUS_LOADING;
+    case ENTITLEMENT_STATES.VERIFICATION_UNAVAILABLE:
+      return MEMBERSHIP_STATUS_UNAVAILABLE;
+    case ENTITLEMENT_STATES.FREE:
+      return 'Free';
+    case ENTITLEMENT_STATES.TRIAL:
+      return 'Trial';
+    case ENTITLEMENT_STATES.ACTIVE:
+      return 'Plus — Active';
+    case ENTITLEMENT_STATES.CANCELLED_ACTIVE_UNTIL_PERIOD_END: {
+      const date = entitlement.currentPeriodEnd ? formatExpiryDate(entitlement.currentPeriodEnd) : null;
+      return date ? `Plus — Cancels on ${date}` : 'Plus — Active';
+    }
+    case ENTITLEMENT_STATES.GRACE_PERIOD:
+      return 'Plus — Grace period';
+    case ENTITLEMENT_STATES.BILLING_ISSUE:
+      return 'Plus — Billing issue';
+    case ENTITLEMENT_STATES.EXPIRED:
+      return 'Expired';
+    default:
+      return MEMBERSHIP_STATUS_UNAVAILABLE;
+  }
 };

@@ -36,10 +36,21 @@
 //     period, then manual, documented completion (see
 //     docs/account-deletion-processor-spec.md). This replaces the
 //     previous "email us, not yet available" wording below.
-//   - Routine/meditation "completed today" indicators are stored in
-//     localStorage on the user's own device only — never synced to
-//     WakeWise's database — distinct from rhythm/intentions/journal
-//     entries, which are.
+//   - WakeWise Phase 2B correction: this content previously stated that
+//     "completed today" indicators are local-only and never reach
+//     WakeWise's servers. That was only ever true of one specific,
+//     cosmetic Home-screen checkmark (dailyCompletion.js's own
+//     MORNING_DONE_KEY/EVENING_DONE_KEY, genuinely localStorage-only). It
+//     was never true of the separate, real practice_completion_events
+//     table (added 2026-09-28) that Momentum's own totals/insights are
+//     actually calculated from — that table is server-stored, same as
+//     rhythm/intentions/journal entries. The content below now discloses
+//     both facts accurately instead of overstating the local-only claim.
+//   - Native (Apple/Google) mobile subscriptions are handled via
+//     RevenueCat, our subscription-management/verification processor —
+//     added as a disclosed third-party processor per this same phase's
+//     pricing/architecture decisions. Stripe remains the web/PWA payment
+//     processor, unchanged.
 //   - Subscription pricing below is ZavaraAI's PROPOSED Australian launch
 //     pricing for UI/legal preparation. It has not been reconciled
 //     against the actual Stripe test-mode Price objects currently
@@ -91,10 +102,10 @@ export const LEGAL_CONTENT = {
           'Account information: your email address and, if provided, your first and last name.',
           'Your daily rhythm: wake time, bedtime, and the IANA timezone you confirm or that your device reports. Your timezone tells us which local day your schedule belongs to — it is not GPS location, and we do not separately collect your device’s geographic location.',
           'Intentions and journal/reflection entries you write.',
-          'Your subscription plan and status (e.g. free, trialing, active, cancelled) — stored in our own database; your card details are handled entirely by Stripe and never reach our servers.',
+          'Your subscription plan, status, and billing provider (e.g. free, trialing, active, cancelled; Stripe, Apple, or Google) — stored in our own database. Your card details are handled entirely by Stripe and never reach our servers; if you subscribe through the App Store or Google Play, the transaction and subscription identifiers those stores and our subscription-management processor, RevenueCat, provide us are stored so we can verify and manage your subscription — never your full payment details.',
           'Account-deletion requests: if you request deletion, we keep a record of that request (its status and dates) for as long as needed to process it.',
           'Basic security and technical information that our authentication provider, Supabase, generates automatically to protect your account — such as sign-in timestamps, IP address, and browser/device type.',
-          'Day-to-day "completed today" indicators for routines and meditation sessions are kept only in local storage on your own device — we do not receive or store these on our servers.'
+          'A record of your completed practice sessions (which routine or exercise, and when) and the Momentum totals and patterns we calculate from that record, so we can show your own progress back to you. A separate, purely cosmetic "completed today" checkmark shown on the Home screen is kept only in local storage on your device and is not what powers Momentum.'
         ]
       },
       {
@@ -119,7 +130,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Who we share it with',
         paragraphs: [
-          `We use trusted service providers to run ${CONTACT_INFO.product}: Supabase (authentication, database, and secure media links) and Vercel (hosting the app itself). Subscription payments are processed by Stripe. If we introduce native app-store subscriptions, Apple (App Store) and, where applicable, Google (Google Play) will process those payments and provide us your subscription status for that channel. These providers only receive the data needed to perform their function. We do not sell your personal information.`
+          `We use trusted service providers to run ${CONTACT_INFO.product}: Supabase (authentication, database, and secure media links) and Vercel (hosting the app itself). Subscription payments made on the web are processed by Stripe. Subscriptions purchased through the App Store or Google Play are billed by Apple or Google directly, and verified and kept in sync for us by our subscription-management processor, RevenueCat — Apple, Google, and RevenueCat each provide us only the subscription/transaction status needed to grant your access, never your full payment details. These providers only receive the data needed to perform their function. We do not sell your personal information.`
         ]
       },
       {
@@ -442,7 +453,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'What gets deleted',
         paragraphs: [
-          'Your account, profile information, and wellness data — daily rhythm, intentions, journal entries, and subscription record — are deleted or anonymised in our active systems.'
+          'Your account, profile information, and wellness data — daily rhythm, intentions, journal entries, your practice-completion history, Momentum totals, and your subscription record — are deleted or anonymised in our active systems.'
         ]
       },
       {

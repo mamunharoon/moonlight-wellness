@@ -6,6 +6,11 @@ export const getPlatform = () => Capacitor.getPlatform();
 
 export const isIOS = () => Capacitor.getPlatform() === 'ios';
 
+// WakeWise Phase 2B — RevenueCat targets both iOS and Android (unlike the
+// existing Apple-direct adapter, which is iOS-only), so a symmetric
+// isAndroid() is now needed for the first time in this codebase.
+export const isAndroid = () => Capacitor.getPlatform() === 'android';
+
 export const isWeb = () => Capacitor.getPlatform() === 'web';
 
 /**

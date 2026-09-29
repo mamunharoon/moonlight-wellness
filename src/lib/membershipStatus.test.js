@@ -2,7 +2,13 @@
 // is a plain, framework-agnostic function, so its actual decision logic is
 // exercised directly rather than via source regex.
 import { describe, it, expect } from 'vitest';
-import { getMembershipStatusLabel, MEMBERSHIP_STATUS_UNAVAILABLE, MEMBERSHIP_STATUS_LOADING } from './membershipStatus';
+import {
+  getMembershipStatusLabel,
+  getMembershipStatusLabelFromEntitlement,
+  MEMBERSHIP_STATUS_UNAVAILABLE,
+  MEMBERSHIP_STATUS_LOADING
+} from './membershipStatus';
+import { ENTITLEMENT_STATES } from './entitlementResolver';
 
 describe('getMembershipStatusLabel — honest states only, never fabricated', () => {
   it('shows Loading while the subscription fetch is in flight, regardless of any stale subscription value', () => {
@@ -60,5 +66,43 @@ describe('getMembershipStatusLabel — honest states only, never fabricated', ()
       getMembershipStatusLabel({ plan: 'plus', status, cancel_at_period_end: true, expires_at: '2026-01-01T00:00:00.000Z' }, {})
     );
     expect(allPossibleInputs).not.toContain('Plus — Grace period');
+  });
+});
+
+describe('getMembershipStatusLabelFromEntitlement — WakeWise Phase 2B, the unified (multi-provider) label Profile.jsx now actually uses', () => {
+  it('every ENTITLEMENT_STATES value maps to a distinct, honest label', () => {
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.LOADING })).toBe(MEMBERSHIP_STATUS_LOADING);
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.VERIFICATION_UNAVAILABLE })).toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.FREE })).toBe('Free');
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.TRIAL })).toBe('Trial');
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.ACTIVE })).toBe('Plus — Active');
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.GRACE_PERIOD })).toBe('Plus — Grace period');
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.BILLING_ISSUE })).toBe('Plus — Billing issue');
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.EXPIRED })).toBe('Expired');
+  });
+
+  it('this function CAN say "Plus — Grace period" and "Plus — Billing issue" - closing the exact gap Phase 2A\'s own getMembershipStatusLabel disclosed as impossible', () => {
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.GRACE_PERIOD })).not.toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
+    expect(getMembershipStatusLabelFromEntitlement({ state: ENTITLEMENT_STATES.BILLING_ISSUE })).not.toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
+  });
+
+  it('cancelled_active_until_period_end shows the real currentPeriodEnd date, never a fabricated one, and falls back honestly if it is somehow missing', () => {
+    const withDate = getMembershipStatusLabelFromEntitlement({
+      state: ENTITLEMENT_STATES.CANCELLED_ACTIVE_UNTIL_PERIOD_END,
+      currentPeriodEnd: '2026-12-25T12:00:00Z'
+    });
+    expect(withDate).toBe('Plus — Cancels on December 25, 2026');
+
+    const withoutDate = getMembershipStatusLabelFromEntitlement({
+      state: ENTITLEMENT_STATES.CANCELLED_ACTIVE_UNTIL_PERIOD_END,
+      currentPeriodEnd: null
+    });
+    expect(withoutDate).toBe('Plus — Active');
+  });
+
+  it('null/undefined/an unrecognised state never guesses - always the neutral unavailable label', () => {
+    expect(getMembershipStatusLabelFromEntitlement(null)).toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
+    expect(getMembershipStatusLabelFromEntitlement(undefined)).toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
+    expect(getMembershipStatusLabelFromEntitlement({ state: 'something_new' })).toBe(MEMBERSHIP_STATUS_UNAVAILABLE);
   });
 });

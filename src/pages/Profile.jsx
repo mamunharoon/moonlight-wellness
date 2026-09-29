@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
-import { useSubscription } from '../context/SubscriptionContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DataExportDialog } from '../components/DataExportDialog';
-import { getMembershipStatusLabel } from '../lib/membershipStatus';
+import { getMembershipStatusLabelFromEntitlement } from '../lib/membershipStatus';
 import { isAppleIAPSupported } from '../lib/applePurchaseAdapter';
 import { useAppleRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE } from '../hooks/useAppleRestore';
 
@@ -74,7 +74,13 @@ export const Profile = () => {
   const navigate = useNavigate();
   const { alarmTime, bedTime, routineDuration, setRoutineDuration, effectiveTimezone } = useAlarm();
   const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
-  const { subscription, loading: subscriptionLoading, error: subscriptionError } = useSubscription();
+  // WakeWise Phase 2B — reads the unified, multi-provider entitlement
+  // (legacy Stripe/manual + Apple/Google provider_subscriptions combined)
+  // rather than the legacy-only `subscription` value Phase 2A used here.
+  // See entitlementResolver.js's own header for why this is strictly more
+  // complete, never less correct, for any account this phase's own data
+  // already covers.
+  const entitlement = useUnifiedEntitlement();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   // Sign-out hardening fix, found live: the previous version closed the
   // dialog and called navigate('/') unconditionally right after `await
@@ -144,10 +150,7 @@ export const Profile = () => {
     .join(' ');
   const displayName = profileFullName || metadataFullName || user?.email || 'WakeWise User';
 
-  const membershipStatusLabel = getMembershipStatusLabel(subscription, {
-    loading: subscriptionLoading,
-    error: subscriptionError
-  });
+  const membershipStatusLabel = getMembershipStatusLabelFromEntitlement(entitlement);
 
   const rowClass = 'w-full flex items-center justify-between p-4 min-h-[56px] hover:bg-white/5 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset';
   const infoRowClass = 'w-full flex items-center justify-between p-4 min-h-[56px]';
