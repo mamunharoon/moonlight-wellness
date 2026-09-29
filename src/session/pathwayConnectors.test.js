@@ -50,16 +50,27 @@ describe('Connector counts — exactly N-1 connectors for N real stage icons', (
 });
 
 describe('Physical-iPhone correction — connectors are one shared line+arrowhead component, never an isolated chevron', () => {
-  it('MorningJourneyPathway/EveningJourneyPathway/AnytimePathway/Home\'s Anytime preview row all import and render the shared JourneyConnector, not four independent implementations', () => {
-    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx', '../pages/Home.jsx']) {
+  // WakeWise DEV — approved Morning pathway-tile redesign: Morning
+  // deliberately stopped rendering JourneyConnector (a small standalone
+  // ">" direction marker replaces it - see morningTilePathway.test.js's
+  // own dedicated coverage). Evening/AnytimePathway/Home's Anytime preview
+  // row are unaffected and keep the exact requirement below.
+  it('EveningJourneyPathway/AnytimePathway/Home\'s Anytime preview row all import and render the shared JourneyConnector, not independent implementations', () => {
+    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx', '../pages/Home.jsx']) {
       const source = read(path);
       expect(source).toMatch(/import \{ JourneyConnector \} from ['"].*journey\/JourneyConnector['"]/);
       expect(source).toMatch(/<JourneyConnector journeyTone=/);
     }
   });
 
-  it('no pathway component still contains the old isolated chevron_right/› treatment', () => {
-    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
+  it('MorningJourneyPathway no longer imports JourneyConnector at all - the approved tile redesign uses its own small standalone direction marker instead', () => {
+    const source = read('../components/MorningJourneyPathway.jsx');
+    expect(source).not.toMatch(/import \{ JourneyConnector \}/);
+    expect(source).not.toMatch(/<JourneyConnector/);
+  });
+
+  it('no Evening/Anytime pathway component still contains the old isolated chevron_right/› treatment (Morning\'s approved tile redesign deliberately reintroduces a small standalone ">" - covered separately in morningTilePathway.test.js - so it is excluded from this specific check)', () => {
+    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
       expect(read(path)).not.toMatch(/chevron_right/);
     }
   });
@@ -91,26 +102,28 @@ describe('Physical-iPhone correction — connectors are one shared line+arrowhea
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
-  it('every call site vertically centres the connector against its own icon-circle size, not the label row, via an explicit computed margin - never the old approximate negative-margin hack', () => {
-    // Morning pathway icon uplift — Morning's own icon circle grew from
-    // 28px to 56px (see MorningJourneyPathway.jsx's own doc comment), so
-    // its connector centring margin changed to mt-[21px] against the new
-    // "lg" JourneyConnector size; Evening/Anytime/Home are untouched by
-    // this Morning-only correction and keep their original 28/32/36px
-    // circles and margins exactly.
-    expect(read('../components/MorningJourneyPathway.jsx')).toMatch(/className="mt-\[21px\]"/);
+  it('every JourneyConnector-based call site vertically centres the connector against its own icon-circle size, not the label row, via an explicit computed margin - never the old approximate negative-margin hack', () => {
+    // Evening/Anytime/Home are untouched by the Morning-only tile
+    // redesign and keep their original 28/32/36px circles and margins
+    // exactly. Morning's own direction marker uses its own separate
+    // computed margin (mt-[29px], against its unchanged 56px icon circle)
+    // - see morningTilePathway.test.js's own dedicated coverage.
     expect(read('../components/EveningJourneyPathway.jsx')).toMatch(/className="mt-\[8\.5px\]"/);
     expect(read('../components/AnytimePathway.jsx')).toMatch(/className="mt-\[10\.5px\]"/);
     expect(read('../pages/Home.jsx')).toMatch(/className="mt-\[12\.5px\]"/);
-    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
+    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
       expect(read(path)).not.toMatch(/-mt-4|-mt-5/);
     }
   });
 });
 
 describe('Connectors are never repurposed as status indicators', () => {
-  it('MorningJourneyPathway/EveningJourneyPathway connector slots carry no status-conditional class or content - they render the same JourneyConnector regardless of stage.status (aria-hidden is guaranteed by JourneyConnector itself, asserted separately above)', () => {
-    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx']) {
+  // Morning's own direction marker (a plain, unconditional
+  // `{idx < stages.length - 1 && <DirectionMarker />}`, no surrounding
+  // parens) is covered separately in morningTilePathway.test.js - it is
+  // never conditioned on stage.status either.
+  it('EveningJourneyPathway connector slots carry no status-conditional class or content - they render the same JourneyConnector regardless of stage.status (aria-hidden is guaranteed by JourneyConnector itself, asserted separately above)', () => {
+    for (const path of ['../components/EveningJourneyPathway.jsx']) {
       const source = read(path);
       const connectorBlock = source.match(/\{idx < stages\.length - 1 && \(([\s\S]*?)\)\}/)?.[1] ?? '';
       expect(connectorBlock).not.toBe('');

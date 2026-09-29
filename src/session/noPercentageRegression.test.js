@@ -41,14 +41,18 @@ const COMPLETION_SURFACE_FILES = [
 
 // Strips /* */ and // comments, then every className="..."/className={`...`}
 // attribute value (the source of every legitimate CSS percentage in this
-// codebase), leaving only what could plausibly render as visible text.
+// codebase), then every inline style={{...}} object (e.g. a CSS
+// mask-image/gradient's own "100%" stop position - MorningJourneyPathway's
+// approved tile-redesign overflow-fade mask is the first real example of
+// this), leaving only what could plausibly render as visible text.
 const strippedUserFacingText = (source) =>
   source
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '')
     .replace(/className=\{[^}]*\}/g, '')
     .replace(/className="[^"]*"/g, '')
-    .replace(/className=\{`[^`]*`\}/g, '');
+    .replace(/className=\{`[^`]*`\}/g, '')
+    .replace(/style=\{\{[\s\S]*?\}\}/g, '');
 
 describe('Repository-wide regression: no Morning/Anytime/Evening completion surface shows percentage wording', () => {
   for (const path of COMPLETION_SURFACE_FILES) {

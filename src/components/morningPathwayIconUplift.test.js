@@ -27,28 +27,40 @@ describe('Morning pathway — substantially larger, visually meaningful icons (p
   const element = MorningJourneyPathway().props.children;
   const stages = collectStages(element);
 
-  it('every stage icon circle is 56px (w-14 h-14) — a real, substantial increase over the old 28px (w-7 h-7)', () => {
+  // WakeWise DEV — approved Morning pathway-tile redesign recalibrated the
+  // icon circle from 56px (w-14 h-14) down to 48px (w-12 h-12) so the new
+  // tile frame (border + padding around the circle) fits closer to a
+  // typical iPhone's own available width without losing legibility - see
+  // morningTilePathway.test.js's own responsive-sizing rationale. Still a
+  // real, substantial increase over the pre-Phase-6 original 28px (w-7 h-7).
+  it('every stage icon circle is 48px (w-12 h-12) — a real, substantial increase over the old 28px (w-7 h-7)', () => {
     for (const { iconBadge } of stages) {
-      expect(iconBadge.props.className).toMatch(/\bw-14\b/);
-      expect(iconBadge.props.className).toMatch(/\bh-14\b/);
+      expect(iconBadge.props.className).toMatch(/\bw-12\b/);
+      expect(iconBadge.props.className).toMatch(/\bh-12\b/);
       expect(iconBadge.props.className).not.toMatch(/\bw-7\b/);
     }
   });
 
-  it('the glyph itself is rendered at a substantially larger size (text-2xl, not the old text-sm)', () => {
+  it('the glyph itself is rendered at a substantially larger size (text-xl, not the old text-sm)', () => {
     for (const { iconBadge } of stages) {
       const iconSpan = iconBadge.props.children[0];
-      expect(iconSpan.props.className).toMatch(/text-2xl/);
+      expect(iconSpan.props.className).toMatch(/text-xl/);
     }
   });
 
-  it('exactly 5 icons and 4 connectors are rendered, each connector using the "lg" JourneyConnector size to bridge the bigger circles', () => {
-    const connectors = stages.map((s) => s.connector).filter(Boolean);
+  // WakeWise DEV — approved Morning pathway-tile redesign superseded the
+  // line-and-arrowhead JourneyConnector for Morning specifically with a
+  // small standalone ">" direction marker - see
+  // morningTilePathway.test.js's own dedicated coverage of the marker
+  // itself. Evening/Anytime/Home's Anytime preview row are unaffected and
+  // keep rendering the real JourneyConnector (pathwayConnectors.test.js).
+  it('exactly 5 icons and 4 direction markers are rendered - never the JourneyConnector line-and-arrowhead', () => {
+    const markers = stages.map((s) => s.connector).filter(Boolean);
     expect(stages).toHaveLength(5);
-    expect(connectors).toHaveLength(4);
-    for (const connector of connectors) {
-      expect(connector.props.size).toBe('lg');
-      expect(connector.props.journeyTone).toBe('morning');
+    expect(markers).toHaveLength(4);
+    for (const marker of markers) {
+      expect(marker.props.size).toBeUndefined();
+      expect(marker.props.journeyTone).toBeUndefined();
     }
   });
 
@@ -83,7 +95,13 @@ describe('Morning pathway — substantially larger, visually meaningful icons (p
   });
 });
 
-describe('JourneyConnector — additive "lg" size variant used only by the Morning pathway', () => {
+// The "lg" variant below predates the approved Morning pathway-tile
+// redesign (which replaced JourneyConnector with a small standalone ">"
+// marker for Morning specifically - see morningTilePathway.test.js). It is
+// no longer used by any caller, but is left in place, untouched and
+// unremoved, since JourneyConnector.jsx itself is out of this
+// redesign's scope and Evening/Anytime never used "lg" either.
+describe('JourneyConnector — additive "lg" size variant (preserved, no longer used by Morning after the tile redesign)', () => {
   it('"lg" renders a visibly larger line+arrowhead than the default "sm" size, still one shared component (never separate Morning-only connector markup)', () => {
     const source = read('./journey/JourneyConnector.jsx');
     expect(source).toMatch(/lg:\s*\{[^}]*width:\s*28/);
