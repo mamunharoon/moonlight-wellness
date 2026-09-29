@@ -92,7 +92,13 @@ describe('Physical-iPhone correction — connectors are one shared line+arrowhea
   });
 
   it('every call site vertically centres the connector against its own icon-circle size, not the label row, via an explicit computed margin - never the old approximate negative-margin hack', () => {
-    expect(read('../components/MorningJourneyPathway.jsx')).toMatch(/className="mt-\[8\.5px\]"/);
+    // Morning pathway icon uplift — Morning's own icon circle grew from
+    // 28px to 56px (see MorningJourneyPathway.jsx's own doc comment), so
+    // its connector centring margin changed to mt-[21px] against the new
+    // "lg" JourneyConnector size; Evening/Anytime/Home are untouched by
+    // this Morning-only correction and keep their original 28/32/36px
+    // circles and margins exactly.
+    expect(read('../components/MorningJourneyPathway.jsx')).toMatch(/className="mt-\[21px\]"/);
     expect(read('../components/EveningJourneyPathway.jsx')).toMatch(/className="mt-\[8\.5px\]"/);
     expect(read('../components/AnytimePathway.jsx')).toMatch(/className="mt-\[10\.5px\]"/);
     expect(read('../pages/Home.jsx')).toMatch(/className="mt-\[12\.5px\]"/);

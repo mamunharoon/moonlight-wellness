@@ -39,7 +39,10 @@ const prepareForRestSource = read('../pages/PrepareForRest.jsx');
 
 describe('EveningSceneShell — alwaysFallback pass-through, additive only', () => {
   it('accepts alwaysFallback (default false) and forwards it straight to the inner BackButton', () => {
-    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children/);
+    // Physical-iPhone correction — protectedHeader (additive, default
+    // false) was inserted into this same destructure, between journey and
+    // children - see eveningSceneShellProtectedHeader.test.js.
+    expect(eveningSceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', protectedHeader = false, children/);
     expect(eveningSceneShellSource).toMatch(/<BackButton\s*\n\s*fallback=\{backFallback\}\s*\n\s*className="!bg-black\/55 !border-white\/40"\s*\n\s*onBeforeLeave=\{onBeforeLeave\}\s*\n\s*guardActiveRoute=\{guardActiveRoute\}\s*\n\s*alwaysFallback=\{alwaysFallback\}\s*\n\s*\/>/);
   });
 
@@ -97,7 +100,11 @@ describe('Canonical map — every other Evening screen already had a plain, ungu
 
 describe('Canonical map — Active Breathing Back safely stops the exercise and returns to Breathing setup, mirroring Breathe.jsx/MorningFlow.jsx', () => {
   it('EveningBreathing.jsx wires onBeforeLeave={handleBackFromActive} into its EveningSceneShell', () => {
-    expect(eveningBreathingSource).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} showBack backFallback="\/gratitude\?q=3" onBeforeLeave=\{handleBackFromActive\} showExit>/);
+    // Physical-iPhone correction — protectedHeader opts this screen into
+    // the non-scrolling, opaque, divided header fix (see
+    // eveningSceneShellProtectedHeader.test.js); Back/Exit/backFallback/
+    // onBeforeLeave wiring itself is unchanged.
+    expect(eveningBreathingSource).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} showBack backFallback="\/gratitude\?q=3" onBeforeLeave=\{handleBackFromActive\} showExit protectedHeader>/);
   });
 
   it('handleBackFromActive is a no-op (lets ordinary Back-to-Gratitude proceed) while not begun or gated for repeat', () => {

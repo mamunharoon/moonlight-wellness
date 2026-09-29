@@ -17,6 +17,7 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { usePracticeJourneyTone } from '../hooks/usePracticeJourneyTone';
 import { clearPracticeJourneyTone, exitPracticeToHome } from '../lib/practiceJourneyContext';
 import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 /*
  * WakeWise — Self-Guided Meditation (IM01/IM02 Sound Choices)
@@ -200,38 +201,36 @@ export const SelfGuidedMeditation = () => {
 
   if (countdown.isActive) {
     return (
-      <div className="h-dvh overflow-hidden">
+      // Physical-iPhone correction (exercise-screen safe-area architecture)
+      // — see MorningFlow.jsx's identical fix/doc comment for the root
+      // cause. This screen's own Back control now lives in
+      // ExerciseScreenShell's dedicated, non-scrolling `header` slot.
+      <ExerciseScreenShell
+        journeyTone={journeyTone}
+        maxWidthClassName="max-w-md"
+        header={
+          <div className="flex items-center gap-3">
+            <BackButton
+              fallback={exitDestination}
+              onBeforeLeave={() => {
+                countdown.cancel();
+                session.cancelPreload();
+                return false;
+              }}
+            />
+          </div>
+        }
+      >
         {/* WakeWise DEV — colour glow extension: standalone Self-Guided
             Meditation is an Anytime experience. */}
         <JourneyGlow journey={journeyTone} />
-        <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-          <div
-            className="min-h-full max-w-md w-full mx-auto space-y-6 pb-6"
-            style={{
-              paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-              paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-              paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <BackButton
-                fallback={exitDestination}
-                onBeforeLeave={() => {
-                  countdown.cancel();
-                  session.cancelPreload();
-                  return false;
-                }}
-              />
-            </div>
-            <PreparationCountdown
-              secondsRemaining={countdown.secondsRemaining}
-              cue="Find a comfortable position and let your shoulders soften."
-              onSkip={countdown.skip}
-              accent={journeyTone}
-            />
-          </div>
-        </div>
-      </div>
+        <PreparationCountdown
+          secondsRemaining={countdown.secondsRemaining}
+          cue="Find a comfortable position and let your shoulders soften."
+          onSkip={countdown.skip}
+          accent={journeyTone}
+        />
+      </ExerciseScreenShell>
     );
   }
 
@@ -309,19 +308,17 @@ export const SelfGuidedMeditation = () => {
 
   if (earlyEnded) {
     return (
-      <div className="h-dvh overflow-hidden">
+      // Physical-iPhone correction (exercise-screen safe-area architecture)
+      // — see MorningFlow.jsx's identical fix/doc comment for the root
+      // cause. This screen has no Back/Close control of its own (the user
+      // must choose one of the two actions below), so the shell's header
+      // slot is omitted entirely - ExerciseScreenShell still supplies the
+      // one protected, non-scrolling top safe-area region either way.
+      <ExerciseScreenShell journeyTone={journeyTone} maxWidthClassName="max-w-md">
         {/* WakeWise DEV — colour glow extension: standalone Self-Guided
             Meditation is an Anytime experience. */}
         <JourneyGlow journey={journeyTone} />
-        <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-          <div
-            className="min-h-full max-w-md w-full mx-auto flex flex-col justify-between py-6 space-y-10 animate-in fade-in duration-500"
-            style={{
-              paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-              paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-              paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-            }}
-          >
+        <div className="flex flex-col justify-between min-h-full space-y-10 animate-in fade-in duration-500">
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
               <span className="material-symbols-outlined text-on-surface-variant text-4xl" aria-hidden="true">timer_off</span>
               <h1 className="font-serif italic text-3xl text-on-surface">Session ended early</h1>
@@ -376,85 +373,74 @@ export const SelfGuidedMeditation = () => {
                 </>
               )}
             </div>
-          </div>
         </div>
-      </div>
+      </ExerciseScreenShell>
     );
   }
 
   return (
-    // Mobile scroll repair (Build 15 viewport audit): this setup screen is
-    // rendered outside <Layout> (full-bleed, see App.jsx routing) and had
-    // no scroll container of its own, so it relied on document scroll -
-    // which index.html deliberately disables on both axes (see
-    // Introduction.jsx's own identical fix and doc comment for why). With
-    // 5 style options + duration + sound choices + Begin Meditation
-    // routinely taller than one screen, "Begin Meditation" was unreachable
-    // at every tested size, Pro Max included. Same proven shape as
-    // Introduction.jsx/Layout.jsx: this screen now owns its own single
-    // scroll container instead of depending on document scroll.
-    <div className="h-dvh overflow-hidden">
+    // Physical-iPhone correction (exercise-screen safe-area architecture)
+    // — see MorningFlow.jsx's identical fix/doc comment for the root
+    // cause. JourneyHeader (Back/Close) now lives in ExerciseScreenShell's
+    // dedicated, non-scrolling `header` slot instead of an ordinary
+    // in-flow child of the one scrollable region.
+    <ExerciseScreenShell
+      journeyTone={journeyTone}
+      maxWidthClassName="max-w-md"
+      header={
+        <JourneyHeader
+          showBackButton
+          backFallback={exitDestination}
+          // WakeWise DEV — Anytime Back-navigation correction: without
+          // alwaysFallback, JourneyHeader's internal BackButton's own
+          // goBack() would silently prefer a real navigate(-1) over
+          // exitDestination whenever this app instance's in-app history
+          // has more than one entry - discarding the preserved Anytime
+          // Reset recommendation in favour of its bare, state-less
+          // previous history entry. Forced straight to exitDestination
+          // only when anytimeOrigin; a direct standalone visit keeps
+          // goBack's normal "prefer the real previous screen" behaviour,
+          // completely unchanged.
+          alwaysFallback={anytimeOrigin}
+          // Context-aware Breathing/Meditation theming — Back from this
+          // setup screen is a real exit (to Home, or to the preserved
+          // Anytime Reset recommendation when anytimeOrigin - see
+          // JourneyHeader.jsx's own onBackBeforeLeave doc comment) -
+          // without this, JourneyHeader's own internal BackButton
+          // navigated away directly, with no way for this page to clear
+          // the captured tone first.
+          onBackBeforeLeave={() => {
+            clearPracticeJourneyTone();
+          }}
+          onClose={() => exitPracticeToHome(navigate, exitDestination)}
+        />
+      }
+    >
       {/* WakeWise DEV — colour glow extension: standalone Self-Guided
           Meditation is an Anytime experience. */}
       <JourneyGlow journey={journeyTone} />
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-        <div
-          className="min-h-full max-w-md w-full mx-auto space-y-6 animate-in fade-in duration-500 pb-6"
-          style={{
-            paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-            paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-            paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-          }}
-        >
-          <JourneyHeader
-            showBackButton
-            backFallback={exitDestination}
-            // WakeWise DEV — Anytime Back-navigation correction: without
-            // alwaysFallback, JourneyHeader's internal BackButton's own
-            // goBack() would silently prefer a real navigate(-1) over
-            // exitDestination whenever this app instance's in-app history
-            // has more than one entry - discarding the preserved Anytime
-            // Reset recommendation in favour of its bare, state-less
-            // previous history entry. Forced straight to exitDestination
-            // only when anytimeOrigin; a direct standalone visit keeps
-            // goBack's normal "prefer the real previous screen" behaviour,
-            // completely unchanged.
-            alwaysFallback={anytimeOrigin}
-            // Context-aware Breathing/Meditation theming — Back from this
-            // setup screen is a real exit (to Home, or to the preserved
-            // Anytime Reset recommendation when anytimeOrigin - see
-            // JourneyHeader.jsx's own onBackBeforeLeave doc comment) -
-            // without this, JourneyHeader's own internal BackButton
-            // navigated away directly, with no way for this page to clear
-            // the captured tone first.
-            onBackBeforeLeave={() => {
-              clearPracticeJourneyTone();
-            }}
-            onClose={() => exitPracticeToHome(navigate, exitDestination)}
-          />
-
-          <MeditationSetupPanel
-            // Meditation ↔ Breathing alignment correction — aligned with
-            // the approved Morning/Evening Meditation setup structure:
-            // Sound control, heading, one short sentence, then every style/
-            // duration choice shown immediately (no more disclosure).
-            // MeditationSetupPanel.jsx itself is the SAME shared component
-            // Morning/Evening already use - no new/duplicate setup screen.
-            heading="Choose Your Meditation"
-            purpose="Find a pause that fits this moment."
-            journeyTone={journeyTone}
-            recommendedDurationId={getRecommendedDurationId()}
-            style={session.style}
-            duration={session.duration}
-            soundId={session.soundId}
-            onSelectStyle={session.selectStyle}
-            onSelectDuration={session.setDurationId}
-            onSelectSound={session.selectSound}
-            onBegin={handleBegin}
-            onExploreGuided={handleExploreGuided}
-          />
-        </div>
+      <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
+        <MeditationSetupPanel
+          // Meditation ↔ Breathing alignment correction — aligned with
+          // the approved Morning/Evening Meditation setup structure:
+          // Sound control, heading, one short sentence, then every style/
+          // duration choice shown immediately (no more disclosure).
+          // MeditationSetupPanel.jsx itself is the SAME shared component
+          // Morning/Evening already use - no new/duplicate setup screen.
+          heading="Choose Your Meditation"
+          purpose="Find a pause that fits this moment."
+          journeyTone={journeyTone}
+          recommendedDurationId={getRecommendedDurationId()}
+          style={session.style}
+          duration={session.duration}
+          soundId={session.soundId}
+          onSelectStyle={session.selectStyle}
+          onSelectDuration={session.setDurationId}
+          onSelectSound={session.selectSound}
+          onBegin={handleBegin}
+          onExploreGuided={handleExploreGuided}
+        />
       </div>
-    </div>
+    </ExerciseScreenShell>
   );
 };

@@ -21,6 +21,7 @@ import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { CompletionReveal } from '../components/CompletionReveal';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — Morning embedded
@@ -274,37 +275,36 @@ export const MorningMeditate = () => {
 
   if (countdown.isActive) {
     return (
-      // Build 16 physical-iPhone correction (F8) - same safe-area pattern
-      // as this file's own setup/active screens.
-      <div
-        className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto"
-        style={{
-          paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-          paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-          paddingRight: 'calc(1rem + env(safe-area-inset-right))'
-        }}
+      // Physical-iPhone correction (exercise-screen safe-area architecture)
+      // — see MorningFlow.jsx's identical fix/doc comment for the root
+      // cause. This screen's own Back control now lives in
+      // ExerciseScreenShell's dedicated, non-scrolling `header` slot.
+      <ExerciseScreenShell
+        journeyTone="morning"
+        header={
+          <div className="flex items-center gap-3">
+            <BackButton
+              fallback="/breathe"
+              guardActiveRoute={false}
+              onBeforeLeave={() => {
+                countdown.cancel();
+                session.cancelPreload();
+                return false;
+              }}
+            />
+          </div>
+        }
       >
         {/* WakeWise DEV — colour glow extension: Morning's own embedded
             meditation step. */}
         <JourneyGlow journey="morning" />
-        <div className="flex items-center gap-3">
-          <BackButton
-            fallback="/breathe"
-            guardActiveRoute={false}
-            onBeforeLeave={() => {
-              countdown.cancel();
-              session.cancelPreload();
-              return false;
-            }}
-          />
-        </div>
         <PreparationCountdown
           secondsRemaining={countdown.secondsRemaining}
           cue="Find a comfortable position and let your shoulders soften."
           onSkip={countdown.skip}
           accent="morning"
         />
-      </div>
+      </ExerciseScreenShell>
     );
   }
 
@@ -318,24 +318,21 @@ export const MorningMeditate = () => {
   // MorningFlow.jsx's own completed panels - never a new colour.
   if (isCompleted) {
     return (
-      <div className="h-dvh overflow-hidden">
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-      <div
-        className="min-h-full flex flex-col pb-6 max-w-xl mx-auto"
-        style={{
-          paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-          paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-          paddingRight: 'calc(1rem + env(safe-area-inset-right))',
-          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
-        }}
+      // Physical-iPhone correction (exercise-screen safe-area architecture)
+      // — see MorningFlow.jsx's identical fix/doc comment for the root
+      // cause. Back-after-completion (ordinary navigation, never an
+      // early-exit confirmation) now lives in ExerciseScreenShell's
+      // dedicated, non-scrolling `header` slot.
+      <ExerciseScreenShell
+        journeyTone="morning"
+        header={
+          <div className="flex items-center gap-3">
+            <BackButton fallback="/breathe" guardActiveRoute={false} />
+          </div>
+        }
       >
+      <div className="flex flex-col min-h-full">
         <JourneyGlow journey="morning" />
-        <div className="flex items-center gap-3">
-          {/* Back-after-completion is ordinary navigation (mirrors
-              Breathe.jsx/MorningFlow.jsx) - the exercise already finished,
-              so this is never an early-exit confirmation. */}
-          <BackButton fallback="/breathe" guardActiveRoute={false} />
-        </div>
         {/* "Your Momentum" foundation, Phase 3 — the shared completion-
             reveal transition. This is an early-return architecture: the
             branch above only ever renders once isCompleted is ALREADY
@@ -397,8 +394,7 @@ export const MorningMeditate = () => {
           onDismiss={() => setExitRoutineLinkConfirmOpen(false)}
         />
       </div>
-      </div>
-      </div>
+      </ExerciseScreenShell>
     );
   }
 
@@ -465,20 +461,31 @@ export const MorningMeditate = () => {
   }
 
   return (
-    // Mobile correction (Meditation setup scrolling) — this setup screen
-    // is rendered outside <Layout> (App.jsx) with no scroll container of
-    // its own; index.html's <body> is deliberately overflow-hidden on
-    // both axes (every full-bleed route must supply its own inner
-    // scroller - see viewportScrollRepair.test.js's own doc comment).
-    // min-h-[85vh] was only ever a FLOOR, never a ceiling, so once the
-    // expanded MeditationSetupPanel (5 styles + duration + sound + Begin)
-    // exceeded the real device viewport there was no scroll path at all -
-    // Duration/Sound/Begin were genuinely unreachable, not merely
-    // "needs a scroll". Same proven h-dvh/overflow-y-auto shell
-    // Introduction.jsx/SelfGuidedMeditation.jsx/AnytimeReset.jsx already
-    // use, wrapping the previously-unwrapped content div unchanged.
-    <div className="h-dvh overflow-hidden">
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+    // Physical-iPhone correction (exercise-screen safe-area architecture)
+    // — see MorningFlow.jsx's identical fix/doc comment for the root
+    // cause. Back/ProgressIndicator now live in ExerciseScreenShell's
+    // dedicated, non-scrolling `header` slot instead of ordinary in-flow
+    // children of the one scrollable region.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      header={
+        <>
+          <div className="flex items-center gap-3">
+            {/* Back-navigation repair (Morning canonical map) — Meditation
+                setup Back returns to Breathe; the whole-routine "Leave this
+                routine?" confirmation belongs only to Intention (the first
+                step) and to this screen's own active-phase Close/X control
+                above (handleRequestExitRoutine), never here. */}
+            <BackButton fallback="/breathe" guardActiveRoute={false} />
+          </div>
+          <ProgressIndicator activeStep="meditate" onReviewStep={requestReview} />
+
+          {isReviewMode && currentStep && (
+            <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+          )}
+        </>
+      }
+    >
     <div
       // Physical-iPhone correction — `justify-between` (a min-h-full flex
       // column with few, short children) was distributing all the
@@ -490,33 +497,12 @@ export const MorningMeditate = () => {
       // routine now simply follows the panel in normal flow, matching
       // every other Morning setup screen's own convention) and space-y-10
       // tightened to space-y-4, matching MorningFlow.jsx's/Breathe.jsx's
-      // own established "compact inter-section gap" values. No fixed
-      // height was introduced - min-h-full/overflow-y-auto scrolling is
-      // completely unchanged, so smaller devices still scroll normally.
-      className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
-        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
-      }}
+      // own established "compact inter-section gap" values.
+      className="flex flex-col space-y-4"
     >
       {/* WakeWise DEV — colour glow extension: Morning's own embedded
           meditation step. */}
       <JourneyGlow journey="morning" />
-      <div className="flex items-center gap-3">
-        {/* Back-navigation repair (Morning canonical map) — Meditation
-            setup Back returns to Breathe; the whole-routine "Leave this
-            routine?" confirmation belongs only to Intention (the first
-            step) and to this screen's own active-phase Close/X control
-            above (handleRequestExitRoutine), never here. */}
-        <BackButton fallback="/breathe" guardActiveRoute={false} />
-      </div>
-      <ProgressIndicator activeStep="meditate" onReviewStep={requestReview} />
-
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
 
       <MeditationSetupPanel
         journeyTone="morning"
@@ -574,7 +560,6 @@ export const MorningMeditate = () => {
         onDismiss={() => setExitRoutineLinkConfirmOpen(false)}
       />
     </div>
-    </div>
-    </div>
+    </ExerciseScreenShell>
   );
 };

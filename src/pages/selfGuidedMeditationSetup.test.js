@@ -144,7 +144,7 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
   // names returning to choose another style/duration/sound; End
   // Session's own wording (endSessionCopy) stays completion-oriented.
   it('the active screen\'s Back dialog (endCopy) uses "Return to meditation choices?" wording, not the stale "Leave meditation?"/"End and Leave" wording written for actually leaving, and not End Session\'s own wording', () => {
-    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Physical-iPhone correction'));
     expect(activeReturnBlock).toMatch(/dialogTitle: 'Return to meditation choices\?'/);
     expect(activeReturnBlock).toMatch(/dialogMessage: 'Your current meditation will end, and you can choose another style, duration or sound\.'/);
     expect(activeReturnBlock).toMatch(/confirmLabel: 'Return to Choices'/);
@@ -152,7 +152,7 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
   });
 
   it('End Session has its own distinct, completion-oriented wording (endSessionCopy), separate from Back\'s', () => {
-    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Physical-iPhone correction'));
     expect(activeReturnBlock).toMatch(/endSessionCopy=\{\{/);
     expect(activeReturnBlock).toMatch(/dialogTitle: 'End this meditation\?'/);
     expect(activeReturnBlock).toMatch(/dialogMessage: 'Your current meditation will end before the timer finishes\.'/);
@@ -160,7 +160,7 @@ describe('SelfGuidedMeditation.jsx — Back/Close split fix: Back ends and retur
   });
 
   it('the Close/X ConfirmDialog reuses the original "Leave meditation?"/"End and Leave"/"Continue Meditation" wording - correct framing for a genuine whole-feature exit, only ever misapplied to Back before this fix', () => {
-    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Physical-iPhone correction'));
     expect(activeReturnBlock).toMatch(/title="Leave meditation\?"/);
     expect(activeReturnBlock).toMatch(/confirmLabel="End and Leave"/);
     expect(activeReturnBlock).toMatch(/cancelLabel="Continue Meditation"/);
@@ -211,7 +211,7 @@ describe('SelfGuidedMeditation.jsx — Anytime Back-navigation correction: expli
   });
 
   it('the earlyEnded panel shows "Choose Another Reset"/"Return Home" (restoring the preserved need/duration) only when anytimeOrigin, the original Done/Meditate Again pair only otherwise - exactly the same two-branch shape QuietBreathing.jsx\'s own early-ended panel already uses (Anytime Meditation completion correction renamed both buttons to match Morning/Evening/Anytime\'s exact wording)', () => {
-    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
+    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Physical-iPhone correction/)?.[0] ?? '';
     expect(panelBlock).toMatch(/\{anytimeOrigin \? \(/);
     expect(panelBlock).toMatch(/<span>Choose Another Reset<\/span>/);
     // Anytime Visual Flow and Closing Handoff uplift (Part 9/Part 10) —
@@ -253,7 +253,7 @@ describe('SelfGuidedMeditation.jsx — retains its existing Close/End behaviour,
   });
 
   it('End Session button/aria-label copy is still the component\'s own established wording ("End Session"), even though dialogTitle/confirmLabel/cancelLabel are now overridden for the Back dialog\'s correctness', () => {
-    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Mobile scroll repair'));
+    const activeReturnBlock = source.slice(source.indexOf("session.phase === 'active'"), source.indexOf('return (\n    // Physical-iPhone correction'));
     expect(activeReturnBlock).toMatch(/buttonLabel: 'End Session'/);
     expect(activeReturnBlock).toMatch(/buttonAriaLabel: 'End meditation'/);
   });
@@ -285,7 +285,7 @@ describe('SelfGuidedMeditation.jsx — Early-end result correction: End Session 
   });
 
   it('the earlyEnded panel renders truthful wording - never claims the full selected duration completed (Done -> exitDestination and Meditate Again -> clears earlyEnded, revealing setup with the same style/duration/sound still selected, are covered by the dedicated Anytime Back-navigation describe block below)', () => {
-    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Mobile scroll repair/)?.[0] ?? '';
+    const panelBlock = source.match(/if \(earlyEnded\) \{[\s\S]*?\n {2}\}\n\n {2}return \(\n {4}\/\/ Physical-iPhone correction/)?.[0] ?? '';
     expect(panelBlock.length).toBeGreaterThan(0);
     expect(panelBlock).toMatch(/Session ended early/);
     expect(panelBlock).toMatch(/session ended before the timer finished/);

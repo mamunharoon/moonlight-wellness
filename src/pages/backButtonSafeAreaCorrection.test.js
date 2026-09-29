@@ -38,11 +38,15 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 // min-h-[85vh] floor every other AFFECTED_PAGES entry still uses. Its F8
 // top-safe-area padding is untouched; see the dedicated describe block
 // below for its new bottom-safe-area/scroll-container coverage.
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// MorningFlow.jsx/Breathe.jsx are no longer part of this shared
+// min-h-[85vh] loop: they now render the shared ExerciseScreenShell, which
+// owns safe-area/header/scroll entirely (see each one's own dedicated
+// describe block below and exerciseScreenShellSafeArea.test.js for the
+// shell's own coverage).
 const AFFECTED_PAGES = [
-  ['Breathe.jsx', './Breathe.jsx'],
   ['IntentionSetup.jsx', './IntentionSetup.jsx'],
   ['MeditationComplete.jsx', './MeditationComplete.jsx'],
-  ['MorningFlow.jsx', './MorningFlow.jsx'],
   ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx'],
   ['SessionComplete.jsx', './SessionComplete.jsx']
 ];
@@ -98,29 +102,69 @@ describe('Affirmation.jsx — F1 mobile-nav fix: real scroll container, F8 top-s
   });
 });
 
-// Mobile correction (Meditation setup scrolling) — MorningMeditate.jsx's
-// own dedicated coverage, now that its setup screen owns a real scroll
-// container instead of the shared min-h-[85vh] shape.
-describe('MorningMeditate.jsx — Meditation setup scrolling fix: real scroll container, F8 top-safe-area untouched', () => {
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// MorningMeditate.jsx's setup screen no longer owns its own ad hoc
+// h-dvh/safe-area wrapper at all: it now renders the shared
+// ExerciseScreenShell, same as MorningFlow.jsx/Breathe.jsx above. See
+// meditationSafeAreaCoverage.test.js for full per-branch coverage across
+// Morning/Anytime/Evening Meditation (setup/countdown/active/completed).
+describe('MorningMeditate.jsx — setup screen renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
   const source = read('./MorningMeditate.jsx');
 
-  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
-    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
-    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" on its setup branch, instead of its own ad hoc h-dvh/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
   });
 
-  it('now also adds env(safe-area-inset-bottom) to its setup screen - never accounted for before this fix', () => {
-    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  it('Back/ProgressIndicator now live in the shell\'s own `header` slot on the setup branch (non-scrolling), not as ordinary in-flow children of the scrollable body', () => {
+    const setupHeaderBlock = source.slice(source.lastIndexOf('header={')).match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(setupHeaderBlock).toMatch(/<BackButton fallback="\/breathe"/);
+    expect(setupHeaderBlock).toMatch(/<ProgressIndicator activeStep="meditate"/);
   });
 
-  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Introduction.jsx/AnytimeReset.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
-    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
-    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  it('the setup content no longer relies on justify-between - Physical-iPhone correction\'s own space-y-4 tightening (the real cause of the excessive gap below the progress pathway) is preserved', () => {
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/justify-between/);
+    expect(source).toMatch(/className="flex flex-col space-y-4"/);
+  });
+});
+
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// MorningFlow.jsx's own dedicated coverage, now that it renders the
+// shared ExerciseScreenShell instead of the old shared min-h-[85vh] shape.
+describe('MorningFlow.jsx — renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
+  const source = read('./MorningFlow.jsx');
+
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc min-h-[85vh]/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/className="min-h-\[85vh\]/);
+    expect(source).not.toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
   });
 
-  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner); Physical-iPhone correction dropped justify-between and tightened space-y-10 -> space-y-4 (the real cause of the excessive gap below the progress pathway), otherwise unchanged', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
+  it('the Back button and ProgressIndicator now live in the shell\'s own `header` slot (non-scrolling), not as ordinary in-flow children of the scrollable body', () => {
+    const headerBlock = source.match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(headerBlock).toMatch(/<BackButton fallback="\/intention-setup"/);
+    expect(headerBlock).toMatch(/<ProgressIndicator activeStep="stretch"/);
+  });
+});
+
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// Breathe.jsx's own dedicated coverage, mirroring MorningFlow.jsx's above.
+describe('Breathe.jsx — renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
+  const source = read('./Breathe.jsx');
+
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc min-h-[85vh]/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/className="min-h-\[85vh\]/);
+    expect(source).not.toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
+  });
+
+  it('the Back button and ProgressIndicator now live in the shell\'s own `header` slot (non-scrolling), not as ordinary in-flow children of the scrollable body', () => {
+    const headerBlock = source.match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(headerBlock).toMatch(/<BackButton fallback="\/morning-flow"/);
+    expect(headerBlock).toMatch(/<ProgressIndicator activeStep="breathe"/);
   });
 });
 

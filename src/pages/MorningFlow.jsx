@@ -33,6 +33,7 @@ import { createStretchSession } from '../lib/stretchSession';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -592,24 +593,50 @@ export const MorningFlow = () => {
   const beginLabel = `Begin with ${selectedCount} movement${selectedCount === 1 ? '' : 's'}`;
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
-    //
-    // Mobile correction (Morning Stretch compaction) — space-y-5 -> -3,
-    // found live: only the first row of movement cards was reliably
-    // visible above the fold at 390x844/393x852, against the approved
-    // screenshot showing all four. Trims the gap between EVERY top-level
-    // section (header, title, duration pill, music toggle, Begin button,
-    // movements grid) rather than singling one out - no text size, no
-    // control size, no safe-area/Back-button clearance touched.
-    <div
-      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-3 select-none"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
-      }}
+    // Physical-iPhone correction — Morning Stretch's own Back/Sound row and
+    // ProgressIndicator now live in ExerciseScreenShell's dedicated,
+    // non-scrolling `header` slot (opaque, safe-area-aware, divider below)
+    // instead of being ordinary in-flow children of the one scrollable
+    // region. That was the actual defect: on a real device, scrolling this
+    // screen moved the header (and the safe-area padding that used to sit
+    // above it) out of view, letting real content scroll up directly under
+    // the status bar/notch with nothing opaque left to protect it. Setup,
+    // prep countdown, active phase and completed panel all still share this
+    // one shell (single-return structure, unchanged) - only the wrapper
+    // changed, no state/handler/behaviour below this point moved.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      header={
+        <>
+          {/* Morning Visual Uplift (Phase 6) — compact Sound control,
+              top-right, replacing the large full-width Background Music
+              card below. Same musicPreferenceOn/handleToggleMusicPreference
+              state as before - no second audio state. Hidden once hasBegun
+              (matching the original MusicPreferenceToggle's own
+              pre-start-only scope; InteractiveAmbientMusic renders its own
+              toggle once active) and during the preparation countdown. */}
+          <div className="flex items-center justify-between gap-3">
+            <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
+            {musicEligible && !hasBegun && !countdown.isActive && (
+              <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
+            )}
+          </div>
+          <ProgressIndicator activeStep="stretch" onReviewStep={requestReview} />
+
+          {isReviewMode && currentStep && (
+            <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+          )}
+        </>
+      }
     >
+    {/* Mobile correction (Morning Stretch compaction) — space-y-5 -> -3,
+        found live: only the first row of movement cards was reliably
+        visible above the fold at 390x844/393x852, against the approved
+        screenshot showing all four. Trims the gap between EVERY top-level
+        section (title, duration pill, music toggle, Begin button, movements
+        grid) rather than singling one out - no text size, no control size
+        touched. */}
+    <div className="flex flex-col space-y-3 select-none">
       {/* WakeWise DEV — colour glow extension: Morning's Stretch step
           (setup, prep countdown, and active phase all share this one
           root - see this file's own single-return structure). Rendered
@@ -618,24 +645,6 @@ export const MorningFlow = () => {
           that as an additional, more specific Morning-gold layer, not a
           replacement for it. */}
       <JourneyGlow journey="morning" />
-      {/* Morning Visual Uplift (Phase 6) — compact Sound control, top-right,
-          replacing the large full-width Background Music card below. Same
-          musicPreferenceOn/handleToggleMusicPreference state as before -
-          no second audio state. Hidden once hasBegun (matching the
-          original MusicPreferenceToggle's own pre-start-only scope;
-          InteractiveAmbientMusic renders its own toggle once active) and
-          during the preparation countdown. */}
-      <div className="flex items-center justify-between gap-3">
-        <BackButton fallback="/intention-setup" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
-        {musicEligible && !hasBegun && !countdown.isActive && (
-          <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
-        )}
-      </div>
-      <ProgressIndicator activeStep="stretch" onReviewStep={requestReview} />
-
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
 
       {!countdown.isActive && (
         <div className="text-center space-y-1.5">
@@ -1149,5 +1158,6 @@ export const MorningFlow = () => {
         onDismiss={keepStretching}
       />
     </div>
+    </ExerciseScreenShell>
   );
 };

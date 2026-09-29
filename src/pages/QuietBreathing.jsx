@@ -931,7 +931,7 @@ export const QuietBreathing = ({ standalone = false }) => {
   }
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback={backFallback}>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} journey="anytime" showBack backFallback={backFallback} protectedHeader>
       {awaitingMusicChoice && (
         <MusicEntryChoice
           onStartWithMusic={handleStartWithMusic}

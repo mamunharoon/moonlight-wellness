@@ -228,7 +228,10 @@ describe('Navigation protection for unsaved Edit drafts', () => {
   });
 
   it('EveningSceneShell forwards onBeforeLeave through to BackButton, optional and defaulting to undefined', () => {
-    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children/);
+    // Physical-iPhone correction — protectedHeader (additive, default
+    // false) was inserted into this same destructure, between journey and
+    // children - see eveningSceneShellProtectedHeader.test.js.
+    expect(sceneShellSource).toMatch(/showBack = false, backFallback = '\/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', protectedHeader = false, children/);
     expect(sceneShellSource).toMatch(/onBeforeLeave=\{onBeforeLeave\}/);
   });
 

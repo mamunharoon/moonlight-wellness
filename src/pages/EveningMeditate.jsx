@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
+import { AtmosphereManager } from '../components/stage3/AtmosphereManager';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { ReviewModeBanner } from '../components/ReviewModeBanner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -66,6 +68,34 @@ export const EveningMeditate = () => {
   const navigate = useNavigate();
   const { state, currentStep, advanceStep, recordStepEndedEarly } = useSession();
   const { isReviewMode, isLiveStep } = useStepReviewMode('meditation', 'evening-wind-down');
+  // Nested-shell correction (exercise-screen safe-area architecture) — the
+  // active-session screen no longer wraps MeditationActiveSession in
+  // EveningSceneShell (which owns its own outer scroll/nav machinery);
+  // MeditationActiveSession's own ExerciseScreenShell is now the ONE
+  // viewport/scroll owner and ONE protected header for this screen (see
+  // this file's own active-branch doc comment below for the full
+  // rationale). The whole-journey Exit control that used to live in
+  // EveningSceneShell's own nav row (ExitEveningButton) is reproduced here
+  // via MeditationActiveSession's own `onRequestClose` - same
+  // leaveActiveRoutine() mechanism, same "Leave Evening Wind-Down?"
+  // copy/severity, same no-confirmation-when-nothing-is-active-yet gate,
+  // just wired through this screen's own dialog instead of a second,
+  // independent shell.
+  const { leaveActiveRoutine } = useActiveRoutineStep();
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const hasActiveEveningProgress = state.sessionId === 'evening-wind-down' && (state.status === 'playing' || state.status === 'interrupted');
+  const handleRequestExitRoutine = () => {
+    if (!hasActiveEveningProgress) {
+      navigate('/');
+      return;
+    }
+    setExitConfirmOpen(true);
+  };
+  const handleConfirmExitRoutine = () => {
+    setExitConfirmOpen(false);
+    leaveActiveRoutine();
+    navigate('/');
+  };
 
   const hasMirroredExitRef = useRef(false);
   const mirrorMeditateExitRef = useRef(() => {});
@@ -193,6 +223,7 @@ export const EveningMeditate = () => {
           return false;
         }}
         showExit
+        protectedHeader
       >
         <PreparationCountdown
           secondsRemaining={countdown.secondsRemaining}
@@ -216,7 +247,7 @@ export const EveningMeditate = () => {
   // glow badge shape) - never the Morning gold or Anytime mint treatment.
   if (isCompleted) {
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
+      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit protectedHeader>
         <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
         {/* "Your Momentum" foundation, Phase 3 — the shared completion-
             reveal transition. This is an early-return architecture: the
@@ -267,20 +298,29 @@ export const EveningMeditate = () => {
   }
 
   if (session.phase === 'active' && session.snapshot) {
-    // Structural fix (corrected) - two genuinely distinct controls, no
-    // overlap: EveningSceneShell's own showExit (ExitEveningButton) stays
-    // visible at top-right, exactly like every other active Evening
-    // screen - it interrupts the whole Evening Wind-Down journey via its
-    // own unmodified "Leave Evening Wind-Down?" dialog and
-    // leaveActiveRoutine(). MeditationActiveSession's own header Close is
-    // suppressed (showHeaderClose={false}) so it never renders a SECOND
-    // control at that same corner - its Back arrow (top-left) and the big
-    // "End Meditation" button below both still render, both still only
-    // ever call onRequestLeave (session.endSession - never
-    // leaveActiveRoutine), so ending meditation can never be confused
-    // with, or accidentally trigger, leaving the whole journey.
+    // Nested-shell correction — the previous structure wrapped
+    // MeditationActiveSession (which owns its own full-viewport
+    // ExerciseScreenShell: header + single scroll body) inside
+    // EveningSceneShell's own OTHER full-viewport scroll/nav shell - two
+    // independent viewport-height owners nested inside each other, exactly
+    // the "two nested full-height shells" this correction removes. Now
+    // there is exactly one: MeditationActiveSession's own
+    // ExerciseScreenShell. The moonlight atmosphere is reproduced directly
+    // (the same decorative, non-interactive, non-scrolling layer
+    // EveningSceneShell itself renders for `journey="evening"`) rather than
+    // through a second shell. The whole-journey Exit control (previously
+    // EveningSceneShell's own separate ExitEveningButton) is now
+    // MeditationActiveSession's own header Close button, wired to
+    // `onRequestClose={handleRequestExitRoutine}` above (identical
+    // leaveActiveRoutine()/"Leave Evening Wind-Down?" mechanism - only the
+    // control it lives in changed) - never a second, competing corner
+    // control. Back (top-left) and the big "End Meditation" button both
+    // still call only onRequestLeave (session.endSession - never
+    // leaveActiveRoutine), so ending meditation can never be confused with,
+    // or accidentally trigger, leaving the whole journey.
     return (
-      <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showExit>
+      <>
+        <AtmosphereManager phase="moonlight" className="fixed inset-0 z-[100] pointer-events-none" />
         <MeditationActiveSession
           journeyTone="evening"
           style={session.style}
@@ -291,7 +331,7 @@ export const EveningMeditate = () => {
           onPause={session.pause}
           onResume={session.resume}
           onRequestLeave={handleEndMeditation}
-          showHeaderClose={false}
+          onRequestClose={handleRequestExitRoutine}
           endCopy={{
             buttonLabel: 'End Meditation',
             buttonAriaLabel: 'End meditation',
@@ -311,12 +351,25 @@ export const EveningMeditate = () => {
           }}
           onChooseAnother={handleChooseAnother}
         />
-      </EveningSceneShell>
+        {/* Same copy/severity as ExitEveningButton.jsx's own dialog - the
+            canonical whole-Evening-Wind-Down exit confirmation, reused
+            verbatim rather than inventing new wording for this one screen. */}
+        <ConfirmDialog
+          open={exitConfirmOpen}
+          title="Leave Evening Wind-Down?"
+          message="Your place in the Evening Wind-Down will be saved. You can continue from Home when you're ready."
+          confirmLabel="Return Home"
+          cancelLabel="Continue Wind-Down"
+          mildDestructive
+          onConfirm={handleConfirmExitRoutine}
+          onDismiss={() => setExitConfirmOpen(false)}
+        />
+      </>
     );
   }
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit protectedHeader>
       {/* Physical-iPhone correction (mirrors MorningMeditate.jsx's
           identical spacing fix) — EveningSceneShell's own content wrapper
           uses `justify-between` (required there for screens like

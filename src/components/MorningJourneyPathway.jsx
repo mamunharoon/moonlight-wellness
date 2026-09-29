@@ -23,17 +23,30 @@ import { STAGE_STATUS_SR_TEXT } from '../session/stageStatus';
 // always produced when no progress prop was supplied.
 const DEFAULT_STAGES = MORNING_PATHWAY_STAGES.map(({ id, label, icon }) => ({ id, label, icon, status: 'not_started' }));
 
-// 320px structural safety — five columns plus four chevrons at a
-// comfortable size (w-9 badges, gap-1 throughout) measure wider than a
-// 320px viewport's real available width once the card's own p-5 padding
-// is subtracted (confirmed by hand: 5*48px badge columns + 4 chevrons +
-// gaps ≈ 340px, against a ~248px budget at 320px). Two changes, both
-// matching this codebase's own established narrow-screen pattern
-// (ProgressIndicator.jsx's own compact review-chip row): smaller badges/
-// tighter gaps as the primary fix, PLUS `overflow-x-auto` as the safety
-// net so the row can never visually break the card even on a device
-// narrower than tested - it simply scrolls horizontally in that case,
-// exactly like ProgressIndicator's own precedent.
+// 320px structural safety — five columns of the now-substantially-larger
+// (56px) icon circles plus four connectors measure comfortably wider
+// than a 320px viewport's real available width once the card's own p-5
+// padding is subtracted. Per the physical-iPhone correction's own
+// explicit requirement ("preserve useful icon size... allow the pathway
+// to scroll horizontally rather than shrinking it until ineffective"),
+// this is intentional: `overflow-x-auto scroll-hide` (below) is the
+// primary, deliberate accommodation here, not a fallback safety net —
+// the icons never shrink below a legible size to force a fit.
+//
+// Morning pathway icon uplift (physical-iPhone correction) — the
+// previous 28px icon circles/14px glyphs/9px labels read as "too small,
+// no visual journey" on a physical device against the approved Stitch
+// direction's own larger, bolder stage cards. Bumped to 56px circles
+// (w-14 h-14), 24px glyphs (text-2xl) and 12px labels (text-xs) - a real,
+// substantial size increase, not a cosmetic tweak - while keeping every
+// other part of the Phase 9 honesty contract byte-identical: the genuine
+// icon is still always the primary visual, in every status, and
+// completed/skipped/ended-early are still only ever an ADDITIVE corner
+// badge (now StageOutcomeBadge's own `size="lg"` variant, scaled to
+// match). JourneyConnector's own `size="lg"` variant bridges the larger
+// gap between these bigger circles - see that file's own doc comment.
+// No duration/minutes, no percentage, no streak - this pass touches
+// only icon/connector/label geometry.
 //
 // Phase 9 — Truthful Journey Outcomes (problem #3 fix): this component
 // previously replaced a "completed" step's own icon with a generic
@@ -54,7 +67,7 @@ const DEFAULT_STAGES = MORNING_PATHWAY_STAGES.map(({ id, label, icon }) => ({ id
 // no-progress-prop rendering.
 export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
   <div className="overflow-x-auto scroll-hide -mx-1 px-1">
-    <div className="flex items-start justify-between gap-0.5 min-w-max mx-auto" role="list" aria-label="Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm">
+    <div className="flex items-start justify-between gap-1.5 min-w-max mx-auto" role="list" aria-label="Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm">
       {stages.map((stage, idx) => {
         const isCurrent = stage.status === 'current';
         const badgeClass = isCurrent
@@ -62,22 +75,23 @@ export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
           : 'bg-morning-accent-tint/15 border-morning-accent-tint/30 text-morning-accent';
         const labelClass = isCurrent ? 'text-morning-accent font-bold' : 'text-on-surface-variant font-semibold';
         return (
-          <div key={stage.id} className="flex items-start gap-0.5" role="listitem">
-            <div className="flex flex-col items-center gap-1 w-11">
-              <span className={`relative w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${badgeClass}`}>
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">{stage.icon}</span>
-                <StageOutcomeBadge status={stage.status} journeyTone="morning" />
+          <div key={stage.id} className="flex items-start gap-1.5" role="listitem">
+            <div className="flex flex-col items-center gap-1.5 w-16">
+              <span className={`relative w-14 h-14 rounded-full border-2 flex items-center justify-center shrink-0 ${badgeClass}`}>
+                <span className="material-symbols-outlined text-2xl" aria-hidden="true">{stage.icon}</span>
+                <StageOutcomeBadge status={stage.status} journeyTone="morning" size="lg" />
               </span>
-              <span className={`text-[9px] leading-none whitespace-nowrap ${labelClass}`}>
+              <span className={`text-xs leading-none whitespace-nowrap ${labelClass}`}>
                 {stage.label}
                 <span className="sr-only">, {STAGE_STATUS_SR_TEXT[stage.status]}</span>
               </span>
             </div>
             {idx < stages.length - 1 && (
-              /* w-7 h-7 (28px) icon circle - centre at 14px; connector is
-                 11px tall (half = 5.5px) - 14 - 5.5 = 8.5px top margin
-                 centres it exactly on the icon circle, not the label. */
-              <JourneyConnector journeyTone="morning" className="mt-[8.5px]" />
+              /* w-14 h-14 (56px) icon circle - centre at 28px; the "lg"
+                 connector is 14px tall (half = 7px) - 28 - 7 = 21px top
+                 margin centres it exactly on the icon circle, not the
+                 label. */
+              <JourneyConnector journeyTone="morning" size="lg" className="mt-[21px]" />
             )}
           </div>
         );

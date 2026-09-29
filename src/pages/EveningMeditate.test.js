@@ -154,32 +154,47 @@ describe('EveningMeditate.jsx — Back/Exit reuse Evening\'s existing split conv
   });
 });
 
-describe('EveningMeditate.jsx — active screen: exactly ONE whole-journey Exit/X, structurally distinct from End Meditation (corrected)', () => {
+// Nested-shell correction (exercise-screen safe-area architecture) — the
+// active screen no longer wraps MeditationActiveSession in
+// EveningSceneShell (two independent full-viewport shells nested inside
+// each other). MeditationActiveSession's own ExerciseScreenShell is now
+// the one viewport/scroll owner and one protected header; the
+// whole-journey Exit control is reproduced as MeditationActiveSession's
+// own header Close, wired to this file's own onRequestClose handler
+// (handleRequestExitRoutine -> leaveActiveRoutine()+navigate('/'), the
+// exact same mechanism/copy ExitEveningButton.jsx used) - never a second,
+// competing corner control.
+describe('EveningMeditate.jsx — active screen: exactly ONE whole-journey Exit/X, structurally distinct from End Meditation (nested-shell correction)', () => {
   const activeBlock = () => source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
 
-  it('EveningSceneShell keeps showExit visible on the active screen too - the whole-journey Exit/X is not removed, only the DUPLICATE header Close is suppressed', () => {
+  it('no longer wraps MeditationActiveSession in EveningSceneShell - the moonlight atmosphere renders directly via AtmosphereManager instead, and MeditationActiveSession is the one real viewport/scroll owner', () => {
     const block = activeBlock();
-    expect(block).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} showExit>/);
+    expect(block).not.toMatch(/<EveningSceneShell/);
+    expect(block).toMatch(/<AtmosphereManager phase="moonlight" className="fixed inset-0 z-\[100\] pointer-events-none" \/>/);
   });
 
-  it('MeditationActiveSession\'s own header Close is suppressed via showHeaderClose={false} - its Back arrow and the big End Meditation button are unaffected and still render', () => {
+  it('MeditationActiveSession\'s own header Close is now the whole-journey Exit, wired via onRequestClose to this file\'s own handleRequestExitRoutine - never suppressed with showHeaderClose={false}', () => {
     const block = activeBlock();
-    expect(block).toMatch(/showHeaderClose=\{false\}/);
+    expect(block).not.toMatch(/showHeaderClose=\{false\}/);
+    expect(block).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
   });
 
-  it('exactly one showExit occurrence total in the active block (EveningSceneShell\'s) - never a second exit-like prop/control', () => {
-    // Comments stripped first - the doc comment right above this block
-    // legitimately names "showExit (ExitEveningButton)" in prose.
-    const codeOnlyBlock = activeBlock().replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    const showExitMatches = codeOnlyBlock.match(/showExit/g) ?? [];
-    expect(showExitMatches.length).toBe(1);
+  it('handleRequestExitRoutine/handleConfirmExitRoutine reproduce ExitEveningButton\'s own gate and mechanism: no confirmation when nothing is genuinely active yet, otherwise leaveActiveRoutine()+navigate(\'/\') behind a confirm dialog', () => {
+    const requestBody = source.match(/const handleRequestExitRoutine = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(requestBody).toMatch(/if \(!hasActiveEveningProgress\) \{/);
+    expect(requestBody).toMatch(/navigate\('\/'\);/);
+    expect(requestBody).toMatch(/setExitConfirmOpen\(true\);/);
+    const confirmBody = source.match(/const handleConfirmExitRoutine = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(confirmBody).toMatch(/leaveActiveRoutine\(\);/);
+    expect(confirmBody).toMatch(/navigate\('\/'\);/);
   });
 
-  it('the two controls invoke genuinely different callbacks: onRequestLeave is handleEndMeditation (End Meditation only); EveningSceneShell\'s showExit renders ExitEveningButton, which calls its own leaveActiveRoutine()+navigate(\'/\') - never handleEndMeditation/session.endSession, and this file never calls leaveActiveRoutine at all', () => {
+  it('the two controls invoke genuinely different callbacks: onRequestLeave is handleEndMeditation (End Meditation only, never leaveActiveRoutine); onRequestClose is handleRequestExitRoutine (the whole-journey exit, never session.endSession)', () => {
     const block = activeBlock();
     expect(block).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
-    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(codeOnly).not.toMatch(/leaveActiveRoutine/);
+    expect(block).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
+    const handleEndMeditationBody = source.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleEndMeditationBody).not.toMatch(/leaveActiveRoutine/);
   });
 
   it('End Meditation preserves the parent journey exactly at Meditation - handleEndMeditation (recordStepEndedEarly + session.endSession, Phase 9) never calls advanceStep/interruptSession/navigate (see useMeditationSession.test.js\'s own proof of endSession\'s real body)', () => {

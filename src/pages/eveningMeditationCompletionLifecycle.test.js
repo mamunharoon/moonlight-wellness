@@ -80,7 +80,10 @@ describe('EveningMeditate.jsx — dedicated completion panel is its own full-tre
   });
 
   it('reuses the existing EveningSceneShell with a plain, unconfirmed Back to /evening-breathing and showExit - Back-after-completion is ordinary navigation, never an early-exit confirmation (there is no active timer/audio left to protect)', () => {
-    expect(completedPanel).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} showBack backFallback="\/evening-breathing" showExit>/);
+    // Physical-iPhone correction — protectedHeader opts this screen into
+    // the non-scrolling, opaque, divided header fix; Back/Exit wiring
+    // itself is unchanged.
+    expect(completedPanel).toMatch(/<EveningSceneShell atmosphere=\{\{ phase: 'moonlight' \}\} showBack backFallback="\/evening-breathing" showExit protectedHeader>/);
   });
 });
 

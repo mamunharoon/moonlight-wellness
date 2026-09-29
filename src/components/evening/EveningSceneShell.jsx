@@ -109,6 +109,23 @@ import { JourneyGlow } from '../JourneyGlow';
  * straight back into that completed step ("do not re-enter a completed
  * journey using browser Back").
  *
+ * `protectedHeader` (Physical-iPhone correction, exercise-screen safe-area
+ * architecture — additive, default false; every existing caller omits it
+ * and renders byte-identical to before this prop existed): the nav row
+ * above was a genuine in-flow child of this shell's own single `fixed
+ * inset-0 overflow-y-auto` scroll owner - exactly like Layout.jsx's
+ * header bug this same pass fixes elsewhere, scrolling this page moved
+ * Back/Exit (and the safe-area space above them) out of view, letting
+ * real content scroll up directly under the iOS status bar/notch with
+ * nothing opaque left to protect it. When true (opted into only by
+ * Evening Breathing/Evening Meditate/Anytime Breathing - the exercise
+ * screens named in that correction - every other caller of this shell
+ * keeps the exact original behaviour), the nav row becomes a real
+ * `shrink-0` sibling BEFORE a dedicated `flex-1 min-h-0 overflow-y-auto`
+ * content owner, opaque (`bg-background`) with a journey-tinted `border-b`
+ * divider, instead of an ordinary scrollable child - the same shape
+ * ExerciseScreenShell.jsx uses for Morning's own equivalent screens.
+ *
  * `journey` (WakeWise DEV — colour glow extension, additive: default
  * `'evening'`, every existing caller omits it and renders byte-identical
  * to before). This shell is reused by several screens that are NOT
@@ -131,7 +148,13 @@ import { JourneyGlow } from '../JourneyGlow';
  * shell at all); add one here if that ever changes, rather than
  * elsewhere.
  */
-export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', children }) => {
+const PROTECTED_HEADER_DIVIDER = Object.freeze({
+  morning: 'border-morning-accent-tint/25',
+  evening: 'border-evening-accent-tint/25',
+  anytime: 'border-tertiary-tint/25',
+});
+
+export const EveningSceneShell = ({ atmosphere, panelled = false, className = '', showBack = false, backFallback = '/', onBeforeLeave, alwaysFallback = false, showExit = false, guardActiveRoute = false, journey = 'evening', protectedHeader = false, children }) => {
   if (AtmosphereManager) { /* no-op to satisfy blind linter */ }
   // Context-aware Breathing/Meditation theming — 'morning' is a new,
   // additive value (only QuietBreathing.jsx's standalone branch can ever
@@ -148,6 +171,56 @@ export const EveningSceneShell = ({ atmosphere, panelled = false, className = ''
   ) : (
     children
   );
+
+  if (protectedHeader) {
+    const navRow = (showBack || showExit) ? (
+      <div
+        className={`relative z-20 shrink-0 bg-background border-b ${PROTECTED_HEADER_DIVIDER[journey] ?? PROTECTED_HEADER_DIVIDER.evening}`}
+        style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}
+      >
+        <div className="px-6 pb-3 flex items-center justify-between max-w-xl w-full mx-auto">
+          {showBack ? (
+            <BackButton
+              fallback={backFallback}
+              onBeforeLeave={onBeforeLeave}
+              guardActiveRoute={guardActiveRoute}
+              alwaysFallback={alwaysFallback}
+            />
+          ) : (
+            <span aria-hidden="true" />
+          )}
+          {showExit ? <ExitEveningButton /> : <span aria-hidden="true" />}
+        </div>
+      </div>
+    ) : null;
+
+    return (
+      <div className="fixed inset-0 flex flex-col">
+        {glowJourney ? (
+          <JourneyGlow journey={glowJourney} />
+        ) : (
+          <AtmosphereManager
+            {...atmosphere}
+            className={`fixed inset-0 z-[100] pointer-events-none ${className}`.trim()}
+          />
+        )}
+
+        {navRow}
+
+        {/* The one real scroll owner when protectedHeader is on - a real
+            shrink-0 sibling AFTER the non-scrolling nav row above, never
+            the row itself. */}
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-hide">
+          <div
+            className="flex flex-col min-h-full max-w-xl w-full mx-auto px-6 pb-10"
+            style={{ paddingTop: navRow ? '1rem' : 'calc(1rem + env(safe-area-inset-top))' }}
+          >
+            {content}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

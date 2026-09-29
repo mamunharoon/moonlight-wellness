@@ -29,16 +29,28 @@ const GLYPH_BY_STATUS = Object.freeze({
   ended_early: 'pause',
 });
 
-export const StageOutcomeBadge = ({ status, journeyTone }) => {
+// Morning pathway icon uplift (physical-iPhone correction) — `size`
+// (additive, default 'sm' — every existing caller, including every
+// Evening call site, omits it and renders byte-identical markup to
+// before this prop existed) scales the corner badge to match the
+// Morning pathway's own substantially larger icon circle. Shape/colour
+// logic is completely unchanged — only the two size tokens below differ.
+const BADGE_SIZE = Object.freeze({
+  sm: { dimension: 'w-3.5 h-3.5', glyph: 'text-[8px]' },
+  lg: { dimension: 'w-5 h-5', glyph: 'text-[10px]' },
+});
+
+export const StageOutcomeBadge = ({ status, journeyTone, size = 'sm' }) => {
   const glyph = GLYPH_BY_STATUS[status];
   if (!glyph) return null;
   const toneClass = status === 'completed' ? TONE_SOLID[journeyTone] : MUTED;
+  const sizeClasses = BADGE_SIZE[size] ?? BADGE_SIZE.sm;
   return (
     <span
       aria-hidden="true"
-      className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border flex items-center justify-center ${toneClass}`}
+      className={`absolute -bottom-1 -right-1 ${sizeClasses.dimension} rounded-full border flex items-center justify-center ${toneClass}`}
     >
-      <span className="material-symbols-outlined text-[8px] leading-none">{glyph}</span>
+      <span className={`material-symbols-outlined ${sizeClasses.glyph} leading-none`}>{glyph}</span>
     </span>
   );
 };

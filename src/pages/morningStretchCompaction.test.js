@@ -17,8 +17,8 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 const source = read('./MorningFlow.jsx');
 
 describe('MorningFlow.jsx (Stretch) — compaction reduces inter-section gaps, not text/control size', () => {
-  it('the root container tightened from space-y-5 to space-y-3', () => {
-    expect(source).toMatch(/className="min-h-\[85vh\] flex flex-col pb-6 max-w-xl mx-auto space-y-3 select-none"/);
+  it('the content container tightened from space-y-5 to space-y-3', () => {
+    expect(source).toMatch(/className="flex flex-col space-y-3 select-none"/);
     expect(source).not.toMatch(/space-y-5 select-none/);
   });
 
@@ -27,10 +27,16 @@ describe('MorningFlow.jsx (Stretch) — compaction reduces inter-section gaps, n
     expect(source).not.toMatch(/grid grid-cols-2/);
   });
 
-  it('safe-area top/left/right padding is completely untouched', () => {
-    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
-    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  // Physical-iPhone correction — safe-area handling for this screen moved
+  // into the shared ExerciseScreenShell (its own header is now the
+  // non-scrolling, safe-area-aware, opaque element; see
+  // exerciseScreenShellSafeArea.test.js for the shell's own coverage).
+  // This page no longer owns an inline safe-area style block itself - it
+  // renders the shell instead.
+  it('renders the shared ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/className="min-h-\[85vh\]/);
   });
 
   it('Begin Stretching keeps its full py-4 touch target and disabled-when-empty guard - not shrunk to fit', () => {

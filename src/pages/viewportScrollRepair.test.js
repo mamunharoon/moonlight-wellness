@@ -35,23 +35,30 @@ const introductionSource = read('./Introduction.jsx');
 const SCROLL_OUTER = '<div className="h-dvh overflow-hidden">';
 const SCROLL_INNER = '<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: \'contain\' }}>';
 
-describe('SelfGuidedMeditation.jsx — setup screen owns its own scroll container', () => {
-  it('wraps the setup return in the proven h-dvh/overflow-y-auto shape, matching Introduction.jsx', () => {
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// SelfGuidedMeditation.jsx's setup/countdown/earlyEnded branches moved OFF
+// this shared h-dvh/overflow-y-auto shape entirely, onto the more specific
+// shared ExerciseScreenShell (see MorningMeditate.jsx's identical
+// migration and meditationSafeAreaCoverage.test.js for full per-branch
+// coverage across Morning/Anytime/Evening Meditation).
+describe('SelfGuidedMeditation.jsx — setup screen owns its own scroll container via the shared ExerciseScreenShell', () => {
+  it('wraps the setup return in the shared ExerciseScreenShell, matching MorningMeditate.jsx', () => {
     expect(selfGuidedMeditationSource).toMatch(/if \(session\.phase === 'active' && session\.snapshot\) \{/);
+    expect(selfGuidedMeditationSource).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
     // Only the setup (non-active) return needs the fix - the active
     // session screen (MeditationActiveSession) already scrolls correctly
-    // per the audit's own "For contrast" section.
+    // via its own ExerciseScreenShell.
     const setupReturn = selfGuidedMeditationSource.slice(selfGuidedMeditationSource.lastIndexOf('return ('));
-    expect(setupReturn).toContain(SCROLL_OUTER);
-    expect(setupReturn).toContain(SCROLL_INNER);
+    expect(setupReturn).toMatch(/<ExerciseScreenShell/);
+    expect(setupReturn).not.toContain(SCROLL_OUTER);
   });
 
-  it('the content div keeps its original max-w-md/space-y-6/safe-area padding, just with min-h-full instead of no height constraint', () => {
-    expect(selfGuidedMeditationSource).toMatch(/className="min-h-full max-w-md w-full mx-auto space-y-6 animate-in fade-in duration-500 pb-6"/);
-    expect(selfGuidedMeditationSource).toMatch(/paddingTop: 'calc\(1rem \+ env\(safe-area-inset-top\)\)'/);
+  it('the content keeps its original max-w-md/space-y-6, now via the shell\'s own maxWidthClassName prop and safe-area handling', () => {
+    expect(selfGuidedMeditationSource).toMatch(/maxWidthClassName="max-w-md"/);
+    expect(selfGuidedMeditationSource).toMatch(/className="flex flex-col space-y-6 animate-in fade-in duration-500"/);
   });
 
-  it('div open/close tags stay balanced (two new wrapper divs added, two new closes added)', () => {
+  it('div open/close tags stay balanced', () => {
     const opens = (selfGuidedMeditationSource.match(/<div/g) ?? []).length;
     const closes = (selfGuidedMeditationSource.match(/<\/div>/g) ?? []).length;
     expect(opens).toBe(closes);
@@ -86,21 +93,27 @@ describe('Welcome.jsx — first-run screen owns its own scroll container', () =>
   });
 });
 
-describe('MorningMeditate.jsx — Meditation setup screen owns its own scroll container (mobile correction: Duration/Sound/Begin were unreachable)', () => {
+// Physical-iPhone correction (exercise-screen safe-area architecture) —
+// MorningMeditate.jsx's setup screen moved OFF this shared h-dvh/
+// overflow-y-auto shape entirely, onto the more specific shared
+// ExerciseScreenShell (a protected, non-scrolling header + single scroll
+// body - see ExerciseScreenShell.jsx's own doc comment and
+// meditationSafeAreaCoverage.test.js for full per-branch coverage). Its
+// own dedicated describe block lives there now, not here.
+describe('MorningMeditate.jsx — Meditation setup screen owns its own scroll container via the shared ExerciseScreenShell (mobile correction: Duration/Sound/Begin were unreachable)', () => {
   const morningMeditateSource = read('./MorningMeditate.jsx');
 
-  it('wraps the setup return in the proven h-dvh/overflow-y-auto shape', () => {
-    expect(morningMeditateSource).toContain(SCROLL_OUTER);
-    expect(morningMeditateSource).toContain(SCROLL_INNER);
+  it('renders the shared ExerciseScreenShell instead of the old bespoke h-dvh/overflow-y-auto pair', () => {
+    expect(morningMeditateSource).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(morningMeditateSource).not.toContain(SCROLL_OUTER);
   });
 
-  it('the setup screen\'s content div keeps its own scroll-owning min-h-full and safe-area bottom padding; Physical-iPhone correction dropped justify-between (was spreading the few, short children across the full viewport height, the real cause of the excessive gap below the progress pathway) and tightened space-y-10 -> space-y-4 (the unrelated active-session screen elsewhere in this file keeps its own min-h-[85vh] untouched)', () => {
-    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
+  it('the setup content no longer relies on justify-between (was spreading the few, short children across the full viewport height, the real cause of the excessive gap below the progress pathway) and space-y-10 is tightened to space-y-4', () => {
     // Comments in this file legitimately mention "justify-between" while
     // explaining the fix - strip comments first.
     const codeOnly = morningMeditateSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(codeOnly).not.toMatch(/justify-between/);
-    expect(morningMeditateSource).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+    expect(morningMeditateSource).toMatch(/className="flex flex-col space-y-4"/);
   });
 
   it('still renders MeditationSetupPanel unchanged (Begin/Duration/Sound wiring untouched by the scroll-container fix)', () => {
@@ -108,7 +121,7 @@ describe('MorningMeditate.jsx — Meditation setup screen owns its own scroll co
     expect(morningMeditateSource).toMatch(/onBegin=\{handleBegin\}/);
   });
 
-  it('div open/close tags stay balanced (two new wrapper divs added, two new closes added)', () => {
+  it('div open/close tags stay balanced', () => {
     const opens = (morningMeditateSource.match(/<div/g) ?? []).length;
     const closes = (morningMeditateSource.match(/<\/div>/g) ?? []).length;
     expect(opens).toBe(closes);
@@ -121,11 +134,15 @@ describe('Cross-file consistency - every fixed screen reuses the exact same wrap
     expect(introductionSource).toContain(SCROLL_INNER);
   });
 
-  it('all fixed files (Introduction, SelfGuidedMeditation, Auth, Welcome, AnytimeReset, MorningMeditate) use byte-identical wrapper markup, not slightly different reimplementations', () => {
+  // MorningMeditate.jsx/SelfGuidedMeditation.jsx are deliberately excluded
+  // here - they moved onto the newer, more specific ExerciseScreenShell
+  // (protected header + single scroll body), not this older bare
+  // h-dvh/overflow-y-auto pair. See each one's own dedicated describe
+  // block above and meditationSafeAreaCoverage.test.js.
+  it('all fixed files still using the older bare pair (Introduction, Auth, Welcome, AnytimeReset) use byte-identical wrapper markup, not slightly different reimplementations', () => {
     const authSource = read('./Auth.jsx');
     const anytimeResetSource = read('./AnytimeReset.jsx');
-    const morningMeditateSource = read('./MorningMeditate.jsx');
-    for (const source of [introductionSource, selfGuidedMeditationSource, authSource, welcomeSource, anytimeResetSource, morningMeditateSource]) {
+    for (const source of [introductionSource, authSource, welcomeSource, anytimeResetSource]) {
       expect(source).toContain(SCROLL_OUTER);
       expect(source).toContain(SCROLL_INNER);
     }

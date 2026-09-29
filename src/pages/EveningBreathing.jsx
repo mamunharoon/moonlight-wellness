@@ -471,7 +471,7 @@ export const EveningBreathing = () => {
     // Build 15 Evening UX correction — fixes the confirmed Back-matrix bug:
     // the missing `?q=3` meant Back landed on Gratitude Q1 (parseActiveIndex
     // defaults a missing q to index 0), not Gratitude Q3 as required.
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" onBeforeLeave={handleBackFromActive} showExit>
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/gratitude?q=3" onBeforeLeave={handleBackFromActive} showExit protectedHeader>
       {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
           identical fix for the full rationale (ProgressIndicator's own
           mobile compact block already shows "Step 4 of 7"). */}

@@ -67,15 +67,17 @@ describe('Morning Meditation setup — spacing correction (Physical-iPhone findi
 
   it('the outer content container no longer uses justify-between (the real cause: distributing all leftover viewport space as extra gaps between a few short children) and space-y-10 is tightened to space-y-4', () => {
     expect(codeOnly(morningMeditateSource)).not.toMatch(/justify-between/);
-    expect(morningMeditateSource).toMatch(/className="min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4"/);
+    expect(morningMeditateSource).toMatch(/className="flex flex-col space-y-4"/);
   });
 
-  it('no fixed pixel height was introduced that could clip smaller devices - the exact new className carries only min-h-full (a floor, verified above) and no arbitrary-value height class, and the surrounding h-dvh/overflow-y-auto scroll owner is still present unchanged', () => {
-    expect(morningMeditateSource).toMatch(/<div className="h-dvh overflow-hidden">/);
-    expect(morningMeditateSource).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
-    // The exact className string verified above contains no h-[...]/min-h-[...]
-    // arbitrary-value class - only the plain min-h-full floor.
-    expect('min-h-full flex flex-col pb-6 max-w-xl mx-auto space-y-4').not.toMatch(/h-\[/);
+  // Physical-iPhone correction (exercise-screen safe-area architecture) —
+  // the setup screen's own h-dvh/overflow-y-auto scroll ownership moved
+  // into the shared ExerciseScreenShell (see
+  // meditationSafeAreaCoverage.test.js for that shell's own dedicated,
+  // per-branch coverage); no fixed pixel height is introduced there either.
+  it('no fixed pixel height was introduced that could clip smaller devices - renders the shared ExerciseScreenShell (its own real scroll owner) instead of an ad hoc wrapper', () => {
+    expect(morningMeditateSource).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(morningMeditateSource).not.toMatch(/h-\[\d/);
   });
 
   it('MeditationSetupPanel and its Begin/Duration/Sound wiring are completely untouched by the spacing correction (Meditation ↔ Breathing alignment correction retired `compact`/`defaultExpanded` - every choice now shows immediately)', () => {

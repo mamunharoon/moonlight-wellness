@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useRef, useState } from 'react';
 import { JourneyHeader } from './JourneyHeader';
+import { ExerciseScreenShell } from './ExerciseScreenShell';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { MeditationProgressRing } from '../MeditationProgressRing';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
@@ -258,67 +259,43 @@ export const MeditationActiveSession = ({
   };
 
   return (
-    // Mobile scroll repair — found live: this screen is reached only via
-    // Morning/Evening's own authenticated routine flow or standalone
-    // Meditation (both rendered outside <Layout>, see App.jsx routing),
-    // so the original viewport audit's guest-mode pass could never reach
-    // it and this defect was never caught. `min-h-[85vh]` alone relies on
-    // document scroll, which index.html deliberately disables on both
-    // axes (see Introduction.jsx's own identical fix/doc comment) - a real
-    // wheel-scroll simulation confirmed `window.scrollY` never moved at
-    // 320/375/390px width, leaving content below the fold (originally
-    // standalone's own "End Session" button at the larger sizes; adding
-    // "Choose another meditation" made this concretely unreachable at
-    // every tested size, surfacing a pre-existing defect rather than
-    // introducing a new one). Same proven shape as every other full-bleed
-    // screen fixed this way: this screen now owns its own single scroll
-    // container instead of depending on document scroll.
+    // Physical-iPhone correction (exercise-screen safe-area architecture)
+    // — this screen's own Back/Close header now lives in
+    // ExerciseScreenShell's dedicated, non-scrolling `header` slot
+    // (opaque, safe-area-aware, divider below) instead of being an
+    // ordinary in-flow child of the single scrollable region - the same
+    // root cause fixed for Morning Stretch/Breathing (see
+    // ExerciseScreenShell.jsx's own doc comment). Shared by standalone
+    // Anytime Meditation, Morning's embedded meditation, and (nested
+    // inside EveningSceneShell) Evening's embedded meditation.
     //
     // Nested-scroll-trap correction — found live, Evening only: Evening's
     // caller wraps this component in EveningSceneShell, which owns its OWN
     // outer `fixed inset-0 overflow-y-auto` scroll container (Morning and
-    // standalone have no such wrapper). The original fix set
-    // `overscrollBehaviorY: 'contain'` on this component's own inner
-    // scroll container (matching every other single-container screen fixed
-    // this way) - but `contain` also blocks the browser's normal scroll-
-    // chaining once THIS container's own scroll room runs out, so on
-    // Evening specifically, once this inner container hit its own limit,
-    // the remaining wheel delta had nowhere further to go and the bottom
-    // controls stayed a few pixels below the fold even at max scroll -
+    // standalone have no such wrapper). `bodyOverscrollBehaviorY="auto"`
+    // (never this shell's own default 'contain') lets a leftover wheel
+    // delta, once this body's own scroll room runs out, keep chaining up
+    // into EveningSceneShell's own outer container instead of being
+    // silently absorbed here - `contain` blocked exactly that chaining,
     // confirmed live by inspecting both containers' scrollHeight/
-    // clientHeight directly. Removing `contain` costs nothing on Morning/
-    // standalone (there is no outer scrollable ancestor for a leftover
-    // wheel delta to chain into there anyway) and lets Evening's leftover
-    // delta correctly chain up into EveningSceneShell's own outer
-    // container, which has its own additional scroll room.
-    <div className="h-dvh overflow-hidden">
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide">
-    <div
-      // Meditation ↔ Breathing alignment correction (physical-iPhone
-      // screenshot) — `justify-between` on this min-h-full flex column
-      // distributed all leftover viewport space as artificial gaps BETWEEN
-      // JourneyHeader, the style/ring/cue group, and the bottom controls -
-      // worse once the repeated "Choose your sound" list below was removed,
-      // since there was even less real content to fill that space. Plain
-      // top-down flow (space-y-6) instead: content now begins right below
-      // the header with no engineered gap, and any leftover space simply
-      // sits below the bottom controls as ordinary trailing scroll room,
-      // never between them. Still fully scrollable at 320x568 - no fixed
-      // height introduced.
-      className="min-h-full max-w-md w-full mx-auto flex flex-col py-6 space-y-6 animate-in fade-in duration-500"
-      style={{
-        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-      }}
+    // clientHeight directly (Evening's bottom controls stayed a few
+    // pixels below the fold even at max scroll). Removing it costs
+    // nothing on Morning/standalone - there is no outer scrollable
+    // ancestor for a leftover delta to chain into there anyway.
+    <ExerciseScreenShell
+      journeyTone={journeyTone}
+      maxWidthClassName="max-w-md"
+      bodyOverscrollBehaviorY="auto"
+      header={
+        <JourneyHeader
+          showBackButton={false}
+          onStepBack={handleOpenLeaveConfirm}
+          onClose={onRequestClose ?? handleOpenLeaveConfirm}
+          showCloseButton={showHeaderClose}
+        />
+      }
     >
-      <JourneyHeader
-        showBackButton={false}
-        onStepBack={handleOpenLeaveConfirm}
-        onClose={onRequestClose ?? handleOpenLeaveConfirm}
-        showCloseButton={showHeaderClose}
-      />
-
+    <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
       {/* Meditation ↔ Breathing alignment correction — style label and the
           countdown ring now form one visual group with the cue sitting
           close beneath (gap-4, was gap-8 under the old flex-1/justify-
@@ -445,7 +422,6 @@ export const MeditationActiveSession = ({
         />
       )}
     </div>
-    </div>
-    </div>
+    </ExerciseScreenShell>
   );
 };

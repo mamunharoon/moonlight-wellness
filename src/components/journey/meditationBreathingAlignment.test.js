@@ -202,10 +202,15 @@ describe('15. Routing is untouched - this correction is presentation-only', () =
 
 // 16. Small-screen scrolling and safe-area ownership remain intact.
 describe('16. Small-screen scrolling and safe-area ownership are preserved', () => {
-  it('MeditationActiveSession keeps its own h-dvh/overflow-y-auto single scroll container - no NEW fixed height introduced (min-h-[44px] touch targets are unrelated and expected)', () => {
-    expect(activeSessionSource).toMatch(/h-dvh overflow-hidden/);
-    expect(activeSessionSource).toMatch(/overflow-y-auto overflow-x-hidden scroll-hide/);
-    expect(activeSessionSource).toMatch(/min-h-full/);
+  // Physical-iPhone correction (exercise-screen safe-area architecture) —
+  // the single h-dvh/overflow-y-auto scroll container this test locks in
+  // moved into the shared ExerciseScreenShell (see that file's own
+  // exerciseScreenShellSafeArea.test.js) - MeditationActiveSession now
+  // delegates to it instead of owning that markup inline, but it is still
+  // exactly one scroll container, still no new fixed height.
+  it('MeditationActiveSession delegates its single scroll container to the shared ExerciseScreenShell - no NEW fixed height introduced (min-h-[44px] touch targets are unrelated and expected)', () => {
+    expect(activeSessionSource).toMatch(/import \{ ExerciseScreenShell \} from '\.\/ExerciseScreenShell';/);
+    expect(activeSessionSource).toMatch(/<ExerciseScreenShell/);
     expect(activeSessionSource).not.toMatch(/(?<!min-)(?<!max-)h-\[\d+px\]/);
   });
 });

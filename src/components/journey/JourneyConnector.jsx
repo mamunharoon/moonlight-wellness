@@ -31,16 +31,32 @@ const TONE_CLASS = Object.freeze({
   anytime: 'text-tertiary/70',
 });
 
-export const JourneyConnector = ({ journeyTone = 'morning', className = '' }) => (
-  <svg
-    aria-hidden="true"
-    focusable="false"
-    width="22"
-    height="11"
-    viewBox="0 0 22 11"
-    className={`shrink-0 ${TONE_CLASS[journeyTone] ?? TONE_CLASS.morning} ${className}`}
-  >
-    <line x1="0" y1="5.5" x2="14" y2="5.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    <path d="M12 1 L21 5.5 L12 10 Z" fill="currentColor" />
-  </svg>
-);
+// Morning pathway icon uplift (physical-iPhone correction) — `size`
+// (additive, default 'sm' — every existing caller omits it and renders
+// byte-identical geometry to before this prop existed) lets the Morning
+// pathway ask for a proportionally larger line+arrowhead to bridge its
+// own now-substantially-bigger icon circles, without touching Evening/
+// Anytime/Home's own 'sm' geometry at all. Both sizes share the exact
+// same shape (one <line> + one filled triangle) and colour-resolution
+// logic — only the numbers scale.
+const SIZE = Object.freeze({
+  sm: { width: 22, height: 11, lineY: 5.5, lineX2: 14, strokeWidth: '1.75', arrow: 'M12 1 L21 5.5 L12 10 Z' },
+  lg: { width: 28, height: 14, lineY: 7, lineX2: 18, strokeWidth: '2.5', arrow: 'M16 1.5 L27 7 L16 12.5 Z' },
+});
+
+export const JourneyConnector = ({ journeyTone = 'morning', className = '', size = 'sm' }) => {
+  const s = SIZE[size] ?? SIZE.sm;
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width={s.width}
+      height={s.height}
+      viewBox={`0 0 ${s.width} ${s.height}`}
+      className={`shrink-0 ${TONE_CLASS[journeyTone] ?? TONE_CLASS.morning} ${className}`}
+    >
+      <line x1="0" y1={s.lineY} x2={s.lineX2} y2={s.lineY} stroke="currentColor" strokeWidth={s.strokeWidth} strokeLinecap="round" />
+      <path d={s.arrow} fill="currentColor" />
+    </svg>
+  );
+};

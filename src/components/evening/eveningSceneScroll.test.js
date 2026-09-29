@@ -19,7 +19,16 @@ import { fileURLToPath } from 'node:url';
 
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const gradientSource = read('../stage3/Gradient.jsx');
-const shellSource = read('./EveningSceneShell.jsx');
+const fullShellSource = read('./EveningSceneShell.jsx');
+// Physical-iPhone correction — EveningSceneShell.jsx now has a second,
+// additive `protectedHeader` branch (its own early return) ABOVE the
+// default branch this suite covers, which also legitimately renders its
+// own AtmosphereManager/{content} - so a plain, whole-file `indexOf` can
+// no longer assume there is only one of each. Scope every check below to
+// the untouched default branch only (from its own `return (` onward) -
+// see eveningSceneShellProtectedHeader.test.js for the new branch's own
+// dedicated coverage.
+const shellSource = fullShellSource.slice(fullShellSource.lastIndexOf('return ('));
 
 describe('Gradient.jsx - never emits two conflicting position utilities on the same element', () => {
   it('only falls back to its own "relative" when the caller className does not already set fixed/absolute/sticky', () => {

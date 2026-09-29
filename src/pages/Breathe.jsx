@@ -36,6 +36,7 @@ import { getBreathingCompletionGreeting, getMorningBreathingEarlyExitMessage } f
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 // Background Music — shared with EveningBreathing.jsx/QuietBreathing.jsx/
 // MorningFlow.jsx (see InteractiveAmbientMusic.jsx's own doc comment).
@@ -537,38 +538,43 @@ export const Breathe = () => {
   };
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
-    <div
-      className="min-h-[85vh] flex flex-col pb-6 max-w-xl mx-auto space-y-5 select-none"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
-      }}
+    // Physical-iPhone correction — Morning Breathing's own Back/Sound row
+    // and ProgressIndicator now live in ExerciseScreenShell's dedicated,
+    // non-scrolling `header` slot (opaque, safe-area-aware, divider below)
+    // instead of ordinary in-flow children of the one scrollable region -
+    // see MorningFlow.jsx's identical fix/doc comment for the full root
+    // cause. Setup, prep countdown, and active phase all still share this
+    // one shell (single-return structure, unchanged).
+    <ExerciseScreenShell
+      journeyTone="morning"
+      header={
+        <>
+          {/* Morning Visual Uplift (Phase 6) — compact Sound control,
+              top-right, replacing the large full-width Background Music
+              card below. Same musicPreferenceOn/handleToggleMusicPreference
+              state as before - no second audio state. Hidden once hasBegun
+              (InteractiveAmbientMusic renders its own toggle once active)
+              and during the preparation countdown - matching the original
+              MusicPreferenceToggle's own pre-start-only scope. */}
+          <div className="flex items-center justify-between gap-3">
+            <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
+            {musicEligible && !hasBegun && !countdown.isActive && (
+              <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
+            )}
+          </div>
+          <ProgressIndicator activeStep="breathe" onReviewStep={requestReview} />
+
+          {isReviewMode && currentStep && (
+            <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+          )}
+        </>
+      }
     >
+    <div className="flex flex-col space-y-5 select-none">
       {/* WakeWise DEV — colour glow extension: Morning's Breathe step
           (setup, prep countdown, and active phase all share this one
           root - see this file's own single-return structure). */}
       <JourneyGlow journey="morning" />
-      {/* Morning Visual Uplift (Phase 6) — compact Sound control, top-right,
-          replacing the large full-width Background Music card below. Same
-          musicPreferenceOn/handleToggleMusicPreference state as before -
-          no second audio state. Hidden once hasBegun (InteractiveAmbientMusic
-          renders its own toggle once active) and during the preparation
-          countdown - matching the original MusicPreferenceToggle's own
-          pre-start-only scope. */}
-      <div className="flex items-center justify-between gap-3">
-        <BackButton fallback="/morning-flow" guardActiveRoute={false} onBeforeLeave={handleBackFromActive} />
-        {musicEligible && !hasBegun && !countdown.isActive && (
-          <CompactSoundControl isOn={musicPreferenceOn} onToggle={handleToggleMusicPreference} journeyTone="morning" />
-        )}
-      </div>
-      <ProgressIndicator activeStep="breathe" onReviewStep={requestReview} />
-
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
 
       {/* Build 16 physical-iPhone correction (F3) — shared preparation
           countdown, shown in place of the pre-start/active content below
@@ -1054,5 +1060,6 @@ export const Breathe = () => {
         onDismiss={keepBreathing}
       />
     </div>
+    </ExerciseScreenShell>
   );
 };

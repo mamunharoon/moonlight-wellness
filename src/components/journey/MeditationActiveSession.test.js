@@ -193,10 +193,20 @@ describe('MeditationActiveSession — reduced motion passed straight through to 
 });
 
 describe('MeditationActiveSession — safe-area insets, matching this app\'s established pattern', () => {
-  it('respects env(safe-area-inset-*)', () => {
-    expect(source).toMatch(/env\(safe-area-inset-left\)/);
-    expect(source).toMatch(/env\(safe-area-inset-right\)/);
-    expect(source).toMatch(/env\(safe-area-inset-top\)/);
+  // Physical-iPhone correction (exercise-screen safe-area architecture) —
+  // safe-area handling (env(safe-area-inset-*), the non-scrolling header,
+  // the single scroll body) moved into the shared ExerciseScreenShell;
+  // see exerciseScreenShellSafeArea.test.js for that component's own
+  // dedicated coverage. This file now delegates to it instead of owning
+  // an inline safe-area style block itself.
+  it('renders the shared ExerciseScreenShell with its own dynamic journeyTone, instead of its own ad hoc h-dvh/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone=\{journeyTone\}/);
+    expect(source).not.toMatch(/paddingTop: 'calc\(1rem \+ env\(safe-area-inset-top\)\)'/);
+  });
+
+  it('passes bodyOverscrollBehaviorY="auto" (never the shell\'s own default \'contain\') - preserves the documented Evening scroll-chaining fix, since Morning/standalone have no outer scrollable ancestor to chain into anyway', () => {
+    expect(source).toMatch(/bodyOverscrollBehaviorY="auto"/);
   });
 });
 
