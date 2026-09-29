@@ -75,7 +75,7 @@ describe('QuietBreathing.jsx (standalone) — active phase: no Continue, only "E
 
   it('the active-phase render (hasBegun, not complete, not earlyEnded) has exactly one button, "End early", and no "Continue"/"Skip" pair', () => {
     const activePhase = standaloneBlock.slice(standaloneBlock.indexOf("Just breathe. There is nowhere else to be."));
-    const firstButtonsBlock = activePhase.slice(0, activePhase.indexOf('Explore guided breathing sessions'));
+    const firstButtonsBlock = activePhase.slice(0, activePhase.indexOf('Explore guided breathing'));
     expect(firstButtonsBlock).toMatch(/onClick=\{handleEndEarly\}/);
     expect(firstButtonsBlock).toMatch(/End early/);
     expect(firstButtonsBlock).not.toMatch(/>Continue</);

@@ -27,11 +27,10 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
   // available" -> "Explore guided breathing"). GUIDED_BREATHING_VIDEO_COUNT
   // itself is untouched (still imported, still the real, non-fabricated
   // catalogue size) - it is simply no longer rendered as visible text on
-  // this Morning screen. QuietBreathing.jsx (Anytime) is unaffected and
-  // keeps its own count wording - see its own describe block below,
-  // unchanged. EveningBreathing.jsx (Evening) had this exact same count
-  // removed in a later, separate pass - see its own describe block below
-  // for that removal's own coverage.
+  // this Morning screen. EveningBreathing.jsx (Evening) had this exact
+  // same count removed in a later, separate pass, and QuietBreathing.jsx
+  // (Anytime) had it removed in a further later pass too - see their own
+  // describe blocks below for that removal's own coverage.
   it('the header shows no catalogue count - plain "Explore guided breathing", twice (pre-start branch, active-state block)', () => {
     const matches = breatheSource.match(/Explore guided breathing<\/span>/g) ?? [];
     expect(matches.length).toBe(2);
@@ -103,12 +102,12 @@ describe('QuietBreathing.jsx - standalone-only guided-breathing disclosure', () 
   const nonStandaloneReturn = quietBreathingSource.slice(quietBreathingSource.lastIndexOf('return (\n    <EveningSceneShell'));
 
   it('imports the same shared catalogue as Breathe.jsx - one source of truth, never a duplicated array', () => {
-    expect(quietBreathingSource).toMatch(/import \{ BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT \} from '\.\.\/lib\/guidedBreathingVideos';/);
+    expect(quietBreathingSource).toMatch(/import \{ BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS \} from '\.\.\/lib\/guidedBreathingVideos';/);
   });
 
   it('the disclosure and every guided-video reference live only inside the standalone branch, never in the non-standalone (Support) return', () => {
-    expect(standaloneReturn).toMatch(/Explore guided breathing sessions/);
-    expect(nonStandaloneReturn).not.toMatch(/Explore guided breathing sessions/);
+    expect(standaloneReturn).toMatch(/Explore guided breathing<\/span>/);
+    expect(nonStandaloneReturn).not.toMatch(/Explore guided breathing/);
     expect(nonStandaloneReturn).not.toMatch(/BetaVideoRow|BetaVideoModal|guidedSessionsOpen/);
   });
 
@@ -118,9 +117,18 @@ describe('QuietBreathing.jsx - standalone-only guided-breathing disclosure', () 
     expect(standaloneReturn).toMatch(/onClick=\{\(\) => setGuidedSessionsOpen\(\(v\) => !v\)\}\s*\n\s*aria-expanded=\{guidedSessionsOpen\}\s*\n\s*aria-controls="standalone-breathe-guided-sessions-active"/);
   });
 
-  it('the header shows the real calculated count (7), once pre-start and once active', () => {
-    const matches = standaloneReturn.match(/Explore guided breathing sessions — \{GUIDED_BREATHING_VIDEO_COUNT\} available/g) ?? [];
+  // Anytime copy simplification — mirrors Breathe.jsx's/EveningBreathing.jsx's
+  // own earlier removals: no catalogue count at all, plain "Explore guided
+  // breathing", once pre-start and once active. GUIDED_BREATHING_VIDEO_COUNT
+  // is no longer imported here at all (dynamic, not just the literal
+  // number, is gone).
+  it('the header shows no catalogue count - plain "Explore guided breathing", once pre-start and once active', () => {
+    const matches = standaloneReturn.match(/Explore guided breathing<\/span>/g) ?? [];
     expect(matches.length).toBe(2);
+    const codeOnly = standaloneReturn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/Explore guided breathing sessions/);
+    expect(codeOnly).not.toMatch(/GUIDED_BREATHING_VIDEO_COUNT/);
+    expect(codeOnly).not.toMatch(/available/);
   });
 
   it('handleBeginBreathing never touches guidedSessionsOpen', () => {
@@ -159,8 +167,8 @@ describe('Regression - Support (non-standalone QuietBreathing) and Evening Breat
   // longer imported or rendered at all here (mirroring Breathe.jsx's own
   // earlier Morning copy simplification, above): plain "Explore guided
   // breathing", never a trailing "— {N} available". QuietBreathing.jsx
-  // (Anytime) is unaffected and keeps its own count wording, asserted
-  // separately below.
+  // (Anytime) had this exact same count removed in a further later pass -
+  // see its own describe block above for that removal's own coverage.
   it('EveningBreathing.jsx now reuses the exact same shared guided-breathing catalogue Breathe.jsx does - never a second/duplicate list, and shows no catalogue count', () => {
     expect(eveningBreathingSource).toMatch(/import \{ BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS \} from '\.\.\/lib\/guidedBreathingVideos';/);
     expect(eveningBreathingSource).toMatch(/Explore guided breathing<\/span>/);

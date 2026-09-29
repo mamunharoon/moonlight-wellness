@@ -14,7 +14,7 @@ import { getBetaVideoById } from '../lib/mediaCatalog';
 import { useAuth } from '../context/AuthContext';
 import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
-import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
+import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS } from '../lib/guidedBreathingVideos';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
@@ -659,7 +659,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 aria-controls="standalone-breathe-guided-sessions"
                 className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing</span>
                 <span
                   className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
                   style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
@@ -765,7 +765,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 aria-controls="standalone-breathe-guided-sessions-active"
                 className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing sessions — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing</span>
                 <span
                   className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
                   style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
