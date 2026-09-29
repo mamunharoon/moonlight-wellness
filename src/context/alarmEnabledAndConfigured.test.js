@@ -26,11 +26,21 @@ describe('initial state: guest-only localStorage, mirroring intentionsConfirmed\
 });
 
 describe('fetchRhythm — a registered user\'s real source of truth', () => {
-  it('selects alarm_enabled and alarm_configured alongside the existing rhythm columns', () => {
-    expect(source).toMatch(/\.select\('wake_up_time, bedtime, timezone, alarm_enabled, alarm_configured'\)/);
+  // Timezone persistence correction, part 3 — the raw select string (and
+  // its own missing-column resilience) now lives in
+  // selectRhythmWithFallback (rhythmPersistence.js), with its own
+  // dedicated, real executed coverage in rhythmPersistence.test.js. This
+  // just confirms fetchRhythm actually delegates to it - mirroring how
+  // this same file's own "saveRhythm — upserts both new columns
+  // explicitly" describe block below already handles the identical
+  // extraction on the write side.
+  it('delegates the actual select-with-fallback logic to selectRhythmWithFallback', () => {
+    expect(source).toMatch(/import \{ upsertRhythmWithFallback, selectRhythmWithFallback, upsertTimezoneOnly \} from '\.\.\/lib\/rhythmPersistence';/);
+    const fn = source.match(/const fetchRhythm = async \(uid\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fn).toMatch(/const result = await selectRhythmWithFallback\(supabase, uid\);/);
   });
 
-  it('applies both to state with safe fallbacks when a row exists', () => {
+  it('applies both alarm_enabled and alarm_configured to state with safe fallbacks when a row exists', () => {
     const fn = source.match(/const fetchRhythm = async \(uid\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(fn).toMatch(/setIsAlarmSet\(data\.alarm_enabled \?\? true\);/);
     expect(fn).toMatch(/setAlarmConfigured\(Boolean\(data\.alarm_configured\)\);/);
@@ -105,9 +115,17 @@ describe('useCurrentTimezone — a pure timezone confirmation, never a silent al
     expect(source).toMatch(/const useCurrentTimezone = \(\) => confirmTimezone\(deviceTimezone\);/);
   });
 
-  it('confirmTimezone passes the CURRENT isAlarmSet/alarmConfigured through unchanged, never a hardcoded true/false', () => {
+  // Timezone persistence correction, part 3 — confirmTimezone no longer
+  // calls saveRhythm (and therefore never touches isAlarmSet/
+  // alarmConfigured) at all: it now calls the dedicated saveTimezoneOnly,
+  // whose own payload structurally has no alarm_enabled/alarm_configured
+  // field to ever hardcode or mis-pass-through - a stronger guarantee than
+  // "passes the current value unchanged", since there is nothing here that
+  // could ever touch alarm state even by accident.
+  it('confirmTimezone calls the dedicated saveTimezoneOnly, never saveRhythm - structurally incapable of touching isAlarmSet/alarmConfigured', () => {
     const fn = source.match(/const confirmTimezone = async \(newTimezone\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(fn).toMatch(/saveRhythm\(alarmTime, bedTime, newTimezone, isAlarmSet, alarmConfigured\);/);
+    expect(fn).toMatch(/const saved = await saveTimezoneOnly\(newTimezone\);/);
+    expect(fn).not.toMatch(/saveRhythm\(/);
   });
 });
 

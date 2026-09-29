@@ -67,6 +67,7 @@ export const COMMON_TIMEZONES = [
   { id: 'Asia/Tokyo', label: 'Tokyo (no DST)' },
   { id: 'Asia/Shanghai', label: 'Shanghai (no DST)' },
   { id: 'Asia/Singapore', label: 'Singapore (no DST)' },
+  { id: 'Asia/Dhaka', label: 'Dhaka (no DST)' },
   { id: 'Asia/Kolkata', label: 'Mumbai / Delhi (no DST)' },
   { id: 'Asia/Dubai', label: 'Dubai (no DST)' },
   { id: 'Europe/Moscow', label: 'Moscow (no DST)' },

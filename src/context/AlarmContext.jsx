@@ -17,7 +17,7 @@ import { sanitizeIntentions } from '../lib/intentionSelection';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
 import { buildAlarmOccurrenceKey, getHandledAlarmOccurrence, markAlarmOccurrenceHandled, clearHandledAlarmOccurrence } from '../lib/alarmOccurrence';
 import { resolvePlayableAlarmSound, getStoredAlarmSoundId, setStoredAlarmSoundId, DEFAULT_ALARM_SOUND_ID } from '../lib/alarmSounds';
-import { upsertRhythmWithFallback } from '../lib/rhythmPersistence';
+import { upsertRhythmWithFallback, selectRhythmWithFallback, upsertTimezoneOnly } from '../lib/rhythmPersistence';
 
 const AlarmContext = createContext();
 
@@ -388,22 +388,33 @@ export const AlarmProvider = ({ children }) => {
   // Fetch sleep/wake rhythms from Supabase. alarm_enabled/alarm_configured
   // (Welcome alarm-status card) default to true/null-safe fallbacks below
   // if the migration adding them hasn't been applied to this Supabase
-  // project yet - a missing column makes the whole select() error, which
-  // the existing `if (error)` branch already handles by leaving current
-  // in-memory state untouched, exactly like any other fetch failure.
+  // project yet.
+  //
+  // Timezone persistence correction, part 3 — real found defect, confirmed
+  // live via a direct, read-only PostgREST probe against DEV: this exact
+  // select (wake_up_time, bedtime, timezone, alarm_enabled,
+  // alarm_configured together) returns Postgres 42703 ("column
+  // rhythms.alarm_enabled does not exist") on DEV today - the precise
+  // "Error fetching rhythm" console error reported alongside the save
+  // failure. The previous single-attempt select had no fallback at all: a
+  // missing column made the WHOLE fetch fail, silently leaving alarmTime/
+  // bedTime/timezone/isAlarmSet/alarmConfigured at their client-side
+  // defaults instead of the user's real saved values, even though
+  // wake_up_time/bedtime/timezone all resolve fine on their own. The
+  // actual retry-with-fallback contract now lives in
+  // selectRhythmWithFallback (rhythmPersistence.js), mirroring
+  // upsertRhythmWithFallback's own established shape exactly - extracted
+  // so it can be executed against a mocked Supabase client in a real test.
   const fetchRhythm = async (uid) => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from('rhythms')
-      .select('wake_up_time, bedtime, timezone, alarm_enabled, alarm_configured')
-      .eq('user_id', uid)
-      .maybeSingle();
+    const result = await selectRhythmWithFallback(supabase, uid);
 
-    if (error) {
-      console.error('Error fetching rhythm:', error.message);
+    if (!result.success) {
+      console.error('Error fetching rhythm:', result.error?.message);
       return;
     }
 
+    const data = result.data;
     if (data) {
       setAlarmTime(data.wake_up_time);
       setBedTime(data.bedtime);
@@ -720,10 +731,7 @@ export const AlarmProvider = ({ children }) => {
   // previously void/fire-and-forget from every caller) and now catches a
   // thrown/rejected call too (a network failure, not just a Postgrest
   // {error} response, previously had no catch here at all and could
-  // reject silently). confirmTimezone below is the one caller that
-  // actually awaits and acts on this - every other existing caller
-  // (updateRhythm) is completely unaffected by a function that now
-  // resolves to a value it simply never reads.
+  // reject silently).
   //
   // Timezone persistence correction, part 2 — real found defect,
   // confirmed live via a direct, read-only PostgREST probe against DEV:
@@ -734,16 +742,21 @@ export const AlarmProvider = ({ children }) => {
   // wake_up_time/bedtime/timezone all resolve fine. Because this upsert
   // always sent alarm_enabled/alarm_configured alongside every other
   // field in ONE payload, that single missing pair broke the ENTIRE
-  // write for every caller - not just confirmTimezone, but updateRhythm
-  // (Onboarding.jsx's own wake/bed/timezone save, every alarm-time edit)
-  // too, all silently (none of those callers ever awaited/checked this
-  // function's result before this correction's own confirmTimezone did).
-  // The actual retry-with-fallback contract now lives in
-  // upsertRhythmWithFallback (rhythmPersistence.js) - extracted so it can
-  // be executed against a mocked Supabase client in a real test, not only
-  // checked by source-text regex like the rest of this closure's own
-  // internals necessarily are. This function's own job is unchanged:
-  // build the two payload halves, delegate, and log/return a boolean.
+  // write for every caller. The actual retry-with-fallback contract now
+  // lives in upsertRhythmWithFallback (rhythmPersistence.js) - extracted
+  // so it can be executed against a mocked Supabase client in a real test,
+  // not only checked by source-text regex like the rest of this closure's
+  // own internals necessarily are.
+  //
+  // Timezone persistence correction, part 3 — confirmTimezone (the "Use
+  // current timezone" banner action and Settings' "Save timezone") no
+  // longer calls this function at all: it now uses the dedicated
+  // saveTimezoneOnly below, which sends only user_id/timezone/updated_at,
+  // never the unrelated wake/bed/alarm fields this function still sends on
+  // every call. This function's own remaining caller is updateRhythm
+  // (Onboarding.jsx's own wake/bed/timezone save, every alarm-time edit) -
+  // its own job is unchanged: build the two payload halves, delegate, and
+  // log/return a boolean.
   const saveRhythm = async (newAlarm, newBed, newTimezone, newEnabled, newConfigured) => {
     if (!supabase || !userId) return false;
 
@@ -818,6 +831,33 @@ export const AlarmProvider = ({ children }) => {
     }
   };
 
+  // Timezone persistence correction, part 3 — a dedicated, minimal save for
+  // a genuine timezone-only confirmation, replacing the previous call
+  // through saveRhythm (which always sent wake_up_time/bedtime/
+  // alarm_enabled/alarm_configured alongside timezone, even though only
+  // timezone actually changed here). Delegates to upsertTimezoneOnly
+  // (rhythmPersistence.js) - real, testable coverage of the exact payload
+  // shape, mirroring saveRhythm's own established try/catch/log contract.
+  // Never touches wake_up_time/bedtime/alarm_enabled/alarm_configured, so
+  // it can never overwrite them with a stale or default client-side value,
+  // and is structurally immune to the alarm_enabled/alarm_configured
+  // migration gap (see rhythmPersistence.js's own doc comment) regardless
+  // of whether that migration has been applied.
+  const saveTimezoneOnly = async (newTimezone) => {
+    if (!supabase || !userId) return false;
+    try {
+      const result = await upsertTimezoneOnly(supabase, { userId, timezone: newTimezone });
+      if (!result.success) {
+        console.error('Error saving timezone:', result.error?.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('Error saving timezone:', e?.message);
+      return false;
+    }
+  };
+
   // Timezone persistence correction — the one, shared, DURABLE
   // confirmation path for both the "Use current timezone" banner action
   // and Settings' "Save timezone" (confirmTimezone(selected)) - the exact
@@ -830,7 +870,7 @@ export const AlarmProvider = ({ children }) => {
   // nothing to await or fail; local state is set immediately, exactly as
   // before. A registered user's local "confirmed" state (and therefore
   // the banner/Settings' own dismissal) now only ever changes AFTER
-  // saveRhythm genuinely resolves true - a failure leaves `timezone`
+  // saveTimezoneOnly genuinely resolves true - a failure leaves `timezone`
   // completely untouched (never falsely marked confirmed) and surfaces
   // timezoneSaveError for an honest retry state; tapping the same action
   // again simply re-runs this function.
@@ -842,7 +882,7 @@ export const AlarmProvider = ({ children }) => {
       return true;
     }
     setTimezoneSaving(true);
-    const saved = await saveRhythm(alarmTime, bedTime, newTimezone, isAlarmSet, alarmConfigured);
+    const saved = await saveTimezoneOnly(newTimezone);
     setTimezoneSaving(false);
     if (saved) {
       setTimezoneState(newTimezone);

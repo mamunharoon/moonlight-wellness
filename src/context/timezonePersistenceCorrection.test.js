@@ -12,10 +12,20 @@
 // persists" root cause explicitly named in the correction brief.
 //
 // Fixed by unifying both into one shared, awaited, verified path
-// (confirmTimezone) that only marks `timezone` state confirmed once
-// saveRhythm has genuinely resolved true, and surfaces an honest
+// (confirmTimezone) that only marks `timezone` state confirmed once its
+// own save has genuinely resolved true, and surfaces an honest
 // timezoneSaveError otherwise - "do not mark timezone confirmed if
 // persistence fails" is now a structural guarantee, not a hope.
+//
+// Timezone persistence correction, part 3 — confirmTimezone's own save no
+// longer goes through saveRhythm (which always sent wake_up_time/bedtime/
+// alarm_enabled/alarm_configured alongside timezone, even though only
+// timezone ever changes here). It now calls the dedicated saveTimezoneOnly
+// (AlarmContext.jsx), which delegates to upsertTimezoneOnly
+// (rhythmPersistence.js) - a payload of exactly user_id/timezone/
+// updated_at, never the unrelated rhythm fields. saveRhythm itself is
+// unchanged and still used by updateRhythm (Onboarding.jsx's own wake/
+// bed/timezone save, every alarm-time edit).
 //
 // No DOM/component rendering is available in this repo's Vitest (a
 // Provider component's internal functions can't be unit-tested by
@@ -34,24 +44,26 @@ const settingsSource = read('../pages/TimezoneSettings.jsx');
 
 const confirmTimezoneBody = contextSource.match(/const confirmTimezone = async \(newTimezone\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
 const saveRhythmBody = contextSource.match(/const saveRhythm = async \(newAlarm, newBed, newTimezone, newEnabled, newConfigured\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+const saveTimezoneOnlyBody = contextSource.match(/const saveTimezoneOnly = async \(newTimezone\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
 
-describe('sanity - both function bodies were located correctly', () => {
-  it('confirmTimezone and saveRhythm both exist and were matched', () => {
+describe('sanity - all three function bodies were located correctly', () => {
+  it('confirmTimezone, saveRhythm, and saveTimezoneOnly all exist and were matched', () => {
     expect(confirmTimezoneBody).not.toBe('');
     expect(saveRhythmBody).not.toBe('');
+    expect(saveTimezoneOnlyBody).not.toBe('');
   });
 });
 
 describe('persisted confirmation - a registered user\'s "confirmed" local state only changes AFTER a real, awaited save succeeds', () => {
-  it('confirmTimezone awaits saveRhythm before deciding anything - never a synchronous setTimezoneState followed by a fire-and-forget save', () => {
-    const iAwait = confirmTimezoneBody.indexOf('await saveRhythm(');
+  it('confirmTimezone awaits saveTimezoneOnly before deciding anything - never a synchronous setTimezoneState followed by a fire-and-forget save', () => {
+    const iAwait = confirmTimezoneBody.indexOf('await saveTimezoneOnly(');
     const iSetOnSuccess = confirmTimezoneBody.indexOf('if (saved) {');
     expect(iAwait).toBeGreaterThan(0);
     expect(iSetOnSuccess).toBeGreaterThan(iAwait);
   });
 
   it('setTimezoneState(newTimezone) for a registered user is reachable ONLY inside the `if (saved)` branch - never unconditionally before or after the await', () => {
-    const afterAwait = confirmTimezoneBody.slice(confirmTimezoneBody.indexOf('await saveRhythm('));
+    const afterAwait = confirmTimezoneBody.slice(confirmTimezoneBody.indexOf('await saveTimezoneOnly('));
     const setCalls = [...afterAwait.matchAll(/setTimezoneState\(newTimezone\);/g)];
     expect(setCalls.length).toBe(1);
     const savedBranch = afterAwait.match(/if \(saved\) \{\s*\n\s*setTimezoneState\(newTimezone\);\s*\n\s*\}/);
@@ -64,35 +76,50 @@ describe('persisted confirmation - a registered user\'s "confirmed" local state 
 });
 
 describe('save failure - timezone is never marked confirmed, and an honest error surfaces instead of nothing', () => {
-  it('a failed saveRhythm leaves timezone state completely untouched and sets timezoneSaveError, never silently doing nothing', () => {
+  it('a failed saveTimezoneOnly leaves timezone state completely untouched and sets timezoneSaveError, never silently doing nothing', () => {
     expect(confirmTimezoneBody).toMatch(/\} else \{\s*\n\s*setTimezoneSaveError\("Couldn't save your timezone\. Please try again\."\);\s*\n\s*\}/);
   });
 
-  it('saveRhythm itself now catches a thrown/rejected call (not just a Postgrest {error} response) and returns false either way - previously there was no catch at all, so a network-level rejection could propagate uncaught', () => {
+  it('saveTimezoneOnly catches a thrown/rejected call (not just a Postgrest {error} response) and returns false either way, mirroring saveRhythm\'s own established try/catch contract', () => {
+    expect(saveTimezoneOnlyBody).toMatch(/try \{/);
+    expect(saveTimezoneOnlyBody).toMatch(/\} catch \(e\) \{\s*\n\s*console\.error\('Error saving timezone:', e\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
+    expect(saveTimezoneOnlyBody).toMatch(/if \(!result\.success\) \{\s*\n\s*console\.error\('Error saving timezone:', result\.error\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
+    expect(saveTimezoneOnlyBody).toMatch(/return true;/);
+  });
+
+  it('saveRhythm (still used by updateRhythm) retains its own identical try/catch contract, unaffected by confirmTimezone\'s move to saveTimezoneOnly', () => {
     expect(saveRhythmBody).toMatch(/try \{/);
     expect(saveRhythmBody).toMatch(/\} catch \(e\) \{\s*\n\s*console\.error\('Error saving rhythm:', e\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
     expect(saveRhythmBody).toMatch(/if \(!result\.success\) \{\s*\n\s*console\.error\('Error saving rhythm:', result\.error\?\.message\);\s*\n\s*return false;\s*\n\s*\}/);
     expect(saveRhythmBody).toMatch(/return true;/);
   });
 
-  // Timezone persistence correction, part 2 — the real "underlying
+  // Timezone persistence correction, part 2/3 — the real "underlying
   // Supabase persistence operation is failing" root cause (confirmed live:
-  // rhythms.alarm_enabled/alarm_configured return Postgres 42703 on DEV,
-  // even though the migration adding them is already committed) lives in
-  // upsertRhythmWithFallback (rhythmPersistence.js), with its own
+  // rhythms.alarm_enabled/alarm_configured return Postgres 42703 on a
+  // SELECT and PGRST204 on a write, on DEV, even though the migration
+  // adding them is already committed) lives in upsertRhythmWithFallback/
+  // selectRhythmWithFallback (rhythmPersistence.js), with its own
   // dedicated, REAL executed test coverage in rhythmPersistence.test.js -
   // this just confirms saveRhythm actually delegates to it, with the
-  // correct core/extended field split.
+  // correct core/extended field split. saveTimezoneOnly's own payload has
+  // no extended fields to split - see its own dedicated describe block
+  // below.
   it('saveRhythm delegates the actual upsert-with-fallback logic to upsertRhythmWithFallback, splitting the payload into core fields (always present) and extended fields (alarm_enabled/alarm_configured - the ones confirmed missing on live DEV today)', () => {
-    expect(contextSource).toMatch(/import \{ upsertRhythmWithFallback \} from '\.\.\/lib\/rhythmPersistence';/);
+    expect(contextSource).toMatch(/import \{ upsertRhythmWithFallback, selectRhythmWithFallback, upsertTimezoneOnly \} from '\.\.\/lib\/rhythmPersistence';/);
     expect(saveRhythmBody).toMatch(/const corePayload = \{\s*\n\s*user_id: userId,\s*\n\s*wake_up_time: newAlarm,\s*\n\s*bedtime: newBed,\s*\n\s*timezone: newTimezone \?\? null,\s*\n\s*updated_at: new Date\(\)\.toISOString\(\)\s*\n\s*\};/);
     expect(saveRhythmBody).toMatch(/const result = await upsertRhythmWithFallback\(supabase, corePayload, \{\s*\n\s*alarm_enabled: newEnabled,\s*\n\s*alarm_configured: newConfigured\s*\n\s*\}\);/);
+  });
+
+  it('saveTimezoneOnly delegates to upsertTimezoneOnly with exactly { userId, timezone: newTimezone } - never the unrelated wake/bed/alarm fields saveRhythm sends', () => {
+    expect(saveTimezoneOnlyBody).toMatch(/const result = await upsertTimezoneOnly\(supabase, \{ userId, timezone: newTimezone \}\);/);
+    expect(saveTimezoneOnlyBody).not.toMatch(/wake_up_time|bedtime|alarm_enabled|alarm_configured/);
   });
 
   it('confirmTimezone clears any previous error at the start of every attempt, so retrying (tapping the same action again) is the one, sufficient retry mechanism', () => {
     const iGuard = confirmTimezoneBody.indexOf('if (!isValidTimezone(newTimezone)) return false;');
     const iClear = confirmTimezoneBody.indexOf('setTimezoneSaveError(null);');
-    const iAwait = confirmTimezoneBody.indexOf('await saveRhythm(');
+    const iAwait = confirmTimezoneBody.indexOf('await saveTimezoneOnly(');
     expect(iGuard).toBeGreaterThanOrEqual(0);
     expect(iClear).toBeGreaterThan(iGuard);
     expect(iClear).toBeLessThan(iAwait);
@@ -153,6 +180,11 @@ describe('cross-user isolation and the pre-existing profile-hydration race guard
   it('saveRhythm always scopes its upsert to the current userId, and refuses to run at all without one', () => {
     expect(saveRhythmBody).toMatch(/if \(!supabase \|\| !userId\) return false;/);
     expect(saveRhythmBody).toMatch(/user_id: userId,/);
+  });
+
+  it('saveTimezoneOnly (confirmTimezone\'s own real write path today) carries the identical guard, and passes the current userId through to upsertTimezoneOnly', () => {
+    expect(saveTimezoneOnlyBody).toMatch(/if \(!supabase \|\| !userId\) return false;/);
+    expect(saveTimezoneOnlyBody).toMatch(/upsertTimezoneOnly\(supabase, \{ userId, timezone: newTimezone \}\)/);
   });
 });
 
