@@ -22,10 +22,20 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
     expect(breatheSource).toMatch(/const \[guidedSessionsOpen, setGuidedSessionsOpen\] = useState\(false\);/);
   });
 
-  it('the header shows the real calculated count (7), never a hand-typed number', () => {
-    const matches = breatheSource.match(/Explore guided breathing sessions — \{GUIDED_BREATHING_VIDEO_COUNT\} available/g) ?? [];
-    // Once in the pre-start branch, once in the active-state block.
+  // Morning copy simplification — the disclosure header no longer shows a
+  // catalogue count at all ("Explore guided breathing sessions — 7
+  // available" -> "Explore guided breathing"). GUIDED_BREATHING_VIDEO_COUNT
+  // itself is untouched (still imported, still the real, non-fabricated
+  // catalogue size) - it is simply no longer rendered as visible text on
+  // this Morning screen. QuietBreathing.jsx (Anytime) and
+  // EveningBreathing.jsx (Evening) are unaffected and keep their own
+  // count wording - see their own describe blocks below, unchanged.
+  it('the header shows no catalogue count - plain "Explore guided breathing", twice (pre-start branch, active-state block)', () => {
+    const matches = breatheSource.match(/Explore guided breathing<\/span>/g) ?? [];
     expect(matches.length).toBe(2);
+    const codeOnly = breatheSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/Explore guided breathing sessions/);
+    expect(codeOnly).not.toMatch(/Explore guided breathing — \{GUIDED_BREATHING_VIDEO_COUNT\}/);
   });
 
   it('both video collections are genuinely conditionally rendered (unmounted when collapsed), never merely hidden', () => {
@@ -52,7 +62,7 @@ describe('Breathe.jsx (Morning) - guided-breathing disclosure', () => {
     // sibling state - the preparation countdown - that doesn't change
     // this test's own concern: ordering within the pre-start branch).
     const preStartBranch = breatheSource.slice(breatheSource.indexOf('{!countdown.isActive && (!hasBegun ? ('), breatheSource.indexOf(') : (\n        <>\n          <div className="text-center space-y-2">\n            <span className="font-label-sm text-xs text-primary uppercase tracking-widest font-bold">Grounding Exercise'));
-    const iDisclosure = preStartBranch.indexOf('Explore guided breathing sessions');
+    const iDisclosure = preStartBranch.indexOf('Explore guided breathing');
     // The actual Begin button element, not the word "Begin Breathing" -
     // that phrase also appears earlier in this branch's own doc comment
     // explaining the Phase 6 reorder, which would otherwise throw off a

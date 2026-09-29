@@ -25,8 +25,16 @@ describe('IntentionSetup.jsx - Morning Introduction copy never misstates the can
     expect(source).not.toMatch(/We'll begin with[\s\S]{0,20}affirmation/i);
   });
 
-  it('describes intention-setting as the first thing, matching the actual approved order', () => {
-    expect(source).toMatch(/We'll begin by setting an intention for today/);
+  // Morning copy simplification — the previous long explanatory paragraph
+  // ("We'll begin by setting an intention for today...") that used to make
+  // this claim explicit is removed (it repeated the heading and made the
+  // screen text-heavy); the heading itself ("Start Your Day with
+  // Intention") plus "Step 1 of 5" now carry this same guarantee without
+  // restating it in prose.
+  it('describes intention-setting as the first thing, matching the actual approved order (via the heading + step count, now that the explanatory paragraph is gone)', () => {
+    expect(source).toMatch(/Start Your Day with Intention/);
+    expect(source).toMatch(/Step 1 of 5/);
+    expect(source).not.toMatch(/We'll begin by setting an intention for today/);
   });
 });
 

@@ -19,7 +19,6 @@ import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
 import { ExploreCard } from '../components/ExploreCard';
-import { getMorningExploreCatalog } from '../lib/exploreFiltering';
 import { MorningJourneyPathway } from '../components/MorningJourneyPathway';
 import { MORNING_PATHWAY_STAGES } from '../session/pathwayStages';
 import { computeStageStatus, isFullyCompleted } from '../session/stageStatus';
@@ -401,15 +400,21 @@ export const SessionComplete = () => {
       {/* Physical-iPhone correction — the supporting sentence removed
           (approved simplification, tightens the card automatically since
           ExploreCard's own space-y-1 wrapper only applies margin between
-          actually-rendered siblings); title, CTA, route, origin, item
-          count and accessibility label are all otherwise unchanged. */}
+          actually-rendered siblings); title, CTA, route, origin and
+          accessibility label are all otherwise unchanged.
+          Morning copy simplification — `itemCount` is no longer passed at
+          all: ExploreCard's own `typeof itemCount === 'number' &&
+          itemCount > 0` guard already renders nothing when the prop is
+          omitted, so "EXPLORE MORNING · 20" becomes plain "EXPLORE
+          MORNING" with zero changes to the shared ExploreCard.jsx
+          component - Evening/Anytime's own ExploreCard usages still pass
+          itemCount and are completely unaffected. */}
       <ExploreCard
         journey="morning"
         icon="explore"
         title="Have a little more time?"
         ctaLabel="Explore Morning"
         to="/library?journey=morning&from=morning-complete"
-        itemCount={getMorningExploreCatalog().length}
       />
     </div>
   );

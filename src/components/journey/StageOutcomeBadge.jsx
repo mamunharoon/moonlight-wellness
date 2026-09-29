@@ -34,9 +34,17 @@ const GLYPH_BY_STATUS = Object.freeze({
 // Evening call site, omits it and renders byte-identical markup to
 // before this prop existed) scales the corner badge to match the
 // Morning pathway's own substantially larger icon circle. Shape/colour
-// logic is completely unchanged — only the two size tokens below differ.
+// logic is completely unchanged — only the size tokens below differ.
+//
+// `md` (approved Morning pathway-fit correction, additive - no existing
+// caller used 'md' before this, so nothing else can be affected) targets
+// the approved ~16-18px badge size against Morning's own recalibrated
+// responsive icon circle (clamp(38px, 11vw, 46px)) - proportionally
+// closer to that smaller icon than the original 'lg' (sized for the
+// pathway's earlier, larger 56px circle).
 const BADGE_SIZE = Object.freeze({
   sm: { dimension: 'w-3.5 h-3.5', glyph: 'text-[8px]' },
+  md: { dimension: 'w-[17px] h-[17px]', glyph: 'text-[9px]' },
   lg: { dimension: 'w-5 h-5', glyph: 'text-[10px]' },
 });
 

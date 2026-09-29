@@ -10,9 +10,16 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 describe('SessionComplete.jsx (Morning) — ExploreCard placement and content', () => {
   const source = read('./SessionComplete.jsx');
 
-  it('imports ExploreCard and getMorningExploreCatalog', () => {
+  // Morning copy simplification — "EXPLORE MORNING · 20" is now plain
+  // "EXPLORE MORNING": SessionComplete.jsx no longer imports
+  // getMorningExploreCatalog or passes itemCount at all (ExploreCard's own
+  // `typeof itemCount === 'number' && itemCount > 0` guard already renders
+  // nothing when the prop is omitted - no change to the shared
+  // ExploreCard.jsx component itself). Evening/Anytime's own ExploreCard
+  // usages below are completely unaffected and keep their own itemCount.
+  it('imports ExploreCard, but no longer imports getMorningExploreCatalog (no catalogue count is shown)', () => {
     expect(source).toMatch(/import \{ ExploreCard \} from '\.\.\/components\/ExploreCard';/);
-    expect(source).toMatch(/import \{ getMorningExploreCatalog \} from '\.\.\/lib\/exploreFiltering';/);
+    expect(source).not.toMatch(/getMorningExploreCatalog/);
   });
 
   it('is placed AFTER the primary "Continue to My Day" action - never before it, never competing for primary styling', () => {
@@ -22,13 +29,13 @@ describe('SessionComplete.jsx (Morning) — ExploreCard placement and content', 
     expect(exploreIdx).toBeGreaterThan(ctaIdx);
   });
 
-  it('journey="morning", with the approved copy/CTA and a real, non-fabricated itemCount sourced from getMorningExploreCatalog()', () => {
+  it('journey="morning", with the approved copy/CTA and no itemCount at all - "EXPLORE MORNING", never "EXPLORE MORNING · N"', () => {
     const block = source.match(/<ExploreCard\s*\n[\s\S]*?\n\s*\/>/)?.[0] ?? '';
     expect(block).not.toBe('');
     expect(block).toMatch(/journey="morning"/);
     expect(block).toMatch(/title="Have a little more time\?"/);
     expect(block).toMatch(/ctaLabel="Explore Morning"/);
-    expect(block).toMatch(/itemCount=\{getMorningExploreCatalog\(\)\.length\}/);
+    expect(block).not.toMatch(/itemCount/);
   });
 
   it('Physical-iPhone correction — the supporting sentence is removed (ExploreCard\'s supportingText is now optional; omitting it tightens the card automatically)', () => {

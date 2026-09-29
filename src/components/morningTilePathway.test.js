@@ -5,11 +5,15 @@
 // inspected without any renderer - the same technique
 // MorningJourneyPathway.test.js already established.
 //
-// This file covers the tile/direction-marker redesign specifically;
-// MorningJourneyPathway.test.js's own existing suite (untouched, still
-// passing) continues to cover the underlying Phase 9 honesty contract
-// (genuine icon always primary, additive badges only, sr-only suffixes)
-// since the element-tree shape it inspects was deliberately preserved.
+// Approved Morning pathway-fit correction — the direction marker moved
+// from a sibling AFTER the tile (the earlier tile-redesign's own shape)
+// to a child INSIDE the tile's own icon-row wrapper (so it can be
+// absolutely positioned against that row specifically - see
+// MorningJourneyPathway.jsx's own doc comment for why). This file's own
+// collectTiles walks the NEW shape. morningPathwayFit.test.js covers the
+// grid/no-scroller/marker-association requirements specific to this fit
+// correction; MorningJourneyPathway.test.js's own suite (untouched, still
+// passing) continues to cover the underlying Phase 9 honesty contract.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -27,21 +31,24 @@ const REAL_LABELS = ['Focus', 'Stretch', 'Breathe', 'Meditate', 'Affirm'];
 const stagesWithStatus = (statuses) =>
   MORNING_PATHWAY_STAGES.map(({ id, label, icon }, idx) => ({ id, label, icon, status: statuses[idx] }));
 
-// Walks the real returned element tree exactly like
-// MorningJourneyPathway.test.js's own collectStages, but also keeps each
-// stage's own tile wrapper and the direction marker (if any) that follows
-// it, so this file can assert on the NEW tile/marker structure directly.
+// Walks the real returned element tree: item(listitem) > tile >
+// [iconRow, labelSpan]; iconRow > [iconBadge, marker-or-false]; iconBadge
+// > [iconSpan, outcomeBadgeEl].
 const collectTiles = (element) => {
   const listItems = element.props.children.filter((child) => child?.props?.role === 'listitem');
   return listItems.map((item) => {
-    const [tile, marker] = item.props.children;
-    const [iconBadge, labelSpan] = tile.props.children;
+    const tile = item.props.children;
+    const [iconRow, labelSpan] = tile.props.children;
+    const [iconBadge, marker] = iconRow.props.children;
     const [iconSpan, outcomeBadgeEl] = iconBadge.props.children;
     const [labelText, srSpan] = labelSpan.props.children;
     return {
       tile,
+      iconRow,
       marker,
       iconGlyph: iconSpan.props.children,
+      iconStyle: iconSpan.props.style,
+      iconContainerStyle: iconBadge.props.style,
       outcomeBadgeEl,
       label: labelText,
       srSuffix: Array.isArray(srSpan.props.children) ? srSpan.props.children.join('') : srSpan.props.children
@@ -59,7 +66,7 @@ describe('1/2/5. Five Morning stage tiles render, all five canonical icons visib
     expect(tiles.map((t) => t.iconGlyph)).toEqual(REAL_ICONS);
   });
 
-  it('the Affirm tile is the fifth stage, has no trailing direction marker, and its label is not truncated/cropped (no overflow-hidden on the tile, whitespace-nowrap keeps the full word on one line)', () => {
+  it('the Affirm tile is the fifth stage, has no trailing direction marker, and its label can wrap (break-words) rather than being cropped - never overflow-hidden on the tile', () => {
     const affirmItem = tiles[4];
     expect(affirmItem.label).toBe('Affirm');
     expect(affirmItem.marker).toBeFalsy();
@@ -80,7 +87,7 @@ describe('3/4. Direction markers: four small standalone ">" glyphs, never a line
   const element = MorningJourneyPathway().props.children;
   const tiles = collectTiles(element);
 
-  it('exactly four direction markers render (one between each pair of adjacent tiles, none after the last)', () => {
+  it('exactly four direction markers render (one inside each of the first four tiles\' own icon row, none in the fifth)', () => {
     const markers = tiles.map((t) => t.marker).filter(Boolean);
     expect(markers).toHaveLength(4);
   });
@@ -111,8 +118,13 @@ describe('3/4. Direction markers: four small standalone ">" glyphs, never a line
     expect(morningSource).not.toMatch(/<path\b/);
   });
 
-  it('the marker is vertically centred against the icon circle via an explicit computed margin, not the old line-and-arrowhead centring convention', () => {
-    expect(morningSource).toMatch(/mt-\[24px\]/);
+  it('the marker is absolutely positioned and vertically centred against the icon specifically (top-1/2 -translate-y-1/2) - never dependent on the whole card\'s height, and consumes no grid layout width', () => {
+    const markers = tiles.map((t) => t.marker).filter(Boolean);
+    for (const marker of markers) {
+      expect(marker.props.className).toMatch(/\babsolute\b/);
+      expect(marker.props.className).toMatch(/top-1\/2/);
+      expect(marker.props.className).toMatch(/-translate-y-1\/2/);
+    }
   });
 });
 
@@ -179,21 +191,20 @@ describe('8. No minutes, percentages, streaks, points or performance scoring any
   });
 });
 
-describe('10. Pathway overflow is contained locally - never the whole page', () => {
-  it('the scroll owner is the pathway\'s own row, not document/body - overflow-x-auto scroll-hide, with scroll-snap for complete-tile snapping', () => {
-    expect(morningSource).toMatch(/overflow-x-auto scroll-hide/);
-    expect(morningSource).toMatch(/snap-x snap-mandatory/);
-    expect(morningSource).toMatch(/snap-start/);
-  });
-
-  it('the trailing-content hint is a CSS mask on the scroll row itself (fades real content, never a guessed solid-colour overlay) - contained to this component, no new colour token', () => {
-    expect(morningSource).toMatch(/maskImage:/);
-    expect(morningSource).toMatch(/WebkitMaskImage:/);
+describe('10. Pathway overflow is contained locally - never the whole page (and, after the fit correction, never needs to be)', () => {
+  // See morningPathwayFit.test.js's own dedicated coverage for the full
+  // "no scroller at all" requirement - this describe block keeps the
+  // original numbered-requirement anchor for traceability.
+  it('the grid never overflows its own container - no overflow-x-auto/scroll-hide/scroll-snap/fade-mask remain, since grid-cols-5 (minmax(0,1fr)) fits by construction', () => {
+    expect(morningSource).not.toMatch(/overflow-x-auto/);
+    expect(morningSource).not.toMatch(/scroll-hide/);
+    expect(morningSource).not.toMatch(/snap-x|snap-mandatory|snap-start/);
+    expect(morningSource).not.toMatch(/maskImage/);
     expect(morningSource).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 });
 
-describe('12. Anytime and Evening pathway rendering is completely unaffected by the Morning-only tile redesign', () => {
+describe('12. Anytime and Evening pathway rendering is completely unaffected by the Morning-only fit correction', () => {
   it('EveningJourneyPathway still renders its own five stages via the real line-and-arrowhead JourneyConnector, byte-behaviourally unchanged', () => {
     const source = read('./EveningJourneyPathway.jsx');
     expect(source).toMatch(/import \{ JourneyConnector \} from '\.\/journey\/JourneyConnector';/);

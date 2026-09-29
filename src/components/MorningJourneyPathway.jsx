@@ -22,41 +22,60 @@ import { STAGE_STATUS_SR_TEXT } from '../session/stageStatus';
 // always produced when no progress prop was supplied.
 const DEFAULT_STAGES = MORNING_PATHWAY_STAGES.map(({ id, label, icon }) => ({ id, label, icon, status: 'not_started' }));
 
-// WakeWise DEV — approved Morning pathway-tile redesign. Each stage is now
-// a compact rounded tile (border + subtle tint) wrapping the same genuine
-// icon-circle + label this component has always rendered - the tile is
-// purely an additive visual frame, never a replacement for the existing
-// Phase 9 honesty contract below. `isCurrent` drives BOTH the existing
-// icon-circle badge treatment and this new tile border/background, so
-// "current" reads as one coherent highlighted card, not two independently
-// lit pieces.
+// Approved Morning pathway-fit correction — physical-iPhone finding: the
+// previous flex row (`min-w-max`, horizontal scroll + scroll-snap + a
+// trailing fade mask) clipped Affirm and required scrolling to see it at
+// every normal iPhone width, which is not the approved standard
+// presentation. Fixed by switching to a real 5-column CSS grid
+// (`grid-cols-5`, which Tailwind compiles to
+// `repeat(5, minmax(0, 1fr))`) - the `minmax(0, ...)` half is the actual
+// fix: a plain `1fr` column still refuses to shrink below its own
+// content's intrinsic width (grid items default to `min-width: auto`),
+// which is exactly what forced horizontal overflow before; `minmax(0,
+// 1fr)` explicitly allows each column to shrink to fit the real available
+// width, so all five stages - and all four direction markers - are
+// visible simultaneously with no scrolling, snapping, or fade needed.
+// Removed entirely below, since none of that machinery still does
+// anything useful once the row itself never overflows.
 const TILE_CLASS = Object.freeze({
   current: 'border-morning-accent bg-morning-accent-tint/10',
   default: 'border-morning-accent-tint/25 bg-morning-accent-tint/5',
 });
 
+// Approved Morning pathway-fit correction — icon/glyph sizing now scales
+// with the viewport (`clamp(min, preferred-vw, max)`) instead of a single
+// fixed Tailwind size class, so the icon stays "clearly visible" (the
+// explicit complaint about the previous fixed-48px circle reading as too
+// small once wrapped in the tile's own border/padding at narrow widths)
+// without ever forcing the row wider than the real 320-430px viewport
+// budget the grid above already caps it to. Approved target ranges:
+// icon container clamp(38px, 11vw, 46px), glyph clamp(20px, 5.5vw, 24px).
+const ICON_CONTAINER_STYLE = { width: 'clamp(38px, 11vw, 46px)', height: 'clamp(38px, 11vw, 46px)' };
+const ICON_GLYPH_STYLE = { fontSize: 'clamp(20px, 5.5vw, 24px)' };
+
 // Direction markers — approved redesign, replacing the previous line-and-
 // arrowhead JourneyConnector for Morning ONLY (Evening/Anytime/Home's own
 // Anytime preview row all keep rendering the real JourneyConnector
 // unchanged - see pathwayConnectors.test.js's own untouched assertions for
-// those three). The approved mock-up calls for one small, standalone ">"
-// between tiles - no line, no stem, no oversized arrow - so this is a bare
-// Material Symbol glyph, not JourneyConnector in any variant. Purely
-// decorative (aria-hidden, non-interactive) and NEVER conditioned on
-// stage.status - direction markers are not outcome indicators. Inlined
-// directly in the map below (not its own sub-component) so the real
-// returned element tree exposes the marker's own props (aria-hidden, the
-// glyph text) directly, matching this repo's established "call the
-// component and inspect the real tree, no renderer" test convention
-// (morningTilePathway.test.js's own dedicated coverage).
-const directionMarker = (
-  <span
-    aria-hidden="true"
-    className="material-symbols-outlined text-base text-on-surface-variant/40 shrink-0 mt-[24px]"
-  >
-    chevron_right
-  </span>
-);
+// those three). One small standalone ">" per adjacent pair - no line, no
+// stem, no oversized arrow. Purely decorative (aria-hidden,
+// non-interactive) and NEVER conditioned on stage.status - direction
+// markers are not outcome indicators.
+//
+// Positioned `absolute` inside the icon row's own wrapper (a `relative`
+// div that spans the FULL card width, not just the icon circle's own
+// centred width) so it: (a) is vertically centred against the icon
+// specifically via `top-1/2 -translate-y-1/2` - exact at every responsive
+// size, including when a neighbouring card's label wraps to two lines and
+// changes that card's own height, since this positioning never depends on
+// the card's total height at all; (b) sits right at/just past the CARD's
+// own right edge (the wrapper is the same width as the card), matching
+// "emerge directly from the right side of the preceding square"; and (c)
+// consumes zero grid layout width, since absolute positioning removes it
+// from flow entirely - the small negative `right` offset lets it visually
+// extend into the inter-column gap without affecting the grid's own
+// column widths, exactly as approved.
+const DIRECTION_MARKER_STYLE = { right: '-8px', fontSize: 'clamp(14px, 4vw, 18px)' };
 
 // Phase 9 — Truthful Journey Outcomes (problem #3 fix): this component
 // previously replaced a "completed" step's own icon with a generic
@@ -72,30 +91,12 @@ const directionMarker = (
 // secondary check badge in the corner (StageOutcomeBadge); a real skip
 // adds a muted dash badge; a confirmed mid-exercise abandonment adds a
 // muted pause badge; 'current' only changes the main badge's own ring/
-// highlight styling (and, per the tile redesign above, the tile's own
-// border/background). Omitting `stages` entirely renders every stage
-// 'not_started', byte-identical to this component's original
-// no-progress-prop rendering.
+// highlight styling (and the tile's own border/background). Omitting
+// `stages` entirely renders every stage 'not_started', byte-identical to
+// this component's original no-progress-prop rendering.
 export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
-  <div
-    className="overflow-x-auto scroll-hide snap-x snap-mandatory -mx-1 px-1"
-    style={{
-      // Approved redesign — a subtle right-edge fade hints that more tiles
-      // exist once the row genuinely overflows its own container. A CSS
-      // mask (not a solid-colour gradient overlay) fades the CONTENT
-      // itself rather than painting over it with a guessed background
-      // colour - this component renders inside several different card
-      // backgrounds (Home's four card states, SessionComplete's own
-      // panel), and a mask works correctly against all of them with no
-      // new colour value. When the row's own content is narrower than its
-      // container (`min-w-max` + `mx-auto` below already centres it in
-      // that case), this fades empty trailing space only - invisible, and
-      // never clips a genuinely fully-visible last tile.
-      WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 28px), transparent 100%)',
-      maskImage: 'linear-gradient(to right, black calc(100% - 28px), transparent 100%)',
-    }}
-  >
-    <div className="flex items-start gap-1.5 min-w-max mx-auto" role="list" aria-label="Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm">
+  <div className="w-full">
+    <div className="grid grid-cols-5 gap-1" role="list" aria-label="Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm">
       {stages.map((stage, idx) => {
         const isCurrent = stage.status === 'current';
         const badgeClass = isCurrent
@@ -104,18 +105,28 @@ export const MorningJourneyPathway = ({ stages = DEFAULT_STAGES } = {}) => (
         const labelClass = isCurrent ? 'text-morning-accent font-bold' : 'text-on-surface-variant font-semibold';
         const tileClass = isCurrent ? TILE_CLASS.current : TILE_CLASS.default;
         return (
-          <div key={stage.id} className="flex items-start gap-1.5" role="listitem">
-            <div className={`flex flex-col items-center gap-1 shrink-0 min-w-[68px] snap-start rounded-2xl border px-2 py-2 ${tileClass}`}>
-              <span className={`relative w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0 ${badgeClass}`}>
-                <span className="material-symbols-outlined text-xl" aria-hidden="true">{stage.icon}</span>
-                <StageOutcomeBadge status={stage.status} journeyTone="morning" size="lg" />
-              </span>
-              <span className={`text-xs leading-none whitespace-nowrap ${labelClass}`}>
+          <div key={stage.id} className="min-w-0" role="listitem">
+            <div className={`flex flex-col items-center gap-1 w-full rounded-2xl border p-1 ${tileClass}`}>
+              <div className="relative w-full flex items-center justify-center">
+                <span className={`relative rounded-full border-2 flex items-center justify-center shrink-0 ${badgeClass}`} style={ICON_CONTAINER_STYLE}>
+                  <span className="material-symbols-outlined" style={ICON_GLYPH_STYLE} aria-hidden="true">{stage.icon}</span>
+                  <StageOutcomeBadge status={stage.status} journeyTone="morning" size="md" />
+                </span>
+                {idx < stages.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/40 pointer-events-none"
+                    style={DIRECTION_MARKER_STYLE}
+                  >
+                    chevron_right
+                  </span>
+                )}
+              </div>
+              <span className={`text-xs leading-tight text-center break-words ${labelClass}`}>
                 {stage.label}
                 <span className="sr-only">, {STAGE_STATUS_SR_TEXT[stage.status]}</span>
               </span>
             </div>
-            {idx < stages.length - 1 && directionMarker}
           </div>
         );
       })}

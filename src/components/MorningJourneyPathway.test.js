@@ -26,12 +26,17 @@ const stagesWithStatus = (statuses) =>
 
 // Walk the real returned element tree and collect every stage's icon
 // glyph, outcome-badge element, label text, and sr-only suffix, in DOM
-// order, purely by structural shape.
+// order, purely by structural shape. Approved Morning pathway-fit
+// correction shape: item(listitem) > tile > [iconRow, labelSpan];
+// iconRow > [iconBadge, marker-or-false]; iconBadge > [iconSpan,
+// outcomeBadgeEl] (unchanged from before - the direction marker moved
+// inside iconRow, but the icon/badge pairing itself is untouched).
 const collectStages = (element) => {
   const listItems = element.props.children.filter((child) => child?.props?.role === 'listitem');
   return listItems.map((item) => {
-    const [iconCol] = item.props.children;
-    const [iconBadge, labelSpan] = iconCol.props.children;
+    const tile = item.props.children;
+    const [iconRow, labelSpan] = tile.props.children;
+    const [iconBadge] = iconRow.props.children;
     const [iconSpan, outcomeBadgeEl] = iconBadge.props.children;
     const [labelText, srSpan] = labelSpan.props.children;
     return {
@@ -73,8 +78,15 @@ describe('MorningJourneyPathway — real execution, no-props default (byte-ident
     expect(element.props['aria-label']).toBe('Morning Reset steps: Focus, Stretch, Breathe, Meditate, Affirm');
   });
 
-  it('320px structural safety: the outer wrapper is horizontally scrollable, never a source of page-wide overflow', () => {
-    expect(outer.props.className).toMatch(/overflow-x-auto/);
+  // Approved Morning pathway-fit correction — the previous horizontal
+  // scroller (which used to clip Affirm and require scrolling at every
+  // normal iPhone width) is gone; the fix is a real 5-column CSS grid
+  // (`grid-cols-5`, i.e. `repeat(5, minmax(0, 1fr))`) that fits all five
+  // stages within the real viewport width by construction. See
+  // morningPathwayFit.test.js's own dedicated fit/overflow coverage.
+  it('320px structural safety: a real 5-column grid (never overflow-x-auto) is the fit mechanism, so there is nothing left to scroll', () => {
+    expect(outer.props.className).not.toMatch(/overflow-x-auto/);
+    expect(element.props.className).toMatch(/grid-cols-5/);
   });
 
   it('every icon is aria-hidden - the visible text label is the only accessible name for each step', () => {

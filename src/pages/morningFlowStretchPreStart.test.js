@@ -159,7 +159,7 @@ describe('Compact Stretch pre-start order', () => {
   it('landmarks appear in the exact approved order: summary -> movements list -> guided sessions -> Begin -> Skip -> Exit', () => {
     const iSummary = preStartBranch.indexOf('total');
     const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
-    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching');
     const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
     const iSkip = preStartBranch.indexOf('Skip this step');
     const iExit = preStartBranch.indexOf('Exit routine');
@@ -176,7 +176,7 @@ describe('Compact Stretch pre-start order', () => {
 
   it('the movements list and guided-sessions disclosure both appear before Begin, and Begin appears before Skip/Exit (choices first, one obvious primary action last)', () => {
     const iMovementsGrid = preStartBranch.indexOf('Choose your movements');
-    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching sessions —');
+    const iGuidedSessions = preStartBranch.indexOf('Explore guided stretching');
     const iBegin = preStartBranch.indexOf('onClick={handleBeginStretching}');
     const iSkip = preStartBranch.indexOf('Skip this step');
     expect(iMovementsGrid).toBeLessThan(iBegin);
@@ -223,10 +223,21 @@ describe('Stretch pre-start disclosures - collapse/expand behaviour', () => {
     expect(source).not.toMatch(/onClick=\{\(\) => setGuidedSessionsOpen[\s\S]{0,80}navigate\(/);
   });
 
-  it('the guided-sessions disclosure header count comes from STRETCHING_SESSION_VIDEOS.length, never a hand-typed "5"', () => {
-    const matches = source.match(/Explore guided stretching sessions — \{STRETCHING_SESSION_VIDEOS\.length\} available/g) ?? [];
-    // Appears twice: once in the pre-start branch, once in the active-state block.
+  // Morning copy simplification — the disclosure header no longer shows a
+  // catalogue count at all ("Explore guided stretching sessions — 5
+  // available" -> "Explore guided stretching"); STRETCHING_SESSION_VIDEOS
+  // itself is untouched and still drives the real rendered rows via
+  // .map() (the actual, non-fabricated catalogue), just no longer
+  // rendered as a hand-maintainable-looking number in the heading text.
+  it('the guided-sessions disclosure header shows no catalogue count - plain "Explore guided stretching", appearing twice (pre-start branch, active-state block)', () => {
+    const matches = source.match(/Explore guided stretching<\/span>/g) ?? [];
     expect(matches.length).toBe(2);
+    // Comments legitimately still refer to this disclosure by its old
+    // descriptive name in prose - strip comments first so this reflects
+    // only the real, rendered code.
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/Explore guided stretching sessions/);
+    expect(codeOnly).not.toMatch(/STRETCHING_SESSION_VIDEOS\.length/);
   });
 
   it('the guided-sessions disclosure remains reachable both pre-start and once hasBegun is true, sharing one state variable (opening it pre-start survives tapping Begin)', () => {

@@ -151,10 +151,25 @@ describe('Connectors are never repurposed as status indicators', () => {
 });
 
 describe('No whole-page horizontal overflow — the established overflow-x-auto scroll-hide 320px-safety wrapper is present everywhere a pathway renders', () => {
-  it('MorningJourneyPathway/EveningJourneyPathway/AnytimePathway each wrap their row in overflow-x-auto scroll-hide', () => {
-    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
+  // Approved Morning pathway-fit correction — MorningJourneyPathway.jsx no
+  // longer needs (or uses) this scroll-safety wrapper at all: its own
+  // `grid-cols-5` (Tailwind's `repeat(5, minmax(0, 1fr))`) fits all five
+  // stages within the real viewport width by construction, with no
+  // scrolling. Evening/AnytimePathway are unaffected and keep the
+  // requirement below unchanged - see morningPathwayFit.test.js's own
+  // dedicated "no horizontal scroller" coverage for Morning.
+  it('EveningJourneyPathway/AnytimePathway each wrap their row in overflow-x-auto scroll-hide', () => {
+    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
       expect(read(path)).toMatch(/overflow-x-auto scroll-hide/);
     }
+  });
+
+  it('MorningJourneyPathway no longer uses overflow-x-auto/scroll-hide/scroll-snap/a fade mask - the grid itself is the fix, not a scroll container', () => {
+    const source = read('../components/MorningJourneyPathway.jsx');
+    expect(source).not.toMatch(/overflow-x-auto/);
+    expect(source).not.toMatch(/scroll-hide/);
+    expect(source).not.toMatch(/snap-x|snap-mandatory|snap-start/);
+    expect(source).not.toMatch(/maskImage/);
   });
 });
 

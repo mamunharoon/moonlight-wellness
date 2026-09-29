@@ -725,7 +725,7 @@ export const MorningFlow = () => {
               aria-controls="stretch-guided-sessions"
               className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching sessions — {STRETCHING_SESSION_VIDEOS.length} available</span>
+              <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching</span>
               <span
                 className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
                 style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}
@@ -1017,7 +1017,7 @@ export const MorningFlow = () => {
             aria-controls="stretch-guided-sessions-active"
             className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching sessions — {STRETCHING_SESSION_VIDEOS.length} available</span>
+            <span className="text-sm font-semibold text-on-surface text-left">Explore guided stretching</span>
             <span
               className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
               style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}

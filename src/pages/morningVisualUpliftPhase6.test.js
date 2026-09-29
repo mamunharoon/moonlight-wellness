@@ -110,14 +110,19 @@ describe('Morning Affirmation — supporting-text readability correction (Physic
 });
 
 describe('Explore Morning card — supporting sentence removed (Physical-iPhone approved copy simplification); Evening/Anytime untouched', () => {
-  it('SessionComplete.jsx (Morning) no longer passes supportingText to ExploreCard; title, CTA, route, origin and item count are all otherwise unchanged', () => {
+  // Morning copy simplification (later pass) — itemCount is now also
+  // removed entirely ("EXPLORE MORNING", never "EXPLORE MORNING · 20");
+  // see exploreCardCompletionWiring.test.js's own dedicated coverage.
+  // Title, CTA, route and origin remain exactly as this earlier pass left
+  // them.
+  it('SessionComplete.jsx (Morning) no longer passes supportingText or itemCount to ExploreCard; title, CTA, route and origin are all otherwise unchanged', () => {
     expect(sessionCompleteSource).not.toMatch(/Explore stretching, breathing and meditation for your morning\./);
     const block = sessionCompleteSource.match(/<ExploreCard\s*\n[\s\S]*?\n\s*\/>/)?.[0] ?? '';
     expect(block).not.toMatch(/supportingText/);
     expect(block).toMatch(/title="Have a little more time\?"/);
     expect(block).toMatch(/ctaLabel="Explore Morning"/);
     expect(block).toMatch(/to="\/library\?journey=morning&from=morning-complete"/);
-    expect(block).toMatch(/itemCount=\{getMorningExploreCatalog\(\)\.length\}/);
+    expect(block).not.toMatch(/itemCount/);
   });
 
   it('ExploreCard.jsx\'s own supportingText prop is additive-optional (only conditionally rendered) - Anytime\'s caller keeps passing it, byte-unaffected; Evening\'s own removal (Evening Visual Uplift, Phase 7) is covered separately in eveningCompleteVisualUplift.test.js', () => {

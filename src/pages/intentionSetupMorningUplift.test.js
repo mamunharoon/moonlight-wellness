@@ -29,9 +29,16 @@ describe('IntentionSetup — intro phase visual uplift (unchanged by the Phase 2
     expect(source).toMatch(/font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention/);
   });
 
-  it('the real copy is preserved exactly, byte for byte - no Stitch reword, no invented "Mindful Ground" step name, no fabricated duration estimate', () => {
-    expect(source).toMatch(/We'll begin by setting an intention for today, then move gently through stretching, grounding, and a closing affirmation to carry with you\./);
-    expect(source).toMatch(/Move at your own pace and skip anything that doesn't feel right this morning\./);
+  // Morning copy simplification — the previous long explanatory paragraph
+  // ("We'll begin by setting an intention for today...") repeated the
+  // heading above and made this screen text-heavy; removed entirely. Only
+  // the short reassurance remains, simplified to exactly "Move at your own
+  // pace." (was "Move at your own pace and skip anything that doesn't
+  // feel right this morning.").
+  it('the redundant intro paragraph is gone; only the short "Move at your own pace." reassurance remains - no Stitch reword, no invented "Mindful Ground" step name, no fabricated duration estimate', () => {
+    expect(source).not.toMatch(/We'll begin by setting an intention for today/);
+    expect(source).toMatch(/Move at your own pace\./);
+    expect(source).not.toMatch(/Move at your own pace and skip anything/);
     expect(source).not.toMatch(/Mindful Ground/);
     expect(source).not.toMatch(/4–5 min|4-5 min/);
   });

@@ -414,11 +414,13 @@ export const IntentionSetup = () => {
             {/* Journey Embedding (correction) — total is now 5, not 4. */}
             <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 5</span>
             <h1 className="font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention</h1>
-            <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
-              We'll begin by setting an intention for today, then move gently through stretching, grounding, and a closing affirmation to carry with you.
-            </p>
+            {/* Morning copy simplification — the previous long explanatory
+                paragraph ("We'll begin by setting an intention for
+                today...") repeated the heading above and made this screen
+                text-heavy. Removed entirely; only the short reassurance
+                remains. */}
             <p className="text-xs text-on-surface-variant/80 max-w-xs mx-auto leading-relaxed">
-              Move at your own pace and skip anything that doesn't feel right this morning.
+              Move at your own pace.
             </p>
           </div>
           <div className="space-y-3 w-full">
