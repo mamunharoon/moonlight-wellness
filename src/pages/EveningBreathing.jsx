@@ -16,9 +16,12 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 // Evening Visual Uplift (Phase 7) — same shared guided-breathing catalogue
 // Breathe.jsx's own "Explore guided breathing sessions" already uses
-// (BREATHE_VIDEOS/BREATHING_SESSION_VIDEOS/GUIDED_BREATHING_VIDEO_COUNT),
-// not a second/duplicate list.
-import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS, GUIDED_BREATHING_VIDEO_COUNT } from '../lib/guidedBreathingVideos';
+// (BREATHE_VIDEOS/BREATHING_SESSION_VIDEOS), not a second/duplicate list.
+// Evening catalogue-count removal — GUIDED_BREATHING_VIDEO_COUNT is no
+// longer imported at all (this screen's own disclosure label no longer
+// shows a catalogue size); Breathe.jsx/QuietBreathing.jsx (Morning/
+// Anytime) still import and display it, completely unaffected.
+import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS } from '../lib/guidedBreathingVideos';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
@@ -545,7 +548,12 @@ export const EveningBreathing = () => {
             {/* Evening Visual Uplift (Phase 7) — collapsed-by-default
                 "Explore guided breathing" disclosure (this screen had
                 none before this pass), mirroring Breathe.jsx's own
-                identical pre-start disclosure/catalogue. */}
+                identical pre-start disclosure/catalogue.
+                Evening catalogue-count removal — the trailing
+                "— {N} available" is removed (no hard-coded replacement
+                count); the disclosure control, its expanded content, the
+                Library/video selection destination, and journey filtering
+                are all otherwise unchanged. */}
             <div className="space-y-2">
               <button
                 type="button"
@@ -554,7 +562,7 @@ export const EveningBreathing = () => {
                 aria-controls="evening-breathing-guided-sessions"
                 className="w-full flex items-center justify-between gap-3 bg-surface-container border border-white/15 rounded-2xl p-4 min-h-[44px] hover:bg-white/10 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-evening-accent"
               >
-                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing — {GUIDED_BREATHING_VIDEO_COUNT} available</span>
+                <span className="text-sm font-semibold text-on-surface text-left">Explore guided breathing</span>
                 <span
                   className="material-symbols-outlined text-on-surface-variant transition-transform shrink-0"
                   style={{ transform: guidedSessionsOpen ? 'rotate(180deg)' : 'none' }}

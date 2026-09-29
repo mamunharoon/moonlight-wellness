@@ -443,3 +443,57 @@ describe('Back and Review Mode wiring are unchanged from the previous subphase',
     expect(source).toMatch(/<ReviewModeBanner/);
   });
 });
+
+// Redundant-pathway removal — the full 5-stage EveningJourneyPathway
+// (Phase 9's own real per-stage outcomes) used to render directly below
+// the heading here, duplicating the exact same summary EveningComplete.jsx
+// already shows as the authoritative final visual outcome one screen
+// later. Removed entirely: no import, no computeStageStatus call, no
+// rendered component - this screen's own job is the actionable bedtime
+// checklist, not a second outcome summary.
+describe('Prepare for Rest no longer renders the redundant EveningJourneyPathway summary', () => {
+  it('does not import or render EveningJourneyPathway, EVENING_PATHWAY_STAGES, or computeStageStatus at all', () => {
+    // Strip comments first - this file's own doc comment legitimately
+    // names the removed component in prose, explaining the removal.
+    const codeOnly = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codeOnly).not.toMatch(/EveningJourneyPathway/);
+    expect(codeOnly).not.toMatch(/EVENING_PATHWAY_STAGES/);
+    expect(codeOnly).not.toMatch(/computeStageStatus/);
+  });
+
+  it('Back, Close, ProgressIndicator (the compact textual progress row), heading, and supporting sentence are all still present, immediately followed by the checklist - nothing else was removed alongside the pathway', () => {
+    expect(source).toMatch(/showBack backFallback="\/evening-meditate"/);
+    expect(source).toMatch(/showExit/);
+    expect(source).toMatch(/<ProgressIndicator activeStep="sleepPreparation" sessionId="evening-wind-down"/);
+    expect(source).toMatch(/Prepare for Rest<\/h1>/);
+    expect(source).toMatch(/Take a few simple steps to settle in for the night\./);
+    // The heading block must be immediately followed by the checklist
+    // container, with nothing (in particular, no pathway) in between.
+    const headingIdx = source.indexOf('Take a few simple steps to settle in for the night.');
+    const checklistIdx = source.indexOf('{PREP_ITEMS.map(');
+    const between = source.slice(headingIdx, checklistIdx);
+    expect(between).not.toMatch(/grid-cols-5|role="list"/);
+  });
+
+  it('all four checklist toggles, the bedtime video/sleep sound chooser, and Ready for Sleep are all still present and unchanged', () => {
+    expect(source).toMatch(/\{PREP_ITEMS\.map\(\(item\) => \(/);
+    expect(source).toMatch(/<PrepareToggleRow/);
+    expect(source).toMatch(/Choose a bedtime video or sleep sound/);
+    expect(source).toMatch(/<BedtimeMediaChooser/);
+    expect(source).toMatch(/Ready for Sleep/);
+  });
+});
+
+describe('EveningComplete.jsx remains the authoritative visual pathway summary, and Home\'s own pathway is unaffected - neither was touched by this removal', () => {
+  it('EveningComplete.jsx still imports and renders EveningJourneyPathway with the real per-stage stages', () => {
+    const completeSource = read('./EveningComplete.jsx');
+    expect(completeSource).toMatch(/import \{ EveningJourneyPathway \} from '\.\.\/components\/EveningJourneyPathway';/);
+    expect(completeSource).toMatch(/<EveningJourneyPathway stages=\{eveningPathwayStages\} \/>/);
+  });
+
+  it('Home.jsx still renders EveningJourneyPathway in all of its own Evening card states, untouched', () => {
+    const homeSource = read('./Home.jsx');
+    const renderMatches = homeSource.match(/<EveningJourneyPathway/g) ?? [];
+    expect(renderMatches.length).toBeGreaterThan(0);
+  });
+});

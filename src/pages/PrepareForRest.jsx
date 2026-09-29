@@ -4,9 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useAlarm } from '../context/AlarmContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
-import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
-import { EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
-import { computeStageStatus } from '../session/stageStatus';
 import { ProgressIndicator } from '../components/ProgressIndicator';
 import { PrepareToggleRow } from '../components/evening/PrepareToggleRow';
 import { BedtimeMediaChooser } from '../components/evening/BedtimeMediaChooser';
@@ -133,16 +130,6 @@ export const PrepareForRest = () => {
   // review-only, no repeat-confirmation gate needed (see
   // EveningWindDown.jsx's identical block).
   const { isReviewMode, isLiveStep } = useStepReviewMode('sleepPreparation', 'evening-wind-down');
-  // Phase 9 — Truthful Journey Outcomes: real per-stage status, read
-  // from the live session's own stepOutcomes (never inferred from being
-  // "on this screen" alone - Reflect/Gratitude/Breathe/Meditate each
-  // show their genuine recorded completed/skipped/ended-early outcome).
-  const eveningPathwayStages = computeStageStatus({
-    stages: EVENING_PATHWAY_STAGES,
-    stepOutcomes: state.stepOutcomes,
-    currentStepId: currentStep?.id ?? null,
-    sessionStatus: state.status
-  });
   const { requestReview, routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
   const {
     openVideo,
@@ -271,10 +258,14 @@ export const PrepareForRest = () => {
           <p className="text-xs text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
         </div>
 
-        {/* Phase 9 — real per-stage outcomes (completed/skipped/
-            ended-early/current), never inferred from position. */}
-        <EveningJourneyPathway stages={eveningPathwayStages} />
-
+        {/* Redundant-pathway removal — the full 5-stage EveningJourneyPathway
+            (Phase 9's own real per-stage outcomes) used to render here too,
+            duplicating the exact same summary EveningComplete.jsx already
+            shows as the authoritative final visual outcome one screen later.
+            ProgressIndicator above already gives this screen its own
+            compact textual progress ("Step 6 of 7"); this screen's own job
+            is the actionable bedtime checklist, not a second outcome
+            summary. */}
         <div className="space-y-2">
           {PREP_ITEMS.map((item) => (
             <PrepareToggleRow

@@ -170,7 +170,13 @@ describe('EveningMeditate.jsx — active screen: exactly ONE whole-journey Exit/
   it('no longer wraps MeditationActiveSession in EveningSceneShell - the moonlight atmosphere renders directly via AtmosphereManager instead, and MeditationActiveSession is the one real viewport/scroll owner', () => {
     const block = activeBlock();
     expect(block).not.toMatch(/<EveningSceneShell/);
-    expect(block).toMatch(/<AtmosphereManager phase="moonlight" className="fixed inset-0 z-\[100\] pointer-events-none" \/>/);
+    // Release-blocking runtime fix — this literal was previously
+    // `z-[100]`, which painted the atmosphere ABOVE MeditationActiveSession's
+    // own ExerciseScreenShell (a plain position:static root with no
+    // stacking context of its own) - see eveningMeditateActiveStackingOrder.
+    // test.js for the full root-cause trace and the real numeric-ordering
+    // regression coverage this exact value change is proven against.
+    expect(block).toMatch(/<AtmosphereManager phase="moonlight" className="fixed inset-0 -z-10 pointer-events-none" \/>/);
   });
 
   it('MeditationActiveSession\'s own header Close is now the whole-journey Exit, wired via onRequestClose to this file\'s own handleRequestExitRoutine - never suppressed with showHeaderClose={false}', () => {

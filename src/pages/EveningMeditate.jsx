@@ -318,9 +318,26 @@ export const EveningMeditate = () => {
     // still call only onRequestLeave (session.endSession - never
     // leaveActiveRoutine), so ending meditation can never be confused with,
     // or accidentally trigger, leaving the whole journey.
+    //
+    // Release-blocking runtime fix — this reproduced-directly atmosphere
+    // previously copied EveningSceneShell's own buggy `z-[100]` literal
+    // (see that file's own doc comment for the full root-cause trace: a
+    // real z-index comparison, not a guess). Here the mistake is even more
+    // direct - MeditationActiveSession's own ExerciseScreenShell root is a
+    // plain `position: static` div (no z-index of its own at all, i.e.
+    // effectively 0 in this stacking context), so a sibling atmosphere at
+    // z-index 100 painted straight over the entire active/paused/resumed
+    // meditation UI - Back/Close, the timer, Pause/Resume, Finish &
+    // continue, End Meditation - all fully present and tappable (DOM/
+    // accessibility tree correct, pointer-events-none let clicks through),
+    // just never visible. Reproduced live against the deployed site.
+    // `-z-10` matches JourneyGlow's own already-proven convention (see
+    // MorningMeditate.jsx's own `<JourneyGlow journey="morning" />` at the
+    // exact same call site - Morning never had this bug because it never
+    // used AtmosphereManager here at all).
     return (
       <>
-        <AtmosphereManager phase="moonlight" className="fixed inset-0 z-[100] pointer-events-none" />
+        <AtmosphereManager phase="moonlight" className="fixed inset-0 -z-10 pointer-events-none" />
         <MeditationActiveSession
           journeyTone="evening"
           style={session.style}
