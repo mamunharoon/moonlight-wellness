@@ -19,7 +19,6 @@ import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { MomentumPanel } from '../components/MomentumPanel';
 import { ExploreCard } from '../components/ExploreCard';
-import { getEveningExploreCatalog } from '../lib/exploreFiltering';
 import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
 import { EVENING_PATHWAY_STAGES } from '../session/pathwayStages';
 import { computeStageStatus, isFullyCompleted } from '../session/stageStatus';
@@ -375,15 +374,21 @@ export const EveningComplete = () => {
           item, see exploreFiltering.js's own documented rule).
           Evening Visual Uplift (Phase 7) — the longer supporting sentence
           is removed (ExploreCard's own supportingText is now optional -
-          see ExploreCard.jsx's doc comment); title/CTA/route/item count/
-          accessibility label are all otherwise unchanged. */}
+          see ExploreCard.jsx's doc comment); title/CTA/route/
+          accessibility label are all otherwise unchanged.
+          Evening pathway parity (Phase 13) — `itemCount` is no longer
+          passed at all, mirroring SessionComplete.jsx's own identical
+          Morning correction: ExploreCard's own `typeof itemCount ===
+          'number' && itemCount > 0` guard already renders nothing when
+          the prop is omitted, so "EXPLORE EVENING · N" becomes plain
+          "EXPLORE EVENING" with zero changes to the shared ExploreCard.jsx
+          component. */}
       <ExploreCard
         journey="evening"
         icon="nights_stay"
         title="Would more support help you unwind?"
         ctaLabel="Explore Evening"
         to="/library?journey=evening&from=evening-summary"
-        itemCount={getEveningExploreCatalog().length}
       />
 
       {/* Redo Tonight's Wind-Down (Build 15, Evening Visual Uplift Phase 7

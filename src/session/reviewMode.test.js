@@ -565,7 +565,7 @@ describe('Leave-confirmation ConfirmDialog - exact required wording, only on pag
 describe('Reflection/Gratitude - review-mode Continue never advances the session or jumps to the next screen', () => {
   it('handleComplete checks isReviewMode BEFORE the advanceStep/navigate-forward branch, and returns immediately', () => {
     for (const source of [reflectionSource, gratitudeSource]) {
-      const body = source.match(/const handleComplete = \(answers\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const body = source.match(/const handleComplete = \(answers, \{ wasSkipped = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).not.toBe('');
       expect(body).toMatch(/if \(isReviewMode\) \{\s*\n\s*if \(currentStep\) navigate\(routeForStep\(currentStep\.id\)\);\s*\n\s*return;\s*\n\s*\}/);
       // the review-mode return must appear before the live advanceStep call
@@ -578,7 +578,7 @@ describe('Reflection/Gratitude - review-mode Continue never advances the session
 
   it('still flushes any edited answers via upsert even while reviewing (edits are saved, only forward navigation is suppressed)', () => {
     for (const source of [reflectionSource, gratitudeSource]) {
-      const body = source.match(/const handleComplete = \(answers\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const body = source.match(/const handleComplete = \(answers, \{ wasSkipped = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       const flushIdx = body.indexOf('upsertRoutineResponse');
       const reviewIdx = body.indexOf('if (isReviewMode)');
       expect(flushIdx).toBeGreaterThan(-1);

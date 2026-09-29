@@ -126,10 +126,17 @@ const CHANGE_DEBOUNCE_MS = 400;
  *                 calling page turns this into a real navigate() to the
  *                 next question's own `?q=` route, which is also what
  *                 makes the shared BackButton land correctly afterward.
- *   onComplete    (answers) => void, optional. Called once, only when
- *                 Next or Skip is pressed on the LAST prompt. `answers`
- *                 is a { [promptId]: value } map of everything entered -
- *                 skipped prompts are simply absent from the map.
+ *   onComplete    (answers, { wasSkipped }) => void, optional. Called
+ *                 once, only when Next or Skip is pressed on the LAST
+ *                 prompt. `answers` is a { [promptId]: value } map of
+ *                 everything entered - skipped prompts are simply absent
+ *                 from the map. `wasSkipped` (additive - every existing
+ *                 caller that reads only the first argument is
+ *                 unaffected) distinguishes a genuine Skip from Continue,
+ *                 so the calling page can dispatch the Session Engine's
+ *                 own skipStep() rather than advanceStep() for a real
+ *                 skip - see handleSkip's own doc comment for why this
+ *                 exists.
  *   journeyTone   'primary' | 'morning' | 'anytime' | 'evening', default
  *                 'primary' - which journey's colour this stepper (Next/
  *                 Continue, "Add your own", guidance focus ring) and
@@ -246,10 +253,14 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
   // Next keeps whatever the active prompt's answer currently is (already
   // synced into `answers` via handleSelectPreset/handleCustomChange) and
   // advances - to the next question via onAdvance, or completes via
-  // onComplete on the last one.
+  // onComplete on the last one. The second `onComplete` argument
+  // (`{ wasSkipped: false }`) tells the calling page this was a genuine
+  // Continue, not a Skip - see handleSkip's own doc comment below for why
+  // this distinction has to survive all the way out to the Session
+  // Engine.
   const handleNext = () => {
     if (isLast) {
-      onComplete?.(answers);
+      onComplete?.(answers, { wasSkipped: false });
       return;
     }
     onAdvance?.(activeIndex + 1);
@@ -260,6 +271,22 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
   // scheduled just before Skip can never land afterward and silently
   // resurrect the "skipped" answer) before advancing - a skipped prompt
   // is genuinely skipped, not silently recorded.
+  //
+  // Session-Engine truthful-outcome fix: on the LAST prompt, Skip and Next
+  // both used to call the exact same `onComplete?.(answers)` with no way
+  // for the calling page to tell them apart - Reflection.jsx/Gratitude.jsx
+  // then always dispatched the Session Engine's own advanceStep() either
+  // way, so the whole Reflection/Gratitude step was recorded 'completed'
+  // even when the user tapped Skip on every single question inside it.
+  // sessionDefinitions.js's own `skippable: true` for these two steps was
+  // added specifically "because PromptStepper's own Skip control is a real
+  // per-prompt affordance on this screen" - i.e. skipStep() was always
+  // meant to be reachable from here, exactly like every other skippable
+  // step's own Skip button (Breathe.jsx/EveningBreathing.jsx) already
+  // calls the canonical skipStep(), never advanceStep(), for a genuine
+  // skip. Passing `{ wasSkipped: true }` here lets the calling page make
+  // that same distinction, closing the gap without touching the shared
+  // per-question navigation (onAdvance, non-last prompts) at all.
   const handleSkip = () => {
     const promptId = activePrompt.id;
     clearPendingSave(promptId);
@@ -267,7 +294,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
     delete rest[promptId];
     setAnswers(rest);
     if (isLast) {
-      onComplete?.(rest);
+      onComplete?.(rest, { wasSkipped: true });
       return;
     }
     onAdvance?.(activeIndex + 1);
@@ -357,19 +384,23 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
       <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={activePrompt.label}>
         {activePrompt.options?.map((option) => {
           // Evening Visual Uplift (Phase 7) — getOptionPresentation looks
-          // up a concise display label/icon/descriptor keyed by the
-          // UNCHANGED stored option string (the map's own safe fallback
-          // returns the original string with no icon for any prompt id
-          // it doesn't recognise, e.g. StressRelease.jsx's own prompts -
-          // see eveningOptionPresentation.js's own doc comment). `option`
+          // up a concise display label/descriptor keyed by the UNCHANGED
+          // stored option string (the map's own safe fallback returns the
+          // original string with no descriptor for any prompt id it
+          // doesn't recognise, e.g. StressRelease.jsx's own prompts - see
+          // eveningOptionPresentation.js's own doc comment). `option`
           // itself - never the display label - is still what's compared/
-          // selected/saved below.
+          // selected/saved below. Evening pathway parity (Phase 13) —
+          // `presentation.icon` is still resolved by this same lookup
+          // (eveningOptionPresentation.js is unchanged) but is no longer
+          // passed to AnswerOptionButton, which dropped its own icon
+          // rendering entirely - see AnswerOptionButton.jsx's own doc
+          // comment.
           const presentation = getOptionPresentation(activePrompt.id, option);
           return (
             <AnswerOptionButton
               key={option}
               label={presentation.label}
-              icon={presentation.icon}
               descriptor={presentation.descriptor}
               selected={selectedOption === option}
               onClick={() => handleSelectPreset(option)}

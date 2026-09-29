@@ -9,10 +9,10 @@
 // Expected result: "Evening Wind-Down finished" (never "complete"); original
 // icons remain (proven by EveningJourneyPathway.test.js's own separate
 // "never replaces stage.icon" coverage - stageStatus.js only ever returns a
-// status string, never a different icon); arrows remain (same reasoning -
-// EveningJourneyPathway.jsx's connectors are unconditional, independent of
-// status); Breathe shows the ended-early indicator; Meditate shows the
-// skipped indicator; no percentage; no new full_routine event; no
+// status string, never a different icon); direction markers remain (same
+// reasoning - EveningJourneyPathway.jsx's markers are unconditional,
+// independent of status); Breathe shows the ended-early indicator; Meditate
+// shows the skipped indicator; no percentage; no new full_routine event; no
 // incorrect Momentum increment.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -91,11 +91,11 @@ describe('Phase 9, Part 10 — the named Evening partial-completion scenario (re
 
   it('EveningJourneyPathway.jsx renders this scenario\'s stages via the unconditional main-icon span, with status only ever changing the additive StageOutcomeBadge - never a checkmark/dash/pause swapped in for the real icon', () => {
     const source = read('../components/EveningJourneyPathway.jsx');
-    expect(source).toMatch(/<span className="material-symbols-outlined text-sm" aria-hidden="true">\{stage\.icon\}<\/span>/);
-    expect(source).toMatch(/<StageOutcomeBadge status=\{stage\.status\} journeyTone="evening" \/>/);
+    expect(source).toMatch(/<span className="material-symbols-outlined" style=\{ICON_GLYPH_STYLE\} aria-hidden="true">\{stage\.icon\}<\/span>/);
+    expect(source).toMatch(/<StageOutcomeBadge status=\{stage\.status\} journeyTone="evening" size="md" \/>/);
   });
 
-  it('EveningJourneyPathway.jsx\'s connectors are unconditional (gated only on position, never on status) - so this scenario\'s arrows remain exactly as for a fully-completed run', () => {
+  it('EveningJourneyPathway.jsx\'s direction markers are unconditional (gated only on position, never on status) - so this scenario\'s markers remain exactly as for a fully-completed run', () => {
     const source = read('../components/EveningJourneyPathway.jsx');
     expect(source).toMatch(/idx < stages\.length - 1 &&/);
     expect(source).not.toMatch(/stage\.status[\s\S]{0,40}chevron_right/);

@@ -76,7 +76,6 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
             <AnswerOptionButton
               key={option}
               label={presentation.label}
-              icon={presentation.icon}
               descriptor={presentation.descriptor}
               selected={selectedOption === option}
               onClick={() => handleSelectPreset(option)}

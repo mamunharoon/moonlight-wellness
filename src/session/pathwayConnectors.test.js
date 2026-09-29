@@ -50,29 +50,31 @@ describe('Connector counts — exactly N-1 connectors for N real stage icons', (
 });
 
 describe('Physical-iPhone correction — connectors are one shared line+arrowhead component, never an isolated chevron', () => {
-  // WakeWise DEV — approved Morning pathway-tile redesign: Morning
-  // deliberately stopped rendering JourneyConnector (a small standalone
-  // ">" direction marker replaces it - see morningTilePathway.test.js's
-  // own dedicated coverage). Evening/AnytimePathway/Home's Anytime preview
-  // row are unaffected and keep the exact requirement below.
-  it('EveningJourneyPathway/AnytimePathway/Home\'s Anytime preview row all import and render the shared JourneyConnector, not independent implementations', () => {
-    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx', '../pages/Home.jsx']) {
+  // WakeWise DEV — approved Morning pathway-tile redesign, extended to
+  // Evening in Phase 13's own parity pass: both deliberately stopped
+  // rendering JourneyConnector (a small standalone ">" direction marker
+  // replaces it in each - see morningTilePathway.test.js/
+  // eveningTilePathway.test.js's own dedicated coverage). AnytimePathway/
+  // Home's Anytime preview row are unaffected and keep the exact
+  // requirement below.
+  it('AnytimePathway/Home\'s Anytime preview row still import and render the shared JourneyConnector, not independent implementations', () => {
+    for (const path of ['../components/AnytimePathway.jsx', '../pages/Home.jsx']) {
       const source = read(path);
       expect(source).toMatch(/import \{ JourneyConnector \} from ['"].*journey\/JourneyConnector['"]/);
       expect(source).toMatch(/<JourneyConnector journeyTone=/);
     }
   });
 
-  it('MorningJourneyPathway no longer imports JourneyConnector at all - the approved tile redesign uses its own small standalone direction marker instead', () => {
-    const source = read('../components/MorningJourneyPathway.jsx');
-    expect(source).not.toMatch(/import \{ JourneyConnector \}/);
-    expect(source).not.toMatch(/<JourneyConnector/);
+  it('MorningJourneyPathway/EveningJourneyPathway no longer import JourneyConnector at all - the approved tile redesign uses its own small standalone direction marker instead', () => {
+    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx']) {
+      const source = read(path);
+      expect(source).not.toMatch(/import \{ JourneyConnector \}/);
+      expect(source).not.toMatch(/<JourneyConnector/);
+    }
   });
 
-  it('no Evening/Anytime pathway component still contains the old isolated chevron_right/› treatment (Morning\'s approved tile redesign deliberately reintroduces a small standalone ">" - covered separately in morningTilePathway.test.js - so it is excluded from this specific check)', () => {
-    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
-      expect(read(path)).not.toMatch(/chevron_right/);
-    }
+  it('no Anytime pathway component still contains the old isolated chevron_right/› treatment (Morning/Evening\'s approved tile redesigns deliberately reintroduce a small standalone ">" - covered separately in morningTilePathway.test.js/eveningTilePathway.test.js - so both are excluded from this specific check)', () => {
+    expect(read('../components/AnytimePathway.jsx')).not.toMatch(/chevron_right/);
   });
 
   it('Home.jsx\'s Anytime preview-row connector block no longer uses chevron_right (Home.jsx itself still legitimately uses chevron_right elsewhere - e.g. the cross-routine "paused" banners - which are real navigation affordances, not pathway connectors, and are out of this correction\'s scope)', () => {
@@ -102,37 +104,24 @@ describe('Physical-iPhone correction — connectors are one shared line+arrowhea
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
-  it('every JourneyConnector-based call site vertically centres the connector against its own icon-circle size, not the label row, via an explicit computed margin - never the old approximate negative-margin hack', () => {
-    // Evening/Anytime/Home are untouched by the Morning-only tile
-    // redesign and keep their original 28/32/36px circles and margins
-    // exactly. Morning's own direction marker uses its own separate
-    // computed margin (mt-[29px], against its unchanged 56px icon circle)
-    // - see morningTilePathway.test.js's own dedicated coverage.
-    expect(read('../components/EveningJourneyPathway.jsx')).toMatch(/className="mt-\[8\.5px\]"/);
+  it('every remaining JourneyConnector-based call site vertically centres the connector against its own icon-circle size, not the label row, via an explicit computed margin - never the old approximate negative-margin hack', () => {
+    // Anytime/Home are untouched by the Morning/Evening tile redesigns and
+    // keep their original 32/36px circles and margins exactly. Morning/
+    // Evening's own direction markers each use their own separate
+    // absolute-positioning treatment instead (no margin-based centring at
+    // all) - see morningTilePathway.test.js/eveningTilePathway.test.js's
+    // own dedicated coverage.
     expect(read('../components/AnytimePathway.jsx')).toMatch(/className="mt-\[10\.5px\]"/);
     expect(read('../pages/Home.jsx')).toMatch(/className="mt-\[12\.5px\]"/);
-    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
-      expect(read(path)).not.toMatch(/-mt-4|-mt-5/);
-    }
+    expect(read('../components/AnytimePathway.jsx')).not.toMatch(/-mt-4|-mt-5/);
   });
 });
 
 describe('Connectors are never repurposed as status indicators', () => {
-  // Morning's own direction marker (a plain, unconditional
+  // Morning/Evening's own direction markers (a plain, unconditional
   // `{idx < stages.length - 1 && <DirectionMarker />}`, no surrounding
-  // parens) is covered separately in morningTilePathway.test.js - it is
-  // never conditioned on stage.status either.
-  it('EveningJourneyPathway connector slots carry no status-conditional class or content - they render the same JourneyConnector regardless of stage.status (aria-hidden is guaranteed by JourneyConnector itself, asserted separately above)', () => {
-    for (const path of ['../components/EveningJourneyPathway.jsx']) {
-      const source = read(path);
-      const connectorBlock = source.match(/\{idx < stages\.length - 1 && \(([\s\S]*?)\)\}/)?.[1] ?? '';
-      expect(connectorBlock).not.toBe('');
-      expect(connectorBlock).not.toMatch(/stage\.status/);
-      expect(connectorBlock).not.toMatch(/isCurrent|selected|badgeClass/);
-      expect(connectorBlock).toMatch(/<JourneyConnector journeyTone=/);
-    }
-  });
-
+  // parens) are covered separately in morningTilePathway.test.js/
+  // eveningTilePathway.test.js - never conditioned on stage.status either.
   it('AnytimePathway connector slot carries no status-conditional class or content', () => {
     const source = read('../components/AnytimePathway.jsx');
     const connectorBlock = source.match(/\{idx < STAGES\.length - 1 && \(([\s\S]*?)\)\}/)?.[1] ?? '';
@@ -150,26 +139,27 @@ describe('Connectors are never repurposed as status indicators', () => {
   });
 });
 
-describe('No whole-page horizontal overflow — the established overflow-x-auto scroll-hide 320px-safety wrapper is present everywhere a pathway renders', () => {
-  // Approved Morning pathway-fit correction — MorningJourneyPathway.jsx no
-  // longer needs (or uses) this scroll-safety wrapper at all: its own
+describe('No whole-page horizontal overflow — the established overflow-x-auto scroll-hide 320px-safety wrapper is present everywhere a pathway still needs it', () => {
+  // Approved Morning pathway-fit correction, extended to Evening in Phase
+  // 13 — MorningJourneyPathway.jsx/EveningJourneyPathway.jsx no longer
+  // need (or use) this scroll-safety wrapper at all: their own
   // `grid-cols-5` (Tailwind's `repeat(5, minmax(0, 1fr))`) fits all five
-  // stages within the real viewport width by construction, with no
-  // scrolling. Evening/AnytimePathway are unaffected and keep the
-  // requirement below unchanged - see morningPathwayFit.test.js's own
-  // dedicated "no horizontal scroller" coverage for Morning.
-  it('EveningJourneyPathway/AnytimePathway each wrap their row in overflow-x-auto scroll-hide', () => {
-    for (const path of ['../components/EveningJourneyPathway.jsx', '../components/AnytimePathway.jsx']) {
-      expect(read(path)).toMatch(/overflow-x-auto scroll-hide/);
-    }
+  // stages within the real 320-430px viewport width by construction, with
+  // no scrolling. AnytimePathway is unaffected and keeps the requirement
+  // below unchanged - see morningPathwayFit.test.js/eveningTilePathway.
+  // test.js's own dedicated "no horizontal scroller" coverage for each.
+  it('AnytimePathway still wraps its row in overflow-x-auto scroll-hide', () => {
+    expect(read('../components/AnytimePathway.jsx')).toMatch(/overflow-x-auto scroll-hide/);
   });
 
-  it('MorningJourneyPathway no longer uses overflow-x-auto/scroll-hide/scroll-snap/a fade mask - the grid itself is the fix, not a scroll container', () => {
-    const source = read('../components/MorningJourneyPathway.jsx');
-    expect(source).not.toMatch(/overflow-x-auto/);
-    expect(source).not.toMatch(/scroll-hide/);
-    expect(source).not.toMatch(/snap-x|snap-mandatory|snap-start/);
-    expect(source).not.toMatch(/maskImage/);
+  it('MorningJourneyPathway/EveningJourneyPathway no longer use overflow-x-auto/scroll-hide/scroll-snap/a fade mask - the grid itself is the fix, not a scroll container', () => {
+    for (const path of ['../components/MorningJourneyPathway.jsx', '../components/EveningJourneyPathway.jsx']) {
+      const source = read(path);
+      expect(source).not.toMatch(/overflow-x-auto/);
+      expect(source).not.toMatch(/scroll-hide/);
+      expect(source).not.toMatch(/snap-x|snap-mandatory|snap-start/);
+      expect(source).not.toMatch(/maskImage/);
+    }
   });
 });
 

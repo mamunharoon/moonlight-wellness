@@ -52,9 +52,17 @@ describe('SessionComplete.jsx (Morning) — ExploreCard placement and content', 
 describe('EveningComplete.jsx — ExploreCard placement and content', () => {
   const source = read('./EveningComplete.jsx');
 
-  it('imports ExploreCard and getEveningExploreCatalog', () => {
+  // Evening pathway parity (Phase 13) — mirrors Morning's own identical
+  // correction above: "EXPLORE EVENING · N" is now plain "EXPLORE
+  // EVENING": EveningComplete.jsx no longer imports getEveningExploreCatalog
+  // or passes itemCount at all (ExploreCard's own `typeof itemCount ===
+  // 'number' && itemCount > 0` guard already renders nothing when the prop
+  // is omitted - no change to the shared ExploreCard.jsx component
+  // itself). Anytime's own ExploreCard usage below is unaffected and
+  // keeps its own itemCount.
+  it('imports ExploreCard, but no longer imports getEveningExploreCatalog (no catalogue count is shown)', () => {
     expect(source).toMatch(/import \{ ExploreCard \} from '\.\.\/components\/ExploreCard';/);
-    expect(source).toMatch(/import \{ getEveningExploreCatalog \} from '\.\.\/lib\/exploreFiltering';/);
+    expect(source).not.toMatch(/getEveningExploreCatalog/);
   });
 
   it('is placed AFTER the primary "Return Home" completion action', () => {
@@ -64,7 +72,7 @@ describe('EveningComplete.jsx — ExploreCard placement and content', () => {
     expect(exploreIdx).toBeGreaterThan(returnHomeIdx);
   });
 
-  it('journey="evening", with the approved copy/CTA and a real itemCount from getEveningExploreCatalog()', () => {
+  it('journey="evening", with the approved copy/CTA and no itemCount at all - "EXPLORE EVENING", never "EXPLORE EVENING · N"', () => {
     const block = source.match(/<ExploreCard\s*\n[\s\S]*?\n\s*\/>/)?.[0] ?? '';
     expect(block).not.toBe('');
     expect(block).toMatch(/journey="evening"/);
@@ -72,11 +80,12 @@ describe('EveningComplete.jsx — ExploreCard placement and content', () => {
     // Evening Visual Uplift (Phase 7) — the longer supporting sentence is
     // removed (ExploreCard's own supportingText prop is optional - see
     // morningVisualUpliftPhase6.test.js's own updated coverage of the
-    // same removal on Morning's ExploreCard); title/CTA/route/itemCount
-    // are all otherwise unchanged.
+    // same removal on Morning's ExploreCard); title/CTA/route are all
+    // otherwise unchanged. Evening pathway parity (Phase 13) — itemCount
+    // is now also removed, mirroring Morning's own identical correction.
     expect(block).not.toMatch(/supportingText/);
     expect(block).toMatch(/ctaLabel="Explore Evening"/);
-    expect(block).toMatch(/itemCount=\{getEveningExploreCatalog\(\)\.length\}/);
+    expect(block).not.toMatch(/itemCount/);
   });
 
   it('reuses the existing evening-summary FROM_CONTEXTS key (never a near-duplicate new key) - same destination as "Choose a Sleep Experience" already above it', () => {

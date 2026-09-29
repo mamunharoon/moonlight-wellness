@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
-import { EveningJourneyPathway } from '../components/EveningJourneyPathway';
 import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
@@ -41,7 +40,7 @@ export const EveningWindDown = () => {
   const { isReviewMode, isLiveStep } = useStepReviewMode('windDown', 'evening-wind-down');
   const { routeForStep } = useReviewNavigation({ sessionId: 'evening-wind-down', isLiveStep, hasUnsavedProgress: false });
 
-  if (EveningSceneShell && EveningJourneyPathway) { /* no-op to satisfy blind linter */ }
+  if (EveningSceneShell) { /* no-op to satisfy blind linter */ }
 
   const handleBegin = () => {
     if (state.status === 'playing' && state.sessionId === 'evening-wind-down' && currentStep) {
@@ -103,24 +102,19 @@ export const EveningWindDown = () => {
             is a counted step) - this screen's own number (1) is unchanged. */}
         <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 7</span>
         <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-Down</h1>
-        {/* Evening Visual Uplift (Phase 7) — the two long explanatory
-            paragraphs are replaced with one short supporting sentence
-            (approved copy) plus a compact duration badge reusing the
-            exact same existing, accurate duration string
-            nextStepCard.js's own Evening not-started card already shows
-            on Home - never a newly-invented estimate. */}
-        <span className="inline-flex items-center gap-1.5 text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-on-surface-variant/80 font-bold uppercase tracking-wider">
-          <span className="material-symbols-outlined text-xs" aria-hidden="true">schedule</span>
-          About 5–10 minutes, plus optional meditation
-        </span>
+        {/* Evening copy simplification (parity with Morning's own
+            IntentionSetup.jsx intro) — the duration badge ("About 5-10
+            minutes, plus optional meditation") and the five-step pathway
+            preview are both removed. Every Evening activity is user-
+            directed and skippable, so singling out Meditation as
+            "optional" was misleading (Reflect/Gratitude/Breathe are
+            exactly as skippable); the pathway also repeated Home's own
+            journey card. Only the one short supporting sentence remains,
+            matching Morning's approved "Move at your own pace." intro
+            exactly in kind. */}
         <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">
           A gentle transition from your day into rest.
         </p>
-        {/* The five-step pathway, plain/neutral look - nothing has begun
-            yet (this screen is itself "before Reflect" in
-            resolveEveningPathwayStage's own mapping), so no stage is
-            highlighted as current. Purely a preview of what's ahead. */}
-        <EveningJourneyPathway />
       </div>
 
       {isReviewMode ? (

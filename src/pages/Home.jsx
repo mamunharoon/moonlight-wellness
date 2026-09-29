@@ -1492,12 +1492,13 @@ export const Home = () => {
               flexible, non-linear purpose visually legible at a glance.
               Phase 9 — Truthful Journey Outcomes (Part 6b): three small
               decorative connectors now sit between the four cues, using the
-              shared JourneyConnector (line + arrowhead) every other
-              pathway (MorningJourneyPathway.jsx/EveningJourneyPathway.jsx/
-              AnytimePathway.jsx) already renders (aria-hidden, not a tap
-              target, no completed/skipped/current badge added to any cue -
-              these four remain example choices, never mandatory sequential
-              stages). */}
+              shared JourneyConnector (line + arrowhead) - the same
+              component AnytimePathway.jsx renders (Morning/Evening pathway
+              parity replaced this with a small standalone ">" direction
+              marker instead - see MorningJourneyPathway.jsx/
+              EveningJourneyPathway.jsx). Aria-hidden, not a tap target, no
+              completed/skipped/current badge added to any cue - these four
+              remain example choices, never mandatory sequential stages). */}
           <div className="flex items-center justify-center gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
             {[
               { icon: JOURNEY_STAGE_ICONS.breathe, label: 'Breathe' },

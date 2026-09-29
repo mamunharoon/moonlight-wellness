@@ -52,7 +52,7 @@ export const Gratitude = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeIndex = parseActiveIndex(searchParams, GRATITUDE_PROMPTS.length);
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, skipStep } = useSession();
   const { isGuest } = useAuth();
   // useAuth() itself exposes no userId field (only the full `user` object)
   // - useAlarm() is the context that already derives a real, non-anonymous
@@ -116,7 +116,12 @@ export const Gratitude = () => {
   // lands correctly on the previous question afterward.
   const handleAdvance = (nextIndex) => navigate(`/gratitude?q=${nextIndex + 1}`);
 
-  const handleComplete = (answers) => {
+  // Session-Engine truthful-outcome fix - see Reflection.jsx's identical
+  // fix/rationale: `wasSkipped` (PromptStepper's own second onComplete
+  // argument) distinguishes Skip from Continue on the final Gratitude
+  // question, so a genuine Skip dispatches the canonical skipStep()
+  // instead of advanceStep().
+  const handleComplete = (answers, { wasSkipped = false } = {}) => {
     setHasUnsavedText(false);
     if (!isGuest) {
       Object.entries(answers ?? {}).forEach(([promptId, value]) => {
@@ -128,7 +133,11 @@ export const Gratitude = () => {
       return;
     }
     if (state.status === 'playing' && currentStep?.id === STEP_ID) {
-      advanceStep();
+      if (wasSkipped) {
+        skipStep();
+      } else {
+        advanceStep();
+      }
     }
     navigate('/evening-breathing');
   };

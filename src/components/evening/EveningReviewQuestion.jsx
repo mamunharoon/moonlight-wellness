@@ -54,7 +54,6 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
             <AnswerOptionButton
               key={option}
               label={presentation.label}
-              icon={presentation.icon}
               descriptor={presentation.descriptor}
               selected={selectedOption === option}
               journeyTone={journeyTone}

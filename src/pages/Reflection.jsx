@@ -55,7 +55,7 @@ export const Reflection = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeIndex = parseActiveIndex(searchParams, REFLECTION_PROMPTS.length);
-  const { state, currentStep, advanceStep } = useSession();
+  const { state, currentStep, advanceStep, skipStep } = useSession();
   const { isGuest } = useAuth();
   // useAuth() itself exposes no userId field (only the full `user` object)
   // - useAlarm() is the context that already derives a real, non-anonymous
@@ -130,7 +130,17 @@ export const Reflection = () => {
   // lands correctly on the previous question afterward.
   const handleAdvance = (nextIndex) => navigate(`/reflection?q=${nextIndex + 1}`);
 
-  const handleComplete = (answers) => {
+  // Session-Engine truthful-outcome fix: `wasSkipped` (PromptStepper's own
+  // second onComplete argument) distinguishes Skip from Continue on the
+  // final Reflection question - previously both called the exact same
+  // advanceStep(), so Skipping every Reflection question still recorded
+  // the whole step 'completed'. sessionDefinitions.js's own
+  // `skippable: true` for 'reflection' was added specifically so this
+  // screen's Skip control could call the canonical skipStep(), exactly
+  // like every other skippable step's Skip button already does
+  // (Breathe.jsx/EveningBreathing.jsx) - it just never actually did until
+  // now.
+  const handleComplete = (answers, { wasSkipped = false } = {}) => {
     setHasUnsavedText(false);
     if (!isGuest) {
       // Final flush - idempotent upsert on the same conflict target the
@@ -149,7 +159,11 @@ export const Reflection = () => {
       return;
     }
     if (state.status === 'playing' && currentStep?.id === STEP_ID) {
-      advanceStep();
+      if (wasSkipped) {
+        skipStep();
+      } else {
+        advanceStep();
+      }
     }
     navigate('/gratitude');
   };

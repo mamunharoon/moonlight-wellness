@@ -67,13 +67,14 @@ describe('AnswerOptionButton - button interaction contract', () => {
   });
 
   it('never renders a navigation chevron or a separate checkmark/tick icon as the SELECTION indicator - selection is still conveyed only by the radio glyph\'s own fill/dot, plus row tint/border/weight, never a chevron/checkmark glyph', () => {
-    // Evening Visual Uplift (Phase 7) — the optional icon-card layout
-    // legitimately renders material-symbols-outlined now (a real, optional
-    // CONTENT icon per option, e.g. 'flag'/'spa' - see
-    // eveningOptionPresentation.js), so that class name alone is no longer
-    // asserted absent. What must still never appear anywhere is a
-    // chevron/checkmark used AS the selection indicator itself.
+    // Evening pathway parity (Phase 13) — the Phase 7 icon-card layout
+    // (a real, optional CONTENT icon per option, e.g. 'flag'/'spa' - see
+    // eveningOptionPresentation.js) was removed entirely as decorative
+    // clutter; this component no longer renders material-symbols-outlined
+    // at all. What must still never appear anywhere is a chevron/
+    // checkmark used AS the selection indicator itself.
     expect(source).not.toMatch(/chevron_right|chevron_left|check_circle/);
+    expect(source).not.toMatch(/material-symbols-outlined/);
   });
 
   it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden) - the ring colour is journeyTone-driven (getJourneyToneTokens), \'primary\' resolving to the original ring-primary', () => {
@@ -260,6 +261,34 @@ describe('Build 15 selectable-control visual refinement - real, computed WCAG co
 
   it('the unselected radio\'s dark centre (surface-container-lowest) clears the 3:1 AA non-text boundary against its own surrounding ring', () => {
     expect(contrast(surfaceContainerLowest, eveningAccent)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('Evening pathway parity (Phase 13) — decorative per-option icon removed, one single layout for every caller', () => {
+  it('accepts no `icon` prop at all (not merely omitted-and-unused) - there is only one render path now, never a branch keyed on icon presence', () => {
+    // Strip the file's own doc comment (which legitimately discusses the
+    // removed icon-card layout in prose) before asserting on the real
+    // code below it - matching this file's own established pattern.
+    const code = source.replace(/\/\*[\s\S]*?\*\//, '');
+    expect(code).not.toMatch(/\bicon\b/);
+    expect(code).not.toMatch(/ICON_BADGE_TOKENS/);
+    expect(code).not.toMatch(/if \(icon\)/);
+  });
+
+  it('the short supporting `descriptor` sentence still renders (additive, optional) directly under the label - the one piece of the removed icon-card layout that is kept, per the approved "keep the short supporting sentence" requirement', () => {
+    expect(source).toMatch(/\{descriptor && \(/);
+    expect(source).toMatch(/\{descriptor\}/);
+  });
+
+  it('PromptStepper.jsx/EveningReviewQuestion.jsx/EveningEditQuestion.jsx no longer pass icon={presentation.icon} to AnswerOptionButton - the dead prop was removed at every call site, not just ignored', () => {
+    for (const path of ['./PromptStepper.jsx', './EveningReviewQuestion.jsx', './EveningEditQuestion.jsx']) {
+      expect(read(path)).not.toMatch(/icon=\{presentation\.icon\}/);
+    }
+  });
+
+  it('eveningOptionPresentation.js itself is completely untouched - the icon field is still resolved (unused by rendering now), and every stored option string/label/descriptor mapping is unchanged', () => {
+    const presentationSource = read('../../lib/eveningOptionPresentation.js');
+    expect(presentationSource).toMatch(/icon: 'flag', descriptor: 'Made meaningful progress'/);
   });
 });
 

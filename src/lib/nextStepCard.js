@@ -148,11 +148,21 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
       buttonLabel: 'Continue Evening Wind-Down'
     };
   }
+  // Evening copy simplification — the duration/"plus optional meditation"
+  // sentence is removed (every Evening activity is user-directed and
+  // skippable, so singling out Meditation as "optional" was misleading -
+  // Reflect/Gratitude/Breathe are exactly as skippable). `duration: null`
+  // matches every other Evening card state above, which already omit it;
+  // Home.jsx's own `{card.duration && (...)}` guard already renders
+  // nothing for a falsy value - no other change needed there. Morning's
+  // own MORNING_NOT_STARTED_BY_DAYPART entries (afternoon/evening-night
+  // daypart variants of the MORNING card, unrelated to this Evening card)
+  // keep their own untouched duration text.
   return {
     eyebrow: 'YOUR NEXT STEP',
     title: 'Begin your Evening Wind-Down',
     supportingText: 'Reflect on your day, release what you no longer need and prepare gently for rest.',
-    duration: 'About 5–10 minutes, plus optional meditation',
+    duration: null,
     buttonLabel: 'Begin Evening Wind-Down'
   };
 };

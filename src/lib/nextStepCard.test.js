@@ -101,12 +101,17 @@ describe('resolveNextStepCard — Morning, in-progress and completed', () => {
 });
 
 describe('resolveNextStepCard — Evening (no daypart variation)', () => {
-  it('not-started: exact required copy, including the always-shown body sentence', () => {
+  // Evening copy simplification — duration is now null (Home.jsx's own
+  // `{card.duration && (...)}` guard already renders nothing for a falsy
+  // value), matching every other Evening card state below. Every Evening
+  // activity is user-directed and skippable, so singling out Meditation
+  // as "optional" was misleading.
+  it('not-started: exact required copy, including the always-shown body sentence; no duration text', () => {
     const card = resolveNextStepCard({ period: 'evening', cardState: 'not-started' });
     expect(card.eyebrow).toBe('YOUR NEXT STEP');
     expect(card.title).toBe('Begin your Evening Wind-Down');
     expect(card.supportingText).toBe('Reflect on your day, release what you no longer need and prepare gently for rest.');
-    expect(card.duration).toBe('About 5–10 minutes, plus optional meditation');
+    expect(card.duration).toBeNull();
     expect(card.buttonLabel).toBe('Begin Evening Wind-Down');
   });
 
@@ -140,11 +145,15 @@ describe('resolveNextStepCard — Evening (no daypart variation)', () => {
 });
 
 describe('Journey Embedding — truthful duration copy, never a flat range that understates the optional-meditation maximum', () => {
-  it('Evening not-started names the optional addition rather than a fixed range; Morning (Phase 6 Visual Uplift) shows the shorter approved "5–10 min" badge instead', () => {
+  // Evening copy simplification — the Evening not-started card no longer
+  // shows any duration text at all (see the describe block above); Morning
+  // (Phase 6 Visual Uplift, untouched by this Evening-only correction)
+  // still shows its own shorter approved "5–10 min" badge.
+  it('Evening not-started shows no duration text at all; Morning (Phase 6 Visual Uplift) still shows the shorter approved "5–10 min" badge', () => {
     const morning = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.MORNING });
     const evening = resolveNextStepCard({ period: 'evening', cardState: 'not-started' });
     expect(morning.duration).toBe('5–10 min');
-    expect(evening.duration).toBe('About 5–10 minutes, plus optional meditation');
+    expect(evening.duration).toBeNull();
   });
 
   it('Morning\'s off-hours daypart variants (afternoon/evening-night) keep the original longer duration copy - only the default MORNING daypart got the Phase 6 shorter badge', () => {
@@ -156,11 +165,10 @@ describe('Journey Embedding — truthful duration copy, never a flat range that 
 
   it('never claims a single fixed upper bound wider than the approved 5-10 baseline (e.g. "5-15"/"5-12"/"5-20 minutes") that would misstate the true maximum or wrongly imply a cap', () => {
     const morning = resolveNextStepCard({ period: 'morning', cardState: 'not-started', morningDaypart: MORNING_DAYPART.MORNING });
-    const evening = resolveNextStepCard({ period: 'evening', cardState: 'not-started' });
-    // The approved baseline "5–10 minutes"/"5–10 min" is expected and
-    // fine; only a DIFFERENT, wider range (the audit's own rejected
-    // "5-12"/"5-15" proposals) would be a real problem here.
+    // The approved baseline "5–10 min" is expected and fine; only a
+    // DIFFERENT, wider range (the audit's own rejected "5-12"/"5-15"
+    // proposals) would be a real problem here. Evening shows no duration
+    // text at all now, so there is nothing left to check on it.
     expect(morning.duration).not.toMatch(/5[-–](?:11|12|13|14|15|20) minutes/);
-    expect(evening.duration).not.toMatch(/5[-–](?:11|12|13|14|15|20) minutes/);
   });
 });

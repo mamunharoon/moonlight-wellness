@@ -74,11 +74,15 @@ describe('EveningComplete - action order: Sleep Experience -> Return Home -> Rev
 describe('EveningComplete - ExploreCard simplified per spec section 8', () => {
   const exploreBlock = source.slice(source.indexOf('<ExploreCard'), source.indexOf('/>', source.indexOf('<ExploreCard')) + 2);
 
-  it('title/ctaLabel/route/itemCount are all unchanged', () => {
+  it('title/ctaLabel/route are all unchanged; itemCount is no longer passed at all', () => {
     expect(exploreBlock).toMatch(/title="Would more support help you unwind\?"/);
     expect(exploreBlock).toMatch(/ctaLabel="Explore Evening"/);
     expect(exploreBlock).toMatch(/to="\/library\?journey=evening&from=evening-summary"/);
-    expect(exploreBlock).toMatch(/itemCount=\{getEveningExploreCatalog\(\)\.length\}/);
+    // Evening pathway parity (Phase 13) — mirrors SessionComplete.jsx's own
+    // identical Morning correction: the catalogue count is removed
+    // entirely (ExploreCard's own optional-itemCount guard already
+    // renders nothing when the prop is omitted), never a number shown.
+    expect(exploreBlock).not.toMatch(/itemCount/);
   });
 
   it('the longer supportingText prop describing sleep stories/videos/sounds is removed entirely', () => {

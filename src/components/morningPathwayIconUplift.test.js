@@ -2,9 +2,11 @@
 // uplift, later recalibrated by the approved Morning pathway-fit
 // correction (responsive clamp()-based icon/glyph sizing, a real 5-column
 // grid, and a direction marker nested inside each tile's own icon row).
-// This is a Morning-ONLY correction — Evening/Anytime keep their exact
-// original 28px/32px geometry and tree shape (see
-// pathwayConnectors.test.js's own untouched assertions for those two).
+// This was originally a Morning-ONLY correction; Evening pathway parity
+// (Phase 13) brought Evening into the exact same tile/grid/clamp()
+// treatment (see eveningTilePathway.test.js's own dedicated coverage) -
+// only Anytime still keeps its original 32px geometry and JourneyConnector
+// tree shape (see pathwayConnectors.test.js's own untouched assertions).
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -26,15 +28,16 @@ const collectMorningStages = (element) => {
   });
 };
 
-// Evening's own shape is completely untouched by this Morning-only
-// correction: item(listitem) > [iconCol, connector-or-false]; iconCol >
-// [iconBadge, labelSpan].
+// Evening pathway parity (Phase 13) — Evening now shares Morning's own
+// tile shape exactly: item(listitem) > tile > [iconRow, labelSpan];
+// iconRow > [iconBadge, marker-or-false].
 const collectEveningStages = (element) => {
   const listItems = element.props.children.filter((child) => child?.props?.role === 'listitem');
   return listItems.map((item) => {
-    const [iconCol, connector] = item.props.children;
-    const [iconBadge] = iconCol.props.children;
-    return { iconBadge, connector };
+    const tile = item.props.children;
+    const [iconRow] = tile.props.children;
+    const [iconBadge, marker] = iconRow.props.children;
+    return { iconBadge, marker };
   });
 };
 
@@ -68,9 +71,10 @@ describe('Morning pathway — substantially larger, visually meaningful, respons
   // arrowhead JourneyConnector for Morning specifically with a small
   // standalone ">" direction marker, now nested inside each tile's own
   // icon row (pathway-fit correction) - see morningTilePathway.test.js's
-  // own dedicated coverage of the marker itself. Evening/Anytime/Home's
-  // Anytime preview row are unaffected and keep rendering the real
-  // JourneyConnector (pathwayConnectors.test.js).
+  // own dedicated coverage of the marker itself. Evening now shares this
+  // exact same treatment (Phase 13 - see eveningTilePathway.test.js);
+  // Anytime/Home's Anytime preview row are unaffected and keep rendering
+  // the real JourneyConnector (pathwayConnectors.test.js).
   it('exactly 5 icons and 4 direction markers are rendered - never the JourneyConnector line-and-arrowhead', () => {
     const markers = stages.map((s) => s.marker).filter(Boolean);
     expect(stages).toHaveLength(5);
@@ -95,11 +99,23 @@ describe('Morning pathway — substantially larger, visually meaningful, respons
     }
   });
 
-  it('Evening keeps its own original 28px icon circle and default ("sm") connector/badge size, and its own untouched tree shape — this correction is Morning-only', () => {
+  // Evening pathway parity (Phase 13) — Evening now shares the exact same
+  // responsive clamp() icon sizing and direction-marker treatment as
+  // Morning (see eveningTilePathway.test.js's own dedicated coverage for
+  // the full requirement set); only Anytime is left with its original
+  // fixed geometry.
+  it('Evening now shares Morning\'s own responsive clamp() icon circle and small standalone ">" direction marker, in the same tile tree shape', () => {
     const eveningStages = collectEveningStages(EveningJourneyPathway().props.children);
-    for (const { iconBadge, connector } of eveningStages) {
-      expect(iconBadge.props.className).toMatch(/\bw-7\b/);
-      if (connector) expect(connector.props.size).toBeUndefined();
+    const markers = eveningStages.map((s) => s.marker).filter(Boolean);
+    expect(eveningStages).toHaveLength(5);
+    expect(markers).toHaveLength(4);
+    for (const { iconBadge } of eveningStages) {
+      expect(iconBadge.props.style).toEqual({ width: 'clamp(38px, 11vw, 46px)', height: 'clamp(38px, 11vw, 46px)' });
+      expect(iconBadge.props.className).not.toMatch(/\bw-7\b/);
+    }
+    for (const marker of markers) {
+      expect(marker.props.size).toBeUndefined();
+      expect(marker.props.journeyTone).toBeUndefined();
     }
   });
 

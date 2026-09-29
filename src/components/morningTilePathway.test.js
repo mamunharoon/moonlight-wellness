@@ -204,11 +204,18 @@ describe('10. Pathway overflow is contained locally - never the whole page (and,
   });
 });
 
-describe('12. Anytime and Evening pathway rendering is completely unaffected by the Morning-only fit correction', () => {
-  it('EveningJourneyPathway still renders its own five stages via the real line-and-arrowhead JourneyConnector, byte-behaviourally unchanged', () => {
+describe('12. Anytime pathway rendering is unaffected by the Morning/Evening tile redesigns; Evening now shares Morning\'s own tile treatment', () => {
+  // Evening pathway parity (Phase 13) — Evening was brought into the same
+  // tile/grid/direction-marker treatment as Morning (see
+  // eveningTilePathway.test.js's own dedicated coverage for the full
+  // requirement set). It no longer renders JourneyConnector at all -
+  // AnytimePathway/Home's Anytime preview row are the only remaining
+  // JourneyConnector consumers (pathwayConnectors.test.js's own updated
+  // assertions cover this split).
+  it('EveningJourneyPathway now renders its own five stages via the same tile/grid + small standalone ">" marker treatment as Morning, not JourneyConnector', () => {
     const source = read('./EveningJourneyPathway.jsx');
-    expect(source).toMatch(/import \{ JourneyConnector \} from '\.\/journey\/JourneyConnector';/);
-    expect(source).toMatch(/<JourneyConnector journeyTone="evening"/);
+    expect(source).not.toMatch(/import \{ JourneyConnector \}/);
+    expect(source).not.toMatch(/<JourneyConnector/);
     const element = EveningJourneyPathway().props.children;
     const stages = element.props.children.filter((c) => c?.props?.role === 'listitem');
     expect(stages).toHaveLength(5);

@@ -276,9 +276,9 @@ describe('Fixed per-question back-navigation matrix (Decision 5)', () => {
 describe('No duplicate completion when reviewing across the Reflection/Gratitude boundary', () => {
   it('the ONE real completion event (advanceStep, guarded on isReviewMode/isLiveStep) is unchanged by this phase - reviewing Reflection Q3 from Gratitude Q1 never replays it, since handleComplete only fires on an explicit Next/Skip tap at the true last question, never merely by loading a question via the back-navigation matrix above', () => {
     for (const source of [reflectionSource, gratitudeSource]) {
-      const body = source.match(/const handleComplete = \(answers\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+      const body = source.match(/const handleComplete = \(answers, \{ wasSkipped = false \} = \{\}\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
       expect(body).toMatch(/if \(isReviewMode\) \{\s*\n\s*if \(currentStep\) navigate\(routeForStep\(currentStep\.id\)\);\s*\n\s*return;\s*\n\s*\}/);
-      expect(body).toMatch(/if \(state\.status === 'playing' && currentStep\?\.id === STEP_ID\) \{\s*\n\s*advanceStep\(\);\s*\n\s*\}/);
+      expect(body).toMatch(/if \(state\.status === 'playing' && currentStep\?\.id === STEP_ID\) \{\s*\n\s*if \(wasSkipped\) \{\s*\n\s*skipStep\(\);\s*\n\s*\} else \{\s*\n\s*advanceStep\(\);\s*\n\s*\}\s*\n\s*\}/);
     }
   });
 
