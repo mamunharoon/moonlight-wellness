@@ -60,6 +60,12 @@ const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ defa
 const MorningMeditate = lazy(() => import('./pages/MorningMeditate').then((m) => ({ default: m.MorningMeditate })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
+// WakeWise Phase 2A — Profile/account-management foundation.
+const ChangePassword = lazy(() => import('./pages/ChangePassword').then((m) => ({ default: m.ChangePassword })));
+// Public, unauthenticated account-deletion resource for Google Play's Data
+// Safety requirement — see PublicDeleteAccount.jsx's own doc comment and
+// OnboardingGate.jsx's ALLOWED_PRE_ENTRY_PATHS.
+const PublicDeleteAccount = lazy(() => import('./pages/PublicDeleteAccount').then((m) => ({ default: m.PublicDeleteAccount })));
 const SessionRegistryPreview = lazy(() => import('./pages/SessionRegistryPreview').then((m) => ({ default: m.SessionRegistryPreview })));
 const SessionEnginePreview = lazy(() => import('./pages/SessionEnginePreview').then((m) => ({ default: m.SessionEnginePreview })));
 const EveningWindDown = lazy(() => import('./pages/EveningWindDown').then((m) => ({ default: m.EveningWindDown })));
@@ -242,6 +248,12 @@ function App() {
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
                 <Route path="reset-password" element={withFallback(<ResetPassword />)} />
+                {/* WakeWise Phase 2A — public, unauthenticated account-
+                    deletion resource. Full-bleed, same placement as
+                    auth/reset-password above (outside <Layout>, reachable
+                    before any guest/session choice — see
+                    OnboardingGate.jsx's ALLOWED_PRE_ENTRY_PATHS). */}
+                <Route path="delete-account" element={withFallback(<PublicDeleteAccount />)} />
 
                 {/* Stage 4 Batch F3/F4/F6: evening-wind-down session steps. Full-bleed
                     (fixed inset-0 z-[100], via EveningSceneShell) same as
@@ -391,6 +403,10 @@ function App() {
                       a shortcut from anywhere else. */}
                   <Route path="profile/account-management" element={withFallback(<AccountManagement />)} />
                   <Route path="profile/delete-account" element={withFallback(<DeleteAccount />)} />
+                  {/* WakeWise Phase 2A — reached from Profile's Account
+                      group ("Change Password"), same "secondary page"
+                      placement as settings/timezone below. */}
+                  <Route path="change-password" element={withFallback(<ChangePassword />)} />
 
                   {/* Secondary pages */}
                   <Route path="breathe" element={withFallback(<Breathe />)} />

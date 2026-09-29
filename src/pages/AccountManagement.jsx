@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DataExportDialog } from '../components/DataExportDialog';
 import { BackButton } from '../components/BackButton';
-import { CONTACT_INFO } from '../lib/legalContent';
 import { getMyDeletionRequest } from '../lib/accountDeletionApi';
 
 /*
@@ -129,13 +129,7 @@ export const AccountManagement = () => {
         onDismiss={() => setActiveDialog(null)}
       />
 
-      <ConfirmDialog
-        open={activeDialog === 'export'}
-        title="Download a copy of your data"
-        message={`Automated data export isn't available in the app yet. Email us at ${CONTACT_INFO.email} from your account's email address and we'll prepare a copy for you.`}
-        cancelLabel="Got it"
-        onDismiss={() => setActiveDialog(null)}
-      />
+      <DataExportDialog open={activeDialog === 'export'} onDismiss={() => setActiveDialog(null)} />
     </div>
   );
 };

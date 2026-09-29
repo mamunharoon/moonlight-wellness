@@ -32,12 +32,24 @@ import { SignInPromptDialog } from './SignInPromptDialog';
  * even before a guest choice is made; nothing else does. A native deep
  * link or notification tap landing on any other unauthenticated route
  * still resolves to Welcome first, exactly like a fresh cold launch.
+ *
+ * WakeWise Phase 2A — '/delete-account' added for the same reason: Google
+ * Play's Data Safety section links directly to this page from OUTSIDE the
+ * app, for a visitor who has never opened WakeWise before (no session, no
+ * prior guest choice). Without this entry, that cold link would show
+ * Welcome instead of the deletion information it promised. Its own
+ * "Full Account Deletion Policy" link goes to
+ * '/settings/account-deletion-policy', added alongside it for the same
+ * reason — the same public-legal-document allowance already given to
+ * Terms/Privacy above.
  */
 const ALLOWED_PRE_ENTRY_PATHS = new Set([
   '/auth',
   '/reset-password',
   '/settings/terms-of-service',
-  '/settings/privacy-policy'
+  '/settings/privacy-policy',
+  '/settings/account-deletion-policy',
+  '/delete-account'
 ]);
 
 // F5 (pre-Build-15 usability pass) — found live: Home already correctly

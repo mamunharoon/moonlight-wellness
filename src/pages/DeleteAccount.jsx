@@ -385,9 +385,44 @@ export const DeleteAccount = () => {
                 </button>
               </>
             )}
-            {plusActive && billing.provider !== 'stripe' && (
+            {/* WakeWise Phase 2A — billing-provider honesty. Deleting the
+                WakeWise account never itself reaches Apple's or Google's
+                billing systems, so it never cancels a store subscription —
+                the previous version of this screen only distinguished
+                Stripe from "everything else" and told every non-Stripe
+                subscriber their access would "simply end," which becomes
+                false and misleading the moment a real Apple/Google
+                subscriber exists (their store subscription keeps renewing
+                and charging them after this WakeWise account is gone). Each
+                real provider gets its own honest statement; an unrecognised
+                provider value gets a safe general warning rather than being
+                assumed manual. */}
+            {plusActive && billing.provider === 'apple' && (
               <p className="text-sm text-on-surface-variant leading-relaxed">
-                Your WakeWise Plus access was granted manually and isn't linked to Stripe billing. It will simply end when your account is deleted.
+                Your WakeWise Plus subscription is billed through the App Store. Deleting your WakeWise account does
+                not cancel it — it will keep renewing and charging you until you cancel it yourself in
+                Settings → [your name] → Subscriptions on your iPhone.
+              </p>
+            )}
+            {plusActive && billing.provider === 'google' && (
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Your WakeWise Plus subscription is billed through Google Play. Deleting your WakeWise account does
+                not cancel it — it will keep renewing and charging you until you cancel it yourself in the Google
+                Play app under Subscriptions.
+              </p>
+            )}
+            {plusActive && billing.provider === 'manual' && (
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Your WakeWise Plus access was granted manually and isn't linked to Stripe, Apple, or Google billing.
+                It will simply end when your account is deleted.
+              </p>
+            )}
+            {plusActive && !['stripe', 'apple', 'google', 'manual'].includes(billing.provider) && (
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                We couldn't confirm how your subscription is billed. If you have an active subscription through
+                Apple, Google Play, or another provider, deleting your WakeWise account will not automatically
+                cancel it — please check and cancel it directly with that provider if you no longer want to be
+                charged.
               </p>
             )}
           </div>

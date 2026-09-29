@@ -416,10 +416,18 @@ describe('Introduction is routed and reachable from Profile', () => {
   it('Profile.jsx has an "About WakeWise" row linking to /introduction, visible to guests and registered users alike', () => {
     const row = profileSource.match(/<Link to="\/introduction" className=\{rowClass\}>[\s\S]*?<\/Link>/)?.[0] ?? '';
     expect(row).toMatch(/About WakeWise/);
-    // Not inside the `{!isGuest && (...)}` guard that hides Sign out from guests.
-    const guestGuardIndex = profileSource.indexOf('{!isGuest && (');
+    // WakeWise Phase 2A — Profile.jsx now has several `{!isGuest && (...)}`
+    // guarded sections (Account, Membership), not just one guarding Sign
+    // out, so "is this row before the FIRST such guard" no longer proves
+    // anything. The real invariant is unchanged (this row must render for
+    // guests too) — checked instead by confirming the nearest guest guard
+    // preceding this row's own enclosing <section> is already closed
+    // before that section begins, i.e. the row's section is unconditional.
     const rowIndex = profileSource.indexOf('<Link to="/introduction"');
-    expect(guestGuardIndex === -1 || rowIndex < guestGuardIndex).toBe(true);
+    const sectionIndex = profileSource.lastIndexOf('<section', rowIndex);
+    const guardIndex = profileSource.lastIndexOf('{!isGuest && (', sectionIndex);
+    const guardClosesIndex = guardIndex === -1 ? -1 : profileSource.indexOf(')}', guardIndex);
+    expect(guardIndex === -1 || guardClosesIndex < sectionIndex).toBe(true);
   });
 });
 

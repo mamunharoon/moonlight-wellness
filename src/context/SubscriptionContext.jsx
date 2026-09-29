@@ -62,14 +62,25 @@ export const SubscriptionProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const setResolvedSubscription = (value) => setSubscription(applySubscriptionOverride(value));
+  // Returns the exact value it just set as state (dev-override applied) -
+  // WakeWise Phase 2A correction: useAppleRestore.js needs to know the
+  // real, current entitlement immediately after a refresh, and cannot
+  // safely rely on this Provider's own re-render having already reached a
+  // consumer's closure by the time an awaited call resolves. Every
+  // existing caller of refreshSubscription()/loadSubscription() already
+  // ignores its return value, so this is purely additive.
+  const setResolvedSubscription = (value) => {
+    const resolved = applySubscriptionOverride(value);
+    setSubscription(resolved);
+    return resolved;
+  };
 
   const loadSubscription = async (currentUser) => {
     if (!supabase || !currentUser || currentUser.is_anonymous) {
-      setResolvedSubscription(FREE_DEFAULT);
+      const resolved = setResolvedSubscription(FREE_DEFAULT);
       setError(null);
       setLoading(false);
-      return;
+      return resolved;
     }
 
     setLoading(true);
@@ -88,13 +99,14 @@ export const SubscriptionProvider = ({ children }) => {
         console.error('Error loading subscription:', fetchError.message);
         setError("We couldn't load your subscription. Showing your Free plan for now.");
       }
-      setResolvedSubscription(FREE_DEFAULT);
+      const resolved = setResolvedSubscription(FREE_DEFAULT);
       setLoading(false);
-      return;
+      return resolved;
     }
 
-    setResolvedSubscription(data ?? FREE_DEFAULT);
+    const resolved = setResolvedSubscription(data ?? FREE_DEFAULT);
     setLoading(false);
+    return resolved;
   };
 
   useEffect(() => {
