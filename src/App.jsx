@@ -17,6 +17,7 @@ import { RoutineRestoreGuard } from './components/RoutineRestoreGuard';
 import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
 import { useRevenueCatIdentity } from './hooks/useRevenueCatIdentity';
+import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
 // Mobile navigation repair, Phase 4 (performance): route-level code
 // splitting. The audit found a single ~670KB (170KB gzip) JS chunk
@@ -159,6 +160,19 @@ function RevenueCatIdentityHandler() {
   return null;
 }
 
+// Android system Back button/gesture repair: makes the hardware Back
+// button and back-gesture run the same contextual logic as the in-app
+// back arrow (BackButton/JourneyHeader/ConfirmDialog/etc. — see
+// backHandlerRegistry.js and useAndroidBackButton.js's own doc comment
+// for the full root cause and contract) instead of Capacitor's native
+// default (raw WebView history traversal). Android-only, no-op on
+// iOS/web; same isolated "native only, renders nothing" pattern as
+// NativeDeepLinkHandler/MorningReminderTapHandler above.
+function AndroidBackButtonHandler() {
+  useAndroidBackButton();
+  return null;
+}
+
 // Remove Routines from the Visible User Flow — safe, deterministic
 // destinations for the three known historical Routine Detail URLs, plus
 // a Home fallback for anything else. Deliberately NOT a blind 1:1 redirect
@@ -228,6 +242,7 @@ function App() {
                 <NativeDeepLinkHandler />
                 <MorningReminderTapHandler />
                 <RevenueCatIdentityHandler />
+                <AndroidBackButtonHandler />
                 {/* Safe backward navigation ("Review Mode") fix: mounted
                     once here, outside <Layout>, so it survives for the
                     whole app session instead of resetting every time

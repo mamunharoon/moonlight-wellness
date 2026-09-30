@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { useAuth } from '../context/AuthContext';
 import { useMorningReminder } from '../context/MorningReminderContext';
 import { supabase } from '../lib/supabaseClient';
@@ -58,16 +59,26 @@ const getFriendlyReauthError = (error) => {
   return 'Something went wrong. Please try again.';
 };
 
-const BackArrow = ({ onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label="Go back"
-    className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary shrink-0"
-  >
-    <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
-  </button>
-);
+const BackArrow = ({ onClick }) => {
+  // Android system Back button/gesture repair — this journey has no
+  // shared BackButton component; each step renders its own BackArrow
+  // with that step's real "leave this step" destination as `onClick`.
+  // Only one BackArrow is ever mounted at a time (one per step), so
+  // registering here, generically, covers every step of this wizard
+  // without a per-step condition. See backHandlerRegistry.js.
+  useBackHandler(onClick);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Go back"
+      className="w-11 h-11 rounded-full glass-panel border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+    >
+      <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+    </button>
+  );
+};
 
 const PrimaryButton = ({ children, disabled, loading, onClick, type = 'button' }) => (
   <button

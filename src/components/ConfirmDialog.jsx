@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 /*
  * Settings & Profile Polish, Sprint 1 — ConfirmDialog
@@ -46,6 +47,14 @@ export const ConfirmDialog = ({
 }) => {
   const primaryButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
+
+  // Android system Back button/gesture repair — while open, this dialog
+  // is the topmost active control (kind: 'overlay' - always wins over a
+  // 'screen' entry regardless of registration order, see
+  // backHandlerRegistry.js), so hardware Back dismisses it first, same
+  // as Escape/backdrop-click, rather than falling through to whatever
+  // screen-level BackButton is still mounted underneath it.
+  useBackHandler(onDismiss, open, 'overlay');
 
   useEffect(() => {
     if (!open) return;

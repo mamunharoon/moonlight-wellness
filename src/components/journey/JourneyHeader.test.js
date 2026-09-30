@@ -15,15 +15,23 @@ describe('JourneyHeader.jsx — Back/Close, presentation only', () => {
   // Context-aware Meditation/Breathing theming — additive pass-through,
   // default undefined so every existing caller keeps BackButton's own
   // default (undefined -> always proceeds), completely unaffected.
+  //
+  // Android system Back button/gesture repair — the component body is
+  // now `=> {` (a block, calling useBackHandler before the JSX return)
+  // rather than `=> (`'s bare implicit-return expression; a hook call
+  // requires a statement, which an implicit-return arrow can't hold.
+  // Purely a syntax-shape change - the props destructured immediately
+  // above are completely unaffected, still forwarded exactly as before
+  // (see the assertion two below, unchanged).
   it('onBackBeforeLeave is forwarded straight through to BackButton, optional', () => {
-    expect(source).toMatch(/onBackBeforeLeave,\s*\n\s*alwaysFallback = false\s*\n\}\) => \(/);
+    expect(source).toMatch(/onBackBeforeLeave,\s*\n\s*alwaysFallback = false\s*\n\}\) => \{/);
   });
 
   // WakeWise DEV — Anytime Back-navigation correction, additive - every
   // existing caller omits it (defaults false) and is completely
   // unaffected.
   it('alwaysFallback is forwarded straight through to BackButton\'s own alwaysFallback, defaulting to false', () => {
-    expect(source).toMatch(/alwaysFallback = false\s*\n\}\) => \(/);
+    expect(source).toMatch(/alwaysFallback = false\s*\n\}\) => \{/);
     expect(source).toMatch(/<BackButton fallback=\{backFallback\} onBeforeLeave=\{onBackBeforeLeave\} alwaysFallback=\{alwaysFallback\} \/>/);
   });
 

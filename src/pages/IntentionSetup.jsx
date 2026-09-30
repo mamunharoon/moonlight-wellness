@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useSession } from '../context/SessionContext';
 import { BackButton } from '../components/BackButton';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { INTENTION_PRESETS } from '../lib/intentionAffirmations';
 import { saveIntentionsToCloud } from '../lib/intentionPersistence';
 import {
@@ -269,6 +270,14 @@ export const IntentionSetup = () => {
     setLimitMessage('');
     setStage('primary');
   };
+
+  // Android system Back button/gesture repair — the Supporting stage's
+  // own inline "Back" link (returns to Primary without exiting the
+  // routine) is the more specific active control while this stage is
+  // showing; it registers on top of the page's always-mounted top-level
+  // BackButton above, so hardware Back matches whichever one is actually
+  // visible/topmost. See backHandlerRegistry.js.
+  useBackHandler(handleBackToPrimary, stage === 'supporting');
 
   // Custom-intention defect fix (unchanged rule, applied at whichever
   // stage is active): blank input is a silent no-op, an excessively long
