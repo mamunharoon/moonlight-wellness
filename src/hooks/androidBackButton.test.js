@@ -159,8 +159,28 @@ describe('App.jsx — AndroidBackButtonHandler mounted exactly once, alongside t
     expect(source).toMatch(/function AndroidBackButtonHandler\(\) \{\s*\n\s*useAndroidBackButton\(\);/);
   });
 
-  it('is rendered once, inside NavigationHistoryProvider (so BackButton\'s own goBack is available) and alongside NativeDeepLinkHandler/MorningReminderTapHandler', () => {
-    expect(source).toMatch(/<NativeDeepLinkHandler \/>\s*\n\s*<MorningReminderTapHandler \/>\s*\n\s*<AndroidBackButtonHandler \/>/);
+  // Integration-branch correction — RevenueCatIdentityHandler (Phase 2B)
+  // now sits between MorningReminderTapHandler and AndroidBackButtonHandler
+  // in this same "native only, renders nothing" run of components; exact
+  // adjacency to the other two isn't the real contract here (mount order
+  // among these siblings is inert - none of them depend on each other),
+  // only that AndroidBackButtonHandler is rendered once, inside the same
+  // NavigationHistoryProvider-wrapped block as NativeDeepLinkHandler and
+  // MorningReminderTapHandler.
+  it('is rendered once, inside NavigationHistoryProvider (so BackButton\'s own goBack is available) alongside NativeDeepLinkHandler/MorningReminderTapHandler', () => {
+    expect(source).toMatch(/<NativeDeepLinkHandler \/>\s*\n\s*<MorningReminderTapHandler \/>/);
+    expect((source.match(/<AndroidBackButtonHandler \/>/g) ?? []).length).toBe(1);
+    const providerIdx = source.indexOf('<NavigationHistoryProvider>');
+    const nativeDeepLinkIdx = source.indexOf('<NativeDeepLinkHandler />');
+    const androidBackIdx = source.indexOf('<AndroidBackButtonHandler />');
+    const routineRestoreGuardIdx = source.indexOf('<RoutineRestoreGuard />');
+    expect(providerIdx).toBeGreaterThan(-1);
+    expect(providerIdx).toBeLessThan(nativeDeepLinkIdx);
+    expect(nativeDeepLinkIdx).toBeLessThan(androidBackIdx);
+    // Still before RoutineRestoreGuard/OnboardingGate, same as the other
+    // native-only handlers - not accidentally nested inside a later,
+    // conditionally-rendered part of the tree.
+    expect(androidBackIdx).toBeLessThan(routineRestoreGuardIdx);
   });
 });
 
