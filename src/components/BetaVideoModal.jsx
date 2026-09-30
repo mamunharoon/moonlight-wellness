@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { cacheDurationSeconds, getCachedDurationMinutes } from '../lib/durationCache';
 import { getBetaVideoById } from '../lib/mediaCatalog';
@@ -605,6 +606,20 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     videoRef.current?.pause();
     onClose();
   };
+
+  // Android system Back button/gesture repair — registers the exact same
+  // handler the visible Close control uses (pauses video/audio, then
+  // onClose) for as long as this modal is mounted, so hardware Back
+  // during an active exercise/sleep-sound tears playback + any running
+  // sleep timer down identically to tapping Close. kind 'overlay' - this
+  // modal always sits on top of whatever screen opened it (Support.jsx,
+  // PrepareForRest.jsx, Library.jsx, etc.), each of which may have its
+  // own BackButton mounted underneath. See backHandlerRegistry.js.
+  // Native fullscreen video playback (native Android's own WebView
+  // fullscreen chrome) already consumes hardware Back to exit fullscreen
+  // first, ahead of this listener ever firing - no extra handling needed
+  // for that case.
+  useBackHandler(handleClose, true, 'overlay');
 
   // Background Music, Phase B — deliberately a no-op once hasStarted is
   // true (the toggle itself is hidden by then too; this guard is

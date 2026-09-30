@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useNavigationHistory } from '../context/NavigationHistoryContext';
 import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { ConfirmDialog } from './ConfirmDialog';
 
 /*
@@ -89,6 +90,16 @@ import { ConfirmDialog } from './ConfirmDialog';
  * every one of this shared component's own callers at once (Breathe.jsx,
  * Affirmation.jsx, IntentionSetup.jsx, MorningFlow.jsx, and any other
  * screen using the default guardActiveRoute confirmation).
+ *
+ * Android system Back button/gesture repair — handleClick is also
+ * registered (useBackHandler, below) as this screen's active back
+ * action for as long as this BackButton stays mounted. The hardware
+ * Back button and back-gesture on Android now call this exact same
+ * function a real tap would - active-routine confirmation,
+ * onBeforeLeave, alwaysFallback and goBack all included, not a separate
+ * reimplementation - see backHandlerRegistry.js's own doc comment for
+ * the full contract. No-op on iOS/web (useAndroidBackButton.js is
+ * Android-only); registering here is inert there.
  */
 export const BackButton = ({
   fallback = '/',
@@ -126,6 +137,8 @@ export const BackButton = ({
     setConfirmOpen(false);
     goBack(fallback);
   };
+
+  useBackHandler(handleClick);
 
   return (
     <>

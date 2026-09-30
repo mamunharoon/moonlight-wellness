@@ -130,7 +130,11 @@ describe('App-wide sweep — no bespoke w-10 h-10/w-9 h-9 circular icon-button r
 describe('Intentionally retained exceptions (not bespoke-button replacements, verified deliberate)', () => {
   it('DeleteAccount.jsx keeps its own local BackArrow (already 44x44, already labelled "Go back", already focus-ringed) - not migrated to JourneyHeader, since that would add a new unconditional Close/exit affordance to a destructive account-deletion flow beyond presentation-only standardisation', () => {
     const source = read('./DeleteAccount.jsx');
-    expect(source).toMatch(/const BackArrow = \(\{ onClick \}\) => \(/);
+    // Android system Back button/gesture repair — now a block body
+    // (`=> {`, calling useBackHandler(onClick) before the JSX return)
+    // rather than a bare implicit-return expression; still the same
+    // local, non-JourneyHeader BackArrow this test is really about.
+    expect(source).toMatch(/const BackArrow = \(\{ onClick \}\) => \{/);
     expect(source).toMatch(/w-11 h-11 rounded-full glass-panel border-white\/10/);
     expect(source).toMatch(/aria-label="Go back"/);
   });

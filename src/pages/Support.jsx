@@ -10,6 +10,7 @@ import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { BackButton } from '../components/BackButton';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 /*
  * Mobile navigation repair, Phase 3 — Support Hub ("Need a moment?")
@@ -182,6 +183,13 @@ export const Support = () => {
     setOptionIndex(0);
     setOpenVideoId(null);
   };
+
+  // Android system Back button/gesture repair — while a mood is selected,
+  // this hand-rolled arrow (not the shared BackButton component) is the
+  // real in-app back arrow for this screen; the page's own <BackButton
+  // fallback="/" /> (rendered only in the !mapping branch below) is what
+  // registers otherwise. See backHandlerRegistry.js.
+  useBackHandler(handleBack, Boolean(mapping));
 
   const handleChooseAnother = () => {
     setOptionIndex((i) => i + 1);
