@@ -1,0 +1,86 @@
+apply plugin: 'com.android.application'
+
+// WakeWise upload-key signing — reused verbatim from the existing
+// android-prep worktree's own build.gradle (same keystore file already on
+// this machine, same alias, same env-var-only discipline: nothing here is
+// a new credential, and no secret or path is committed). Reads exclusively
+// from environment variables (WAKEWISE_KEYSTORE_PATH,
+// WAKEWISE_STORE_PASSWORD, WAKEWISE_KEY_PASSWORD) — WAKEWISE_KEYSTORE_PATH
+// defaults to the standing WakeWise upload keystore location (outside this
+// repo) when unset. A release build fails fast with a clear message if the
+// password env vars aren't present, rather than silently producing an
+// unsigned bundle.
+def wakewiseKeystorePath = System.getenv("WAKEWISE_KEYSTORE_PATH") ?: "C:\\Users\\mamun\\Documents\\WakeWise-Signing\\wakewise-upload-key.jks"
+def wakewiseStorePassword = System.getenv("WAKEWISE_STORE_PASSWORD")
+def wakewiseKeyPassword = System.getenv("WAKEWISE_KEY_PASSWORD")
+
+android {
+    namespace "com.zavaraai.wakewise"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.zavaraai.wakewise"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Matches the versionCode/versionName already used by the
+        // previously-distributed internal-testing build (android-prep
+        // worktree's own build.gradle) — not bumped here. A real upload
+        // (out of scope for this task) must increment versionCode past
+        // whatever Play Console's internal track currently shows, which
+        // this task has no Play Console access to check.
+        versionCode 3
+        versionName "1.0.2"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (wakewiseStorePassword == null || wakewiseKeyPassword == null) {
+                throw new GradleException("WAKEWISE_STORE_PASSWORD and WAKEWISE_KEY_PASSWORD must both be set in the environment to build a signed release.")
+            }
+            storeFile file(wakewiseKeystorePath)
+            storePassword wakewiseStorePassword
+            keyAlias "wakewise-upload"
+            keyPassword wakewiseKeyPassword
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

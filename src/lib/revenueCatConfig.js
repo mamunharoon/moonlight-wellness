@@ -43,6 +43,22 @@
 export const REVENUECAT_ENTITLEMENT_ID = 'wakewise_plus';
 export const REVENUECAT_OFFERING_ID = 'default';
 
+// Google Play offer ids on the annual base plan — user-confirmed (given
+// directly, not guessed or scraped): 'founder-first-year' and
+// 'annual-trial-7-days'. Per the installed SDK's own SubscriptionOption
+// type (offerings.d.ts), a SubscriptionOption.id is `basePlanId` for the
+// base plan itself, or `basePlanId:offerId` for an offer — so these two
+// raw offer-id strings are matched as an id SUFFIX
+// (revenueCatAdapter.js's getGoogleNamedOfferOption), never assumed to be
+// the full SubscriptionOption.id verbatim, since the exact base-plan-id
+// prefix ('yearly', per the confirmed base-plan mapping below, but not
+// independently re-verified against a live SDK response this session) is
+// one layer less certain than the offer names themselves.
+export const GOOGLE_OFFER_NAMES = Object.freeze({
+  trial: 'annual-trial-7-days',
+  founder: 'founder-first-year'
+});
+
 // RevenueCat's own predefined PACKAGE_TYPE values (monthly, annual) cover
 // the standard tiers, and are the only two REAL RevenueCat packages this
 // file names — both correspond to a genuine store product each platform
@@ -92,9 +108,49 @@ export const REVENUECAT_PACKAGE_IDENTIFIERS = Object.freeze({
 //     purchases-typescript-internal-esm types), purchased via
 //     `purchaseSubscriptionOption()` — a genuinely different API from
 //     `purchasePackage()`, and still not "a RevenueCat package" in the
-//     Offering sense either. No Google product or base-plan offer exists
-//     yet at all (Phase 1's Android audit) — `googleOfferId` below is
-//     `null`, never invented.
+//     Offering sense either.
+//
+//     CORRECTION (readiness-gap review, user-confirmed): the Google
+//     monthly/annual base products DO now exist in RevenueCat —
+//     com.zavaraai.wakewise.plus.monthly:monthly and
+//     com.zavaraai.wakewise.plus.annual:yearly, both attached to
+//     wakewise_plus and mapped in the default offering. Google service
+//     credentials are valid in RevenueCat; Play's own "test notification
+//     sent" receipt is still unconfirmed. Two Google Play OFFERS also
+//     exist on the annual base plan — founder-first-year and
+//     annual-trial-7-days (GOOGLE_OFFER_NAMES above, user-confirmed) — but
+//     their exact current activation/eligibility status in the Play
+//     Console, and the exact SubscriptionOption.id format the live SDK
+//     returns for them, have NOT been independently verified this
+//     session — `googleOfferId` below is the confirmed offer NAME, matched
+//     against a live SubscriptionOption.id by suffix
+//     (getGoogleNamedOfferOption), never assumed to be the complete id nor
+//     dashboard-verified end-to-end against a real sandbox purchase yet.
+//
+//     REAL RISK, SDK-confirmed (not hypothetical): RevenueCat's Android
+//     `purchasePackage()` purchases a package's `defaultOption`, and
+//     RevenueCat's own documented defaultOption algorithm is "filter out
+//     options tagged rc-ignore-offer/rc-customer-center, then pick the
+//     option with the longest free trial or cheapest first phase, else
+//     fall back to the base plan" — see
+//     https://www.revenuecat.com/docs/tools/offering-configuration and
+//     community confirmation
+//     (https://community.revenuecat.com/general-questions-7/implementing-developer-determined-offer-with-android-2923).
+//     Since founder-first-year and annual-trial-7-days are both offers on
+//     the SAME annual base plan, calling `getPackage('annual')` then
+//     `purchasePackage()` for an ORDINARY annual purchase is NOT safe to
+//     assume excludes either offer — whichever offer's eligibility +
+//     trial-length/price ordering wins becomes what the user is actually
+//     charged, silently. See revenueCatAdapter.js's own
+//     `describeDefaultAnnualSelection()`/purchase-path comments for the
+//     mitigation (explicit SubscriptionOption resolution, never a blind
+//     purchasePackage() call for Android annual, until this is verified
+//     against a real RevenueCat sandbox purchase). The two safe fixes are
+//     either tagging founder-first-year `rc-ignore-offer` in the
+//     RevenueCat/Play dashboard (excludes it from defaultOption
+//     resolution entirely) or always purchasing an explicitly-resolved
+//     SubscriptionOption instead of relying on defaultOption — this file
+//     does not assume either has been done.
 //
 //   - Stripe: a founder price is an entirely separate Stripe Price object
 //     (or a Checkout coupon/promotion code) — RevenueCat is not involved
@@ -113,8 +169,8 @@ export const FOUNDER_OFFER_MODEL = Object.freeze({
   }),
   google: Object.freeze({
     mechanism: 'base_plan_offer',
-    appliesToProductId: null, // no Google annual product exists yet
-    googleOfferId: null // not dashboard-confirmed — never invented
+    appliesToProductId: 'com.zavaraai.wakewise.plus.annual', // = KNOWN_PRODUCT_IDS.annual.google
+    googleOfferId: GOOGLE_OFFER_NAMES.founder // = 'founder-first-year', user-confirmed; matched as a SubscriptionOption.id suffix, see GOOGLE_OFFER_NAMES's own comment
   }),
   stripe: Object.freeze({
     mechanism: 'stripe_price',
@@ -128,15 +184,17 @@ export const FOUNDER_OFFER_MODEL = Object.freeze({
 // docs/apple-subscription-implementation.md — not independently
 // re-verified against the live App Store Connect dashboard this session;
 // see the Phase 2B report's own external-verification classification).
-// Google identifiers remain null throughout — Phase 1's Android audit
-// confirmed no Google Play product/base-plan exists yet for any tier. A
-// `null` here is itself the honest signal "not yet dashboard-confirmed,"
-// never a guessed string. Neither product entry carries a "founder"
-// field any more — see FOUNDER_OFFER_MODEL above for where that
-// information now lives and why.
+//
+// CORRECTION (readiness-gap review, user-confirmed): Google product ids
+// are no longer null — both base products exist in RevenueCat and are
+// mapped into the default offering: com.zavaraai.wakewise.plus.monthly
+// (base plan "monthly") and com.zavaraai.wakewise.plus.annual (base plan
+// "yearly"). The base-plan id itself (distinct from the product id) is
+// not modeled here since nothing in this codebase reads it directly —
+// RevenueCat's own Offering/Package resolution handles that mapping.
 export const KNOWN_PRODUCT_IDS = Object.freeze({
-  monthly: Object.freeze({ apple: 'com.zavaraai.wakewise.plus.monthly', google: null }),
-  annual: Object.freeze({ apple: 'com.zavaraai.wakewise.plus.annual', google: null })
+  monthly: Object.freeze({ apple: 'com.zavaraai.wakewise.plus.monthly', google: 'com.zavaraai.wakewise.plus.monthly' }),
+  annual: Object.freeze({ apple: 'com.zavaraai.wakewise.plus.annual', google: 'com.zavaraai.wakewise.plus.annual' })
 });
 
 // The approved future BASE prices (USD), for documentation and for the

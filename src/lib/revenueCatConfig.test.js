@@ -38,9 +38,9 @@ describe('revenueCatConfig — approved commercial decisions, real values (not p
     expect(KNOWN_PRODUCT_IDS.annual.apple).toBe('com.zavaraai.wakewise.plus.annual');
   });
 
-  it('every Google product id is null - Phase 1\'s Android audit confirmed none exists yet, for any tier', () => {
-    expect(KNOWN_PRODUCT_IDS.monthly.google).toBeNull();
-    expect(KNOWN_PRODUCT_IDS.annual.google).toBeNull();
+  it('Google product ids match the base products confirmed live in RevenueCat (readiness-gap correction — these now exist, for both tiers)', () => {
+    expect(KNOWN_PRODUCT_IDS.monthly.google).toBe('com.zavaraai.wakewise.plus.monthly');
+    expect(KNOWN_PRODUCT_IDS.annual.google).toBe('com.zavaraai.wakewise.plus.annual');
   });
 
   it('the approved future USD base prices are recorded exactly once: $6.99 monthly, $59.99 annual, $49.99 founder first year renewing at $59.99', () => {
@@ -67,11 +67,11 @@ describe('FOUNDER_OFFER_MODEL — the corrected, platform-specific mechanism (no
     expect(FOUNDER_OFFER_MODEL.apple.appliesToProductId).toBe(KNOWN_PRODUCT_IDS.annual.apple);
   });
 
-  it('Google: a base-plan-offer SubscriptionOption, with no invented offer id - null until dashboard-confirmed', () => {
+  it('Google: a base-plan-offer SubscriptionOption on the now-confirmed annual product, using the user-confirmed offer name (not a guessed dashboard id)', () => {
     expect(FOUNDER_OFFER_MODEL.google).toEqual({
       mechanism: 'base_plan_offer',
-      appliesToProductId: null,
-      googleOfferId: null
+      appliesToProductId: 'com.zavaraai.wakewise.plus.annual',
+      googleOfferId: 'founder-first-year'
     });
   });
 

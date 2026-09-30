@@ -69,6 +69,7 @@ const ChangePassword = lazy(() => import('./pages/ChangePassword').then((m) => (
 const PublicDeleteAccount = lazy(() => import('./pages/PublicDeleteAccount').then((m) => ({ default: m.PublicDeleteAccount })));
 const SessionRegistryPreview = lazy(() => import('./pages/SessionRegistryPreview').then((m) => ({ default: m.SessionRegistryPreview })));
 const SessionEnginePreview = lazy(() => import('./pages/SessionEnginePreview').then((m) => ({ default: m.SessionEnginePreview })));
+const SubscriptionSandboxTest = lazy(() => import('./pages/SubscriptionSandboxTest').then((m) => ({ default: m.SubscriptionSandboxTest })));
 const EveningWindDown = lazy(() => import('./pages/EveningWindDown').then((m) => ({ default: m.EveningWindDown })));
 const EveningComplete = lazy(() => import('./pages/EveningComplete').then((m) => ({ default: m.EveningComplete })));
 const Reflection = lazy(() => import('./pages/Reflection').then((m) => ({ default: m.Reflection })));
@@ -376,6 +377,15 @@ function App() {
                     keeps its own isolated, independently-resettable state and
                     never reads or writes real production session state. */}
                 <Route path="session-engine-preview" element={withFallback(<SessionEnginePreview />)} />
+
+                {/* Phase 2B readiness-gap item 6: DEV-only RevenueCat sandbox
+                    test surface. Same unlinked-route pattern as the two
+                    preview routes above, PLUS its own build-time kill switch
+                    (VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST) since — unlike
+                    those two — this page can call a real purchase SDK; see
+                    SubscriptionSandboxTest.jsx's own header for the full
+                    "how this stays out of production" explanation. */}
+                <Route path="dev/subscription-sandbox-test" element={withFallback(<SubscriptionSandboxTest />)} />
 
                 {/* Subscription Model, Sprint 2 Stage 2: administration
                     foundation. AdminRoute gates every nested route on

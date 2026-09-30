@@ -126,6 +126,64 @@ describe('revenueCatAdapter — founder offer: the corrected, platform-specific 
   });
 });
 
+describe('revenueCatAdapter — Android default-offer selection is legible AND enforced, never assumed safe', () => {
+  it('optionMatchesOfferName matches by id suffix (basePlanId:offerId), never exact equality - SubscriptionOption.id is never just the offer name alone', () => {
+    const body = source.match(/const optionMatchesOfferName = \(option, offerName\) =>[\s\S]*?;/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/option\.id\?\.endsWith\(`:\$\{offerName\}`\)/);
+  });
+
+  it('describeDefaultAnnualSelection is Android-only, read-only (inspection, not enforcement)', () => {
+    const body = source.match(/export const describeDefaultAnnualSelection = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/currentPlatform\(\) !== 'android'/);
+    expect(body).toMatch(/optionMatchesOfferName\(defaultOption, googleOfferId\)/);
+    expect(body).toMatch(/isBasePlan: Boolean\(defaultOption\.isBasePlan\)/);
+  });
+
+  it('getGoogleBasePlanAnnualOption resolves via the real SDK isBasePlan flag, never a guessed id', () => {
+    const body = source.match(/export const getGoogleBasePlanAnnualOption = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/option\?\.isBasePlan/);
+  });
+
+  it('getGoogleNamedOfferOption resolves via optionMatchesOfferName, the same suffix-matching used everywhere else', () => {
+    const body = source.match(/export const getGoogleNamedOfferOption = \(annualPackage, offerName\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/optionMatchesOfferName\(option, offerName\)/);
+  });
+
+  it('purchaseGoogleAnnualTierExplicit REJECTS a structural mismatch instead of purchasing it - the actual enforcement, not just inspection', () => {
+    const body = source.match(/export const purchaseGoogleAnnualTierExplicit = async \(annualPackage, intendedTier\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/outcome: 'not_found'/);
+    expect(body).toMatch(/outcome: 'mismatch'/);
+    expect(body).toMatch(/if \(!matchesIntent\) \{/);
+    // The mismatch/not_found paths must return BEFORE ever reaching
+    // purchaseGoogleSubscriptionOption - i.e. a rejected option is never
+    // purchased. Confirmed structurally: the purchase call is the last
+    // statement in the function body, after both guard returns above it.
+    const purchaseCallIndex = body.indexOf('return purchaseGoogleSubscriptionOption(option);');
+    const mismatchGuardIndex = body.indexOf("return { outcome: 'mismatch'");
+    expect(purchaseCallIndex).toBeGreaterThan(mismatchGuardIndex);
+  });
+
+  it('getGoogleFounderSubscriptionOption uses the same suffix-matching helper (bug fix - exact equality could never match a real basePlanId:offerId value)', () => {
+    const body = source.match(/export const getGoogleFounderSubscriptionOption = async \(\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/\.find\(\(option\) => optionMatchesOfferName\(option, googleOfferId\)\)/);
+  });
+});
+
+describe('revenueCatAdapter — restore never conflates a receipt-ownership conflict with a generic failure', () => {
+  it('restoreRevenueCatPurchases reports RECEIPT_ALREADY_IN_USE as its own outcome, not folded into "failed"', () => {
+    const body = source.match(/export const restoreRevenueCatPurchases = async \(\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/RECEIPT_ALREADY_IN_USE/);
+    expect(body).toMatch(/outcome: 'receipt_already_in_use'/);
+  });
+});
+
 describe('revenueCatAdapter — coexistence with the existing Apple-direct adapter', () => {
   it('does not import or call anything from applePurchaseAdapter.js - the two purchase paths stay fully separate until the documented cutover', () => {
     expect(source).not.toMatch(/from '\.\/applePurchaseAdapter'/);

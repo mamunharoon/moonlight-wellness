@@ -49,14 +49,23 @@
 // body, which RevenueCat's own docs note may in some event types include
 // pricing/promotional details not needed for WakeWise's own reconciliation.
 //
-// FIELD-NAME VERIFICATION STILL REQUIRED BEFORE THIS CAN GO LIVE: the
-// exact field names below for the Apple original-transaction identifier
-// and the Google purchase-token equivalent are this task's best-documented
-// understanding of RevenueCat's REST API v2 webhook event shape, but have
-// NOT been verified against a real RevenueCat sandbox event (no
-// RevenueCat project exists to generate one from — see the Phase 2B
+// FIELD-NAME STATUS (readiness-gap review, updated against RevenueCat's
+// official docs — https://www.revenuecat.com/docs/integrations/webhooks/event-types-and-fields):
+//   - Apple: `original_transaction_id` (fallback `transaction_id`) —
+//     CONFIRMED present in RevenueCat's documented webhook payload fields.
+//   - Google: also `original_transaction_id`/`transaction_id` — same two
+//     documented fields, no Google-specific field exists in the official
+//     schema. A prior version of this file read a `store_transaction_id`
+//     field that does NOT appear in RevenueCat's webhook field reference
+//     (that name belongs to a different API surface) — corrected below.
+//     For PLAY_STORE events this identifier is Google's own order id
+//     (`GPA.xxxx-...`), not a raw Play Billing purchase token (RevenueCat
+//     webhooks never expose the purchase token itself).
+// STILL REQUIRED BEFORE THIS CAN GO LIVE: neither reading has been
+// verified against a REAL captured RevenueCat sandbox event (no
+// RevenueCat project/sandbox purchase exists yet — see the Phase 2B
 // report's external-prerequisites section). Do not treat this function as
-// purchase-ready until a real sandbox event has been captured and these
+// purchase-ready until a real sandbox event has been captured and both
 // field reads confirmed against it.
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
@@ -213,10 +222,30 @@ Deno.serve(async (req) => {
   }
 
   // provider === 'google'
-  // FIELD-NAME VERIFICATION REQUIRED (see this file's own header) —
-  // RevenueCat's own field carrying the Google Play purchase token
-  // equivalent in a v2 webhook event.
-  const googlePurchaseToken = event.store_transaction_id ?? event.transaction_id ?? null;
+  // FIELD NAME CORRECTED (readiness-gap review): RevenueCat's official
+  // webhook field reference (event-types-and-fields) lists only
+  // `transaction_id` / `original_transaction_id` as webhook payload
+  // fields — `store_transaction_id` is NOT among them; that name belongs
+  // to a different RevenueCat API surface (CustomerInfo / REST v1), not
+  // the webhook event schema, and reading it here was an unverified
+  // guess this correction removes. For a PLAY_STORE event,
+  // `original_transaction_id`/`transaction_id` carries Google's own
+  // ORDER ID (format `GPA.xxxx-xxxx-xxxx-xxxxx`), never the raw Play
+  // Billing purchase token — RevenueCat's webhooks do not expose the
+  // purchase token at all (it is only obtainable client-side from the
+  // native Android SDK's purchase-completion callback, a different data
+  // path this project does not currently use). This value is still a
+  // genuine, unique, per-purchase Google identifier — safe to use as the
+  // DB's ownership/idempotency key exactly like Apple's
+  // original_transaction_id — but the RPC parameter name
+  // (p_google_purchase_token, and the underlying
+  // provider_subscriptions.google_purchase_token column, already applied
+  // in the foundation migration) is a pre-existing misnomer this task
+  // does not rename. STILL REQUIRES CONFIRMATION against a real
+  // RevenueCat sandbox event before this is purchase-ready — this
+  // correction is grounded in RevenueCat's official docs, not yet in a
+  // captured real payload.
+  const googlePurchaseToken = event.original_transaction_id ?? event.transaction_id ?? null;
   if (!googlePurchaseToken) {
     console.warn('revenuecat-webhook: Google event missing a usable purchase token');
     return json({ received: true, processed: false, reason: 'missing_purchase_token' });

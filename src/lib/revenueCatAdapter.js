@@ -68,10 +68,23 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_OFFERING_ID,
   FOUNDER_OFFER_MODEL,
+  GOOGLE_OFFER_NAMES,
   getRevenueCatIosApiKey,
   getRevenueCatAndroidApiKey,
   isRevenueCatConfigured
 } from './revenueCatConfig';
+
+// SubscriptionOption.id is `basePlanId` for the base plan itself, or
+// `basePlanId:offerId` for an offer (installed SDK's own offerings.d.ts,
+// `SubscriptionOption.id`'s own doc comment) — matching an offer NAME as
+// an id suffix is therefore the structurally correct way to find it,
+// never a guess at the full id (the base-plan-id prefix is not
+// independently re-verified this session). Exported so both
+// getGoogleFounderSubscriptionOption and describeDefaultAnnualSelection
+// share one definition of "matches this offer name" rather than two
+// independently-drifting copies.
+const optionMatchesOfferName = (option, offerName) =>
+  Boolean(option) && Boolean(offerName) && (option.id === offerName || option.id?.endsWith(`:${offerName}`));
 
 const currentPlatform = () => (isIOS() ? 'ios' : isAndroid() ? 'android' : null);
 
@@ -184,6 +197,118 @@ export const getPackage = async (tier) => {
 };
 
 /**
+ * READINESS-GAP FINDING (not hypothetical — RevenueCat/Android-SDK
+ * documented behaviour): on Android, `purchasePackage()` never purchases
+ * "the base plan, no offer" implicitly — it purchases the package
+ * product's own `defaultOption`, and RevenueCat's own documented
+ * defaultOption algorithm is "filter out options tagged rc-ignore-offer/
+ * rc-customer-center, then pick the option with the longest free trial or
+ * cheapest first phase, else fall back to the base plan" (see
+ * revenueCatConfig.js's own header for citations). Since this project's
+ * Google annual base plan carries TWO offers today (founder-first-year,
+ * annual-trial-7-days), calling `getPackage('annual')` then
+ * `purchasePackage()` for what the UI intends as an ORDINARY annual
+ * purchase must NOT be assumed to exclude the founder offer — whichever
+ * option wins that algorithm is what the subscriber is actually charged.
+ * (iOS has no equivalent risk: Apple's founder mechanism is a separate
+ * offer-code redemption sheet, never a package purchase at all — see
+ * getAppleFounderOfferModel()/redeemAppleFounderOfferCode() above.)
+ *
+ * This function makes that selection legible before any purchase call:
+ * given a package from getPackage('annual'), it reports which
+ * SubscriptionOption id is Android's `defaultOption`, and separately
+ * whether that id matches the known founder offer id (once
+ * FOUNDER_OFFER_MODEL.google.googleOfferId is dashboard-confirmed and no
+ * longer null). A future Android paywall MUST call this (or an
+ * equivalent explicit check) before purchasing an "ordinary annual" —
+ * never call purchasePackage() blind for Android annual until either (a)
+ * founder-first-year is tagged rc-ignore-offer in the RevenueCat/Play
+ * dashboard, confirmed here to return isFounderOffer: false unconditionally,
+ * or (b) this function's result is checked and, if it names the founder
+ * offer, the ordinary-purchase path instead calls
+ * purchaseGoogleSubscriptionOption() with the base-plan option explicitly.
+ * Returns null on iOS/web or if RevenueCat/the package has no Google
+ * subscription data — never a guessed selection.
+ */
+export const describeDefaultAnnualSelection = (annualPackage) => {
+  if (currentPlatform() !== 'android' || !annualPackage?.product) return null;
+  const defaultOption = annualPackage.product.defaultOption ?? null;
+  if (!defaultOption) return null;
+  const { googleOfferId } = FOUNDER_OFFER_MODEL.google;
+  return {
+    defaultOptionId: defaultOption.id ?? null,
+    isBasePlan: Boolean(defaultOption.isBasePlan),
+    isFounderOffer: optionMatchesOfferName(defaultOption, googleOfferId),
+    isTrialOffer: optionMatchesOfferName(defaultOption, GOOGLE_OFFER_NAMES.trial)
+  };
+};
+
+/**
+ * ENFORCEMENT, not just inspection (the gap describeDefaultAnnualSelection()
+ * alone left open — it reports the default selection but does not stop a
+ * caller from purchasing it anyway). The structurally reliable way to get
+ * "ordinary annual, no offer": SubscriptionOption.isBasePlan, a real SDK
+ * field, never a guessed id string. Returns null (never a fabricated
+ * option) if the package has no Google subscription data or no option is
+ * actually flagged as the base plan.
+ */
+export const getGoogleBasePlanAnnualOption = (annualPackage) => {
+  if (currentPlatform() !== 'android') return null;
+  const options = annualPackage?.product?.subscriptionOptions ?? [];
+  return options.find((option) => option?.isBasePlan) ?? null;
+};
+
+/**
+ * Resolves a named Google offer's SubscriptionOption (e.g.
+ * GOOGLE_OFFER_NAMES.trial / .founder) by id suffix — see
+ * optionMatchesOfferName's own comment for why suffix matching, not exact
+ * equality, is correct here. Returns null (never invented) if no option
+ * on this package matches.
+ */
+export const getGoogleNamedOfferOption = (annualPackage, offerName) => {
+  if (currentPlatform() !== 'android' || !offerName) return null;
+  const options = annualPackage?.product?.subscriptionOptions ?? [];
+  return options.find((option) => optionMatchesOfferName(option, offerName)) ?? null;
+};
+
+/**
+ * The one function any purchase call site — including
+ * SubscriptionSandboxTest.jsx — MUST use to buy a specific, INTENDED
+ * Google annual tier ('base' | 'trial' | 'founder'). Never calls
+ * purchasePackage()/relies on defaultOption: resolves the exact
+ * SubscriptionOption explicitly via the functions above, then re-checks
+ * the resolved option structurally matches what was asked for before
+ * purchasing at all — a mismatch is REJECTED (returns
+ * {outcome: 'mismatch', ...}, purchases nothing) rather than silently
+ * falling through to whatever was found. This is the enforcement half of
+ * describeDefaultAnnualSelection()'s own inspection-only finding: that
+ * function can tell you defaultOption might be wrong, this function is
+ * the one that refuses to purchase a wrong one.
+ */
+export const purchaseGoogleAnnualTierExplicit = async (annualPackage, intendedTier) => {
+  if (currentPlatform() !== 'android') return { outcome: 'unavailable' };
+  if (!['base', 'trial', 'founder'].includes(intendedTier)) return { outcome: 'unavailable' };
+
+  const option =
+    intendedTier === 'base'
+      ? getGoogleBasePlanAnnualOption(annualPackage)
+      : getGoogleNamedOfferOption(annualPackage, GOOGLE_OFFER_NAMES[intendedTier]);
+
+  if (!option) return { outcome: 'not_found', intendedTier };
+
+  // Re-verify structurally, even though the resolver functions above
+  // should already guarantee this — a purchase call site gets no benefit
+  // from "should already be true," only from "is checked again right
+  // here, right before spending money."
+  const matchesIntent = intendedTier === 'base' ? Boolean(option.isBasePlan) : !option.isBasePlan;
+  if (!matchesIntent) {
+    return { outcome: 'mismatch', intendedTier, resolvedOptionId: option.id ?? null };
+  }
+
+  return purchaseGoogleSubscriptionOption(option);
+};
+
+/**
  * The founder offer's Apple mechanism, exactly as configured today
  * (source-confirmed — see revenueCatConfig.js's own FOUNDER_OFFER_MODEL).
  * A plain, synchronous config read — never calls the SDK itself. Exists
@@ -244,7 +369,11 @@ export const getGoogleFounderSubscriptionOption = async () => {
     const offerings = await Purchases.getOfferings();
     const offering = offerings?.current ?? offerings?.all?.[REVENUECAT_OFFERING_ID] ?? null;
     const annualProduct = offering?.annual?.product ?? null;
-    return (annualProduct?.subscriptionOptions ?? []).find((option) => option.id === googleOfferId) ?? null;
+    // BUG FIX (readiness-gap review): SubscriptionOption.id is
+    // `basePlanId:offerId` for an offer, never just the offer id alone —
+    // an exact `option.id === googleOfferId` equality check could never
+    // match a real live option; see optionMatchesOfferName's own comment.
+    return (annualProduct?.subscriptionOptions ?? []).find((option) => optionMatchesOfferName(option, googleOfferId)) ?? null;
   } catch (error) {
     console.warn('[revenueCatAdapter] getOfferings failed while resolving the Google founder option, continuing without it', safeErrorMessage(error));
     return null;
@@ -315,6 +444,38 @@ export const purchasePackage = async (aPackage) => {
  * own useAppleRestore.js correction, for the same reason it would be
  * wrong here: a slow verification is not the same as "nothing to
  * restore").
+ *
+ * READINESS-GAP FINDING (RevenueCat-documented, not this project's own
+ * assumption): logout-before-login (useRevenueCatIdentity.js) prevents a
+ * STALE CACHED entitlement from leaking to the wrong signed-in user, but
+ * it does not by itself prove a purchase can never move between two real
+ * WakeWise accounts. RevenueCat's own dashboard has a project-level
+ * "Restore Behavior" setting (Project Settings → General) — see
+ * https://www.revenuecat.com/docs/projects/restore-behavior — with two
+ * modes: "Transfer" (User B restoring a receipt already linked to User A
+ * REVOKES it from A and grants it to B — silently, at RevenueCat's layer,
+ * before this app's webhook ever runs) or "Keep with original App User
+ * ID" (User B's restorePurchases() instead REJECTS with
+ * RECEIPT_ALREADY_IN_USE). This project's DB-level ownership check
+ * (apply_verified_apple/google_subscription_event's "already linked to a
+ * different WakeWise account" rejection) is the real, always-on backstop
+ * against a leak reaching this app's own entitlements table regardless of
+ * which RevenueCat mode is active — a RevenueCat-side "Transfer" would
+ * still be rejected by the DB when the resulting webhook event tries to
+ * reassign an existing apple_original_transaction_id/google row. But
+ * "Keep with original App User ID" is the mode that keeps RevenueCat's
+ * OWN subscriber records consistent with that DB rule instead of
+ * confusingly diverging from it (RevenueCat believing B owns it while the
+ * DB still — correctly — says A does) — **this dashboard setting must be
+ * confirmed as "Keep with original App User ID" before Restore is wired
+ * to any real UI; this task cannot set it (no dashboard access) and does
+ * not assume its current value.**
+ *
+ * RECEIPT_ALREADY_IN_USE is reported here as its own explicit outcome
+ * (not folded into the generic 'failed' case) so a future UI can show an
+ * honest "this purchase belongs to a different account" message rather
+ * than a generic error — and so this exact scenario is visible in a
+ * sandbox test rather than silently swallowed.
  */
 export const restoreRevenueCatPurchases = async () => {
   if (!configured || !isRevenueCatSupported()) return { outcome: 'unavailable' };
@@ -322,8 +483,14 @@ export const restoreRevenueCatPurchases = async () => {
     await Purchases.restorePurchases();
     return { outcome: 'restored' };
   } catch (error) {
-    console.warn('[revenueCatAdapter] restorePurchases failed', safeErrorMessage(error));
-    return { outcome: 'failed', message: safeErrorMessage(error) };
+    const code = typeof error?.code === 'string' ? error.code : '';
+    const message = safeErrorMessage(error);
+    if (code === 'RECEIPT_ALREADY_IN_USE' || /receipt_already_in_use|already in use/i.test(message)) {
+      console.warn('[revenueCatAdapter] restorePurchases: receipt already linked to a different account');
+      return { outcome: 'receipt_already_in_use' };
+    }
+    console.warn('[revenueCatAdapter] restorePurchases failed', message);
+    return { outcome: 'failed', message };
   }
 };
 

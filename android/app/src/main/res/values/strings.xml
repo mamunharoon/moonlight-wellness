@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WakeWise</string>
+    <string name="title_activity_main">WakeWise</string>
+    <string name="package_name">com.zavaraai.wakewise</string>
+    <!-- Must match iOS Info.plist's CFBundleURLSchemes ("wakewise").
+         Capacitor's stock generator defaults this to the applicationId,
+         which is wrong for this app's real deep-link scheme; corrected to
+         match the existing cross-platform contract useNativeDeepLinks.js
+         relies on. -->
+    <string name="custom_url_scheme">wakewise</string>
+</resources>
