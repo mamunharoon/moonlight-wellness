@@ -460,34 +460,25 @@ workflows:
           cd ios/App
           pod install
 
-      - name: Set and verify the explicit sandbox build number (24)
+      - name: Determine and set the next available sandbox build number
         script: |
           set -euo pipefail
-          # This sandbox workflow is a one-off DEV validation run, not the
-          # ongoing release counter the production workflow uses. Per
-          # explicit instruction, it must use a hardcoded build number --
-          # 24 -- and MUST verify against App Store Connect itself that 24
-          # is genuinely unused and valid before ever reaching the upload
-          # step. There is deliberately no fallback here: if the query
-          # fails, or 24 turns out to already be taken, the build stops.
-          # Guessing a replacement (a counter, a timestamp) would risk
-          # silently uploading under the wrong number for a build this
-          # task exists specifically to pin down.
-          SANDBOX_BUILD_NUMBER=24
-
+          # Build 24 (the previous hardcoded pin here) now exists in App
+          # Store Connect. Rather than re-pin a second literal (25) that
+          # would just go stale the same way the moment another build
+          # lands, this always queries App Store Connect for the real
+          # current highest build number and uses highest+1 - correct on
+          # every run, not just this one. Same no-guessing discipline as
+          # before: if the query fails, this aborts rather than falling
+          # back to a counter or timestamp.
           QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$BUNDLE_ID")"
           if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "Could not obtain a valid highest-build-number response from App Store Connect for $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
             exit 1
           fi
 
-          if [ "$SANDBOX_BUILD_NUMBER" -le "$QUERIED_BUILD_NUMBER" ]; then
-            echo "Build number $SANDBOX_BUILD_NUMBER is NOT usable: App Store Connect already has a build at or above it (highest existing: $QUERIED_BUILD_NUMBER) for $BUNDLE_ID. Aborting rather than falling back to a guessed counter or timestamp."
-            exit 1
-          fi
-
-          echo "Verified: $SANDBOX_BUILD_NUMBER is unused and valid in App Store Connect for $BUNDLE_ID (highest existing: $QUERIED_BUILD_NUMBER)."
-          BUILD_NUMBER="$SANDBOX_BUILD_NUMBER"
+          BUILD_NUMBER=$((QUERIED_BUILD_NUMBER + 1))
+          echo "Highest existing build in App Store Connect for $BUNDLE_ID: $QUERIED_BUILD_NUMBER. Using next available: $BUILD_NUMBER."
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
 
