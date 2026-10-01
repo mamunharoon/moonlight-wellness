@@ -270,7 +270,19 @@ const MEDITATION_METADATA = {
 // entries in betaVideoManifest.js.
 const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02']);
 
-export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id)).map((entry) => ({
+// Anytime Stretch (DEV integration) — S06-S09 are real narrated exercises
+// (unlike the interactive-only loops above), but per the approved scope
+// for this feature they must stay reachable ONLY via AnytimeStretch.jsx's
+// own exerciseId lookup (requestBetaVideoUrl -> get-beta-video-url), never
+// as a general Library/catalog-browsable row - "No Library expansion" was
+// an explicit requirement when this integration was approved. Kept as its
+// own separate set (not folded into INTERACTIVE_ONLY_IDS itself) so that
+// set's own exact-membership tests (e.g. im01Registration.test.js) stay
+// untouched and accurate - these ids are excluded from Library for a
+// different reason, not because they're interactive-only content.
+const LIBRARY_EXCLUDED_STRETCH_IDS = new Set(['S06', 'S07', 'S08', 'S09']);
+
+export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id) && !LIBRARY_EXCLUDED_STRETCH_IDS.has(entry.id)).map((entry) => ({
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
   meditation: MEDITATION_METADATA[entry.id] || null,

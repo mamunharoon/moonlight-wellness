@@ -76,7 +76,7 @@ describe('Home.jsx — quick-action tiles: icon bump only, everything else from 
     // always opens a real Evening/sleep experience regardless of Home's
     // own active tab.
     expect(source).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>air</);
-    expect(source).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>spa</);
+    expect(source).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>self_improvement</);
     expect(source).toMatch(/text-evening-accent text-2xl">bedtime</);
   });
 

@@ -51,8 +51,8 @@ describe('2. Sleep & Unwind (Home quick action) uses the evening lavender token'
 });
 
 describe('3. Meditate also previews Home\'s own active rhythm colour (superseding the earlier "always peach" contract)', () => {
-  it('uses the same dynamic quickActionIconClass as Breathe - Meditate and Breathe share a colour when Home is Anytime-active because both open Anytime-family experiences; their distinct icons (air vs spa) keep them visually distinct', () => {
-    expect(homeSource).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>spa</);
+  it('uses the same dynamic quickActionIconClass as Breathe - Meditate and Breathe share a colour when Home is Anytime-active because both open Anytime-family experiences; their distinct icons (air vs self_improvement) keep them visually distinct', () => {
+    expect(homeSource).toMatch(/\{`material-symbols-outlined \$\{quickActionIconClass\} text-2xl`\}>self_improvement</);
   });
 
   it('hands the captured context to the standalone screen it opens, via the Link\'s own state', () => {
