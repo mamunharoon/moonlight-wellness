@@ -38,15 +38,10 @@ describe('Morning and Evening pathways resolve the exact same canonical icon as 
     expect(JOURNEY_STAGE_ICONS.breathe).toBe('air');
   });
 
-  it('Meditate: Morning, Evening and Anytime all use "self_improvement" - never a lotus/spa icon', () => {
+  it('Meditate: Morning, Evening and Anytime all use "self_improvement" (owner-confirmed seated-meditation icon), matching Home\'s own Meditate quick-action tile', () => {
     expect(MORNING_PATHWAY_STAGES.find((s) => s.id === 'meditate').icon).toBe('self_improvement');
     expect(EVENING_PATHWAY_STAGES.find((s) => s.id === 'meditate').icon).toBe('self_improvement');
     expect(JOURNEY_STAGE_ICONS.meditate).toBe('self_improvement');
-  });
-
-  it('Evening no longer uses a lotus-style "spa" icon anywhere in its own pathway stage definitions', () => {
-    expect(EVENING_PATHWAY_STAGES.map((s) => s.icon)).not.toContain('spa');
-    expect(MORNING_PATHWAY_STAGES.map((s) => s.icon)).not.toContain('spa');
   });
 
   it('Stretch no longer collides with Meditate\'s icon - each Morning stage has a visually distinct glyph', () => {

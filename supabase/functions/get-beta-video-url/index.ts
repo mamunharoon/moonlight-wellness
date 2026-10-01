@@ -25,7 +25,7 @@
 // header comment, and GUEST_ALLOWED_IDS's own comment before adding
 // anything else to it.
 //
-// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05 and
+// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S09 and
 // SL01-SL10 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
@@ -146,6 +146,19 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['S03', 'faststart-v1/WW_S03_UpperBackStretch_v1.mp4_faststart.mp4'],
   ['S04', 'faststart-v1/WW_S04_MorningFlow_v1.mp4_faststart.mp4'],
   ['S05', 'faststart-v1/WW_S05_EveningFlow_v1.mp4_faststart.mp4'],
+  // Anytime Stretch (DEV integration) — S06-S09, audio-only guided
+  // narration (never remuxed, so no "_faststart" suffix like S01-S05's
+  // own video remuxes). Object names are exactly what's in Storage today
+  // (uploaded under their original local filenames, not renamed to the
+  // WW_S0X convention - same "verified against storage.objects, not
+  // assumed from spec" rule this file's own header comment already
+  // states for every other id, typos and double extensions included).
+  // wellness-videos' allowed_mime_types was extended with 'audio/mpeg' in
+  // DEV to accept these (video/mp4 and audio/mp4 only, before).
+  ['S06', 'faststart-v1/ST01_Chest_Shoulder_Stretch.mp3.MP3'],
+  ['S07', 'faststart-v1/ST02_Hands_Wrists_Refresh.mp3.MP3'],
+  ['S08', 'faststart-v1/ST03_Feet_Ankles_Refresh.mp3.MP3'],
+  ['S09', 'faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3'],
   ['IS01', 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a'],
   // Build 15 — SL01-SL10 true-fast-start migration. The original
   // faststart-v1 objects below were replaced: a live Storage audit found

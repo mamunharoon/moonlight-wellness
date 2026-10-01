@@ -79,7 +79,13 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
   // carries that marker. Their exact object names are verified (uploaded,
   // checked byte-for-byte) and must not be renamed - see
   // im01Registration.test.js/im02Registration.test.js.
-  const REMUX_EXEMPT_IDS = ['IM01', 'IM02'];
+  //
+  // S06-S09 (Anytime Stretch, DEV integration) join this list for the same
+  // underlying reason: plain original audio uploads, never run through
+  // the Fast Start remux pipeline at all (faststart-v1/ here just means
+  // "lives in that folder", not "was remuxed" - see
+  // get-beta-video-url/index.ts's own comment on this exact block).
+  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09'];
 
   it('every remuxed path carries the _faststart marker before its extension (the remux naming convention)', () => {
     for (const [id, path] of Object.entries(edgeFnPaths)) {
@@ -88,10 +94,12 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     }
   });
 
-  it('IM01/IM02 are the only explicit, deliberate exceptions, and only for the exact verified reason above', () => {
-    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02']);
+  it('IM01/IM02/S06-S09 are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
+    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09']);
     expect(edgeFnPaths.IM01).toBe('faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a');
     expect(edgeFnPaths.IM02).toBe('faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a');
+    expect(edgeFnPaths.S06).toBe('faststart-v1/ST01_Chest_Shoulder_Stretch.mp3.MP3');
+    expect(edgeFnPaths.S09).toBe('faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3');
   });
 });
 

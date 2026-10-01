@@ -86,6 +86,11 @@ const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m
 const SelfGuidedMeditation = lazy(() => import('./pages/SelfGuidedMeditation').then((m) => ({ default: m.SelfGuidedMeditation })));
 const SelfGuidedMeditationComplete = lazy(() => import('./pages/SelfGuidedMeditationComplete').then((m) => ({ default: m.SelfGuidedMeditationComplete })));
 const AnytimeReset = lazy(() => import('./pages/AnytimeReset').then((m) => ({ default: m.AnytimeReset })));
+// DEV integration (Supabase-backed) — guided Stretch, reached from AnytimeReset.jsx's
+// own "Or choose another quick reset" row. Plays narration audio fetched
+// via the same signed-URL mechanism as every other beta exercise; see
+// AnytimeStretch.jsx's own doc comment.
+const AnytimeStretch = lazy(() => import('./pages/AnytimeStretch').then((m) => ({ default: m.AnytimeStretch })));
 const MeditationComplete = lazy(() => import('./pages/MeditationComplete').then((m) => ({ default: m.MeditationComplete })));
 const Grounding = lazy(() => import('./pages/Grounding').then((m) => ({ default: m.Grounding })));
 const SupportComplete = lazy(() => import('./pages/SupportComplete').then((m) => ({ default: m.SupportComplete })));
@@ -353,6 +358,12 @@ function App() {
                     here. /support remains a separate, untouched route -
                     see AnytimeReset.jsx's own doc comment. */}
                 <Route path="anytime-reset" element={withFallback(<AnytimeReset />)} />
+
+                {/* DEV integration (Supabase-backed) — guided Stretch. Same standalone,
+                    outside-<Layout> placement as breathe-standalone/
+                    self-guided-meditation above - see AnytimeStretch.jsx's
+                    own doc comment. */}
+                <Route path="anytime-stretch" element={withFallback(<AnytimeStretch />)} />
 
                 {/* WakeWise Phase 1 correction — the MLT-3A-16 Stage 3
                     internal preview route was removed here (dormant-branding

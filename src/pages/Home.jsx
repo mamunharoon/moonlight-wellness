@@ -1472,23 +1472,19 @@ export const Home = () => {
               Choose what fits your moment.
             </h3>
           </div>
-          {/* Anytime visual-choice uplift (Part 2) — four equally-sized,
-              fitted tiles for what's inside an Anytime Reset (Breathe/
-              Meditate/Instant Calm/Explore, the same real, already-shipped
-              practices AnytimeReset.jsx's own Step 3 "Or choose another
-              quick reset" already offers), now using the same strong tile
-              visual language MorningJourneyPathway.jsx/
+          {/* Anytime visual-choice uplift, corrected — five equally-sized,
+              fitted tiles for what's inside an Anytime Reset (Stretch -
+              DEV integration (Supabase-backed) - /Breathe/Meditate/Instant Calm/Explore,
+              the same real, already-shipped practices AnytimeReset.jsx's
+              own Step 3 "Or choose another quick reset" already offers,
+              same order), using the exact same tile/icon/label/direction-
+              marker visual language MorningJourneyPathway.jsx/
               EveningJourneyPathway.jsx already established for Morning/
-              Evening's own approved pathway (bordered rounded-2xl tile,
-              clamp-scaled icon so it stays clearly visible from 320-430px
-              with no horizontal clipping, wrapping label). The three
-              decorative JourneyConnector arrows previously sitting between
-              these four cues are removed entirely (not replaced with ">"
-              direction markers either) - these four are independent
-              alternatives, never a required order, so implying a sequence
-              between them was always misleading; AnytimePathway.jsx's own
-              genuine Need -> Time -> Reset sequence keeps its own small
-              ">" markers (see that component). Still purely decorative (no
+              Evening's own pathway (bordered rounded-2xl tile, circular
+              clamp-scaled icon badge, wrapping label, one small standalone
+              ">" between each adjacent pair - absolutely positioned, consumes
+              zero grid width, exactly like Morning/Evening's own
+              DIRECTION_MARKER_STYLE). Still purely decorative throughout (no
               individual tap targets - they are alternatives, not a required
               order): Breathe and Meditate already have their own full,
               prominent, directly-tappable quick-action tiles immediately
@@ -1497,27 +1493,46 @@ export const Home = () => {
               them; Instant Calm has no standalone route of its own to link
               to outside the wizard, and Explore Anytime is already one tap
               beyond "Start Anytime Reset" (Step 3's own ExploreCard). One
-              accessible group label names all four; each tile itself stays
-              aria-hidden, matching this row's original non-interactive
+              accessible group label names all five; each tile and its own
+              arrow stay aria-hidden, matching this row's non-interactive
               contract exactly - no completed/skipped/current badge added to
               any tile either (anytimeIntegrityScenarios.test.js's own
               scenario 12 still holds: this row is a static literal array,
               never driven by session state). */}
-          <div className="grid grid-cols-4 gap-1" aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">
+          {/* DEV integration (Supabase-backed) — Stretch added as the first cue, matching
+              AnytimeReset.jsx's own quick-reset order (Stretch now sits
+              immediately before Breathe there too). grid-cols-4 -> 5, same
+              clamp-based icon/label treatment as the other four - this now
+              mirrors MorningJourneyPathway's own five-item grid exactly
+              (same column count, same per-item sizing contract), the
+              explicit reference this layout is built against. */}
+          <div className="grid grid-cols-5 gap-1" aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">
             {[
+              { icon: JOURNEY_STAGE_ICONS.stretch, label: 'Stretch' },
               { icon: JOURNEY_STAGE_ICONS.breathe, label: 'Breathe' },
               { icon: JOURNEY_STAGE_ICONS.meditate, label: 'Meditate' },
               { icon: JOURNEY_STAGE_ICONS.instantCalm, label: 'Instant Calm' },
               { icon: JOURNEY_STAGE_ICONS.explore, label: 'Explore' }
-            ].map((cue) => (
+            ].map((cue, idx, cues) => (
               <div key={cue.label} className="min-w-0" aria-hidden="true">
                 <div className="flex flex-col items-center gap-1 w-full rounded-2xl border border-tertiary-tint/25 bg-tertiary-tint/5 p-1">
-                  <span
-                    className="rounded-xl flex items-center justify-center shrink-0 bg-tertiary/15 text-tertiary"
-                    style={{ width: 'clamp(38px, 11vw, 46px)', height: 'clamp(38px, 11vw, 46px)' }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }} aria-hidden="true">{cue.icon}</span>
-                  </span>
+                  <div className="relative w-full flex items-center justify-center">
+                    <span
+                      className="rounded-full border-2 border-tertiary-tint/30 flex items-center justify-center shrink-0 bg-tertiary-tint/15 text-tertiary"
+                      style={{ width: 'clamp(38px, 11vw, 46px)', height: 'clamp(38px, 11vw, 46px)' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }} aria-hidden="true">{cue.icon}</span>
+                    </span>
+                    {idx < cues.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant/40 pointer-events-none"
+                        style={{ right: '-8px', fontSize: 'clamp(14px, 4vw, 18px)' }}
+                      >
+                        chevron_right
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs leading-tight text-center break-words text-on-surface-variant font-semibold">{cue.label}</span>
                 </div>
               </div>
@@ -1650,8 +1665,12 @@ export const Home = () => {
             {/* Meditate and Breathe both open Anytime-family experiences
                 when Home is in its Anytime state - sharing the same
                 journey colour here is correct, not a bug; their distinct
-                icons (air vs spa) are what keeps them visually distinct. */}
-            <span className={`material-symbols-outlined ${quickActionIconClass} text-2xl`}>spa</span>
+                icons (air vs self_improvement) are what keeps them
+                visually distinct. Owner-confirmed Meditate icon - matches
+                JOURNEY_STAGE_ICONS.meditate (journeyIcons.js), the same
+                seated-meditation glyph Morning/Evening/Anytime's own
+                preview rows now use. */}
+            <span className={`material-symbols-outlined ${quickActionIconClass} text-2xl`}>self_improvement</span>
             <span className="text-[11px] font-semibold text-on-surface leading-tight">Meditate</span>
             <span
               id="quick-action-tip-meditate"

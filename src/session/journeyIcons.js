@@ -11,15 +11,19 @@
 // AnytimePathway.jsx's own decision-stage list) - those values are
 // copied here verbatim, never re-derived. Concepts Anytime does not
 // define (focus, stretch, affirm, reflect, gratitude, rest) keep
-// whichever icon this app already used for that concept, EXCEPT
-// `meditate`, which previously diverged (Morning/Evening's pathway
-// components used 'spa', a lotus-style icon, while Anytime already used
-// 'self_improvement', a seated-meditation icon) - `self_improvement` is
-// now canonical everywhere, and `stretch` moves off 'self_improvement'
-// (which it borrowed before this fix existed) onto 'accessibility_new'
-// (Anytime's own body-reset/movement icon, AnytimeReset.jsx's
-// NEED_ICONS['body-reset']) so Morning's own Stretch and Meditate
-// stages are no longer visually identical to each other.
+// whichever icon this app already used for that concept.
+//
+// Owner-confirmed Meditate icon — `meditate` is 'self_improvement' (the
+// seated-meditation glyph), matching AnytimeReset.jsx's own real
+// QUICK_RESET_ALTERNATIVES entry and the annotated reference the owner
+// approved. Home's own Meditate quick-action tile (Home.jsx's "Or choose
+// something quick" row) uses this same glyph, so every Meditate
+// occurrence across Home's three preview rows and the quick-action tile
+// is now visually identical - a brief 'spa' (lotus) experiment for this
+// mapping was tried and explicitly superseded by this decision. `stretch`
+// stays on 'accessibility_new' (Anytime's own body-reset/movement icon,
+// AnytimeReset.jsx's NEED_ICONS['body-reset']), unaffected by this
+// change.
 //
 // This module intentionally does NOT cover meditation-style icons
 // (Loving-Kindness, Body Scan, ...), breathing-pattern icons (4-4-6, Box

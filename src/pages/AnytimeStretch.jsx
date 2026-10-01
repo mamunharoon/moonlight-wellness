@@ -1,0 +1,289 @@
+/* eslint-disable no-unused-vars */
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
+import { JourneyHeader } from '../components/journey/JourneyHeader';
+import { SelectionRow } from '../components/journey/SelectionRow';
+import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { JourneyGlow } from '../components/JourneyGlow';
+import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
+import { requestBetaVideoUrl } from '../lib/betaVideoAccess';
+import { setPendingContent } from '../lib/pendingContent';
+import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/anytimeStretchCatalog';
+
+/*
+ * Anytime Stretch.
+ *
+ * Reached from AnytimeReset.jsx's own "Or choose another quick reset" row
+ * (QUICK_RESET_ALTERNATIVES), exactly like Breathe/Meditate already are -
+ * same navigate(path, { state: { journeyTone: 'anytime', ... } }) shape,
+ * same standalone-outside-<Layout> placement. Reuses the real shared
+ * journey scaffolding wherever practical: ExerciseScreenShell (Morning's
+ * own safe-area/header/scroll shell, journeyTone="anytime" for the mint
+ * header divider/glow), JourneyHeader (Back/Close), SelectionRow (the
+ * exact row AnytimeReset's own Need/Duration steps use, accent="anytime"
+ * mint) for picking a session, and getJourneyPrimaryActionClasses('anytime')
+ * for the one primary button - the same mint `bg-tertiary text-on-tertiary`
+ * token every other Anytime primary action already uses.
+ *
+ * Playback is intentionally a plain native <audio> element, not
+ * MeditationActiveSession's ring/lifecycle-hook machinery - that
+ * component is tightly coupled to the Journey Embedding audio lifecycle
+ * hook's own duration-picker/silent-timer model, which doesn't fit a
+ * fixed-length narrated track. The signed URL itself, though, now comes
+ * from the exact same mechanism every other beta exercise uses:
+ * requestBetaVideoUrl (src/lib/betaVideoAccess.js) calls the
+ * get-beta-video-url Edge Function, which verifies the caller's JWT and
+ * signs a short-lived Storage URL server-side - `wellness-videos` stays
+ * private throughout, no new auth/access rule invented here. A session's
+ * id (S06-S09, see anytimeStretchCatalog.js's own `exerciseId` field) is
+ * the only thing ever sent; this page never sees or constructs a Storage
+ * path. The view states below (select/loading/playing/complete/error) are
+ * this page's own local state only - no Session Engine, no
+ * dailyCompletion flag, no localStorage write; a reload always starts
+ * over at selection.
+ *
+ * Only the single supplied narration track plays - no
+ * InteractiveAmbientMusic or any other second soundtrack is ever mounted
+ * on this page.
+ */
+const formatTime = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+export const AnytimeStretch = () => {
+  const navigate = useNavigate();
+  const audioRef = useRef(null);
+  const [view, setView] = useState('select'); // 'select' | 'loading' | 'playing' | 'complete' | 'error'
+  const [selectedId, setSelectedId] = useState(null);
+  const [signedUrl, setSignedUrl] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  // Real, loaded-metadata duration (the actual file), never the catalog's
+  // own upfront estimate once this is available - "respect the actual
+  // media duration" in practice, not just in the selection list's copy.
+  const [duration, setDuration] = useState(0);
+
+  const session = selectedId ? getAnytimeStretchSessionById(selectedId) : null;
+
+  // Back/exit cleanup — stop playback the instant this page leaves the
+  // 'playing' view for ANY reason (selecting a different session, Back,
+  // Close/unmount), never leaving audio running in the background.
+  useEffect(() => {
+    if (view !== 'playing') audioRef.current?.pause();
+  }, [view]);
+  useEffect(() => () => audioRef.current?.pause(), []);
+
+  const handleSelect = async (id) => {
+    const target = getAnytimeStretchSessionById(id);
+    setSelectedId(id);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setSignedUrl(null);
+    setErrorMessage('');
+    setView('loading');
+    try {
+      const { url } = await requestBetaVideoUrl(target.exerciseId);
+      setSignedUrl(url);
+      setView('playing');
+    } catch (err) {
+      if (err?.code === 'unauthorized') {
+        setView('select');
+        setSelectedId(null);
+        setSignInPromptOpen(true);
+        return;
+      }
+      setErrorMessage(err?.message || "This stretch isn't available right now.");
+      setView('error');
+    }
+  };
+
+  const handleTogglePlay = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) el.play();
+    else el.pause();
+  };
+
+  const handleBackFromPlaying = () => {
+    setView('select');
+    setSelectedId(null);
+    setSignedUrl(null);
+  };
+
+  const handleEnded = () => setView('complete');
+
+  const handleChooseAnother = () => {
+    setSelectedId(null);
+    setSignedUrl(null);
+    setView('select');
+  };
+
+  const handleBackToAnytime = () => navigate('/');
+
+  const handleSignIn = () => {
+    setPendingContent({ returnPath: '/anytime-stretch' });
+    setSignInPromptOpen(false);
+    navigate('/auth');
+  };
+
+  const handleCreateAccount = () => {
+    setPendingContent({ returnPath: '/anytime-stretch' });
+    setSignInPromptOpen(false);
+    navigate('/auth?tab=signup');
+  };
+
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  return (
+    <ExerciseScreenShell
+      journeyTone="anytime"
+      header={
+        <JourneyHeader
+          showBackButton={view === 'select'}
+          backFallback="/"
+          onStepBack={handleBackFromPlaying}
+          onClose={handleBackToAnytime}
+        />
+      }
+    >
+      <JourneyGlow journey="anytime" />
+
+      {view === 'select' && (
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">accessibility_new</span>
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">Guided Stretch</h1>
+            <p className="text-sm text-on-surface-variant">A short, narrated stretch - pick what fits right now.</p>
+          </div>
+          <div className="space-y-3" role="group" aria-label="Guided Stretch sessions">
+            {ANYTIME_STRETCH_SESSIONS.map((s) => (
+              <SelectionRow
+                key={s.id}
+                label={s.title}
+                description={formatTime(s.durationSeconds)}
+                selected={false}
+                onClick={() => handleSelect(s.id)}
+                accent="anytime"
+                icon="accessibility_new"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view === 'loading' && session && (
+        <div className="space-y-6 text-center pt-16">
+          <span className="material-symbols-outlined text-tertiary text-4xl animate-spin" aria-hidden="true">progress_activity</span>
+          <p className="text-sm text-on-surface-variant">Loading "{session.title}"…</p>
+        </div>
+      )}
+
+      {view === 'error' && (
+        <div className="space-y-6 text-center pt-16">
+          <span className="material-symbols-outlined text-on-surface-variant/60 text-4xl" aria-hidden="true">error_outline</span>
+          <p className="text-sm text-on-surface-variant">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={() => { setView('select'); setSelectedId(null); }}
+            className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+          >
+            Back to sessions
+          </button>
+        </div>
+      )}
+
+      {view === 'playing' && session && signedUrl && (
+        <div className="space-y-6">
+          <audio
+            ref={audioRef}
+            src={signedUrl}
+            autoPlay
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            onEnded={handleEnded}
+          />
+          {/* Stretch playback card — same established card shell Home's own
+              Anytime card uses (glass-panel + rounded-3xl + mint border/
+              glow + tertiary-tint-tinted background), so the player reads
+              as one cohesive surface rather than loose floating elements.
+              Back/Close stay outside this card (JourneyHeader, in
+              ExerciseScreenShell's own separate header slot) - only the
+              icon/title/progress/time/play-pause button live inside it. */}
+          <div
+            className="glass-panel p-5 rounded-3xl text-center space-y-6 border-tertiary-tint/40 shadow-mint-glow"
+            style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
+          >
+            <div className="space-y-2 pt-2">
+              <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-tertiary-tint/15 border-2 border-tertiary-tint/30 text-tertiary mx-auto">
+                <span className="material-symbols-outlined text-4xl" aria-hidden="true">accessibility_new</span>
+              </span>
+              <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight pt-2">{session.title}</h1>
+            </div>
+
+            <div className="space-y-2">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full bg-tertiary transition-all duration-150" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className="text-xs text-on-surface-variant font-semibold">
+                {formatTime(currentTime)} / {formatTime(duration || session.durationSeconds)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleTogglePlay}
+              aria-label={isPlaying ? 'Pause' : 'Resume'}
+              className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto ${getJourneyPrimaryActionClasses('anytime')} hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+            >
+              <span className="material-symbols-outlined text-4xl" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {isPlaying ? 'pause' : 'play_arrow'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === 'complete' && session && (
+        <div className="space-y-6 text-center pt-8">
+          <span className="material-symbols-outlined text-tertiary text-5xl" aria-hidden="true">check_circle</span>
+          <div className="space-y-1">
+            <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Stretch complete</h1>
+            <p className="text-sm text-on-surface-variant">Nice work finishing "{session.title}."</p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleBackToAnytime}
+              className={`block w-full py-3.5 rounded-xl ${getJourneyPrimaryActionClasses('anytime')} font-bold text-center hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+            >
+              Back to Anytime
+            </button>
+            <button
+              type="button"
+              onClick={handleChooseAnother}
+              className="block w-full py-3 rounded-xl glass-panel text-on-surface-variant font-semibold text-center hover:bg-white/10 active:scale-95 transition-all !border-white/30"
+            >
+              Choose Another Stretch
+            </button>
+          </div>
+        </div>
+      )}
+
+      <SignInPromptDialog
+        open={signInPromptOpen}
+        onSignIn={handleSignIn}
+        onCreateAccount={handleCreateAccount}
+        onDismiss={() => setSignInPromptOpen(false)}
+      />
+    </ExerciseScreenShell>
+  );
+};

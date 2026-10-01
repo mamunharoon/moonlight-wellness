@@ -39,18 +39,23 @@ const NEED_ICONS = {
 
 // WakeWise DEV — Anytime quick-reset alternatives (correction: Anytime is
 // a quick/flexible hub, never a sequential Morning/Evening-style
-// journey). Exactly three REAL, already-shipped WakeWise experiences -
-// no invented/duplicate practice. A standalone "Stretch" was considered
-// and dropped: no such route exists anywhere in this app (grepped
-// App.jsx) - MorningFlow.jsx's own stretching is embedded in the Morning
-// routine only, not a genuine standalone Anytime-reachable screen, so
-// showing it here would be exactly the "invented/duplicate practice"
-// this correction explicitly forbids. Durations are each real: Breathe's
-// own patterns run 56-76s (see QuietBreathing.jsx's PATTERNS), Meditate
-// genuinely offers 2/5/10 minutes (SelfGuidedMeditation.jsx), Instant
-// Calm (E03) is a real catalog video at 100.1s (mediaCatalog.js) - not
-// one of them is a flat invented estimate.
+// journey). Durations are each real: Breathe's own patterns run 56-76s
+// (see QuietBreathing.jsx's PATTERNS), Meditate genuinely offers 2/5/10
+// minutes (SelfGuidedMeditation.jsx), Instant Calm (E03) is a real
+// catalog video at 100.1s (mediaCatalog.js) - not one of them is a flat
+// invented estimate.
+//
+// DEV integration (Supabase-backed) — "Stretch" added below, routing to the new
+// AnytimeStretch.jsx (4 real guided-stretch narration sessions, 57-96s
+// each, fetched via requestBetaVideoUrl/get-beta-video-url - ids S06-S09,
+// same private `wellness-videos` bucket and signed-URL mechanism as every
+// other beta exercise - see AnytimeStretch.jsx's own doc comment). This
+// reverses the standalone-Stretch decision this comment previously
+// recorded ("no such route exists... would be invented/duplicate
+// practice") now that a genuine route and real Storage-backed media
+// exist.
 const QUICK_RESET_ALTERNATIVES = [
+  { id: 'stretch', icon: 'accessibility_new', label: 'Stretch', durationLabel: 'About 1-2 min' },
   { id: 'breathe', icon: 'air', label: 'Breathe', durationLabel: 'About 1-2 min' },
   { id: 'meditate', icon: 'self_improvement', label: 'Meditate', durationLabel: '2, 5 or 10 min' },
   { id: 'instant-calm', icon: 'bolt', label: 'Instant Calm', durationLabel: 'About 2 min' }
@@ -270,7 +275,7 @@ export const AnytimeReset = () => {
       verifyAndOpenVideo('E03');
       return;
     }
-    const path = id === 'breathe' ? '/breathe-standalone' : '/self-guided-meditation';
+    const path = id === 'breathe' ? '/breathe-standalone' : id === 'stretch' ? '/anytime-stretch' : '/self-guided-meditation';
     // WakeWise DEV — Anytime completion correction: needId/durationId ride
     // along so the destination practice's own "Choose another quick
     // reset" (QuietBreathing.jsx/SelfGuidedMeditationComplete.jsx) can

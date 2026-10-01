@@ -37,24 +37,24 @@ describe('Connector counts — exactly N-1 connectors for N real stage icons', (
     expect(source).toMatch(/idx < STAGES\.length - 1/);
   });
 
-  // Anytime visual-choice uplift (Part 2) — reverses Phase 9's own
-  // "3 connectors" decision for this specific row: these four cues are
-  // independent alternatives, never a required order, so implying a
-  // sequence between them was always misleading. Zero connectors now,
-  // matching this pass's own explicit "remove arrows between them"
-  // instruction - never replaced with ">" direction markers either
-  // (unlike AnytimePathway.jsx's own genuine Need -> Time -> Reset
-  // sequence, which keeps its own markers - see the test just above).
-  it('Anytime Home preview row (Breathe/Meditate/Instant Calm/Explore): exactly 4 tiles, zero connectors', () => {
+  // Home UI patch correction (supersedes the former Part 2 "zero
+  // connectors" decision this test once encoded) — Anytime's Home preview
+  // row now matches Morning/Evening's own pathway treatment exactly,
+  // including the small standalone ">" direction marker between each
+  // adjacent pair (idx < cues.length - 1 / chevron_right), never the old
+  // <JourneyConnector> line-and-arrowhead. LOCALHOST TRIAL ONLY — Stretch
+  // is now the first of five tiles (AnytimeReset.jsx's own quick-reset
+  // order match).
+  it('Anytime Home preview row (Stretch/Breathe/Meditate/Instant Calm/Explore): exactly 5 tiles, chevron_right connectors between each pair', () => {
     const source = read('../pages/Home.jsx');
-    const cueBlockMatch = source.match(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
+    const cueBlockMatch = source.match(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
     expect(cueBlockMatch).toBeTruthy();
     const cueBlock = cueBlockMatch[1];
-    const iconCount = (cueBlock.match(/label: '(Breathe|Meditate|Instant Calm|Explore)'/g) ?? []).length;
-    expect(iconCount).toBe(4);
-    expect(cueBlock).not.toMatch(/idx < cues\.length - 1/);
+    const iconCount = (cueBlock.match(/label: '(Stretch|Breathe|Meditate|Instant Calm|Explore)'/g) ?? []).length;
+    expect(iconCount).toBe(5);
+    expect(cueBlock).toMatch(/idx < cues\.length - 1/);
     expect(cueBlock).not.toMatch(/<JourneyConnector/);
-    expect(cueBlock).not.toMatch(/chevron_right/);
+    expect(cueBlock).toMatch(/chevron_right/);
   });
 });
 
@@ -91,11 +91,12 @@ describe('Physical-iPhone correction — connectors are one shared line+arrowhea
     expect(read('../components/AnytimePathway.jsx')).toMatch(/chevron_right/);
   });
 
-  it('Home.jsx\'s Anytime preview-row block uses no chevron_right/connector of any kind (Home.jsx itself still legitimately uses chevron_right elsewhere - e.g. the cross-routine "paused" banners - which are real navigation affordances, not pathway connectors, and are out of this correction\'s scope)', () => {
+  it('Home.jsx\'s Anytime preview-row block uses the same chevron_right direction marker Morning/Evening\'s own tile redesigns use (Home UI patch correction, supersedes the former "zero connectors" decision this test once encoded) - never the old JourneyConnector (Home.jsx itself also legitimately uses chevron_right elsewhere - e.g. the cross-routine "paused" banners - which are real navigation affordances, not pathway connectors, and are out of this correction\'s scope)', () => {
     const source = read('../pages/Home.jsx');
-    const cueBlockMatch = source.match(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
+    const cueBlockMatch = source.match(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
     expect(cueBlockMatch).toBeTruthy();
-    expect(cueBlockMatch[1]).not.toMatch(/chevron_right/);
+    expect(cueBlockMatch[1]).toMatch(/chevron_right/);
+    expect(cueBlockMatch[1]).not.toMatch(/<JourneyConnector/);
   });
 
   it('JourneyConnector itself renders a real horizontal line plus a filled arrowhead shape - not a single glyph', () => {
@@ -140,7 +141,7 @@ describe('Connectors are never repurposed as status indicators', () => {
 
   it('Home\'s Anytime preview-row connector carries no badge/status logic and is not a tap target (no onClick, no <Link>/<button> inside the cue row)', () => {
     const source = read('../pages/Home.jsx');
-    const cueBlockMatch = source.match(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
+    const cueBlockMatch = source.match(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
     const cueBlock = cueBlockMatch[1];
     expect(cueBlock).not.toMatch(/onClick|<Link|<button/);
     expect(cueBlock).not.toMatch(/check_circle|check\b|StageOutcomeBadge/);

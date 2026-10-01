@@ -94,7 +94,7 @@ describe('Anytime — required 12 scenarios', () => {
 
   it('12. Home\'s Anytime preview-row connectors never gain badges regardless of any Breathe/Meditate session state elsewhere - the row is built from a static literal array, not from any live session/stepOutcomes value', () => {
     const homeSource = read('../pages/Home.jsx');
-    const cueBlockMatch = homeSource.match(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
+    const cueBlockMatch = homeSource.match(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">([\s\S]*?)<\/div>\s*\n\s*<Link/);
     const cueBlock = cueBlockMatch[1];
     expect(cueBlock).not.toMatch(/state\.stepOutcomes|stageStatus|StageOutcomeBadge/);
   });
