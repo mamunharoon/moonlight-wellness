@@ -12,6 +12,7 @@ import { roleForIndex } from '../lib/intentionSelection';
 import { getMorningCompletionKey, getMorningFullyCompletedKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
@@ -254,45 +255,45 @@ export const SessionComplete = () => {
   const [completionGreeting] = useState(() => getCompletionGreeting({ journey: 'morning', practice: 'routine' }));
 
   return (
-    // Physical-iPhone TestFlight report — status-bar overlap fix. See
-    // IntentionSetup.jsx's/Affirmation.jsx's identical block for the full
-    // rationale: the old min-height-percentage-of-viewport wrapper was
-    // only ever a floor, never a real scroll owner, so this screen now
-    // owns the same proven h-dvh/overflow-y-auto scroll container instead,
-    // with `min-h-full` replacing that old floor and the flat,
-    // safe-area-unaware `pb-6` now a genuine `paddingBottom` calc(). The
-    // internal justify-between/space-y-10 layout is completely untouched.
-    <div className="h-dvh overflow-hidden">
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-    <div
-      className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10 select-none"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
-        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
-      }}
+    // Morning scroll/header-placement correction — this screen's own
+    // Back button/badge row now lives in ExerciseScreenShell's dedicated,
+    // non-scrolling `header` slot instead of being an ordinary in-flow
+    // child of the one scrollable region - see that component's own doc
+    // comment, and Breathe.jsx/MorningFlow.jsx/Affirmation.jsx's identical
+    // fix, for the full root cause. The earlier physical-iPhone TestFlight
+    // fix (this screen owning its own h-dvh/overflow-y-auto scroll
+    // container instead of depending on document scroll) stays correct
+    // and is preserved by ExerciseScreenShell's own body - only the header
+    // placement changes. The justify-between/min-h-full floor is dropped
+    // along with it, matching Breathe.jsx/MorningFlow.jsx's identical
+    // convention: content simply flows to its natural height inside the
+    // shell's own scrollable body.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      maxWidthClassName="max-w-md"
+      header={
+        <div className="flex items-center justify-between gap-3">
+          {/* Back-navigation repair (Morning canonical map) — Morning is
+              finished; there is no "leave this routine" concept left, so
+              guardActiveRoute is off. alwaysFallback forces a plain replace
+              to Home instead of BackButton's normal goBack (which would
+              otherwise navigate(-1) straight back into the just-completed
+              Affirmation step - "do not re-enter a completed journey using
+              browser Back"). */}
+          <BackButton fallback="/" guardActiveRoute={false} alwaysFallback />
+          {/* Morning Visual Uplift (Build 16) — a small decorative orienting
+              badge, the same established pattern Home's own "YOUR MORNING"
+              pill already uses (Build 15) - not new data, just a label. */}
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
+            Morning Flow
+          </span>
+        </div>
+      }
     >
+    <div className="flex flex-col space-y-10 select-none">
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
           backdrop behind this step's own completion ring/badge. */}
       <JourneyGlow journey="morning" />
-
-      <div className="flex items-center justify-between gap-3">
-        {/* Back-navigation repair (Morning canonical map) — Morning is
-            finished; there is no "leave this routine" concept left, so
-            guardActiveRoute is off. alwaysFallback forces a plain replace
-            to Home instead of BackButton's normal goBack (which would
-            otherwise navigate(-1) straight back into the just-completed
-            Affirmation step - "do not re-enter a completed journey using
-            browser Back"). */}
-        <BackButton fallback="/" guardActiveRoute={false} alwaysFallback />
-        {/* Morning Visual Uplift (Build 16) — a small decorative orienting
-            badge, the same established pattern Home's own "YOUR MORNING"
-            pill already uses (Build 15) - not new data, just a label. */}
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
-          Morning Flow
-        </span>
-      </div>
 
       {/* Circular Gauge */}
       <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-4 rounded-full shadow-morning-glow">
@@ -426,8 +427,7 @@ export const SessionComplete = () => {
         to="/library?journey=morning&from=morning-complete"
       />
     </div>
-    </div>
-    </div>
+    </ExerciseScreenShell>
   );
 };
 

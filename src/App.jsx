@@ -264,6 +264,31 @@ function App() {
                     page's own established chrome, and Breathe's other
                     neighbor (Affirmation) already sits outside <Layout> too. */}
                 <Route path="morning-meditate" element={withFallback(<MorningMeditate />)} />
+                {/* Morning scroll/header-placement correction — Breathe and
+                    MorningFlow (Stretch) both already build their own
+                    correct fixed-header/scrollable-body frame via
+                    ExerciseScreenShell (see that component's own doc
+                    comment), but were still being mounted one level deeper,
+                    inside <Layout>'s "/" route below. Layout's own Outlet
+                    wrapper (the hideNavigation branch) is itself a SEPARATE
+                    `overflow-y-auto` box with its own safe-area top padding
+                    - even with the header/nav hidden, that wrapper still
+                    renders. Nesting ExerciseScreenShell's `h-dvh
+                    overflow-hidden` frame inside it put two independent
+                    scroll contexts on screen at once: the shell's own
+                    (correct) one, plus Layout's own unrelated Outlet
+                    scroller still wrapped around it, whose own padded box
+                    is shorter than the full-dvh shell forced inside it -
+                    real, measurable leftover scroll room at the outer
+                    layer, underneath the shell's own protected header.
+                    Every other ExerciseScreenShell screen (this one,
+                    Affirmation, IntentionSetup, SessionComplete below) is
+                    registered full-bleed, outside <Layout>, with no such
+                    wrapper - moving these two here makes Breathe/MorningFlow
+                    match that same already-correct, already-shipped
+                    placement instead of inventing a new pattern. */}
+                <Route path="breathe" element={withFallback(<Breathe />)} />
+                <Route path="morning-flow" element={withFallback(<MorningFlow />)} />
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
@@ -444,9 +469,7 @@ function App() {
                   <Route path="change-password" element={withFallback(<ChangePassword />)} />
 
                   {/* Secondary pages */}
-                  <Route path="breathe" element={withFallback(<Breathe />)} />
                   <Route path="journal" element={withFallback(<Journal />)} />
-                  <Route path="morning-flow" element={withFallback(<MorningFlow />)} />
 
                   {/* Subscription Model, Stage 1A: /premium retired. It was
                       an orphaned, unwired mock page (fabricated price, dead

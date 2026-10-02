@@ -16,6 +16,7 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 /*
  * Morning-flow redesign — Affirm step (Journey Embedding correction: now
@@ -108,70 +109,49 @@ export const Affirmation = () => {
   };
 
   return (
-    // WakeWise DEV — F1 mobile-nav fix: found live at 390x844 with two
-    // affirmations (Primary + Supporting) - this screen rendered OUTSIDE
-    // <Layout> with no scroll container of its own (index.html sets
-    // `overflow: hidden` on <body> for BOTH axes deliberately - see
-    // scrollContainer.test.js's own doc comment - because Layout.jsx is
-    // the only page shell meant to own document scroll; every route
-    // rendered outside <Layout> must supply its own). The old min-height-
-    // percentage-of-viewport wrapper only ever set a FLOOR, not a ceiling
-    // - once real content (two
-    // affirmations, or the same content at a larger iOS Dynamic Type
-    // setting) pushed total height past the true device viewport, the
-    // Continue button was simply clipped with no way to reach it at all,
-    // not merely "needs a scroll" - the exact same class of bug already
-    // diagnosed and fixed on Introduction.jsx/AnytimeReset.jsx (see
-    // their own matching doc comments). Same proven fix here: this
-    // screen now owns its own single min-h-full/overflow-y-auto scroll
-    // container instead of depending on document scroll, so Continue is
-    // always reachable by scrolling, never hard-clipped - and the safe-
-    // area-inset-BOTTOM this page's own pb-6 never accounted for
-    // (top-left-right safe-area accounting was covered by the Build 16
-    // Back-button fix above; bottom home-indicator clearance never was)
-    // now runs through the same paddingBottom calc() every other full-
-    // bleed screen already uses.
-    <div className="h-dvh overflow-hidden">
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-    <div
-      // Mobile correction — my-auto on the card below (combined with
-      // justify-between here) absorbed ALL free flex space as symmetric
-      // top+bottom margin before justify-content ever got a say, on top of
-      // a generous space-y-10 between every child - together pushing the
-      // Continue button past the 390x844/393x852 fold even though the
-      // scroll container above already made it technically reachable.
-      // Dropped justify-between (dead weight without my-auto) and tightened
-      // to space-y-6; the flex-1 spacer just above the button block (added
-      // below, mirroring Introduction.jsx's identical convention) now
-      // absorbs only genuinely leftover space instead of doubling up.
-      className="min-h-full flex flex-col max-w-xl mx-auto space-y-6"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
-        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
-      }}
+    // Morning scroll/header-placement correction — this screen's own
+    // Back/ProgressIndicator row now lives in ExerciseScreenShell's
+    // dedicated, non-scrolling `header` slot instead of being an ordinary
+    // in-flow child of the one scrollable region - see that component's
+    // own doc comment, and Breathe.jsx/MorningFlow.jsx's identical fix,
+    // for the full root cause (the old min-h-full/overflow-y-auto wrapper
+    // below genuinely fixed the earlier "Continue button clipped"
+    // defect - that scroll-container-of-its-own fix stays, below - but
+    // left the header as scroll-away in-flow content, same class of bug
+    // as every other affected Morning screen). The flex-1 spacer the old
+    // justify-between layout needed is dropped along with it - content
+    // now simply flows to its natural height inside the shell's own body,
+    // matching Breathe.jsx/MorningFlow.jsx's identical convention; a
+    // short affirmation no longer needs to scroll at all, and a long one
+    // (two affirmations, or larger Dynamic Type) scrolls only the body,
+    // Continue always reachable exactly as the min-h-full fix intended.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      header={
+        <>
+          <div className="flex items-center gap-3">
+            {/* Journey Embedding — Meditate is now the real preceding step
+                (Breathe -> Meditate (optional) -> Affirm), so Back must return
+                there, not skip over it straight to Breathe - "Back returns to
+                the immediately preceding step" is the same rule every other
+                Morning page already follows. Back-navigation repair (Morning
+                canonical map): guardActiveRoute is off - the whole-routine
+                "Leave this routine?" confirmation belongs only to Intention
+                (the first step), never to a plain previous-step Back. */}
+            <BackButton fallback="/morning-meditate" guardActiveRoute={false} />
+          </div>
+          <ProgressIndicator activeStep="affirmation" onReviewStep={(stepId) => navigate(routeForStep(stepId))} />
+
+          {isReviewMode && currentStep && (
+            <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+          )}
+        </>
+      }
     >
+    <div className="flex flex-col space-y-6 select-none">
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
           backdrop behind this step's own morning-affirmation card. */}
       <JourneyGlow journey="morning" />
-
-      <div className="flex items-center gap-3">
-        {/* Journey Embedding — Meditate is now the real preceding step
-            (Breathe -> Meditate (optional) -> Affirm), so Back must return
-            there, not skip over it straight to Breathe - "Back returns to
-            the immediately preceding step" is the same rule every other
-            Morning page already follows. Back-navigation repair (Morning
-            canonical map): guardActiveRoute is off - the whole-routine
-            "Leave this routine?" confirmation belongs only to Intention
-            (the first step), never to a plain previous-step Back. */}
-        <BackButton fallback="/morning-meditate" guardActiveRoute={false} />
-      </div>
-      <ProgressIndicator activeStep="affirmation" onReviewStep={(stepId) => navigate(routeForStep(stepId))} />
-
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
 
       <p className="text-xs text-on-surface-variant text-center max-w-xs mx-auto leading-relaxed">
         Carry this thought into your day.
@@ -224,12 +204,6 @@ export const Affirmation = () => {
         </div>
       </div>
 
-      {/* Mobile correction — absorbs only genuinely leftover vertical
-          space (Introduction.jsx's own established convention), instead of
-          the removed my-auto/justify-between combo that always claimed
-          space symmetrically even when none was safely available. */}
-      <div className="flex-1" />
-
       <div className="space-y-3 w-full">
         {/* Duplicate-return-action fix (mirrors IntentionSetup.jsx's
             identical fix) — the ReviewModeBanner above already renders
@@ -264,7 +238,6 @@ export const Affirmation = () => {
         onDismiss={() => setExitRoutineConfirmOpen(false)}
       />
     </div>
-    </div>
-    </div>
+    </ExerciseScreenShell>
   );
 };

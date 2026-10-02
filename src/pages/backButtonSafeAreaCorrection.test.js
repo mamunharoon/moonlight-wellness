@@ -45,17 +45,26 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 // describe block below and exerciseScreenShellSafeArea.test.js for the
 // shell's own coverage).
 // Physical-iPhone TestFlight report — status-bar overlap fix:
-// IntentionSetup.jsx/MeditationComplete.jsx/SelfGuidedMeditationComplete.jsx/
-// SessionComplete.jsx are no longer part of this shared min-h-[85vh] loop
-// either, for the exact same reason Affirmation.jsx was pulled out above -
-// each now owns its own h-dvh/overflow-y-auto scroll container instead of
-// the unscrollable min-h-[85vh] floor this loop used to cover. Every
-// remaining AFFECTED_PAGES entry (none - every page that used to share
-// this shape has now been migrated) would still use this loop; the array
-// is kept, empty, as the documented, obvious place to add a new entry
-// back should a future page regress to the old shape. See each page's own
-// dedicated describe block below (mirroring Affirmation.jsx's own) for
-// its bottom-safe-area/scroll-container coverage.
+// MeditationComplete.jsx/SelfGuidedMeditationComplete.jsx are no longer
+// part of this shared min-h-[85vh] loop either, for the exact same reason
+// Affirmation.jsx was pulled out above - each now owns its own
+// h-dvh/overflow-y-auto scroll container instead of the unscrollable
+// min-h-[85vh] floor this loop used to cover.
+// Morning scroll/header-placement correction — Affirmation.jsx/
+// IntentionSetup.jsx/SessionComplete.jsx have since moved again, past
+// even that "owns its own scroll container" shape: the Back button/
+// ProgressIndicator/badge row each of them kept as an ordinary in-flow
+// child of that container (same scroll region as the rest of the
+// content) was itself the real defect - on a real device, scrolling that
+// region moved the header (and the safe-area padding sitting above it)
+// out of view, exactly like MorningFlow.jsx/Breathe.jsx's own
+// already-diagnosed case below. All three now render the shared
+// ExerciseScreenShell instead, same as MorningFlow.jsx/Breathe.jsx - see
+// each one's own dedicated describe block below.
+// Every remaining AFFECTED_PAGES entry (none - every page that used to
+// share this shape has now been migrated) would still use this loop; the
+// array is kept, empty, as the documented, obvious place to add a new
+// entry back should a future page regress to the old shape.
 const AFFECTED_PAGES = [];
 
 describe.each(AFFECTED_PAGES)('%s — top-left Back button safe-area correction (F8)', (_name, relativePath) => {
@@ -97,68 +106,78 @@ const assertMigratedToRealScrollContainer = (source, { innerClassName }) => {
 
 describe.each([
   ['MeditationComplete.jsx', './MeditationComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10'],
-  ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10'],
-  ['SessionComplete.jsx', './SessionComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10 select-none']
+  ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10']
 ])('%s — physical-iPhone TestFlight report: real scroll container, F8 top-safe-area untouched', (_name, relativePath, innerClassName) => {
   it('owns the same proven h-dvh/overflow-y-auto scroll container Affirmation.jsx/IntentionSetup.jsx already use, min-h-full replacing the old min-h-[85vh] floor, and a real paddingBottom calc() replacing the old flat pb-6 - the internal justify-between layout is otherwise completely untouched', () => {
     assertMigratedToRealScrollContainer(read(relativePath), { innerClassName });
   });
 });
 
-// WakeWise DEV — F1 mobile-nav fix: Affirmation.jsx's own dedicated
-// coverage, now that it owns a real scroll container instead of the
-// shared min-h-[85vh] shape every other AFFECTED_PAGES entry still uses.
-describe('Affirmation.jsx — F1 mobile-nav fix: real scroll container, F8 top-safe-area untouched', () => {
+// Morning scroll/header-placement correction — Affirmation.jsx is no
+// longer part of either the shared min-h-[85vh] loop OR its own former
+// dedicated h-dvh/overflow-y-auto-with-in-flow-header shape: it now
+// renders the shared ExerciseScreenShell, same as MorningFlow.jsx/
+// Breathe.jsx above (the header/scroll-body split those two already
+// proved out), rather than only owning its own scroll container with
+// the Back/ProgressIndicator row still inside it.
+describe('Affirmation.jsx — renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
   const source = read('./Affirmation.jsx');
 
-  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
-    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
-    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
-  });
-
-  it('now also adds env(safe-area-inset-bottom) - never accounted for before this fix, on a page rendered outside <Layout> with its own no-header-of-its-own top-left Back button', () => {
-    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
-  });
-
-  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Introduction.jsx/AnytimeReset.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
-    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
-    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc h-dvh/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/<div className="h-dvh overflow-hidden">/);
     expect(source).not.toMatch(/min-h-\[85vh\]/);
   });
 
-  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor), no longer carries the old flat pb-6, and no longer uses my-auto/justify-between (mobile correction #6: those absorbed all free space as symmetric card margin, pushing Continue past the fold - see affirmationCtaFitAndScroll.test.js)', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col max-w-xl mx-auto space-y-6"/);
+  it('the Back button, ProgressIndicator and ReviewModeBanner now live in the shell\'s own `header` slot (non-scrolling), not as ordinary in-flow children of the scrollable body', () => {
+    const headerBlock = source.match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(headerBlock).toMatch(/<BackButton fallback="\/morning-meditate"/);
+    expect(headerBlock).toMatch(/<ProgressIndicator activeStep="affirmation"/);
+    expect(headerBlock).toMatch(/<ReviewModeBanner/);
   });
 });
 
-// Physical-iPhone TestFlight report — IntentionSetup.jsx's own dedicated
-// coverage, now that it owns a real scroll container instead of the
-// shared min-h-[85vh] shape every remaining AFFECTED_PAGES entry still
-// uses. Mirrors Affirmation.jsx's own describe block above exactly.
-describe('IntentionSetup.jsx — status-bar overlap fix: real scroll container, F8 top-safe-area untouched', () => {
+// Morning scroll/header-placement correction — IntentionSetup.jsx's own
+// dedicated coverage, mirroring Affirmation.jsx's above: it now renders
+// the shared ExerciseScreenShell instead of owning its own scroll
+// container with the Back button still inside it.
+describe('IntentionSetup.jsx — renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
   const source = read('./IntentionSetup.jsx');
 
-  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
-    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
-    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
-    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
-  });
-
-  it('now also adds env(safe-area-inset-bottom) - never accounted for before this fix, on a page rendered outside <Layout> with its own no-header-of-its-own top-left Back button', () => {
-    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
-  });
-
-  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Affirmation.jsx/Introduction.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
-    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
-    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc h-dvh/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/<div className="h-dvh overflow-hidden">/);
     expect(source).not.toMatch(/min-h-\[85vh\]/);
   });
 
-  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor) and no longer carries the old flat, safe-area-unaware pb-6 - this screen\'s own justify-between/space-y-8 multi-stage-ladder layout is otherwise completely untouched', () => {
-    expect(source).toMatch(/className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-8 select-none"/);
-    const containerLine = source.match(/className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-8 select-none"/)?.[0] ?? '';
-    expect(containerLine).not.toMatch(/\bpb-6\b/);
+  it('the Back button and ReviewModeBanner now live in the shell\'s own `header` slot (non-scrolling), not as ordinary in-flow children of the scrollable body - this screen\'s own multi-stage ladder content is otherwise completely untouched', () => {
+    const headerBlock = source.match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(headerBlock).toMatch(/<BackButton fallback="\/" \/>/);
+    expect(headerBlock).toMatch(/<ReviewModeBanner/);
+  });
+});
+
+// Morning scroll/header-placement correction — SessionComplete.jsx's own
+// dedicated coverage, pulled out of the shared min-h-[85vh]/h-dvh loop
+// above for the same reason Affirmation.jsx/IntentionSetup.jsx were: it
+// now renders the shared ExerciseScreenShell instead of owning its own
+// scroll container with the Back button/badge row still inside it.
+describe('SessionComplete.jsx — renders the shared ExerciseScreenShell; safe-area/header/scroll now owned entirely by the shell', () => {
+  const source = read('./SessionComplete.jsx');
+
+  it('imports and renders ExerciseScreenShell with journeyTone="morning" instead of its own ad hoc h-dvh/safe-area wrapper', () => {
+    expect(source).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
+    expect(source).toMatch(/<ExerciseScreenShell\s*\n\s*journeyTone="morning"/);
+    expect(source).not.toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(source).not.toMatch(/min-h-\[85vh\]/);
+  });
+
+  it('the Back button and "Morning Flow" badge now live in the shell\'s own `header` slot (non-scrolling), not as ordinary in-flow children of the scrollable body', () => {
+    const headerBlock = source.match(/header=\{([\s\S]*?)\}\s*\n\s*>/)?.[1] ?? '';
+    expect(headerBlock).toMatch(/<BackButton fallback="\/" guardActiveRoute=\{false\} alwaysFallback \/>/);
+    expect(headerBlock).toMatch(/Morning Flow/);
   });
 });
 
