@@ -377,14 +377,37 @@ export const IntentionSetup = () => {
   };
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
+    // Physical-iPhone TestFlight report — status-bar overlap fix. Root
+    // cause (traced live, same class already diagnosed and fixed on
+    // Affirmation.jsx/Introduction.jsx/AnytimeReset.jsx - see their own
+    // matching doc comments): this page rendered OUTSIDE <Layout> with no
+    // scroll container of its own (index.html sets `overflow: hidden` on
+    // <body> for both axes deliberately - every route outside <Layout>
+    // must supply its own). The old min-height-percentage-of-viewport
+    // wrapper was only ever a FLOOR, never a ceiling or a real scroll
+    // owner, so once real content exceeded the true device viewport there
+    // was nothing left to scroll it correctly within - the safe-area top
+    // padding and Back button moved with whatever ad hoc scrolling
+    // resulted, instead of staying a genuinely protected zone. Now owns
+    // the same proven h-dvh/overflow-y-auto scroll container
+    // Affirmation.jsx/Introduction.jsx already use, with `min-h-full` (a
+    // floor inside a real scroll owner, not against an unscrollable
+    // ancestor) replacing that old viewport-percentage floor, and the
+    // flat, safe-area-unaware `pb-6` now expressed as a genuine
+    // `paddingBottom` calc() - home-indicator
+    // clearance for "Set My Intention"/"Skip this step"/"Exit routine"
+    // was never accounted for before this fix, same gap Affirmation.jsx
+    // had. The internal justify-between/space-y-8 layout this screen's
+    // own multi-stage ladder relies on is completely untouched.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-8 select-none"
+      className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-8 select-none"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
       }}
     >
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
@@ -726,6 +749,8 @@ export const IntentionSetup = () => {
         onConfirm={confirmExitRoutine}
         onDismiss={() => setExitRoutineConfirmOpen(false)}
       />
+    </div>
+    </div>
     </div>
   );
 };

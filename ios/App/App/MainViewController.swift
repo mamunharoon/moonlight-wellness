@@ -61,6 +61,31 @@ class MainViewController: CAPBridgeViewController {
 
         guard let webView = self.webView else { return }
 
+        // Physical-iPhone TestFlight report — status-bar overlap fix.
+        // Root cause (traced via code inspection, capacitor.config.ts's own
+        // `contentInset: 'never'`, and the absence of any existing
+        // scrollView configuration here): WKWebView wraps ALL of its web
+        // content in one native UIScrollView, independent of whatever the
+        // page's own CSS overflow/scroll containers do. `contentInset:
+        // 'never'` means that native scroll view spans the full device
+        // screen, edge to edge, with every safe-area inset handled purely
+        // by the page's own `env(safe-area-inset-*)` CSS - correct for a
+        // settled, non-bouncing view, but UIScrollView's default
+        // `bounces = true` still lets it rubber-band past its content
+        // bounds on an upward swipe (even briefly, even on a page whose own
+        // CSS never scrolls at all), which visually slides the entire web
+        // content - including whatever a page has pinned at y=0 - down
+        // into the area the status bar/notch occupies, since nothing in
+        // that strip was ever meant to be revealed. This is a property of
+        // the native scroll view itself, not of any one page's markup, so
+        // fixing it once here (rather than in CSS, per-page) is what
+        // actually addresses every affected screen consistently. Only the
+        // elastic overshoot is removed - `isScrollEnabled` is left
+        // untouched (true), so every page's own real, legitimate scrolling
+        // keeps working exactly as before; nothing here answers to or
+        // calls preventDefault from JS.
+        webView.scrollView.bounces = false
+
         // Enabled by default everywhere; the KVO observer below narrows
         // this to "disabled" only while a guarded Evening route is current.
         webView.allowsBackForwardNavigationGestures = true

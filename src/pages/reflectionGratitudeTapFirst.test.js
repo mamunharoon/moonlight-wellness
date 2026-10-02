@@ -278,6 +278,18 @@ describe('Fixed per-question back-navigation matrix (Decision 5)', () => {
     expect(promptStepperSource).not.toMatch(/<BackButton/);
   });
 
+  // Physical-iPhone TestFlight report — status-bar overlap fix. Both pages
+  // now also pass `protectedHeader` (see eveningSceneShellProtectedHeader.
+  // test.js for the shell's own coverage of what this actually changes) -
+  // Back/Exit become a genuine shrink-0 sibling before the one real scroll
+  // owner, instead of an ordinary scrollable child that could carry them
+  // (and the safe-area space above them) off-screen on a long question/
+  // answer list.
+  it('both pages pass protectedHeader to EveningSceneShell, on the same JSX line as showBack/showExit - never a separate, possibly-forgotten prop', () => {
+    expect(reflectionSource).toMatch(/<EveningSceneShell[^>]*\bshowExit\b[^>]*\bprotectedHeader\b[^>]*>/);
+    expect(gratitudeSource).toMatch(/<EveningSceneShell[^>]*\bshowExit\b[^>]*\bprotectedHeader\b[^>]*>/);
+  });
+
   it('forward navigation between questions within a page is a real navigate() (handleAdvance), not local setState - this is what makes the shared BackButton\'s own in-app-history check land correctly on the previous question when one was genuinely just visited', () => {
     expect(reflectionSource).toMatch(/const handleAdvance = \(nextIndex\) => navigate\(`\/reflection\?q=\$\{nextIndex \+ 1\}`\);/);
     expect(gratitudeSource).toMatch(/const handleAdvance = \(nextIndex\) => navigate\(`\/gratitude\?q=\$\{nextIndex \+ 1\}`\);/);

@@ -143,7 +143,9 @@ export const Gratitude = () => {
   };
 
   return (
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
+    // Physical-iPhone TestFlight report — status-bar overlap fix: see
+    // Reflection.jsx's identical fix for the full rationale.
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit protectedHeader>
       {/* Build 16 physical-iPhone correction (F9) — the per-page "Step 3 of
           7" span that used to render here is gone: ProgressIndicator's own
           mobile (sm:hidden) compact block already renders "Gratitude ·

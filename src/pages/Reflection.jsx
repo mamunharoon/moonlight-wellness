@@ -180,7 +180,18 @@ export const Reflection = () => {
     // subsequent evening step, so there is no visible change at all
     // crossing that boundary — only the deliberate Wind-Down -> Reflection
     // transition remains.
-    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit>
+    // Physical-iPhone TestFlight report — status-bar overlap fix:
+    // `protectedHeader` (already proven on EveningBreathing.jsx/
+    // EveningMeditate.jsx/QuietBreathing.jsx's own active-practice screens)
+    // makes Back/Exit a genuine shrink-0 sibling before this shell's one
+    // real scroll owner, instead of an ordinary scrollable child - so
+    // scrolling a longer question/answer list can never carry Back/Exit
+    // (and the safe-area space above them) up and off-screen, revealing
+    // real content under the iOS status bar/notch the way it previously
+    // could. See EveningSceneShell.jsx's own protectedHeader doc comment
+    // for the full root-cause trace this shares with every other screen it
+    // already fixed.
+    <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback={backFallbackForIndex(activeIndex)} showExit protectedHeader>
       {/* Build 16 physical-iPhone correction (F9) — see Gratitude.jsx's
           identical fix for the full rationale (ProgressIndicator's own
           mobile compact block already shows "Step 2 of 7"). */}

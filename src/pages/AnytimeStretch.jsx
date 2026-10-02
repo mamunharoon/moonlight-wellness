@@ -7,7 +7,7 @@ import { SelectionRow } from '../components/journey/SelectionRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
-import { requestBetaVideoUrl } from '../lib/betaVideoAccess';
+import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { setPendingContent } from '../lib/pendingContent';
 import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/anytimeStretchCatalog';
 
@@ -46,6 +46,45 @@ import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/a
  * Only the single supplied narration track plays - no
  * InteractiveAmbientMusic or any other second soundtrack is ever mounted
  * on this page.
+ *
+ * First-use silent-narration fix (physical-iPhone TestFlight report) —
+ * root cause (traced live): selecting a session used to be `async
+ * handleSelect`, which `await`ed requestBetaVideoUrl's signed-URL fetch
+ * BEFORE the `<audio autoPlay>` element was ever rendered - so the
+ * browser's own autoplay attempt always happened from a React render
+ * triggered by a resolved network Promise, never synchronously within
+ * the tap itself. iOS/WKWebView's gesture-before-unmuted-playback rule
+ * does not survive that gap; whether it was actually enforced came down
+ * to how fast that one network round trip happened to be. The very
+ * first stretch session after a fresh login is the single slowest case
+ * (cold connection, a fresh/just-refreshed auth token, a cold Edge
+ * Function) - comfortably the most likely real request to land outside
+ * whatever grace window WebKit allows, while every later attempt
+ * (warm connection, warm function, cached token) often resolves fast
+ * enough to still count as "part of" the gesture - matching the reported
+ * "first session after login is silent, subsequent attempts work"
+ * exactly.
+ *
+ * Fix: every session's signed URL is now speculatively resolved the
+ * moment this page mounts (`preloadedRef` below), while the user is
+ * still reading the selection list - the same "resolve ahead of the real
+ * gesture, during a natural waiting period" shape already proven
+ * elsewhere in this app (InteractiveAmbientMusic.jsx's/
+ * meditationAudioController.js's own preload()/start() split). By the
+ * time an actual tap lands, the common case has a URL already in hand,
+ * so `audio.play()` can run synchronously inside that real gesture - a
+ * genuinely zero-async-gap play() call, not a race against network
+ * speed. The `<audio>` element itself is therefore no longer
+ * conditionally mounted on `view === 'playing'` (it has to already exist
+ * for this synchronous call) and no longer carries `autoPlay` (play() is
+ * now always an explicit, directly-attributable call, covered by its own
+ * catch). A session whose preload hasn't resolved yet (still in flight,
+ * or expired after sitting unpicked past the signed URL's 5-minute TTL -
+ * isSignedUrlExpired) falls back to the original fetch-on-tap path,
+ * unchanged, including its existing guest/unauthorized handling - this
+ * fix narrows the window the original bug can occur in, it does not
+ * remove the one genuinely unavoidable case (a cold tap faster than any
+ * network round trip could ever complete).
  */
 const formatTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -71,6 +110,36 @@ export const AnytimeStretch = () => {
 
   const session = selectedId ? getAnytimeStretchSessionById(selectedId) : null;
 
+  // First-use silent-narration fix — keyed by exerciseId, holds
+  // { url, expiresAt } once a session's signed URL has resolved, so
+  // handleSelect below can play synchronously within the real tap
+  // instead of awaiting a fresh fetch first. A plain ref, not state: this
+  // is a background head start with nothing of its own to render.
+  const preloadedRef = useRef({});
+
+  // Speculatively resolves every session's signed URL as soon as this
+  // screen mounts - see this file's own top-of-file doc comment for the
+  // full root-cause trace. Every result is independent and silent: a
+  // failed preload (including a guest's unauthorized error) simply never
+  // populates preloadedRef for that id, and handleSelect's own existing
+  // fetch-on-tap fallback below handles it exactly as before, including
+  // opening the sign-in prompt - a background preload must never itself
+  // surface a dialog or error state with no tap behind it.
+  useEffect(() => {
+    let cancelled = false;
+    ANYTIME_STRETCH_SESSIONS.forEach((s) => {
+      requestBetaVideoUrl(s.exerciseId)
+        .then(({ url, expiresAt }) => {
+          if (cancelled) return;
+          preloadedRef.current[s.exerciseId] = { url, expiresAt };
+        })
+        .catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Back/exit cleanup — stop playback the instant this page leaves the
   // 'playing' view for ANY reason (selecting a different session, Back,
   // Close/unmount), never leaving audio running in the background.
@@ -79,29 +148,67 @@ export const AnytimeStretch = () => {
   }, [view]);
   useEffect(() => () => audioRef.current?.pause(), []);
 
-  const handleSelect = async (id) => {
+  const handleSelect = (id) => {
     const target = getAnytimeStretchSessionById(id);
     setSelectedId(id);
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
-    setSignedUrl(null);
     setErrorMessage('');
-    setView('loading');
-    try {
-      const { url } = await requestBetaVideoUrl(target.exerciseId);
-      setSignedUrl(url);
+
+    const audio = audioRef.current;
+    const cached = preloadedRef.current[target.exerciseId];
+    if (audio && cached && !isSignedUrlExpired(cached.expiresAt)) {
+      // The common case (see this file's own top-of-file doc comment):
+      // already resolved, so this is a real, synchronous play() call
+      // inside the actual tap - the one thing that reliably satisfies
+      // iOS/WKWebView's autoplay policy regardless of how the network
+      // happens to behave.
+      audio.src = cached.url;
+      audio.currentTime = 0;
+      setSignedUrl(cached.url);
       setView('playing');
-    } catch (err) {
-      if (err?.code === 'unauthorized') {
-        setView('select');
-        setSelectedId(null);
-        setSignInPromptOpen(true);
-        return;
-      }
-      setErrorMessage(err?.message || "This stretch isn't available right now.");
-      setView('error');
+      audio.play().catch(() => {
+        setErrorMessage("This stretch isn't available right now.");
+        setView('error');
+      });
+      return;
     }
+
+    // Not yet preloaded (still in flight, or this session's own preload
+    // failed/expired) - the original fetch-on-tap path, unchanged,
+    // including the existing guest/unauthorized handling. Narrower than
+    // before (preload above now covers the realistic common case,
+    // including the reported first-use-after-login scenario), not
+    // eliminated - a tap faster than any network round trip could ever
+    // complete still has nothing synchronous to play.
+    setSignedUrl(null);
+    setView('loading');
+    (async () => {
+      try {
+        const { url, expiresAt } = await requestBetaVideoUrl(target.exerciseId);
+        preloadedRef.current[target.exerciseId] = { url, expiresAt };
+        setSignedUrl(url);
+        setView('playing');
+        if (audioRef.current) {
+          audioRef.current.src = url;
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {
+            setErrorMessage("This stretch isn't available right now.");
+            setView('error');
+          });
+        }
+      } catch (err) {
+        if (err?.code === 'unauthorized') {
+          setView('select');
+          setSelectedId(null);
+          setSignInPromptOpen(true);
+          return;
+        }
+        setErrorMessage(err?.message || "This stretch isn't available right now.");
+        setView('error');
+      }
+    })();
   };
 
   const handleTogglePlay = () => {
@@ -155,6 +262,22 @@ export const AnytimeStretch = () => {
     >
       <JourneyGlow journey="anytime" />
 
+      {/* First-use silent-narration fix — unconditionally mounted (never
+          gated on `view === 'playing'`) so audioRef.current already
+          exists the instant handleSelect's own synchronous play() call
+          needs it; `src` is set imperatively by handleSelect, never as a
+          React prop here, so there is exactly one place that ever writes
+          it. See this file's own top-of-file doc comment for the full
+          root-cause trace. */}
+      <audio
+        ref={audioRef}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onEnded={handleEnded}
+      />
+
       {view === 'select' && (
         <div className="space-y-6">
           <div className="space-y-1">
@@ -202,16 +325,6 @@ export const AnytimeStretch = () => {
 
       {view === 'playing' && session && signedUrl && (
         <div className="space-y-6">
-          <audio
-            ref={audioRef}
-            src={signedUrl}
-            autoPlay
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-            onEnded={handleEnded}
-          />
           {/* Stretch playback card — same established card shell Home's own
               Anytime card uses (glass-panel + rounded-3xl + mint border/
               glow + tertiary-tint-tinted background), so the player reads

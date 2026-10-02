@@ -156,6 +156,24 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // duplicate-call guard now, never set by preload().
   const isPreloadedRef = useRef(false);
   const preloadPromiseRef = useRef(null);
+  // First-use silent-music fix (physical-iPhone TestFlight report) — root
+  // cause (traced live): start(true)'s own signed-URL fetch below can
+  // take longer than the fixed-length preparation countdown that calls
+  // unmute() once it completes - most likely on the very first request
+  // after a fresh login (cold connection, a just-refreshed auth token, a
+  // cold Edge Function), exactly matching the reported "first session
+  // after login is silent, subsequent attempts work". When that happens,
+  // unmute() fires BEFORE start()'s fetch has resolved, so `audio.muted`
+  // gets set back to `true` by start()'s own `audio.muted = muted` line
+  // the moment it finally does resolve - silently undoing the unmute()
+  // that already ran, with nothing left to ever call it again. This ref
+  // is the single source of truth for "has unmute() already been
+  // requested for this start() call" - start() consults it (not its own
+  // closed-over `muted` argument) at the one point it actually sets
+  // `audio.muted`, so whichever of the two genuinely happens last always
+  // wins, regardless of which order the network and the countdown settle
+  // in.
+  const unmuteRequestedRef = useRef(false);
   const preload = () => {
     if (isPreloadedRef.current || preloadPromiseRef.current) return preloadPromiseRef.current ?? Promise.resolve();
     preloadPromiseRef.current = (async () => {
@@ -205,6 +223,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   const start = async (muted = false) => {
     if (isBusyRef.current) return;
     isBusyRef.current = true;
+    unmuteRequestedRef.current = false;
     setLoadError(false);
     try {
       // Verification-pass correction (F4 acceptance audit, see this
@@ -232,7 +251,13 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         audio.volume = DEFAULT_VOLUME;
       }
       isPreloadedRef.current = false;
-      audio.muted = muted;
+      // First-use silent-music fix — if unmute() already fired while the
+      // signed-URL fetch above was still in flight, that request must win
+      // over this call's own original `muted` argument, or it would be
+      // silently re-muted right here with nothing left to reveal it
+      // again. See unmuteRequestedRef's own doc comment above for the
+      // full root-cause trace.
+      audio.muted = unmuteRequestedRef.current ? false : muted;
       // Called synchronously within handleToggle's/handleBeginBreathing's
       // own click handler (a real user gesture) via this same call
       // chain — never from an effect, never from a setTimeout/setInterval-
@@ -258,6 +283,10 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // call from a deferred/async callback (e.g. the preparation countdown's
   // onComplete). A no-op if nothing is currently playing/muted.
   const unmute = () => {
+    // Recorded unconditionally, even if start()'s own fetch hasn't
+    // resolved yet - see unmuteRequestedRef's own doc comment above for
+    // why this is the fix, not just the already-playing fast-path below.
+    unmuteRequestedRef.current = true;
     const audio = audioRef.current;
     if (audio) audio.muted = false;
   };

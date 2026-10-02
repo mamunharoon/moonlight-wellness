@@ -44,12 +44,19 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 // owns safe-area/header/scroll entirely (see each one's own dedicated
 // describe block below and exerciseScreenShellSafeArea.test.js for the
 // shell's own coverage).
-const AFFECTED_PAGES = [
-  ['IntentionSetup.jsx', './IntentionSetup.jsx'],
-  ['MeditationComplete.jsx', './MeditationComplete.jsx'],
-  ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx'],
-  ['SessionComplete.jsx', './SessionComplete.jsx']
-];
+// Physical-iPhone TestFlight report — status-bar overlap fix:
+// IntentionSetup.jsx/MeditationComplete.jsx/SelfGuidedMeditationComplete.jsx/
+// SessionComplete.jsx are no longer part of this shared min-h-[85vh] loop
+// either, for the exact same reason Affirmation.jsx was pulled out above -
+// each now owns its own h-dvh/overflow-y-auto scroll container instead of
+// the unscrollable min-h-[85vh] floor this loop used to cover. Every
+// remaining AFFECTED_PAGES entry (none - every page that used to share
+// this shape has now been migrated) would still use this loop; the array
+// is kept, empty, as the documented, obvious place to add a new entry
+// back should a future page regress to the old shape. See each page's own
+// dedicated describe block below (mirroring Affirmation.jsx's own) for
+// its bottom-safe-area/scroll-container coverage.
+const AFFECTED_PAGES = [];
 
 describe.each(AFFECTED_PAGES)('%s — top-left Back button safe-area correction (F8)', (_name, relativePath) => {
   const source = read(relativePath);
@@ -72,6 +79,29 @@ describe.each(AFFECTED_PAGES)('%s — top-left Back button safe-area correction 
   it('the style object sits on the same top-level min-h-[85vh] container the Back button is the first child of - not on some unrelated inner element', () => {
     const openTag = source.match(/<div\s*\n(?:\s*\/\/[^\n]*\n)*\s*className="min-h-\[85vh\][^"]*"\s*\n\s*style=\{\{[\s\S]*?\}\}\s*\n\s*>/)?.[0] ?? '';
     expect(openTag).not.toBe('');
+  });
+});
+
+// Shared assertions every one of the four screens below has in common -
+// avoids four near-identical describe blocks drifting independently.
+const assertMigratedToRealScrollContainer = (source, { innerClassName }) => {
+  expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
+  expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
+  expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
+  expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+  expect(source).not.toMatch(/min-h-\[85vh\]/);
+  expect(source).toMatch(new RegExp(`className="${innerClassName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+};
+
+describe.each([
+  ['MeditationComplete.jsx', './MeditationComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10'],
+  ['SelfGuidedMeditationComplete.jsx', './SelfGuidedMeditationComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10'],
+  ['SessionComplete.jsx', './SessionComplete.jsx', 'min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10 select-none']
+])('%s — physical-iPhone TestFlight report: real scroll container, F8 top-safe-area untouched', (_name, relativePath, innerClassName) => {
+  it('owns the same proven h-dvh/overflow-y-auto scroll container Affirmation.jsx/IntentionSetup.jsx already use, min-h-full replacing the old min-h-[85vh] floor, and a real paddingBottom calc() replacing the old flat pb-6 - the internal justify-between layout is otherwise completely untouched', () => {
+    assertMigratedToRealScrollContainer(read(relativePath), { innerClassName });
   });
 });
 
@@ -99,6 +129,36 @@ describe('Affirmation.jsx — F1 mobile-nav fix: real scroll container, F8 top-s
 
   it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor), no longer carries the old flat pb-6, and no longer uses my-auto/justify-between (mobile correction #6: those absorbed all free space as symmetric card margin, pushing Continue past the fold - see affirmationCtaFitAndScroll.test.js)', () => {
     expect(source).toMatch(/className="min-h-full flex flex-col max-w-xl mx-auto space-y-6"/);
+  });
+});
+
+// Physical-iPhone TestFlight report — IntentionSetup.jsx's own dedicated
+// coverage, now that it owns a real scroll container instead of the
+// shared min-h-[85vh] shape every remaining AFFECTED_PAGES entry still
+// uses. Mirrors Affirmation.jsx's own describe block above exactly.
+describe('IntentionSetup.jsx — status-bar overlap fix: real scroll container, F8 top-safe-area untouched', () => {
+  const source = read('./IntentionSetup.jsx');
+
+  it('still adds env(safe-area-inset-top) via the same F8 calc() pattern - untouched by this fix', () => {
+    expect(source).toMatch(/paddingTop: 'calc\(1\.5rem \+ env\(safe-area-inset-top\)\)'/);
+    expect(source).toMatch(/paddingLeft: 'calc\(1rem \+ env\(safe-area-inset-left\)\)'/);
+    expect(source).toMatch(/paddingRight: 'calc\(1rem \+ env\(safe-area-inset-right\)\)'/);
+  });
+
+  it('now also adds env(safe-area-inset-bottom) - never accounted for before this fix, on a page rendered outside <Layout> with its own no-header-of-its-own top-left Back button', () => {
+    expect(source).toMatch(/paddingBottom: 'calc\(1\.5rem \+ env\(safe-area-inset-bottom\)\)'/);
+  });
+
+  it('owns its own h-dvh/overflow-y-auto scroll container - the same proven shape Affirmation.jsx/Introduction.jsx already use - instead of the old min-h-[85vh] floor with no real scroll owner', () => {
+    expect(source).toMatch(/<div className="h-dvh overflow-hidden">/);
+    expect(source).toMatch(/<div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style=\{\{ overscrollBehaviorY: 'contain' \}\}>/);
+    expect(source).not.toMatch(/min-h-\[85vh\]/);
+  });
+
+  it('the innermost padded content container uses min-h-full (a floor inside the real scroll owner, not min-h-[85vh] against an unscrollable ancestor) and no longer carries the old flat, safe-area-unaware pb-6 - this screen\'s own justify-between/space-y-8 multi-stage-ladder layout is otherwise completely untouched', () => {
+    expect(source).toMatch(/className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-8 select-none"/);
+    const containerLine = source.match(/className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-8 select-none"/)?.[0] ?? '';
+    expect(containerLine).not.toMatch(/\bpb-6\b/);
   });
 });
 

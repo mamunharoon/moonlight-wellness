@@ -113,7 +113,18 @@ describe('5. The toggle reflects genuine playback state, never an assumed one', 
     // start(true) that succeeds already flips musicEnabled true (the
     // element genuinely IS playing, just silently) before unmute()
     // reveals it - never a fabricated "on" state with no real playback.
-    expect(playerSource).toMatch(/audio\.muted = muted;/);
+    // First-use silent-music fix — `audio.muted` is now set from
+    // `unmuteRequestedRef.current ? false : muted` rather than the bare
+    // `muted` argument, so an unmute() that already arrived while this
+    // call's own signed-URL fetch was still in flight (a slow/cold first
+    // request) correctly wins instead of being silently overwritten back
+    // to muted the moment this line finally runs - see
+    // InteractiveAmbientMusic.jsx's own unmuteRequestedRef doc comment for
+    // the full root-cause trace. The underlying contract this test name
+    // describes (a muted play() still fires the real native `play` event)
+    // is completely unaffected by this - `muted` is still exactly what
+    // reaches `audio.muted` on the normal, fast-network path.
+    expect(playerSource).toMatch(/audio\.muted = unmuteRequestedRef\.current \? false : muted;/);
     expect(playerSource).toMatch(/await audio\.play\(\);/);
   });
 });
@@ -218,7 +229,11 @@ describe('11. A second Morning Stretch session in the same visit behaves consist
   });
 
   it('InteractiveAmbientMusic\'s own start() always re-resolves a fresh signed URL after a stop()+start() cycle (isPreloadedRef is cleared before every real play()), so a second session never silently reuses a possibly-expired URL from the first', () => {
-    expect(playerSource).toMatch(/isPreloadedRef\.current = false;\s*\n\s*audio\.muted = muted;/);
+    // First-use silent-music fix — tolerant of the race-condition doc
+    // comment/unmuteRequestedRef check now between these two lines; the
+    // real property under test (isPreloadedRef cleared BEFORE the real
+    // audio.muted assignment, every single start() call) is unchanged.
+    expect(playerSource).toMatch(/isPreloadedRef\.current = false;[\s\S]*?audio\.muted = unmuteRequestedRef\.current \? false : muted;/);
   });
 });
 
