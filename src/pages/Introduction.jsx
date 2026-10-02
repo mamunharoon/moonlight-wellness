@@ -210,17 +210,13 @@ const WELCOME_CARDS = [
     icon: 'wb_twilight',
     iconClass: 'bg-morning-accent/15 text-morning-accent',
     subtitleClass: 'text-morning-accent',
-    title: 'Start my morning',
-    // Journey Embedding — 'From 5 min' rather than a flat '5 min': the new
-    // optional Meditate step (2/5/10 min, skippable) means the routine's
-    // true length now varies by the user's own choice, and "From" is
-    // truthful at every one of those durations, including the widest
-    // (10-minute) choice - never a claim that a recommended duration is
-    // the maximum possible total. `note` is accessible-only (folded into
-    // this card's own aria-label below), not a third visible text line -
-    // the compact single-line title/subtitle row has no room to add one
-    // without crowding.
-    subtitle: 'Rise & Reset · From 5 min',
+    title: 'Morning',
+    // Journey Embedding — the duration note that used to live in this
+    // visible subtitle ('Rise & Reset · From 5 min') is still carried,
+    // accessible-only, via `note` below (folded into this card's own
+    // aria-label) - the short visible subtitle itself is now a plain,
+    // clear description, not a destination name + duration.
+    subtitle: 'Start with intention',
     note: 'Meditation is optional and can add 2, 5 or 10 minutes.',
     requiresAuth: true
   },
@@ -229,14 +225,13 @@ const WELCOME_CARDS = [
     icon: 'air',
     iconClass: 'bg-tertiary/15 text-tertiary',
     subtitleClass: 'text-tertiary',
-    // WakeWise DEV — F3 correction: title stays "Take a calming pause"
-    // (explicitly approved as-is) - only the destination changed, from a
-    // fixed jump straight into standalone Breathing to the real Anytime
-    // Reset entry (need -> time -> recommendation), the same short flow
-    // Home's own "Start Anytime Reset" already opens. Subtitle updated to
-    // describe that real flow honestly rather than one fixed exercise.
-    title: 'Take a calming pause',
-    subtitle: 'Choose your need and your time.',
+    // WakeWise DEV — F3 correction (destination unchanged, label updated):
+    // still opens the real Anytime Reset entry (need -> time ->
+    // recommendation), the same short flow Home's own "Start Anytime
+    // Reset" already opens - only this card's visible title/subtitle
+    // changed to match Home's own "Anytime" journey name.
+    title: 'Anytime',
+    subtitle: 'Reset in a few minutes',
     requiresAuth: false
   },
   {
@@ -247,9 +242,10 @@ const WELCOME_CARDS = [
     icon: 'bedtime',
     iconClass: 'bg-evening-accent/15 text-evening-accent',
     subtitleClass: 'text-evening-accent',
-    title: 'Wind down for sleep',
-    // Journey Embedding — same "From" treatment as the Morning card above.
-    subtitle: 'Begin Wind-Down · From 10 min',
+    title: 'Evening',
+    // Journey Embedding — same accessible-only duration note treatment as
+    // the Morning card above (see `note` below).
+    subtitle: 'Unwind for rest',
     note: 'Meditation is optional and can add 2, 5 or 10 minutes.',
     requiresAuth: true
   }
@@ -307,7 +303,7 @@ export const Introduction = () => {
   // heading with no dangling comma/placeholder, exactly as before.
   const welcomeHeading = isReturningSignedInUser
     ? (firstName ? `Welcome back, ${firstName}` : 'Welcome back')
-    : 'Start your morning with purpose. End your day with calm.';
+    : 'Welcome to WakeWise';
   // WakeWise DEV — First Visit purpose update: describes two real,
   // already-shipped features, not aspirational copy. The wake-up alarm
   // is genuinely active by default for every user, on or off native
@@ -323,7 +319,7 @@ export const Introduction = () => {
   // without listing all five and crowding this short explanation.
   const welcomeSubcopy = isReturningSignedInUser
     ? 'What would you like to do today?'
-    : 'Set a gentle wake-up alarm, then follow a guided morning routine - about 5-10 minutes, starting with setting an intention and moving through stretching, breathing and other steps.';
+    : 'Morning routines, anytime resets and evening wind-downs — at your own pace.';
   const [saveError, setSaveError] = useState('');
 
   // Reuses the exact same shared signed-URL/guest-gating mechanism every
@@ -567,7 +563,7 @@ export const Introduction = () => {
           spa
         </span>
         <div className="space-y-1.5">
-          <h1 className="text-lg font-extrabold text-on-surface tracking-tight">
+          <h1 className="text-2xl font-morning-display text-on-surface tracking-tight">
             {welcomeHeading}
           </h1>
           <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
@@ -608,16 +604,28 @@ export const Introduction = () => {
         returnTo={isAutomaticFirstUse ? '/introduction?auto=1' : '/introduction'}
       />
 
-      <section aria-labelledby="welcome-cards-heading" className="space-y-3">
-        {/* Visually hidden: the visible question is already asked above,
-            in whichever variant of welcomeSubcopy is showing - a second,
-            always-identical visible heading here would just repeat it
-            (word-for-word for the new-guest variant, awkwardly for the
-            returning-user variant, whose own question is different).
-            Kept as a real heading element for screen readers, matching
-            every other section on this screen. */}
-        <h2 id="welcome-cards-heading" className="sr-only">
-          Choose what would help you most
+      {/* Welcome spacing correction — the outer container's own
+          `space-y-2` utility (a descendant+sibling selector, specificity
+          0,3,0) was silently beating this section's own plain `mt-4`
+          (specificity 0,1,0) for the same margin-top property, so the
+          intended "clear but modest gap" above was never actually
+          rendering - live-measured at only 8px (the outer space-y-2's own
+          value), not 16px. `!mt-[30px]` (Tailwind's `!important`
+          modifier, already used elsewhere in this app - e.g.
+          PromptStepper.jsx's Skip button `!border-white/40`) is what
+          actually wins now, live-measured at the approved 28-32px target.
+          The former sr-only heading is still a real, visible section
+          heading ("Start where you are"), sized at this app's established
+          section-heading scale (text-xl font-bold text-on-surface - same
+          pairing Home.jsx's own card headings already use), and this
+          section's own internal space-y-3 (heading to first journey card,
+          live-measured at 12px, already within the approved 12-16px
+          range) is untouched. Still the section's real accessible name
+          via aria-labelledby, same as before - just no longer visually
+          hidden. */}
+      <section aria-labelledby="welcome-cards-heading" className="space-y-3 !mt-[30px]">
+        <h2 id="welcome-cards-heading" className="text-xl font-bold text-on-surface">
+          Start where you are
         </h2>
         {/* WakeWise DEV — Welcome vertical-space fix: space-y-3 -> space-y-2
             between cards, p-4 -> p-3 -> p-1.5 and the icon chip
@@ -657,7 +665,7 @@ export const Introduction = () => {
               </span>
               <span className="flex-1 min-w-0 space-y-0.5">
                 <span className="block text-base font-bold text-on-surface">{card.title}</span>
-                <span className={`block text-xs font-medium ${card.subtitleClass}`}>{card.subtitle}</span>
+                <span className={`block text-sm font-medium ${card.subtitleClass}`}>{card.subtitle}</span>
               </span>
               <span className="material-symbols-outlined text-on-surface-variant text-xl shrink-0" aria-hidden="true">
                 arrow_forward

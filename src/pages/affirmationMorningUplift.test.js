@@ -77,7 +77,7 @@ describe('Affirmation.jsx — real, computed WCAG contrast fix for the PRIMARY/S
     // full-opacity on-morning-affirmation colour verified above; only the
     // size changed, matching this app's own established micro-label size
     // floor elsewhere).
-    expect(source).toMatch(/text-\[10px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
+    expect(source).toMatch(/text-\[12px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
     expect(source).not.toMatch(/text-primary\/70/);
   });
 });

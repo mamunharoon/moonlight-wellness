@@ -17,12 +17,13 @@ const profileSource = read('./Profile.jsx');
 
 describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-screen redesign)', () => {
   it('new-guest / new-signed-in-user variant has the exact required First Visit heading and supporting copy', () => {
-    expect(introductionSource).toMatch(/: 'Start your morning with purpose\. End your day with calm\.';/);
-    // WakeWise DEV — First Visit purpose update: describes the real
-    // wake-up alarm and the real ~5-10 minute Morning routine (starting
-    // with Intention) instead of the earlier generic three-journey copy.
+    expect(introductionSource).toMatch(/: 'Welcome to WakeWise';/);
+    // Welcome-screen uplift: shares the exact same short value-prop
+    // sentence as Welcome.jsx's own supporting text, instead of the
+    // earlier alarm/routine-focused paragraph - the alarm itself is still
+    // shown via the separate AlarmStatusCard below, unchanged.
     expect(introductionSource).toMatch(
-      /: 'Set a gentle wake-up alarm, then follow a guided morning routine - about 5-10 minutes, starting with setting an intention and moving through stretching, breathing and other steps\.';/
+      /: 'Morning routines, anytime resets and evening wind-downs — at your own pace\.';/
     );
   });
 
@@ -83,9 +84,9 @@ describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-s
 
 describe('Introduction.jsx — three tappable destination cards', () => {
   it('has exactly the three required card titles', () => {
-    expect(introductionSource).toMatch(/title: 'Start my morning'/);
-    expect(introductionSource).toMatch(/title: 'Take a calming pause'/);
-    expect(introductionSource).toMatch(/title: 'Wind down for sleep'/);
+    expect(introductionSource).toMatch(/title: 'Morning'/);
+    expect(introductionSource).toMatch(/title: 'Anytime'/);
+    expect(introductionSource).toMatch(/title: 'Evening'/);
   });
 
   it('each card routes directly to a real canonical entry point, traced from Home.jsx\'s own Morning/Evening/Breathe handlers - not through the (now unrouted) Routines Hub, not an invented destination', () => {
@@ -133,17 +134,29 @@ describe('Introduction.jsx — three tappable destination cards', () => {
     expect(calmCard).toMatch(/requiresAuth: false/);
   });
 
-  it('the calming-pause card names no fabricated single duration - it now honestly describes the real Anytime Reset flow (choose need + time), not one fixed exercise; kept to one line at 390px width (WakeWise DEV mobile-nav fix: a longer, wrapped subtitle was found live to add 16px and push "Go to Home" under the bottom nav)', () => {
+  it('the Anytime card names no fabricated single duration - it now honestly describes the real Anytime Reset flow (choose need + time), not one fixed exercise; kept to one short line at 390px width (WakeWise DEV mobile-nav fix: a longer, wrapped subtitle was found live to add 16px and push "Go to Home" under the bottom nav)', () => {
     const calmCard = introductionSource.match(/\{\s*id: 'calm',[\s\S]*?\n {2}\},/)?.[0] ?? '';
-    expect(calmCard).toMatch(/subtitle: 'Choose your need and your time\.'/);
+    expect(calmCard).toMatch(/subtitle: 'Reset in a few minutes'/);
     expect(calmCard).not.toMatch(/1 min/);
   });
 
-  it('Morning/Sleep card durations still match routinesCatalog.js\'s own real, already-established values - never an invented estimate', () => {
-    const riseReset = routinesCatalogSource.match(/id: 'rise-reset',[\s\S]*?duration: '([^']*)'/)?.[1];
-    const windDown = routinesCatalogSource.match(/id: 'wind-down',[\s\S]*?duration: '([^']*)'/)?.[1];
-    expect(introductionSource).toMatch(new RegExp(`subtitle: '.*${riseReset}.*'`));
-    expect(introductionSource).toMatch(new RegExp(`subtitle: '.*${windDown}.*'`));
+  // Welcome-screen uplift: Morning/Sleep card subtitles are now short,
+  // plain descriptions ('Start with intention' / 'Unwind for rest'),
+  // never a destination name + duration. The real routinesCatalog.js
+  // duration is still truthfully carried - just accessible-only, via each
+  // card's own `note` (folded into its aria-label), not the visible
+  // subtitle line. This replaces the old "subtitle contains the real
+  // duration" check, which no longer applies now that duration moved out
+  // of the visible subtitle entirely.
+  it('Morning/Sleep cards no longer name a duration in their visible subtitle - that information now lives only in each card\'s accessible-only `note`, never invented, never silently dropped', () => {
+    const morningCard = introductionSource.match(/\{\s*id: 'morning',[\s\S]*?\n {2}\},/)?.[0] ?? '';
+    const sleepCard = introductionSource.match(/\{\s*id: 'sleep',[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(morningCard).toMatch(/subtitle: 'Start with intention'/);
+    expect(sleepCard).toMatch(/subtitle: 'Unwind for rest'/);
+    expect(morningCard).not.toMatch(/subtitle: '[^']*\d/);
+    expect(sleepCard).not.toMatch(/subtitle: '[^']*\d/);
+    expect(morningCard).toMatch(/note: 'Meditation is optional and can add 2, 5 or 10 minutes\.'/);
+    expect(sleepCard).toMatch(/note: 'Meditation is optional and can add 2, 5 or 10 minutes\.'/);
   });
 
   it('Circadian Colors: each card reuses an existing design token (dawn-gold morning-accent, mint tertiary, lavender evening-accent) - never a new invented hex value', () => {
@@ -446,12 +459,21 @@ describe('Journey Embedding — Welcome card optional-meditation context, access
     // Still exactly one title span and one subtitle span per card - no new
     // <span> was added for the note.
     expect(introductionSource).toMatch(/<span className="block text-base font-bold text-on-surface">\{card\.title\}<\/span>/);
-    expect(introductionSource).toMatch(/<span className=\{`block text-xs font-medium \$\{card\.subtitleClass\}`\}>\{card\.subtitle\}<\/span>/);
+    expect(introductionSource).toMatch(/<span className=\{`block text-sm font-medium \$\{card\.subtitleClass\}`\}>\{card\.subtitle\}<\/span>/);
   });
 
-  it('Welcome subtitles use "From" wording, never a flat number that a 10-minute meditation choice would make inaccurate', () => {
-    expect(introductionSource).toMatch(/subtitle: 'Rise & Reset · From 5 min'/);
-    expect(introductionSource).toMatch(/subtitle: 'Begin Wind-Down · From 10 min'/);
+  // Welcome-screen uplift: the "From N min" duration wording moved out of
+  // the visible subtitle entirely (see the Morning/Sleep accessible-only
+  // `note` test above) - no visible subtitle states a flat/fabricated
+  // number any more, trivially satisfying the original "never inaccurate
+  // at 10 minutes" intent by omission rather than by "From" phrasing.
+  it('no visible card subtitle states a duration number - Morning/Evening carry that only via their accessible-only `note`', () => {
+    const cardsBlock = introductionSource.match(/const WELCOME_CARDS = \[[\s\S]*?\n\];/)?.[0] ?? '';
+    const subtitles = [...cardsBlock.matchAll(/subtitle: '([^']*)'/g)].map((m) => m[1]);
+    expect(subtitles).toEqual(['Start with intention', 'Reset in a few minutes', 'Unwind for rest']);
+    for (const subtitle of subtitles) {
+      expect(subtitle).not.toMatch(/\d/);
+    }
   });
 });
 

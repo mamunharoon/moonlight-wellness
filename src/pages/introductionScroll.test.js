@@ -78,7 +78,7 @@ describe('Introduction.jsx — no content or font-size changes, only the layout/
     // two variant strings rather than one fixed pair - see
     // Introduction.test.js's own dedicated copy coverage. This check
     // confirms the always-present structural copy only.
-    expect(source).toMatch(/Choose what would help you most/);
+    expect(source).toMatch(/Start where you are/);
     expect(source).toMatch(/Go to Home/);
   });
 
@@ -94,7 +94,7 @@ describe('Introduction.jsx — no content or font-size changes, only the layout/
 describe('Introduction.jsx — both the welcome cards and Go to Home remain reachable inside the one scroll container', () => {
   it('the welcome-cards section and the Go to Home button block are both inside the new scroll wrapper, not siblings outside it', () => {
     const scrollOpen = source.indexOf('overflow-y-auto overflow-x-hidden scroll-hide');
-    const cardsIndex = source.indexOf('Choose what would help you most');
+    const cardsIndex = source.indexOf('Start where you are');
     const homeIndex = source.indexOf('Go to Home');
     expect(cardsIndex).toBeGreaterThan(scrollOpen);
     expect(homeIndex).toBeGreaterThan(scrollOpen);

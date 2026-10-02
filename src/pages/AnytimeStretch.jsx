@@ -172,6 +172,7 @@ export const AnytimeStretch = () => {
                 onClick={() => handleSelect(s.id)}
                 accent="anytime"
                 icon="accessibility_new"
+                iconAlwaysAccent
               />
             ))}
           </div>

@@ -341,8 +341,8 @@ export const SessionComplete = () => {
                 genuinely completed; any skipped/ended-early/not-reached
                 stage shows the "finished" variant instead. Never a
                 percentage, either way. */}
-            <h1 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">
-              {morningFullyCompleted ? 'Morning Reset complete' : 'Morning Reset finished'}
+            <h1 className="text-2xl font-morning-display font-semibold text-on-surface leading-tight">
+              {morningFullyCompleted ? 'Morning routine complete' : 'Morning Reset finished'}
             </h1>
             <p className="text-sm text-on-surface-variant">
               {morningFullyCompleted ? 'You made time to begin your day with intention.' : 'Every intentional moment still matters.'}
@@ -372,7 +372,7 @@ export const SessionComplete = () => {
         {displayIntentions.map((item, idx) => (
           <p key={item.toLowerCase()} className="text-on-surface font-medium italic flex items-baseline gap-2">
             {displayIntentions.length > 1 && (
-              <span className="text-[9px] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0">{roleForIndex(idx)}</span>
+              <span className="text-[12px] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0">{roleForIndex(idx)}</span>
             )}
             <span>"{item}"</span>
           </p>
@@ -382,7 +382,7 @@ export const SessionComplete = () => {
       <div className="space-y-3 w-full">
         <button
           onClick={handleReturnHome}
-          className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
+          className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
         >
           <span>Continue to My Day</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>

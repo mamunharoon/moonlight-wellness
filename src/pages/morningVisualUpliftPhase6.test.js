@@ -103,7 +103,7 @@ describe('Morning Affirmation — supporting-text readability correction (Physic
   });
 
   it('the role label (PRIMARY/SUPPORTING), the main affirmation headline, and the intention-derived mapping are all untouched by the readability correction', () => {
-    expect(affirmationSource).toMatch(/text-\[10px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
+    expect(affirmationSource).toMatch(/text-\[12px\] font-bold uppercase tracking-wider text-on-morning-affirmation">\{roleForIndex\(idx\)\}/);
     expect(affirmationSource).toMatch(/Today is a fresh beginning\./);
     expect(affirmationSource).toMatch(/const affirmations = intentions\.map\(\(intention\) => \(\{\s*\n\s*intention,\s*\n\s*affirmation: getAffirmationForIntention\(intention, today\)\s*\n\s*\}\)\);/);
   });

@@ -220,6 +220,7 @@ export const Reflection = () => {
               journeyTone="evening"
               sectionLabel="Reflection"
               guidanceLabel="Need a gentle prompt?"
+              multiSelect
             />
           )}
         </div>

@@ -771,7 +771,7 @@ export const Home = () => {
         <div className="space-y-2">
           <h3
             className={`text-2xl font-bold leading-tight text-on-surface ${
-              isMorningPeriod ? 'font-morning-display italic' : isEveningPeriod ? 'font-serif italic' : ''
+              isMorningPeriod ? 'font-morning-display' : isEveningPeriod ? 'font-serif' : ''
             }`}
           >
             {card.title}
@@ -1048,7 +1048,7 @@ export const Home = () => {
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/30 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
                   Rise &amp; Reset
                 </span>
-                <h3 className="text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic">
+                <h3 className="text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display">
                   {formatStaleRoutineDate(morningStaleSnapshot?.dateKey, today)}'s Morning routine is unfinished.
                 </h3>
                 <p className="text-sm text-on-surface-variant font-medium">

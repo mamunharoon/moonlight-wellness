@@ -476,6 +476,7 @@ export const AnytimeReset = () => {
                 onClick={() => handleSelectDuration(duration.id)}
                 accent="anytime"
                 icon={duration.id === 'any' ? 'all_inclusive' : 'schedule'}
+                iconAlwaysAccent
               />
             ))}
           </div>

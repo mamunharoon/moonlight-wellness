@@ -20,7 +20,7 @@ const introductionCompletionSource = read('../lib/introductionCompletion.js');
 
 describe('1. New guest sees the First Visit heading', () => {
   it('the non-returning-user branch resolves to the exact required heading (WakeWise DEV welcome-screen redesign)', () => {
-    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser\s*\n\s*\? \(firstName \? `Welcome back, \$\{firstName\}` : 'Welcome back'\)\s*\n\s*: 'Start your morning with purpose\. End your day with calm\.';/);
+    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser\s*\n\s*\? \(firstName \? `Welcome back, \$\{firstName\}` : 'Welcome back'\)\s*\n\s*: 'Welcome to WakeWise';/);
   });
 });
 

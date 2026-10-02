@@ -178,6 +178,7 @@ export const Gratitude = () => {
               journeyTone="evening"
               sectionLabel="Gratitude"
               guidanceLabel="Need a gentle prompt?"
+              multiSelect
             />
           )}
         </div>

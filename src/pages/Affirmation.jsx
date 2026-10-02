@@ -184,7 +184,7 @@ export const Affirmation = () => {
 
         <div className="space-y-4 relative z-10">
           <span className="material-symbols-outlined text-morning-accent text-4xl animate-pulse">auto_awesome</span>
-          <h2 className="text-3xl font-morning-display italic font-semibold text-on-morning-affirmation leading-tight tracking-tight px-2">
+          <h2 className="text-3xl font-morning-display font-semibold text-on-morning-affirmation leading-tight tracking-tight px-2">
             Today is a fresh beginning.
           </h2>
           {/* Morning Visual Uplift (Phase 6) — a visible divider now
@@ -213,7 +213,7 @@ export const Affirmation = () => {
                 className={`space-y-1 ${idx > 0 ? 'pt-4 border-t border-morning-accent-tint/20' : ''}`}
               >
                 {affirmations.length > 1 && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
+                  <span className="text-[12px] font-bold uppercase tracking-wider text-on-morning-affirmation">{roleForIndex(idx)}</span>
                 )}
                 <p className="text-base text-on-morning-affirmation max-w-xs mx-auto leading-relaxed font-semibold">
                   "{affirmation}"

@@ -51,21 +51,20 @@ export const Welcome = ({ onContinueAsGuest }) => {
         </span>
 
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold text-on-surface tracking-tight">Welcome to WakeWise</h1>
+          <h1 className="text-3xl font-morning-display text-on-surface tracking-tight">Welcome to WakeWise</h1>
           <p className="text-sm text-on-surface-variant leading-relaxed max-w-xs mx-auto">
-            Morning routines, anytime resets, meditation, breathing and evening wind-downs—at your own pace.
+            Morning routines, anytime resets and evening wind-downs — at your own pace.
           </p>
         </div>
 
         <div className="glass-panel rounded-2xl p-5 space-y-3 text-left w-full">
-          <p className="text-xs text-on-surface-variant leading-relaxed">
-            <span className="font-bold text-on-surface">As a guest</span>, you can explore WakeWise and try
-            selected breathing, meditation, music and sleep experiences.
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            <span className="font-bold text-on-surface">As a guest</span>, you can explore an Anytime reset
+            right away.
           </p>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
-            <span className="font-bold text-on-surface">Create an account or sign in</span> to save your
-            intentions, progress and reflections, personalise reminders and access the complete WakeWise
-            experience.
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            <span className="font-bold text-on-surface">Create an account or sign in</span> for Morning routines,
+            Evening wind-downs, and to save your progress and reminders.
           </p>
         </div>
       </div>
@@ -88,7 +87,7 @@ export const Welcome = ({ onContinueAsGuest }) => {
         <button
           type="button"
           onClick={onContinueAsGuest}
-          className="w-full py-3 text-center text-xs text-on-surface-variant font-semibold hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full"
+          className="w-full py-3 text-center text-sm text-on-surface-variant font-semibold hover:text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full"
         >
           Continue as Guest
         </button>

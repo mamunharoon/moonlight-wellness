@@ -25,8 +25,8 @@ describe('IntentionSetup — intro phase visual uplift (unchanged by the Phase 2
     expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/25 shadow-morning-glow/);
   });
 
-  it('the display heading now uses the new font-morning-display (Playfair Display) token, distinct from font-serif (Newsreader, Evening\'s own unchanged serif)', () => {
-    expect(source).toMatch(/font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention/);
+  it('the display heading now uses the new font-morning-display (Playfair Display, upright - no italic) token, distinct from font-serif (Newsreader, Evening\'s own unchanged serif)', () => {
+    expect(source).toMatch(/font-morning-display text-3xl text-on-surface">Start Your Day with Intention/);
   });
 
   // Morning copy simplification — the previous long explanatory paragraph
@@ -43,8 +43,8 @@ describe('IntentionSetup — intro phase visual uplift (unchanged by the Phase 2
     expect(source).not.toMatch(/4–5 min|4-5 min/);
   });
 
-  it('"Begin My Morning" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the sparing glow kept', () => {
-    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
+  it('"Begin My Morning" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the ordinary button shadow only (no stacked glow)', () => {
+    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`/);
     expect(source).toMatch(/<span>Begin My Morning<\/span>/);
   });
 });
@@ -52,7 +52,7 @@ describe('IntentionSetup — intro phase visual uplift (unchanged by the Phase 2
 describe('IntentionSetup — WakeWise Phase 2 guided ladder: morning-accent identity preserved across every stage', () => {
   it('the "Your Intentions" eyebrow and every stage heading use morning-accent/Playfair', () => {
     expect(source).toMatch(/text-xs text-morning-accent uppercase tracking-widest font-bold">Your Intentions/);
-    const headings = source.match(/text-on-surface font-morning-display italic outline-none">\s*\n\s*[^\n]+\s*\n\s*<\/h2>/g) ?? [];
+    const headings = source.match(/text-on-surface font-morning-display outline-none">\s*\n\s*[^\n]+\s*\n\s*<\/h2>/g) ?? [];
     expect(headings.length).toBe(3); // primary, supporting, summary
   });
 

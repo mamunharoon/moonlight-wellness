@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AnswerOptionButton } from './AnswerOptionButton';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
+import { decodeMultiAnswer, encodeMultiAnswer, toggleMultiSelectOption, NOT_SURE_YET_OPTION, MULTI_SELECT_INSTRUCTION } from '../../lib/eveningJourneyQuestions';
 
 // journeyTone.js's own focusRing field is the has-[:focus-visible]:ring-X
 // form (for a wrapping <label>); this textarea's plain `focus:ring-X`
@@ -35,20 +36,36 @@ const TEXTAREA_FOCUS_RING = {
  * `value` is this question's current DRAFT answer (may already differ
  * from what's saved). The caller renders this component with
  * `key={prompt.id}` so its own local `isCustomOpen` disclosure state
- * seeds fresh for each question - the same "expand only if the draft is
- * already a non-preset value" rule EveningReviewQuestion/PromptStepper
+ * seeds fresh for each question - the same "expand only if the draft
+ * already carries custom text" rule EveningReviewQuestion/PromptStepper
  * both already use, just re-derived once per question instead of once
  * per app-wide answer map.
+ *
+ * Evening Reflection/Gratitude multiple-selection enhancement — this
+ * question (like the live journey and Review) is always multi-select
+ * now; `value` is decoded via decodeMultiAnswer (the same backward-
+ * compatible single-string encoding PromptStepper.jsx uses) rather than
+ * compared directly against `prompt.options`. `onSelectPreset`/
+ * `onCustomChange` keep their original names and signatures - each still
+ * just receives the one new full draft STRING to write - only what gets
+ * passed through them changed, from a bare tapped option to the
+ * re-encoded `{ selections, custom }` pair.
  */
 export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, value, journeyTone = 'primary', groupName, onSelectPreset, onCustomChange }) => {
-  const selectedOption = prompt.options?.find((option) => option === value) ?? null;
-  const [isCustomOpen, setIsCustomOpen] = useState(Boolean(value && !selectedOption));
+  const decoded = decodeMultiAnswer(prompt, value);
+  const [isCustomOpen, setIsCustomOpen] = useState(Boolean(decoded.custom));
   const tokens = getJourneyToneTokens(journeyTone);
   const textareaFocusRing = TEXTAREA_FOCUS_RING[journeyTone] ?? TEXTAREA_FOCUS_RING.primary;
 
-  const handleSelectPreset = (option) => {
-    onSelectPreset(option);
-    setIsCustomOpen(false);
+  const handleToggleOption = (option) => {
+    const nextSelections = toggleMultiSelectOption(decoded.selections, option);
+    const nextCustom = nextSelections.includes(NOT_SURE_YET_OPTION) ? '' : decoded.custom;
+    onSelectPreset(encodeMultiAnswer({ selections: nextSelections, custom: nextCustom }));
+  };
+
+  const handleCustomTextChange = (text) => {
+    const nextSelections = text.trim() ? decoded.selections.filter((s) => s !== NOT_SURE_YET_OPTION) : decoded.selections;
+    onCustomChange(encodeMultiAnswer({ selections: nextSelections, custom: text }));
   };
 
   return (
@@ -58,18 +75,22 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
           {questionNumber} of {totalQuestions}
         </p>
         <h2 className="font-serif italic text-2xl text-on-surface">{prompt.label}</h2>
+        <p className="text-xs text-on-surface-variant/80 font-semibold">{MULTI_SELECT_INSTRUCTION}</p>
       </div>
 
       {/* Compact two-column layout (Build 16): identical grid treatment to
-          the live journey's own PromptStepper.jsx - this is the exact
-          same interactive short-option radiogroup (same options, same
-          AnswerOptionButton, same single-select semantics), just backed
-          by a local draft instead of an immediate write, so the same
-          layout stays clear here. See PromptStepper.jsx's own doc
-          comment for the real measured 320px numbers this shares (no
-          narrow-screen fallback needed - genuine testing showed it
+          the live journey's own PromptStepper.jsx. Evening Reflection/
+          Gratitude multiple-selection enhancement — every option is now a
+          real checkbox (AnswerOptionButton's own `multi` prop), `selected`
+          comes from the decoded `selections` array (more than one may be
+          checked at once), and the container role is "group" rather than
+          "radiogroup", matching native semantics for independent
+          checkboxes. Still backed by a local draft instead of an
+          immediate write, so Cancel remains honest. See PromptStepper.jsx's
+          own doc comment for the real measured 320px numbers this shares
+          (no narrow-screen fallback needed - genuine testing showed it
           stays readable at 320px). */}
-      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
+      <div className="grid grid-cols-2 gap-3" role="group" aria-label={prompt.label}>
         {prompt.options?.map((option) => {
           const presentation = getOptionPresentation(prompt.id, option);
           return (
@@ -77,10 +98,11 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
               key={option}
               label={presentation.label}
               descriptor={presentation.descriptor}
-              selected={selectedOption === option}
-              onClick={() => handleSelectPreset(option)}
+              selected={decoded.selections.includes(option)}
+              onClick={() => handleToggleOption(option)}
               journeyTone={journeyTone}
               groupName={groupName}
+              multi
             />
           );
         })}
@@ -109,8 +131,8 @@ export const EveningEditQuestion = ({ prompt, questionNumber, totalQuestions, va
         {isCustomOpen && (
           <textarea
             id={`${prompt.id}-edit-custom-field`}
-            value={value}
-            onChange={(e) => onCustomChange(e.target.value)}
+            value={decoded.custom}
+            onChange={(e) => handleCustomTextChange(e.target.value)}
             placeholder="Write your own answer..."
             rows={3}
             className={`mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 ${textareaFocusRing} focus:border-transparent outline-none resize-none`}

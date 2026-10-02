@@ -254,8 +254,8 @@ export const PrepareForRest = () => {
           borderline few-pixel fit. */}
       <div className="flex-1 flex flex-col justify-center space-y-5">
         <div className="text-center space-y-1">
-          <h1 className="font-serif italic text-3xl text-on-surface">Prepare for Rest</h1>
-          <p className="text-xs text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
+          <h1 className="font-serif text-3xl text-on-surface">Prepare for Rest</h1>
+          <p className="text-sm text-on-surface-variant">Take a few simple steps to settle in for the night.</p>
         </div>
 
         {/* Redundant-pathway removal — the full 5-stage EveningJourneyPathway
@@ -290,7 +290,7 @@ export const PrepareForRest = () => {
             BedtimeMediaChooser overlay below - never on this screen. */}
         {selectedBedtimeItem ? (
           <div className="space-y-2">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">
               {selectedBedtimeIsSound ? 'Sleep sound' : 'Guided video'} selected
             </span>
             <BetaVideoRow

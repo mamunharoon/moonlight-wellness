@@ -81,6 +81,25 @@ const CARD_ACCENT_CLASS = {
   anytime: 'shadow-mint-glow'
 };
 
+// Anytime/Evening typography uplift — scoped to accent='anytime' only
+// (AnytimeReset.jsx's own caller) via this same existing per-accent
+// lookup pattern, so Meditate.jsx's caller (accent='primary', the
+// default) keeps these three small-text spots byte-for-byte unchanged:
+// duration badge, "Closest match" label, and the "Why this" reason
+// (bumped 1-2px and de-italicised for Anytime only).
+const DURATION_BADGE_CLASS = {
+  primary: 'text-[10px]',
+  anytime: 'text-[11px]'
+};
+const CLOSEST_MATCH_CLASS = {
+  primary: 'text-[11px]',
+  anytime: 'text-[12px]'
+};
+const MATCH_REASON_CLASS = {
+  primary: 'text-xs text-on-surface-variant/80 italic',
+  anytime: 'text-[13px] text-on-surface-variant/80'
+};
+
 export const RecommendationCard = ({
   title,
   durationLabel,
@@ -105,21 +124,21 @@ export const RecommendationCard = ({
   >
     <div className="flex items-start justify-between gap-3">
       <h2 className="text-base font-bold text-on-surface">{title}</h2>
-      <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0 bg-white/5 px-2 py-1 rounded-full">
+      <span className={`${DURATION_BADGE_CLASS[accent] ?? DURATION_BADGE_CLASS.primary} text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0 bg-white/5 px-2 py-1 rounded-full`}>
         {durationLabel}
       </span>
     </div>
     <p className="text-sm text-on-surface-variant leading-relaxed">{description}</p>
     {locked && (
-      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+      <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
         <span className="material-symbols-outlined text-xs" aria-hidden="true">lock</span>
         Sign in to play
       </span>
     )}
     {isClosestMatch && (
-      <p className="text-[11px] text-secondary font-semibold uppercase tracking-wider">Closest match</p>
+      <p className={`${CLOSEST_MATCH_CLASS[accent] ?? CLOSEST_MATCH_CLASS.primary} text-secondary font-semibold uppercase tracking-wider`}>Closest match</p>
     )}
-    <p className="text-xs text-on-surface-variant/80 italic">Why this: {matchReason}</p>
+    <p className={MATCH_REASON_CLASS[accent] ?? MATCH_REASON_CLASS.primary}>Why this: {matchReason}</p>
 
     <button
       type="button"

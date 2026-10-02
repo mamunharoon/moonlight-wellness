@@ -175,14 +175,25 @@ describe('Approved real guidance catalogue mapping - real ids only, capped at 2 
 // before by ChangeIntention.jsx/AnytimeReset.jsx/Meditate.jsx (see
 // AnswerOptionButton.test.js's own "does not touch" check).
 describe('Layout: every Reflection/Gratitude question renders its predefined options as a 2-column grid', () => {
-  it('PromptStepper renders exactly one options container per question - role="radiogroup", a 2-column CSS grid of AnswerOptionButton cards - never the old SelectionChip/SelectionRow', () => {
+  it('PromptStepper renders exactly one single-select options container per question - role="radiogroup", a 2-column CSS grid of AnswerOptionButton cards - never the old SelectionChip/SelectionRow', () => {
     expect(promptStepperSource).toMatch(/<div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label=\{activePrompt\.label\}>/);
     expect(promptStepperSource).toMatch(/<AnswerOptionButton/);
-    expect(promptStepperSource).not.toMatch(/role="group"/);
     expect(promptStepperSource).not.toMatch(/<SelectionRow/);
     expect(promptStepperSource).not.toMatch(/<SelectionChip/);
     expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionChip'/);
     expect(promptStepperSource).not.toMatch(/from '\.\.\/journey\/SelectionRow'/);
+  });
+
+  // Evening Reflection/Gratitude multiple-selection enhancement — a
+  // sibling multi-select grid (role="group", real checkboxes) now exists
+  // alongside the original single-select radiogroup above, gated by the
+  // new `multiSelect` prop (StressRelease.jsx, the one non-Evening
+  // consumer, never passes it and keeps the exact original radiogroup-only
+  // rendering with no "group" role anywhere in its own code path).
+  it('the multi-select grid uses role="group" (never "radiogroup", which implies mutual exclusivity) and real checkbox cards (AnswerOptionButton multi prop)', () => {
+    expect(promptStepperSource).toMatch(/<div className="grid grid-cols-2 gap-3" role="group" aria-label=\{activePrompt\.label\}>/);
+    expect(promptStepperSource).toMatch(/multiSelect = false/);
+    expect(promptStepperSource).toMatch(/selected=\{selections\.includes\(option\)\}/);
   });
 
   it('each AnswerOptionButton receives journeyTone (passed straight through from the page, not decided in PromptStepper) and groupName (the active question\'s own id, scoping native radio-group keyboard behaviour to this question only)', () => {
@@ -320,9 +331,13 @@ describe('Evening journey-theme correction - both pages pass journeyTone="evenin
     // additive, optional params (sectionLabel/guidanceLabel, both
     // defaulting so every existing caller renders unchanged) after
     // journeyTone; the regex now tolerates trailing params.
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary'[\s\S]{0,120}\}\) => \{/);
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary'[\s\S]{0,160}\}\) => \{/);
+    // Evening Reflection/Gratitude multiple-selection enhancement — two
+    // options renders now exist (single-select radiogroup, multi-select
+    // group), each passing journeyTone through once; only one is ever
+    // mounted at a time per the `multiSelect` prop.
     const journeyToneUsages = promptStepperSource.match(/journeyTone=\{journeyTone\}/g) ?? [];
-    expect(journeyToneUsages.length).toBe(1); // one options render (the old rows/grid branch is gone)
+    expect(journeyToneUsages.length).toBe(2);
   });
 });
 

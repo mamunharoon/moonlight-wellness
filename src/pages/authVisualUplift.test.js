@@ -32,8 +32,8 @@ describe('Auth.jsx — heading now matches Introduction.jsx\'s own scale, using 
     expect(authSource).toMatch(/<h2 className="text-3xl font-morning-display italic font-semibold text-on-surface">/);
   });
 
-  it('Introduction.jsx itself is confirmed to still use no serif at all - this heading connects to Welcome\'s overall peach/navy identity and scale, not a literal font match, exactly as the approved brief allowed ("use Playfair only where it creates a natural connection")', () => {
-    expect(introSource).not.toMatch(/font-morning-display|font-serif/);
+  it('Welcome-screen uplift: Introduction.jsx\'s own welcome heading now also uses font-morning-display (upright, no italic - matching the Morning-polish token convention), so Auth\'s serif heading is now a genuine literal match, not just a coincidental scale/identity connection', () => {
+    expect(introSource).toMatch(/font-morning-display/);
   });
 
   it('the three real mode headings ("Welcome back" / "Create your account" / "Reset your password") are byte-identical to before this phase', () => {

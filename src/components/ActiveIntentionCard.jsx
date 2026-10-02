@@ -69,7 +69,7 @@ export const ActiveIntentionCard = ({ label, intentions, isGuest, onRequireSignI
         {intentions.map((item, idx) => (
           <p key={item.toLowerCase()} className="text-lg italic font-medium text-on-surface flex items-baseline gap-2">
             {intentions.length > 1 && (
-              <span className="text-[9px] not-italic font-bold uppercase tracking-wider text-secondary shrink-0">{roleForIndex(idx)}</span>
+              <span className="text-[12px] not-italic font-bold uppercase tracking-wider text-secondary shrink-0">{roleForIndex(idx)}</span>
             )}
             <span>"{item}"</span>
           </p>

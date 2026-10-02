@@ -18,7 +18,7 @@ const source = read('./MorningFlow.jsx');
 describe('MorningFlow — shared heading (both pre-start and active views)', () => {
   it('"Morning Movement" eyebrow uses morning-accent gold; "Gentle Morning Stretch" uses the new Playfair Display token', () => {
     expect(source).toMatch(/text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Movement/);
-    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display italic">Gentle Morning Stretch/);
+    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display">Gentle Morning Stretch/);
   });
 
   it('the real pre-start/active-view supporting copy is unchanged', () => {

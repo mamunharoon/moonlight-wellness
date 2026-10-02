@@ -10,6 +10,7 @@ import { getCachedDurationMinutes } from '../../lib/durationCache';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
 import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
+import { decodeMultiAnswer, encodeMultiAnswer, toggleMultiSelectOption, NOT_SURE_YET_OPTION, MULTI_SELECT_INSTRUCTION } from '../../lib/eveningJourneyQuestions';
 
 // Evening journey-theme correction — Next/Continue, the "Add your own"
 // toggle, and the guidance disclosure's focus ring/chevron all used to be
@@ -149,8 +150,23 @@ const CHANGE_DEBOUNCE_MS = 400;
  *                 Gratitude.jsx now pass "evening" explicitly;
  *                 StressRelease.jsx (the one genuine non-Evening consumer)
  *                 passes "anytime".
+ *   multiSelect   boolean, additive, default false. Every existing
+ *                 caller that omits it (StressRelease.jsx) keeps the
+ *                 exact original single-select radio behaviour, byte-
+ *                 for-byte. Reflection.jsx/Gratitude.jsx now pass `true`:
+ *                 options render as real checkboxes (AnswerOptionButton's
+ *                 own `multi` prop), more than one may be checked at
+ *                 once, and custom text may coexist with a selection -
+ *                 see eveningJourneyQuestions.js's own encode/decode/
+ *                 toggle helpers for the storage format (still a single
+ *                 plain string per prompt, no schema change). The one
+ *                 answer map (`answers`, `{ [promptId]: string }`) and
+ *                 every outward callback signature (onChange/onClear/
+ *                 onAdvance/onComplete) are completely unchanged by this
+ *                 - multi-select is encoded/decoded entirely within this
+ *                 component.
  */
-export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help?' }) => {
+export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help?', multiSelect = false }) => {
   const tokens = getJourneyToneTokens(journeyTone);
   const primaryActionClasses = getJourneyPrimaryActionClasses(journeyTone);
   const guidanceFocusRing = GUIDANCE_FOCUS_RING[journeyTone] ?? GUIDANCE_FOCUS_RING.primary;
@@ -164,7 +180,18 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
     const seed = {};
     for (const p of prompts) {
       const value = (initialAnswers ?? {})[p.id];
-      seed[p.id] = Boolean(value && !p.options?.includes(value));
+      // Evening Reflection/Gratitude multiple-selection enhancement — a
+      // multi-select question's custom field opens whenever the decoded
+      // answer actually carries custom text, never merely because the
+      // raw stored string fails the old single-preset membership check
+      // (a multi-valued JSON-encoded string never matches `p.options`
+      // directly, which would otherwise incorrectly seed every such
+      // answer as "open").
+      if (multiSelect) {
+        seed[p.id] = Boolean(decodeMultiAnswer(p, value).custom);
+      } else {
+        seed[p.id] = Boolean(value && !p.options?.includes(value));
+      }
     }
     return seed;
   });
@@ -205,6 +232,13 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
   const hasExistingAnswer = Boolean(currentValue.trim());
   const selectedOption = activePrompt.options?.find((opt) => opt === currentValue) ?? null;
   const isCustomOpen = customOpenByPrompt[activePrompt.id] ?? false;
+  // Evening Reflection/Gratitude multiple-selection enhancement —
+  // decoded once per render from the same single stored string every
+  // single-select question already uses; `selections`/`customFieldValue`
+  // below are only ever read when multiSelect is true.
+  const decodedAnswer = multiSelect ? decodeMultiAnswer(activePrompt, currentValue) : null;
+  const selections = decodedAnswer?.selections ?? [];
+  const customFieldValue = multiSelect ? decodedAnswer.custom : currentValue;
 
   const clearPendingSave = (promptId) => {
     clearTimeout(debounceTimersRef.current[promptId]);
@@ -228,6 +262,41 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
     clearPendingSave(promptId);
     debounceTimersRef.current[promptId] = setTimeout(() => {
       onChange?.(promptId, value);
+    }, CHANGE_DEBOUNCE_MS);
+  };
+
+  // Evening Reflection/Gratitude multiple-selection enhancement — a tap
+  // toggles one option on/off (never a wholesale replace like
+  // handleSelectPreset above), re-encoding the full { selections, custom }
+  // pair back into the single stored string immediately, same as a
+  // single-select preset tap. "Not sure yet" exclusivity (toggleMultiSelectOption)
+  // also clears any custom text the moment it becomes the sole selection -
+  // selecting it means "I genuinely don't have an answer", so leftover
+  // custom text would contradict that.
+  const handleToggleOption = (option) => {
+    const promptId = activePrompt.id;
+    clearPendingSave(promptId);
+    const prior = decodeMultiAnswer(activePrompt, answers[promptId] ?? '');
+    const nextSelections = toggleMultiSelectOption(prior.selections, option);
+    const nextCustom = nextSelections.includes(NOT_SURE_YET_OPTION) ? '' : prior.custom;
+    const encoded = encodeMultiAnswer({ selections: nextSelections, custom: nextCustom });
+    setAnswers((prev) => ({ ...prev, [promptId]: encoded }));
+    onChange?.(promptId, encoded);
+  };
+
+  // Typing custom text while "Not sure yet" is the current selection
+  // clears it (the exclusivity rule above, from the other direction) -
+  // every other selection is left exactly as-is, since multi-select
+  // explicitly allows custom text alongside any number of presets.
+  const handleCustomChangeMulti = (value) => {
+    const promptId = activePrompt.id;
+    const prior = decodeMultiAnswer(activePrompt, answers[promptId] ?? '');
+    const nextSelections = value.trim() ? prior.selections.filter((s) => s !== NOT_SURE_YET_OPTION) : prior.selections;
+    const encoded = encodeMultiAnswer({ selections: nextSelections, custom: value });
+    setAnswers((prev) => ({ ...prev, [promptId]: encoded }));
+    clearPendingSave(promptId);
+    debounceTimersRef.current[promptId] = setTimeout(() => {
+      onChange?.(promptId, encoded);
     }, CHANGE_DEBOUNCE_MS);
   };
 
@@ -335,17 +404,20 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
             "1 of 3 · Reflection" substep indicator; StressRelease.jsx
             (Anytime, the one other caller) omits it and keeps the exact
             original "{n} of {m}" text. */}
-        <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant font-bold">
+        <p className="text-[12px] uppercase tracking-[0.14em] text-on-surface-variant font-bold">
           {activeIndex + 1} of {prompts.length}{sectionLabel ? ` · ${sectionLabel}` : ''}
         </p>
-        <h2 className="font-serif italic text-2xl text-on-surface">{activePrompt.label}</h2>
+        <h2 className="font-serif text-2xl text-on-surface">{activePrompt.label}</h2>
         {/* Evening Visual Uplift (Phase 7) — each Reflection/Gratitude
             question now carries its own short, specific supportingText
             (eveningJourneyQuestions.js) instead of one generic repeated
             sentence; StressRelease.jsx's own prompts have no
             supportingText field, so they keep the exact original
             fallback line. */}
-        <p className="text-xs text-on-surface-variant">{activePrompt.supportingText ?? 'Choose the option that feels closest, or add your own.'}</p>
+        <p className="text-sm text-on-surface-variant">{activePrompt.supportingText ?? 'Choose the option that feels closest, or add your own.'}</p>
+        {multiSelect && (
+          <p className="text-xs text-on-surface-variant/80 font-semibold">{MULTI_SELECT_INSTRUCTION}</p>
+        )}
       </div>
 
       {/* Compact two-column layout (Build 16): every question now renders
@@ -381,6 +453,7 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           carve-out was added - it would only have removed the
           improvement for exactly the smallest real screens it matters
           most on. */}
+      {!multiSelect && (
       <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={activePrompt.label}>
         {activePrompt.options?.map((option) => {
           // Evening Visual Uplift (Phase 7) — getOptionPresentation looks
@@ -410,6 +483,36 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
           );
         })}
       </div>
+      )}
+
+      {/* Evening Reflection/Gratitude multiple-selection enhancement —
+          the exact same 2-column grid, option list, and presentation
+          lookup as the single-select block above, but every option is a
+          real checkbox (AnswerOptionButton's own `multi` prop) and
+          `selected` comes from the decoded `selections` array rather
+          than a single `selectedOption` equality check - more than one
+          can read as checked at once. role="group" (not "radiogroup"),
+          matching native semantics for a set of independent checkboxes
+          rather than a mutually-exclusive radio set. */}
+      {multiSelect && (
+      <div className="grid grid-cols-2 gap-3" role="group" aria-label={activePrompt.label}>
+        {activePrompt.options?.map((option) => {
+          const presentation = getOptionPresentation(activePrompt.id, option);
+          return (
+            <AnswerOptionButton
+              key={option}
+              label={presentation.label}
+              descriptor={presentation.descriptor}
+              selected={selections.includes(option)}
+              onClick={() => handleToggleOption(option)}
+              journeyTone={journeyTone}
+              groupName={activePrompt.id}
+              multi
+            />
+          );
+        })}
+      </div>
+      )}
 
       {/* Optional "Add your own" - collapsed by default, unless the
           loaded answer is a historical custom response (seeded above).
@@ -452,8 +555,8 @@ export const PromptStepper = ({ prompts, activeIndex, initialAnswers, onChange, 
         {isCustomOpen && (
           <textarea
             id={`${activePrompt.id}-custom-field`}
-            value={currentValue}
-            onChange={(e) => handleCustomChange(e.target.value)}
+            value={customFieldValue}
+            onChange={(e) => (multiSelect ? handleCustomChangeMulti(e.target.value) : handleCustomChange(e.target.value))}
             placeholder="Write your own answer..."
             rows={3}
             className={`mt-2 w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:ring-1 ${textareaFocusRing} focus:border-transparent outline-none resize-none`}

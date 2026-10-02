@@ -413,7 +413,7 @@ export const IntentionSetup = () => {
             </span>
             {/* Journey Embedding (correction) — total is now 5, not 4. */}
             <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 5</span>
-            <h1 className="font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention</h1>
+            <h1 className="font-morning-display text-3xl text-on-surface">Start Your Day with Intention</h1>
             {/* Morning copy simplification — the previous long explanatory
                 paragraph ("We'll begin by setting an intention for
                 today...") repeated the heading above and made this screen
@@ -426,7 +426,7 @@ export const IntentionSetup = () => {
           <div className="space-y-3 w-full">
             <button
               onClick={dismissIntro}
-              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
               <span>Begin My Morning</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -449,7 +449,7 @@ export const IntentionSetup = () => {
             (item 8). */}
         {stage === 'primary' && (
           <>
-            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
               What matters most today?
             </h2>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
@@ -459,7 +459,7 @@ export const IntentionSetup = () => {
         )}
         {stage === 'supporting' && (
           <>
-            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
               Would another intention support you?
             </h2>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
@@ -468,7 +468,7 @@ export const IntentionSetup = () => {
           </>
         )}
         {stage === 'summary' && (
-          <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+          <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
             Today's focus
           </h2>
         )}
@@ -637,7 +637,7 @@ export const IntentionSetup = () => {
         <div className="glass-panel rounded-2xl p-6 space-y-4 text-center w-full">
           <div className="flex flex-col items-center gap-1">
             <span className="material-symbols-outlined text-morning-accent text-2xl" aria-hidden="true">{getIntentionIcon(intentions[0])}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent">Primary</span>
+            <span className="text-[12px] font-bold uppercase tracking-wider text-morning-accent">Primary</span>
             <span className="text-lg font-bold text-on-surface">{intentions[0]}</span>
           </div>
 
@@ -649,7 +649,7 @@ export const IntentionSetup = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <span className="material-symbols-outlined text-morning-accent/80 text-xl" aria-hidden="true">{getIntentionIcon(intentions[1])}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent/80">Supporting</span>
+                <span className="text-[12px] font-bold uppercase tracking-wider text-morning-accent/80">Supporting</span>
                 <span className="text-base font-semibold text-on-surface">{intentions[1]}</span>
               </div>
             </>

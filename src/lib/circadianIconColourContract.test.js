@@ -168,9 +168,9 @@ describe('9. Labels/icons remain accessible without colour alone', () => {
   });
 
   it('every Welcome card keeps its own visible title AND subtitle text alongside the coloured icon', () => {
-    expect(introductionSource).toMatch(/title: 'Start my morning'/);
-    expect(introductionSource).toMatch(/title: 'Take a calming pause'/);
-    expect(introductionSource).toMatch(/title: 'Wind down for sleep'/);
+    expect(introductionSource).toMatch(/title: 'Morning'/);
+    expect(introductionSource).toMatch(/title: 'Anytime'/);
+    expect(introductionSource).toMatch(/title: 'Evening'/);
   });
 
   it('every Library category keeps its own visible text heading alongside the coloured icon', () => {
