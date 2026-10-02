@@ -23,6 +23,24 @@ describe('iOS input auto-zoom regression guard', () => {
   });
 });
 
+// Physical-iPhone TestFlight report — status-bar overlap fix, round 2.
+// Regression guard for the html/body overscroll-behavior-y fix: WebKit's
+// own document/viewport-level rubber-band is a separate rendering layer
+// from the native UIScrollView.bounces flag (already confirmed false by
+// Capacitor's own CAPBridgeViewController default, independent of this
+// app's code) - only overscroll-behavior actually suppresses it, and only
+// when applied at the true document root (html/body), not merely on an
+// individual page's own inner scroll container.
+describe('html/body overscroll-behavior-y regression guard (status-bar overlap fix)', () => {
+  it('disables document-level vertical overscroll/rubber-band on both html and body, matching the externally-documented fix for this exact class of Capacitor/WKWebView bug', () => {
+    expect(css).toMatch(/html,\s*\n\s*body\s*\{[\s\S]*?overscroll-behavior-y:\s*none;/);
+  });
+
+  it('does not touch body\'s own existing overflow: hidden (the two are separate mechanisms - this fix is additive, not a replacement)', () => {
+    expect(indexHtml).toMatch(/<body class="m-0 p-0 overflow-hidden">/);
+  });
+});
+
 // WakeWise Phase 1 correction — .glass-panel's border previously composited
 // to ~1.35-1.46:1 against every real adjacent surface tone (Home, Anytime
 // Reset, Panic, Grounding, etc. all share this one class), badly failing
