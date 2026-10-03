@@ -36,11 +36,11 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
     // (see morningRoutineCompletionUplift.test.js) - still morning-accent.
     expect(source).toMatch(/text-morning-accent text-3xl font-bold">check_circle/);
     expect(source).toMatch(/font-semibold uppercase text-morning-accent/);
-    expect(source).toMatch(/text-\[9px\] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0/);
+    expect(source).toMatch(/text-\[12px\] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0/);
   });
 
   it('Phase 9 — Truthful Journey Outcomes: the completion headline is now the outcome-gated exact copy (Part 7), using the same Playfair Display token the old rotating headline used; {completionGreeting} still renders, as a smaller secondary line beneath it (see sessionCompleteOutcomeMessages.test.js)', () => {
-    expect(source).toMatch(/text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">/);
+    expect(source).toMatch(/text-2xl font-morning-display font-semibold text-on-surface leading-tight">/);
     expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{completionGreeting\}<\/p>/);
   });
 
@@ -49,8 +49,8 @@ describe('SessionComplete.jsx — more uplifting completion presentation', () =>
   // "primary action buttons stay peach app-wide" decision - "Continue to
   // Today" now resolves to the shared journey-action helper with
   // journey='morning' (bg-morning-accent text-on-morning-accent).
-  it('"Continue to Today" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the sparing glow kept', () => {
-    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow/);
+  it('"Continue to Today" resolves to the shared journey-action helper with journey=\'morning\' (gold, not peach), with the ordinary button shadow only (no stacked glow)', () => {
+    expect(source).toMatch(/\$\{getJourneyPrimaryActionClasses\('morning'\)\} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`/);
   });
 });
 

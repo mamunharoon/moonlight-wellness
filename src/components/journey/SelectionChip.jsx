@@ -103,7 +103,11 @@ export const SelectionChip = ({ label, icon, selected, onClick, roleLabel, large
         </span>
       )}
       {icon && (
-        <span className={`material-symbols-outlined text-xl ${selected ? tokens.icon : 'text-on-surface-variant'}`} aria-hidden="true">
+        // Anytime icon colour uplift — scoped to accent='anytime' only (the
+        // only caller: AnytimeReset.jsx's 8 need chips). Every other accent
+        // ('primary' default, 'morning') keeps the exact original
+        // selected-only icon colour, byte-for-byte unchanged.
+        <span className={`material-symbols-outlined text-xl ${(accent === 'anytime' || selected) ? tokens.icon : 'text-on-surface-variant'}`} aria-hidden="true">
           {icon}
         </span>
       )}

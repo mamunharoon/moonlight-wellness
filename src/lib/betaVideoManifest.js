@@ -4,7 +4,7 @@
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
 // because sixty-seven narrated exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL10) are live in Storage
+// F01-F03, G01-G04, M01-M05, S01-S09, SL01-SL10) are live in Storage
 // today and need a minimal, typed, isolated place to map an id -> title ->
 // object path, plus four audio-only interactive-ambient-music loops
 // (IB01, IS01, IM01, IM02 - see their own entries below) that share this
@@ -43,7 +43,7 @@
 // Every original `exercises/` object remains in Storage for rollback.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S05, SL01-SL10)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S09, SL01-SL10)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -477,6 +477,36 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Evening Flow',
     storagePath: 'faststart-v1/WW_S05_EveningFlow_v1.mp4_faststart.mp4',
     description: 'A guided evening stretching flow.'
+  },
+  // Anytime Stretch (DEV integration) — mirrored byte-for-byte from
+  // get-beta-video-url/index.ts's own EXERCISE_PATHS (see that file's
+  // comment on this exact block for the storagePath/naming rationale).
+  // Audio-only (no video track) - same shape as IS01 below, fetched
+  // through this identical signed-URL mechanism and played via a plain
+  // <audio> element (AnytimeStretch.jsx), never BetaVideoModal.
+  {
+    id: 'S06',
+    title: 'Chest & Shoulder Stretch',
+    storagePath: 'faststart-v1/ST01_Chest_Shoulder_Stretch.mp3.MP3',
+    description: 'A guided audio stretch for your chest and shoulders.'
+  },
+  {
+    id: 'S07',
+    title: 'Hands & Wrists Refresh',
+    storagePath: 'faststart-v1/ST02_Hands_Wrists_Refresh.mp3.MP3',
+    description: 'A guided audio stretch to refresh your hands and wrists.'
+  },
+  {
+    id: 'S08',
+    title: 'Feet & Ankles Refresh',
+    storagePath: 'faststart-v1/ST03_Feet_Ankles_Refresh.mp3.MP3',
+    description: 'A guided audio stretch to refresh your feet and ankles.'
+  },
+  {
+    id: 'S09',
+    title: 'Gentle Side Stretch',
+    storagePath: 'faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3',
+    description: 'A gentle guided audio side stretch.'
   },
   {
     // Interactive-ambient-music loop for MorningFlow.jsx's own silent

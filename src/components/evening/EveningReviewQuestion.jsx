@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { AnswerOptionButton } from './AnswerOptionButton';
-import { resolveSavedAnswerDisplay } from '../../lib/eveningJourneyQuestions';
+import { decodeMultiAnswer } from '../../lib/eveningJourneyQuestions';
 import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
 
 /*
@@ -13,20 +13,23 @@ import { getOptionPresentation } from '../../lib/eveningOptionPresentation';
  * custom-text field, Skip, Clear) which is exactly the set of affordances
  * completed review must never expose. This is a much smaller, purely
  * presentational sibling: every option renders via AnswerOptionButton's
- * own `readOnly` mode (a saved selection shows selected and inert, never
+ * own `readOnly` mode (a saved selection shows checked and inert, never
  * editable - see that component's own doc comment for the exact native-
  * disabled mechanism), and a saved custom answer renders as a plain,
  * always-expanded, non-editable paragraph - never a textarea, never an
  * "Add your own" toggle, matching the approved read-only presentation
  * requirements exactly.
  *
- * Which of {selected preset, custom answer, nothing saved} to show is
- * derived the same way the live journey already derives it (PromptStepper's
- * own `selectedOption`/`currentValue` logic) - never a second, possibly-
+ * Evening Reflection/Gratitude multiple-selection enhancement — this
+ * review is now multi-aware: decodeMultiAnswer (the same backward-
+ * compatible single-string decode the live journey and Edit Mode use)
+ * returns every selected option (zero, one, or many) plus any custom
+ * text, so a legacy single-answer record and a new multi-valued one both
+ * render correctly through the exact same code path - never a second,
  * diverging interpretation of the same saved string.
  */
 export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, savedValue, journeyTone, groupName }) => {
-  const { trimmed, hasValue, selectedOption, isCustomAnswer } = resolveSavedAnswerDisplay(prompt, savedValue);
+  const { selections, custom, hasValue } = decodeMultiAnswer(prompt, savedValue);
 
   return (
     <div className="space-y-6 w-full">
@@ -47,7 +50,7 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
           See PromptStepper.jsx's own doc comment for the real measured
           320px numbers this shares (no narrow-screen fallback needed -
           genuine testing showed it stays readable at 320px). */}
-      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={prompt.label}>
+      <div className="grid grid-cols-2 gap-3" role="group" aria-label={prompt.label}>
         {prompt.options?.map((option) => {
           const presentation = getOptionPresentation(prompt.id, option);
           return (
@@ -55,20 +58,21 @@ export const EveningReviewQuestion = ({ prompt, questionNumber, totalQuestions, 
               key={option}
               label={presentation.label}
               descriptor={presentation.descriptor}
-              selected={selectedOption === option}
+              selected={selections.includes(option)}
               journeyTone={journeyTone}
               groupName={groupName}
+              multi
               readOnly
             />
           );
         })}
       </div>
 
-      {isCustomAnswer && (
+      {custom && (
         <div className="space-y-1">
           <span className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 px-1">Your own words</span>
           <p className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-on-surface leading-relaxed">
-            {trimmed}
+            {custom}
           </p>
         </div>
       )}

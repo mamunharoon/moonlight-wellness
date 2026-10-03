@@ -192,7 +192,11 @@ describe('11. A second breathing session in the same visit behaves consistently'
   }
 
   it('InteractiveAmbientMusic\'s own start() always re-resolves a fresh signed URL after a stop()+start() cycle (isPreloadedRef cleared before every real play()), so a second session never silently reuses a possibly-expired URL from the first', () => {
-    expect(playerSource).toMatch(/isPreloadedRef\.current = false;\s*\n\s*audio\.muted = muted;/);
+    // First-use silent-music fix — tolerant of the race-condition doc
+    // comment/unmuteRequestedRef check now between these two lines; the
+    // real property under test (isPreloadedRef cleared BEFORE the real
+    // audio.muted assignment, every single start() call) is unchanged.
+    expect(playerSource).toMatch(/isPreloadedRef\.current = false;[\s\S]*?audio\.muted = unmuteRequestedRef\.current \? false : muted;/);
   });
 });
 

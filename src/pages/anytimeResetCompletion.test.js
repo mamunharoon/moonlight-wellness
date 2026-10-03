@@ -82,7 +82,11 @@ describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required 
   it('the recommend step never renders a second, page-level completion panel any more - it always falls straight to the RecommendationCard (or the no-match state); the actual completion acknowledgement is BetaVideoModal\'s own shared overlay, now the three-action AnytimeClosingHandoffActions row (Anytime Visual Flow and Closing Handoff uplift, Part 9)', () => {
     expect(recommendStep).toMatch(/\{current \? \(\s*\n\s*<RecommendationCard/);
     expect(recommendStep).not.toMatch(/isComplete \? \(/);
-    const completionContextBlock = source.match(/completionContext=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
+    // Physical-iPhone correction — the recommend step's BetaVideoModal now
+    // renders one level deeper (inside ExerciseScreenShell's own scrolling
+    // body), shifting this block's indentation from 10 to 12 spaces; the
+    // callback bodies themselves are untouched.
+    const completionContextBlock = source.match(/completionContext=\{\{[\s\S]*?\n {12}\}\}/)?.[0] ?? '';
     expect(completionContextBlock).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\},/);
     expect(completionContextBlock).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
     expect(completionContextBlock).toMatch(/onExploreMore: \(\) => \{/);
@@ -100,13 +104,13 @@ describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required 
     expect(changeButtonsBlock).toMatch(/onClick=\{handleChangeTime\}/);
   });
 
-  it('the new quick-reset alternatives (Breathe/Meditate/Instant Calm - no invented Stretch, no standalone Stretch route exists) render only when !isComplete, each a real existing WakeWise practice', () => {
+  it('the quick-reset alternatives (Breathe/Meditate/Instant Calm, plus Stretch - LOCALHOST TRIAL ONLY, see AnytimeStretch.jsx) render only when !isComplete, each a real WakeWise practice', () => {
     expect(recommendStep).toMatch(/Or choose another quick reset/);
     expect(recommendStep).toMatch(/QUICK_RESET_ALTERNATIVES\.map/);
     expect(source).toMatch(/id: 'breathe', icon: 'air', label: 'Breathe'/);
     expect(source).toMatch(/id: 'meditate', icon: 'self_improvement', label: 'Meditate'/);
     expect(source).toMatch(/id: 'instant-calm', icon: 'bolt', label: 'Instant Calm'/);
-    expect(source).not.toMatch(/label: 'Stretch'/);
+    expect(source).toMatch(/id: 'stretch', icon: 'accessibility_new', label: 'Stretch'/);
   });
 });
 
@@ -123,9 +127,9 @@ describe('AnytimeReset.jsx — distinct "Reset complete" screen, exact required 
 // restore mechanism this component already uses for its post-sign-in
 // resume (see this file's own top doc comment).
 describe('AnytimeReset.jsx — handleQuickResetAlternative forwards needId/durationId so the destination practice can restore this exact recommendation', () => {
-  it('Breathe/Meditate alternatives navigate with anytimeNeed/anytimeDuration alongside journeyTone, not just journeyTone alone', () => {
+  it('Breathe/Meditate/Stretch alternatives navigate with anytimeNeed/anytimeDuration alongside journeyTone, not just journeyTone alone', () => {
     const body = source.match(/const handleQuickResetAlternative = \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/const path = id === 'breathe' \? '\/breathe-standalone' : '\/self-guided-meditation';/);
+    expect(body).toMatch(/const path = id === 'breathe' \? '\/breathe-standalone' : id === 'stretch' \? '\/anytime-stretch' : '\/self-guided-meditation';/);
     expect(body).toMatch(
       /navigate\(path, \{ state: \{ journeyTone: 'anytime', anytimeNeed: needId, anytimeDuration: durationId \} \}\);/
     );

@@ -23,8 +23,8 @@ describe('Home.jsx — nextStepCardBody stays one shared function, period is add
     expect(source).toMatch(/isMorningPeriod\s*\n\s*\? 'bg-morning-accent\/10 border border-morning-accent-tint\/30 text-morning-accent'\s*\n\s*: isEveningPeriod\s*\n\s*\? 'bg-evening-accent\/10 border border-evening-accent-tint\/30 text-evening-accent'\s*\n\s*: 'bg-primary\/10 border border-primary\/20 text-primary'/);
   });
 
-  it('the heading branches three ways: Playfair Display for Morning, Newsreader (font-serif) italic for Evening, plain sans (empty string) for anytime/default', () => {
-    expect(source).toMatch(/isMorningPeriod \? 'font-morning-display italic' : isEveningPeriod \? 'font-serif italic' : ''/);
+  it('the heading branches three ways: Playfair Display (upright, no italic) for Morning, Newsreader (font-serif, upright - italic dropped in the Evening typography uplift, matching Morning\'s own precedent) for Evening, plain sans (empty string) for anytime/default', () => {
+    expect(source).toMatch(/isMorningPeriod \? 'font-morning-display' : isEveningPeriod \? 'font-serif' : ''/);
   });
 });
 
@@ -75,7 +75,7 @@ describe('Home.jsx — Morning\'s four card states all render the gold/Playfair 
 
   it('the stale-choice card\'s own separate "Rise & Reset" badge and heading (outside nextStepCardBody) also use morning-accent gold and Playfair', () => {
     expect(source).toMatch(/bg-morning-accent\/10 border border-morning-accent-tint\/30 text-morning-accent text-\[10px\] font-bold uppercase tracking-wider">\s*\n\s*Rise &amp; Reset/);
-    expect(source).toMatch(/text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display italic/);
+    expect(source).toMatch(/text-xl font-bold leading-tight text-on-surface pt-2 font-morning-display/);
   });
 
   // WakeWise DEV — journey-aware primary action colour: Morning's own

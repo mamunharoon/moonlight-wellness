@@ -10,9 +10,11 @@
 // owner - scrolling moved it (and the safe-area space above it) out of
 // view, letting real content scroll up directly under the status bar with
 // nothing opaque left to protect it. `protectedHeader` (default false,
-// every existing caller unaffected) fixes this for the three exercise
-// screens that opt in (Evening Breathing/Evening Meditate/Anytime
-// Breathing) without touching Reflection/Gratitude/PrepareForRest/
+// every existing caller unaffected) fixes this for every screen that opts
+// in - originally the three exercise screens (Evening Breathing/Evening
+// Meditate/Anytime Breathing), joined by Reflection.jsx/Gratitude.jsx
+// (physical-iPhone TestFlight report - the six redesigned question pages
+// had the exact same defect) - without touching PrepareForRest/
 // EveningWindDown/EveningComplete/Support/PanicMode/Grounding/
 // StressRelease/SupportComplete, none of which opt in.
 import { describe, it, expect } from 'vitest';

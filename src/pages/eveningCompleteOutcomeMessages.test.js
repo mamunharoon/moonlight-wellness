@@ -25,7 +25,7 @@ describe('EveningComplete.jsx — migrated cleanly off the older getOutcomeMessa
   });
 
   it('Phase 9 — Truthful Journey Outcomes: the primary <h1>/supporting-line pair is now the outcome-gated exact copy (never the old unconditional "You\'ve reflected, appreciated the day and prepared for rest." claim); {headline} (this rotating pool) still renders, as a smaller secondary line beneath it', () => {
-    expect(source).toMatch(/<h1 className="font-serif italic text-3xl text-on-surface">\s*\n\s*\{eveningFullyCompleted \? 'Evening Wind-Down complete' : 'Evening Wind-Down finished'\}\s*\n\s*<\/h1>/);
+    expect(source).toMatch(/<h1 className="font-serif text-3xl text-on-surface">\s*\n\s*\{eveningFullyCompleted \? 'Evening Wind-Down complete' : 'Evening Wind-Down finished'\}\s*\n\s*<\/h1>/);
     expect(source).not.toMatch(/You've reflected, appreciated the day and prepared for rest\./);
     expect(source).toMatch(/<p className="text-sm text-on-surface-variant\/80 italic">\{headline\}<\/p>/);
   });

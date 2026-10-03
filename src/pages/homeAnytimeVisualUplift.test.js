@@ -45,31 +45,31 @@ describe('Home.jsx — Anytime card, approved concise copy', () => {
   });
 });
 
-describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Instant Calm/Explore)', () => {
-  it('shows all four real practices as compact icon+label cues, in that order', () => {
+describe('Home.jsx — Anytime card, compact visual cues (Stretch/Breathe/Meditate/Instant Calm/Explore)', () => {
+  it('shows all five real practices as compact icon+label cues, in that order (Stretch - LOCALHOST TRIAL ONLY - first)', () => {
+    const stretchIdx = cardBlock.indexOf("label: 'Stretch'");
     const breatheIdx = cardBlock.indexOf("label: 'Breathe'");
     const meditateIdx = cardBlock.indexOf("label: 'Meditate'");
     const instantCalmIdx = cardBlock.indexOf("label: 'Instant Calm'");
     const exploreIdx = cardBlock.indexOf("label: 'Explore'");
-    expect(breatheIdx).toBeGreaterThan(-1);
+    expect(stretchIdx).toBeGreaterThan(-1);
+    expect(breatheIdx).toBeGreaterThan(stretchIdx);
     expect(meditateIdx).toBeGreaterThan(breatheIdx);
     expect(instantCalmIdx).toBeGreaterThan(meditateIdx);
     expect(exploreIdx).toBeGreaterThan(instantCalmIdx);
   });
 
-  // Anytime visual-choice uplift (Part 2) — reverses Phase 9's own
-  // "reintroduce connectors" decision for this row specifically: these
-  // four cues are independent alternatives, never a required order, so a
-  // connector implying a sequence between them was always misleading. Zero
-  // connectors now (not replaced with ">" markers either) - a real,
-  // equally-sized tile grid using the same strong visual language
-  // MorningJourneyPathway.jsx/EveningJourneyPathway.jsx already established
-  // for Morning/Evening's own genuinely sequential pathway.
-  it('renders a real grid of four equally-sized tiles (grid-cols-4), with zero connectors of any kind between them', () => {
-    expect(cardBlock).toMatch(/grid grid-cols-4 gap-1/);
-    expect(cardBlock).not.toMatch(/idx < cues\.length - 1/);
+  // Home UI patch correction — Anytime now matches Morning/Evening's own
+  // pathway treatment exactly, including the small standalone ">" direction
+  // marker between each adjacent pair (absolutely positioned, consumes zero
+  // grid width, aria-hidden) - the same mechanism
+  // MorningJourneyPathway.jsx/EveningJourneyPathway.jsx already use, not a
+  // reintroduced <JourneyConnector line-and-arrowhead>.
+  it('renders a real grid of five equally-sized tiles (grid-cols-5, matching MorningJourneyPathway\'s own five-item layout), with a chevron_right direction marker between each adjacent pair (never the old <JourneyConnector>)', () => {
+    expect(cardBlock).toMatch(/grid grid-cols-5 gap-1/);
+    expect(cardBlock).toMatch(/idx < cues\.length - 1/);
     expect(cardBlock).not.toMatch(/<JourneyConnector/);
-    expect(cardBlock).not.toMatch(/chevron_right/);
+    expect(cardBlock).toMatch(/chevron_right/);
   });
 
   it('each tile is a bordered, rounded-2xl mint tile with a large, clamp-scaled icon (never clipped or tiny from 320-430px) and a wrapping, non-truncated label', () => {
@@ -81,7 +81,7 @@ describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Insta
 
   it('each tile is purely decorative and never a tap target - aria-hidden, not wrapped in a <Link>/<button> (the grid itself, not the "Start Anytime Reset" CTA that follows it in the same card)', () => {
     expect(cardBlock).toMatch(/<div key=\{cue\.label\} className="min-w-0" aria-hidden="true">/);
-    const gridBlock = cardBlock.match(/<div className="grid grid-cols-4 gap-1"[\s\S]*?\n {10}<\/div>/)?.[0] ?? '';
+    const gridBlock = cardBlock.match(/<div className="grid grid-cols-5 gap-1"[\s\S]*?\n {10}<\/div>/)?.[0] ?? '';
     expect(gridBlock).not.toBe('');
     expect(gridBlock).not.toMatch(/<Link|<button|onClick/);
   });
@@ -90,20 +90,22 @@ describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Insta
     expect(cardBlock).not.toMatch(/StageOutcomeBadge|stage\.status|isFullyCompleted/);
   });
 
-  it('the cue row is purely decorative (aria-hidden per cue, including each connector) with one accessible group label naming all four practices - not four separate competing tap targets duplicating the "Or choose something quick" row below', () => {
-    expect(cardBlock).toMatch(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore"/);
+  it('the cue row is purely decorative (aria-hidden per cue, including each connector) with one accessible group label naming all five practices - not five separate competing tap targets duplicating the "Or choose something quick" row below', () => {
+    expect(cardBlock).toMatch(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore"/);
     expect(cardBlock).toMatch(/aria-hidden="true"/);
     expect(cardBlock).not.toMatch(/<Link[\s\S]*?Instant Calm/);
   });
 
   it('every cue icon is sourced from the shared canonical JOURNEY_STAGE_ICONS mapping, never a locally hardcoded Material Symbol', () => {
+    expect(cardBlock).toMatch(/icon: JOURNEY_STAGE_ICONS\.stretch/);
     expect(cardBlock).toMatch(/icon: JOURNEY_STAGE_ICONS\.breathe/);
     expect(cardBlock).toMatch(/icon: JOURNEY_STAGE_ICONS\.meditate/);
     expect(cardBlock).toMatch(/icon: JOURNEY_STAGE_ICONS\.instantCalm/);
     expect(cardBlock).toMatch(/icon: JOURNEY_STAGE_ICONS\.explore/);
   });
 
-  it('the canonical mapping resolves the original real Material Symbol values for these cues - air/self_improvement/bolt/explore, unchanged by the refactor to a shared source', () => {
+  it('the canonical mapping resolves the real Material Symbol values for these cues - accessibility_new/air/self_improvement/bolt/explore (meditate is the owner-confirmed seated-meditation icon, matching Home\'s own Meditate quick-action tile; stretch matches Morning\'s own Stretch glyph)', () => {
+    expect(JOURNEY_STAGE_ICONS.stretch).toBe('accessibility_new');
     expect(JOURNEY_STAGE_ICONS.breathe).toBe('air');
     expect(JOURNEY_STAGE_ICONS.meditate).toBe('self_improvement');
     expect(JOURNEY_STAGE_ICONS.instantCalm).toBe('bolt');
@@ -112,7 +114,7 @@ describe('Home.jsx — Anytime card, compact visual cues (Breathe/Meditate/Insta
 
   it('uses only existing mint (tertiary) tokens for the cue icons - no raw hex, no new colour', () => {
     expect(cardBlock).not.toMatch(/#[0-9a-fA-F]{3,8}/);
-    expect(cardBlock).toMatch(/bg-tertiary\/15 text-tertiary/);
+    expect(cardBlock).toMatch(/bg-tertiary-tint\/15.*text-tertiary/);
   });
 });
 

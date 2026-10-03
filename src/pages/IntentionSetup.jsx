@@ -27,6 +27,7 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 /*
  * Morning-flow redesign — Intention step, now Step 1 of 5 (Journey
@@ -386,28 +387,47 @@ export const IntentionSetup = () => {
   };
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
-    <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-8 select-none"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
-      }}
+    // Morning scroll/header-placement correction — this screen's own Back
+    // button now lives in ExerciseScreenShell's dedicated, non-scrolling
+    // `header` slot instead of being an ordinary in-flow child of the one
+    // scrollable region - see that component's own doc comment, and
+    // Breathe.jsx/MorningFlow.jsx/Affirmation.jsx/SessionComplete.jsx's
+    // identical fix, for the full root cause. The earlier physical-iPhone
+    // TestFlight fix (this screen owning its own h-dvh/overflow-y-auto
+    // scroll container instead of depending on document scroll, so a long
+    // custom-intention session - two stages, limit messages, the on-screen
+    // keyboard - never hard-clips Set My Intention/Skip/Exit) stays
+    // correct and is preserved by ExerciseScreenShell's own body; only the
+    // header placement changes. When this screen's content genuinely fits
+    // (the common case), nothing here needs to scroll at all - the frame
+    // simply renders at its natural height, stationary, exactly as a
+    // normal static screen should; when it doesn't (smaller screens,
+    // larger Dynamic Type, or the keyboard open for the custom-intention
+    // input), only this body scrolls, the Back button and safe area stay
+    // fixed, and every control - including the custom-text input and its
+    // Add button - remains reachable, nothing hidden or disabled. The
+    // justify-between/min-h-full floor is dropped along with it, matching
+    // every other corrected Morning screen's identical convention.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      maxWidthClassName="max-w-md"
+      header={
+        <>
+          <div className="flex items-center gap-3">
+            <BackButton fallback="/" />
+          </div>
+
+          {isReviewMode && currentStep && (
+            <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
+          )}
+        </>
+      }
     >
+    <div className="flex flex-col space-y-8 select-none">
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
           backdrop, matching this step's own established morning-accent
           identity (the intro icon/badge/presets below already use it). */}
       <JourneyGlow journey="morning" />
-
-      <div className="flex items-center gap-3">
-        <BackButton fallback="/" />
-      </div>
-
-      {isReviewMode && currentStep && (
-        <ReviewModeBanner currentStepLabel={getStepLabel(currentStep.id)} onReturnToCurrentStep={() => navigate(routeForStep(currentStep.id))} />
-      )}
 
       {showIntro ? (
         <>
@@ -422,7 +442,7 @@ export const IntentionSetup = () => {
             </span>
             {/* Journey Embedding (correction) — total is now 5, not 4. */}
             <span className="block text-[10px] text-morning-accent uppercase font-bold tracking-wider">Step 1 of 5</span>
-            <h1 className="font-morning-display italic text-3xl text-on-surface">Start Your Day with Intention</h1>
+            <h1 className="font-morning-display text-3xl text-on-surface">Start Your Day with Intention</h1>
             {/* Morning copy simplification — the previous long explanatory
                 paragraph ("We'll begin by setting an intention for
                 today...") repeated the heading above and made this screen
@@ -435,7 +455,7 @@ export const IntentionSetup = () => {
           <div className="space-y-3 w-full">
             <button
               onClick={dismissIntro}
-              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
+              className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
             >
               <span>Begin My Morning</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -458,7 +478,7 @@ export const IntentionSetup = () => {
             (item 8). */}
         {stage === 'primary' && (
           <>
-            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
               What matters most today?
             </h2>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
@@ -468,7 +488,7 @@ export const IntentionSetup = () => {
         )}
         {stage === 'supporting' && (
           <>
-            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+            <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
               Would another intention support you?
             </h2>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
@@ -477,7 +497,7 @@ export const IntentionSetup = () => {
           </>
         )}
         {stage === 'summary' && (
-          <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display italic outline-none">
+          <h2 ref={stageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-on-surface font-morning-display outline-none">
             Today's focus
           </h2>
         )}
@@ -646,7 +666,7 @@ export const IntentionSetup = () => {
         <div className="glass-panel rounded-2xl p-6 space-y-4 text-center w-full">
           <div className="flex flex-col items-center gap-1">
             <span className="material-symbols-outlined text-morning-accent text-2xl" aria-hidden="true">{getIntentionIcon(intentions[0])}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent">Primary</span>
+            <span className="text-[12px] font-bold uppercase tracking-wider text-morning-accent">Primary</span>
             <span className="text-lg font-bold text-on-surface">{intentions[0]}</span>
           </div>
 
@@ -658,7 +678,7 @@ export const IntentionSetup = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <span className="material-symbols-outlined text-morning-accent/80 text-xl" aria-hidden="true">{getIntentionIcon(intentions[1])}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-morning-accent/80">Supporting</span>
+                <span className="text-[12px] font-bold uppercase tracking-wider text-morning-accent/80">Supporting</span>
                 <span className="text-base font-semibold text-on-surface">{intentions[1]}</span>
               </div>
             </>
@@ -736,5 +756,6 @@ export const IntentionSetup = () => {
         onDismiss={() => setExitRoutineConfirmOpen(false)}
       />
     </div>
+    </ExerciseScreenShell>
   );
 };

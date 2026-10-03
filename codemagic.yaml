@@ -460,17 +460,25 @@ workflows:
           cd ios/App
           pod install
 
-      - name: Set a unique, monotonically increasing build number
+      - name: Determine and set the next available sandbox build number
         script: |
           set -euo pipefail
-          if [ -z "${BUILD_NUMBER:-}" ]; then
-            echo "BUILD_NUMBER was not provided by Codemagic for this build; falling back to the current UTC epoch-seconds timestamp so CFBundleVersion still increases monotonically."
-            BUILD_NUMBER="$(date -u +%s)"
-          fi
-          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "BUILD_NUMBER ('$BUILD_NUMBER') is not a plain non-negative integer -- App Store Connect requires CFBundleVersion to be numeric. Aborting."
+          # Build 24 (the previous hardcoded pin here) now exists in App
+          # Store Connect. Rather than re-pin a second literal (25) that
+          # would just go stale the same way the moment another build
+          # lands, this always queries App Store Connect for the real
+          # current highest build number and uses highest+1 - correct on
+          # every run, not just this one. Same no-guessing discipline as
+          # before: if the query fails, this aborts rather than falling
+          # back to a counter or timestamp.
+          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$BUNDLE_ID")"
+          if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Could not obtain a valid highest-build-number response from App Store Connect for $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
             exit 1
           fi
+
+          BUILD_NUMBER=$((QUERIED_BUILD_NUMBER + 1))
+          echo "Highest existing build in App Store Connect for $BUNDLE_ID: $QUERIED_BUILD_NUMBER. Using next available: $BUILD_NUMBER."
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
 

@@ -252,6 +252,6 @@ describe('11. Existing Home and completion actions are untouched by this redesig
     const sessionCompleteSource = read('../pages/SessionComplete.jsx');
     const renderMatches = sessionCompleteSource.match(/<MorningJourneyPathway/g) ?? [];
     expect(renderMatches.length).toBe(1);
-    expect(sessionCompleteSource).toMatch(/morningFullyCompleted \? 'Morning Reset complete' : 'Morning Reset finished'/);
+    expect(sessionCompleteSource).toMatch(/morningFullyCompleted \? 'Morning routine complete' : 'Morning Reset finished'/);
   });
 });

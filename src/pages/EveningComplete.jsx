@@ -300,7 +300,7 @@ export const EveningComplete = () => {
                 run) is replaced by this same honest supporting line.
                 Never a percentage, either way - the former "100%
                 Complete" badge is removed entirely. */}
-            <h1 className="font-serif italic text-3xl text-on-surface">
+            <h1 className="font-serif text-3xl text-on-surface">
               {eveningFullyCompleted ? 'Evening Wind-Down complete' : 'Evening Wind-Down finished'}
             </h1>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">

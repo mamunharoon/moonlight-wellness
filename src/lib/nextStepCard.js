@@ -86,7 +86,7 @@ export const resolveNextStepCard = ({ period, cardState, morningDaypart, stepNam
     if (cardState === 'completed') {
       return {
         eyebrow: 'YOUR MORNING',
-        title: 'Morning Reset complete',
+        title: 'Morning routine complete',
         supportingText: 'You made time to begin your day with intention.',
         duration: null,
         buttonLabel: 'Repeat Morning Routine'

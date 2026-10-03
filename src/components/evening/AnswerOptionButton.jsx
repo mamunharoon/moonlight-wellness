@@ -144,6 +144,24 @@
  * change, never a second selection mechanism. Pathway stage icons
  * (EveningJourneyPathway.jsx's own real activity icons) are a completely
  * separate component and are unaffected by this removal.
+ *
+ * Evening Reflection/Gratitude multiple-selection enhancement — `multi`
+ * (additive, optional, default false): every existing caller that omits
+ * it (PromptStepper.jsx's own StressRelease.jsx path) renders a real
+ * native <input type="radio"> exactly as before, byte-for-byte. Only
+ * Reflection/Gratitude's own live journey (PromptStepper with
+ * multiSelect), Edit Mode (EveningEditQuestion.jsx), and the read-only
+ * Review screens (EveningReviewQuestion.jsx) now pass `multi`, which
+ * swaps the real input to <input type="checkbox"> (so more than one
+ * option can be checked at once, still using real native semantics, not
+ * a hand-rolled role="checkbox"/aria-checked widget) and the glyph from a
+ * circle to a square (`rounded-md` instead of `rounded-full`), with a
+ * small inline-SVG checkmark (currentColor stroke, coloured the same way
+ * the radio's own inner dot already was - never the removed
+ * material-symbols-outlined icon font) in place of the dot when checked.
+ * Every other channel (row tint, border, label weight/colour, focus
+ * ring, readOnly/disabled handling) is completely shared between both
+ * modes - multi-select never a visually distinct "lesser" treatment.
  */
 // Evening journey-theme correction — replaces the old accent-keyed
 // ACCENT_TOKENS (peach for 'reflection'/'gratitude', a hardcoded
@@ -158,8 +176,13 @@
 // Gratitude now opt into explicitly.
 import { getJourneyToneTokens } from '../../lib/journeyTone';
 
-export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'primary', groupName, readOnly = false, descriptor = null }) => {
+export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'primary', groupName, readOnly = false, descriptor = null, multi = false }) => {
   const tokens = getJourneyToneTokens(journeyTone);
+  // The checkmark glyph (multi mode) reuses the exact same colour the
+  // radio's own inner dot already resolves (tokens.dot, a bg-* class) -
+  // just read as a text colour instead, since an SVG stroke needs
+  // `currentColor`, never a second, parallel colour decision.
+  const checkColor = tokens.dot.replace('bg-', 'text-');
 
   return (
     <label
@@ -174,7 +197,7 @@ export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'pr
       }`}
     >
       <input
-        type="radio"
+        type={multi ? 'checkbox' : 'radio'}
         name={groupName}
         checked={selected}
         onChange={readOnly ? undefined : onClick}
@@ -191,11 +214,27 @@ export const AnswerOptionButton = ({ label, selected, onClick, journeyTone = 'pr
       </span>
       <span
         aria-hidden="true"
-        className={`relative w-5 h-5 rounded-full border-2 shrink-0 transition-colors ${
+        className={`relative w-5 h-5 border-2 shrink-0 transition-colors ${multi ? 'rounded-md' : 'rounded-full'} ${
           selected ? tokens.selectedRing : tokens.unselectedRing
         }`}
       >
-        {selected && <span className={`absolute inset-0 m-auto w-2 h-2 rounded-full ${tokens.dot}`} />}
+        {selected && (
+          multi ? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`absolute inset-0 w-3 h-3 m-auto ${checkColor}`}
+            >
+              <polyline points="4 12.5 9.5 18 20 5" />
+            </svg>
+          ) : (
+            <span className={`absolute inset-0 m-auto w-2 h-2 rounded-full ${tokens.dot}`} />
+          )
+        )}
       </span>
     </label>
   );

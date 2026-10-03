@@ -101,7 +101,7 @@ export const EveningWindDown = () => {
         {/* Journey Embedding (correction) — total is now 7, not 6 (Meditate
             is a counted step) - this screen's own number (1) is unchanged. */}
         <span className="block text-[10px] text-primary uppercase font-bold tracking-wider">Step 1 of 7</span>
-        <h1 className="font-serif italic text-3xl text-on-surface">Evening Wind-Down</h1>
+        <h1 className="font-serif text-3xl text-on-surface">Evening Wind-Down</h1>
         {/* Evening copy simplification (parity with Morning's own
             IntentionSetup.jsx intro) — the duration badge ("About 5-10
             minutes, plus optional meditation") and the five-step pathway

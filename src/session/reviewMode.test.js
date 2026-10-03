@@ -278,7 +278,11 @@ describe('PromptStepper.jsx - initialAnswers seeds once at mount, never re-seeds
     // props appended (sectionLabel/guidanceLabel, both defaulting to
     // values that reproduce the original substep/guidance text), never
     // replacing activeIndex's own controlled-prop contract above.
-    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help\?' \}\) => \{/);
+    // Evening Reflection/Gratitude multiple-selection enhancement — a
+    // third additive, backward-compatible prop appended (multiSelect,
+    // default false), for the same reason (every existing caller that
+    // omits it is byte-for-byte unaffected).
+    expect(promptStepperSource).toMatch(/export const PromptStepper = \(\{ prompts, activeIndex, initialAnswers, onChange, onClear, onAdvance, onComplete, journeyTone = 'primary', sectionLabel = null, guidanceLabel = 'Would some guidance help\?'[\s\S]{0,40}\}\) => \{/);
     expect(promptStepperSource).toMatch(/if \(activeIndex !== prevActiveIndex\) \{\s*\n\s*setPrevActiveIndex\(activeIndex\);\s*\n\s*setConfirmingClear\(false\);\s*\n\s*setGuidanceOpen\(false\);\s*\n\s*\}/);
     expect(promptStepperSource).not.toMatch(/useEffect\(/);
   });

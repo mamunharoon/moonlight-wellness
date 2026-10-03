@@ -12,6 +12,7 @@ import { roleForIndex } from '../lib/intentionSelection';
 import { getMorningCompletionKey, getMorningFullyCompletedKey } from '../lib/dailyCompletion';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { JourneyGlow } from '../components/JourneyGlow';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
@@ -254,36 +255,45 @@ export const SessionComplete = () => {
   const [completionGreeting] = useState(() => getCompletionGreeting({ journey: 'morning', practice: 'routine' }));
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
-    <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-10 select-none"
-      style={{
-        paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-        paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
-      }}
+    // Morning scroll/header-placement correction — this screen's own
+    // Back button/badge row now lives in ExerciseScreenShell's dedicated,
+    // non-scrolling `header` slot instead of being an ordinary in-flow
+    // child of the one scrollable region - see that component's own doc
+    // comment, and Breathe.jsx/MorningFlow.jsx/Affirmation.jsx's identical
+    // fix, for the full root cause. The earlier physical-iPhone TestFlight
+    // fix (this screen owning its own h-dvh/overflow-y-auto scroll
+    // container instead of depending on document scroll) stays correct
+    // and is preserved by ExerciseScreenShell's own body - only the header
+    // placement changes. The justify-between/min-h-full floor is dropped
+    // along with it, matching Breathe.jsx/MorningFlow.jsx's identical
+    // convention: content simply flows to its natural height inside the
+    // shell's own scrollable body.
+    <ExerciseScreenShell
+      journeyTone="morning"
+      maxWidthClassName="max-w-md"
+      header={
+        <div className="flex items-center justify-between gap-3">
+          {/* Back-navigation repair (Morning canonical map) — Morning is
+              finished; there is no "leave this routine" concept left, so
+              guardActiveRoute is off. alwaysFallback forces a plain replace
+              to Home instead of BackButton's normal goBack (which would
+              otherwise navigate(-1) straight back into the just-completed
+              Affirmation step - "do not re-enter a completed journey using
+              browser Back"). */}
+          <BackButton fallback="/" guardActiveRoute={false} alwaysFallback />
+          {/* Morning Visual Uplift (Build 16) — a small decorative orienting
+              badge, the same established pattern Home's own "YOUR MORNING"
+              pill already uses (Build 15) - not new data, just a label. */}
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
+            Morning Flow
+          </span>
+        </div>
+      }
     >
+    <div className="flex flex-col space-y-10 select-none">
       {/* WakeWise DEV — colour glow extension: subtle warm-gold ambient
           backdrop behind this step's own completion ring/badge. */}
       <JourneyGlow journey="morning" />
-
-      <div className="flex items-center justify-between gap-3">
-        {/* Back-navigation repair (Morning canonical map) — Morning is
-            finished; there is no "leave this routine" concept left, so
-            guardActiveRoute is off. alwaysFallback forces a plain replace
-            to Home instead of BackButton's normal goBack (which would
-            otherwise navigate(-1) straight back into the just-completed
-            Affirmation step - "do not re-enter a completed journey using
-            browser Back"). */}
-        <BackButton fallback="/" guardActiveRoute={false} alwaysFallback />
-        {/* Morning Visual Uplift (Build 16) — a small decorative orienting
-            badge, the same established pattern Home's own "YOUR MORNING"
-            pill already uses (Build 15) - not new data, just a label. */}
-        <span className="inline-flex items-center px-3 py-1 rounded-full bg-morning-accent/10 border border-morning-accent-tint/25 text-morning-accent text-[10px] font-bold uppercase tracking-wider">
-          Morning Flow
-        </span>
-      </div>
 
       {/* Circular Gauge */}
       <div className="relative w-40 h-40 mx-auto flex items-center justify-center mt-4 rounded-full shadow-morning-glow">
@@ -341,8 +351,8 @@ export const SessionComplete = () => {
                 genuinely completed; any skipped/ended-early/not-reached
                 stage shows the "finished" variant instead. Never a
                 percentage, either way. */}
-            <h1 className="text-2xl font-morning-display italic font-semibold text-on-surface leading-tight">
-              {morningFullyCompleted ? 'Morning Reset complete' : 'Morning Reset finished'}
+            <h1 className="text-2xl font-morning-display font-semibold text-on-surface leading-tight">
+              {morningFullyCompleted ? 'Morning routine complete' : 'Morning Reset finished'}
             </h1>
             <p className="text-sm text-on-surface-variant">
               {morningFullyCompleted ? 'You made time to begin your day with intention.' : 'Every intentional moment still matters.'}
@@ -372,7 +382,7 @@ export const SessionComplete = () => {
         {displayIntentions.map((item, idx) => (
           <p key={item.toLowerCase()} className="text-on-surface font-medium italic flex items-baseline gap-2">
             {displayIntentions.length > 1 && (
-              <span className="text-[9px] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0">{roleForIndex(idx)}</span>
+              <span className="text-[12px] not-italic font-bold uppercase tracking-wider text-morning-accent shrink-0">{roleForIndex(idx)}</span>
             )}
             <span>"{item}"</span>
           </p>
@@ -382,7 +392,7 @@ export const SessionComplete = () => {
       <div className="space-y-3 w-full">
         <button
           onClick={handleReturnHome}
-          className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-morning-glow`}
+          className={`w-full ${getJourneyPrimaryActionClasses('morning')} py-4 rounded-full font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg`}
         >
           <span>Continue to My Day</span>
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -417,6 +427,7 @@ export const SessionComplete = () => {
         to="/library?journey=morning&from=morning-complete"
       />
     </div>
+    </ExerciseScreenShell>
   );
 };
 

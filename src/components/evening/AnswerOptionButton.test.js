@@ -16,14 +16,21 @@ const cssSource = read('../../index.css');
 const tailwindConfigSource = read('../../../tailwind.config.js');
 
 describe('AnswerOptionButton - semantic radio, not a styled button/switch', () => {
-  it('a real native <input type="radio"> carries the actual selected state - never role="switch", never a hand-rolled role="radio" div needing manual aria-checked/keydown handling', () => {
+  it('a real native <input> carries the actual selected state - never role="switch", never a hand-rolled role="radio"/role="checkbox" div needing manual aria-checked/keydown handling', () => {
     // Strip the file's own doc comment (which discusses, in prose, the
     // role="radio"/aria-checked approach this component deliberately did
     // NOT take) before asserting on the real code below it.
     const code = source.replace(/\/\*[\s\S]*?\*\//, '');
-    expect(source).toMatch(/<input\s*\n\s*type="radio"/);
+    // Evening Reflection/Gratitude multiple-selection enhancement — the
+    // input's own `type` is now additively driven by the `multi` prop
+    // (default false): every existing caller that omits it still renders
+    // a real <input type="radio">, byte-for-byte; only multi-select
+    // callers get <input type="checkbox"> - still a real native input
+    // either way, never a hand-rolled widget.
+    expect(source).toMatch(/<input\s*\n\s*type=\{multi \? 'checkbox' : 'radio'\}/);
     expect(code).not.toMatch(/role="switch"/);
     expect(code).not.toMatch(/role="radio"/);
+    expect(code).not.toMatch(/role="checkbox"/);
     expect(code).not.toMatch(/aria-checked/);
   });
 
@@ -42,9 +49,16 @@ describe('AnswerOptionButton - semantic radio, not a styled button/switch', () =
     expect(source).toMatch(/name=\{groupName\}/);
   });
 
-  it('PromptStepper wraps the options container in role="radiogroup" (not role="group") and passes each option its own groupName', () => {
+  it('PromptStepper wraps its single-select grid (StressRelease.jsx\'s own path) in role="radiogroup", and its multi-select grid (multiSelect prop - Reflection.jsx/Gratitude.jsx) in role="group" instead, each passing every option its own groupName', () => {
+    // Evening Reflection/Gratitude multiple-selection enhancement — both
+    // containers now exist side by side, gated by the same `multiSelect`
+    // prop: role="group" is correct, additive semantics for a set of
+    // independent checkboxes, never a regression of the original
+    // radiogroup (still real and still used for every non-multi caller).
+    expect(promptStepperSource).toMatch(/\{!multiSelect && \(/);
     expect(promptStepperSource).toMatch(/role="radiogroup"/);
-    expect(promptStepperSource).not.toMatch(/role="group"/);
+    expect(promptStepperSource).toMatch(/\{multiSelect && \(/);
+    expect(promptStepperSource).toMatch(/role="group"/);
     expect(promptStepperSource).toMatch(/groupName=\{activePrompt\.id\}/);
   });
 });
@@ -73,8 +87,14 @@ describe('AnswerOptionButton - button interaction contract', () => {
     // clutter; this component no longer renders material-symbols-outlined
     // at all. What must still never appear anywhere is a chevron/
     // checkmark used AS the selection indicator itself.
-    expect(source).not.toMatch(/chevron_right|chevron_left|check_circle/);
-    expect(source).not.toMatch(/material-symbols-outlined/);
+    // Strip doc comments - the file's own prose (explaining the Phase 13
+    // icon-font removal, and the multi-select checkmark's deliberate use
+    // of an inline SVG rather than the removed icon font) legitimately
+    // mentions these strings in explanatory text; only the ACTUAL CODE
+    // must never contain them.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/chevron_right|chevron_left|check_circle/);
+    expect(code).not.toMatch(/material-symbols-outlined/);
   });
 
   it('keyboard focus gets a visible ring on the whole row (via :has(:focus-visible) on the label, since the actual input is visually hidden) - the ring colour is journeyTone-driven (getJourneyToneTokens), \'primary\' resolving to the original ring-primary', () => {
@@ -126,7 +146,13 @@ describe('AnswerOptionButton - unselected state (Build 15 visual refinement)', (
     expect(source).toMatch(/selected \? tokens\.selectedRing : tokens\.unselectedRing/);
     expect(journeyToneSource).toMatch(/unselectedRing: 'border-evening-accent bg-surface-container-lowest',/);
     expect(source).not.toMatch(/border-on-surface-variant/);
-    expect(source).toMatch(/\{selected && <span/); // the inner dot only ever renders when selected
+    // Evening Reflection/Gratitude multiple-selection enhancement — the
+    // inner dot now only renders for the non-multi (radio) branch of a
+    // `{selected && (multi ? <svg checkmark/> : <span dot/>)}` conditional,
+    // but it's still gated on `selected` exactly as before, and is still
+    // the one glyph a single-select (default) caller ever sees.
+    expect(source).toMatch(/\{selected && \(/);
+    expect(source).toMatch(/<span className=\{`absolute inset-0 m-auto w-2 h-2 rounded-full \$\{tokens\.dot\}`\} \/>/);
   });
 });
 

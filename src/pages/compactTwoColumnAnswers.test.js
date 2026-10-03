@@ -32,6 +32,14 @@ const breathingPatternRowSource = read('../components/BreathingPatternRow.jsx');
 const prepareToggleRowSource = read('../components/evening/PrepareToggleRow.jsx');
 
 const GRID_CONTAINER = 'className="grid grid-cols-2 gap-3" role="radiogroup"';
+// Evening Reflection/Gratitude multiple-selection enhancement — Edit Mode
+// and read-only Review are now always multi-select (real checkboxes, a
+// set of independent options rather than a mutually-exclusive radio set),
+// so both use role="group" rather than role="radiogroup". The live
+// journey's own PromptStepper.jsx renders BOTH containers (one per
+// multiSelect branch) and is asserted on directly where that distinction
+// matters, rather than through this single shared constant.
+const GRID_CONTAINER_MULTI = 'className="grid grid-cols-2 gap-3" role="group"';
 
 describe('1. Reflection predefined options use a two-column grid', () => {
   it('Reflection.jsx renders its options through PromptStepper, which renders the options container as a 2-column grid', () => {
@@ -77,8 +85,14 @@ describe('4. Single-select behaviour is unchanged', () => {
     expect(promptStepperSource).toMatch(/onClick=\{\(\) => handleSelectPreset\(option\)\}/);
   });
 
-  it('AnswerOptionButton is still a real native radio (role="radiogroup" on the container, <input type="radio"> per option, one shared groupName) - the compact-card resize did not change the interaction model to a checkbox/multi-select', () => {
-    expect(answerOptionButtonSource).toMatch(/<input\s*\n\s*type="radio"/);
+  it('AnswerOptionButton still renders a real native radio by default (role="radiogroup" on the container, <input type="radio"> per option, one shared groupName) - the compact-card resize did not change the default interaction model; StressRelease.jsx (the one non-Evening consumer, multiSelect omitted) is completely unaffected', () => {
+    // Evening Reflection/Gratitude multiple-selection enhancement — the
+    // input's own `type` is now additively driven by AnswerOptionButton's
+    // `multi` prop (default false), so every caller that omits it (every
+    // caller except the new Evening multi-select grid) still renders a
+    // real <input type="radio">, byte-for-byte.
+    expect(answerOptionButtonSource).toMatch(/type=\{multi \? 'checkbox' : 'radio'\}/);
+    expect(answerOptionButtonSource).toMatch(/multi = false/);
     expect(promptStepperSource).toMatch(/groupName=\{activePrompt\.id\}/);
   });
 });
@@ -152,9 +166,9 @@ describe('9. Next/Skip behaviour is unchanged', () => {
 });
 
 describe('10. Edit Mode: intentional two-column grid, same interactive short-option question', () => {
-  it('EveningEditQuestion.jsx (Build 15 Edit Tonight\'s Responses) renders the identical interactive radiogroup as the live journey - same AnswerOptionButton, same single-select semantics, just writing to a local draft instead of an immediate save - so the compact grid is applied here too, deliberately, not left inconsistent with the live journey', () => {
-    expect(editQuestionSource).toContain(GRID_CONTAINER);
-    expect(editQuestionSource).toMatch(/onClick=\{\(\) => handleSelectPreset\(option\)\}/);
+  it('EveningEditQuestion.jsx (Build 15 Edit Tonight\'s Responses) renders the identical interactive grid as the live journey - same AnswerOptionButton, same compact two-column layout, just writing to a local draft instead of an immediate save - so the compact grid is applied here too, deliberately, not left inconsistent with the live journey. Evening Reflection/Gratitude multiple-selection enhancement — Edit Mode is now multi-select too (role="group", a tap toggles via handleToggleOption, never a wholesale single-select replace)', () => {
+    expect(editQuestionSource).toContain(GRID_CONTAINER_MULTI);
+    expect(editQuestionSource).toMatch(/onClick=\{\(\) => handleToggleOption\(option\)\}/);
   });
 
   it('Edit Mode still excludes Skip/Clear response/guidance (Build 15\'s own approved scope, unrelated to and unchanged by this layout phase)', () => {
@@ -165,20 +179,26 @@ describe('10. Edit Mode: intentional two-column grid, same interactive short-opt
 });
 
 describe('11. Read-only Review remains semantically correct', () => {
-  it('EveningReviewQuestion.jsx applies the same grid because its structure is already identical to the live/edit radiogroup - every option still rendered (not just the saved one), still exactly one shown selected via the same derived comparison, still fully readOnly/disabled - the grid changes column count only, not what is truthfully represented', () => {
-    expect(reviewQuestionSource).toContain(GRID_CONTAINER);
+  it('EveningReviewQuestion.jsx applies the same grid because its structure is already identical to the live/edit grid - every option still rendered (not just the saved one(s)), every genuinely saved option shown checked via the same derived decode, still fully readOnly/disabled - the grid changes column count only, not what is truthfully represented. Evening Reflection/Gratitude multiple-selection enhancement — Review is multi-aware (role="group"), so more than one option can correctly read as checked at once', () => {
+    expect(reviewQuestionSource).toContain(GRID_CONTAINER_MULTI);
     // Evening Visual Uplift (Phase 7) — now a block body (computes
     // `presentation` via getOptionPresentation before returning the JSX).
     expect(reviewQuestionSource).toMatch(/prompt\.options\?\.map\(\(option\) => \{/);
-    expect(reviewQuestionSource).toMatch(/selected=\{selectedOption === option\}/);
+    expect(reviewQuestionSource).toMatch(/selected=\{selections\.includes\(option\)\}/);
     // Evening Visual Uplift (Phase 7) — the block now also passes
     // label/icon/descriptor, widening the tolerance accordingly.
     expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,400}readOnly/);
   });
 
-  it('Review still derives which option (if any) is selected the same way the live journey does - resolveSavedAnswerDisplay, never a second interpretation', () => {
-    expect(reviewQuestionSource).toMatch(/import \{ resolveSavedAnswerDisplay \} from '\.\.\/\.\.\/lib\/eveningJourneyQuestions';/);
-    expect(reviewQuestionSource).toMatch(/const \{ trimmed, hasValue, selectedOption, isCustomAnswer \} = resolveSavedAnswerDisplay\(prompt, savedValue\);/);
+  it('Review still derives which option(s) (if any) are selected the same way the live journey does - decodeMultiAnswer, never a second interpretation', () => {
+    // Evening Reflection/Gratitude multiple-selection enhancement —
+    // resolveSavedAnswerDisplay (single-answer-only) was replaced by
+    // decodeMultiAnswer, the same backward-compatible decode the live
+    // journey (PromptStepper.jsx) and Edit Mode both use, so a legacy
+    // single-answer record and a new multi-valued one render identically
+    // through one shared code path.
+    expect(reviewQuestionSource).toMatch(/import \{ decodeMultiAnswer \} from '\.\.\/\.\.\/lib\/eveningJourneyQuestions';/);
+    expect(reviewQuestionSource).toMatch(/const \{ selections, custom, hasValue \} = decodeMultiAnswer\(prompt, savedValue\);/);
   });
 });
 
@@ -232,9 +252,15 @@ describe('14. Every card meets minimum touch size', () => {
 });
 
 describe('15. Longest real labels do not overlap their radio indicators', () => {
-  it('the card is still `flex items-center justify-between` with the radio glyph marked `shrink-0` - the label can wrap to any number of lines and the radio glyph never shrinks/gets pushed and never overlaps it, it just stays pinned at the far edge, vertically centred against however tall the wrapped label makes the card', () => {
+  it('the card is still `flex items-center justify-between` with the radio/checkbox glyph marked `shrink-0` - the label can wrap to any number of lines and the glyph never shrinks/gets pushed and never overlaps it, it just stays pinned at the far edge, vertically centred against however tall the wrapped label makes the card', () => {
     expect(answerOptionButtonSource).toMatch(/flex items-center justify-between gap-2 w-full min-h-\[64px\]/);
-    expect(answerOptionButtonSource).toMatch(/relative w-5 h-5 rounded-full border-2 shrink-0/);
+    // Evening Reflection/Gratitude multiple-selection enhancement — the
+    // glyph's shape is now additively conditional (rounded-full for a
+    // radio, rounded-md for a multi-select checkbox), but every other
+    // sizing/positioning class (w-5 h-5 border-2 shrink-0) is still
+    // shared unconditionally between both modes.
+    expect(answerOptionButtonSource).toMatch(/relative w-5 h-5 border-2 shrink-0/);
+    expect(answerOptionButtonSource).toMatch(/\$\{multi \? 'rounded-md' : 'rounded-full'\}/);
   });
 
   it('real rendered measurement of the single longest real option ("Stayed calm in a difficult moment", wrapping to 4 lines at true 320px) showed no visual overlap with its radio glyph in the live browser - see the delivered validation report\'s screenshots', () => {
@@ -242,10 +268,12 @@ describe('15. Longest real labels do not overlap their radio indicators', () => 
   });
 });
 
-describe('16. Keyboard and accessible radio behaviour remain correct', () => {
-  it('the options container is still a real role="radiogroup" with an aria-label naming the question, and every option is still a real native <input type="radio"> sharing one groupName - the exact mechanism that gives free arrow-key/Home/End cycling and correct screen-reader announcement (option label, checked state, group label) is completely untouched by the grid/sizing change, since none of that logic lives in the CSS container class', () => {
-    for (const source of [promptStepperSource, editQuestionSource, reviewQuestionSource]) {
-      expect(source).toMatch(/role="radiogroup" aria-label=\{[a-zA-Z.]+\}/);
+describe('16. Keyboard and accessible radio/checkbox behaviour remain correct', () => {
+  it('PromptStepper.jsx still renders a real role="radiogroup" for its single-select grid (StressRelease.jsx\'s own path), and every option is still a real native input sharing one groupName - the exact mechanism that gives free arrow-key/Home/End cycling (radiogroup) or Tab-and-Space toggling (group of checkboxes) and correct screen-reader announcement (option label, checked state, group label) is completely untouched by the grid/sizing change, since none of that logic lives in the CSS container class. Evening Reflection/Gratitude multiple-selection enhancement — EveningEditQuestion.jsx/EveningReviewQuestion.jsx (always multi-select now) correctly use role="group" instead, matching native semantics for a set of independent checkboxes rather than a mutually-exclusive radio set', () => {
+    expect(promptStepperSource).toMatch(/role="radiogroup" aria-label=\{[a-zA-Z.]+\}/);
+    for (const source of [editQuestionSource, reviewQuestionSource]) {
+      expect(source).toMatch(/role="group" aria-label=\{[a-zA-Z.]+\}/);
+      expect(source).not.toMatch(/role="radiogroup"/);
     }
     expect(answerOptionButtonSource).toMatch(/name=\{groupName\}/);
     expect(answerOptionButtonSource).toMatch(/checked=\{selected\}/);

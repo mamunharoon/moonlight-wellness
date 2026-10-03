@@ -649,7 +649,7 @@ export const MorningFlow = () => {
       {!countdown.isActive && (
         <div className="text-center space-y-1.5">
           <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Morning Movement</span>
-          <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Gentle Morning Stretch</h2>
+          <h2 className="text-2xl font-bold text-on-surface font-morning-display">Gentle Morning Stretch</h2>
           <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
             {!isRepeatGated && !hasBegun ? getPreStartCopy() : 'Ease into the day with a few gentle movements.'}
           </p>
@@ -828,7 +828,7 @@ export const MorningFlow = () => {
             </div>,
             <div key="greeting" className="space-y-2">
               <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Stretch Completed</span>
-              <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              <h2 className="text-2xl font-bold text-on-surface font-morning-display max-w-xs mx-auto" role="status">
                 {completionGreeting}
               </h2>
               <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">

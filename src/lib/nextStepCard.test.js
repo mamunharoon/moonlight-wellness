@@ -84,7 +84,7 @@ describe('resolveNextStepCard — Morning, in-progress and completed', () => {
   it('completed: exact required copy (Phase 9, Part 7/9 - matches SessionComplete.jsx\'s own fully-completed copy), "YOUR MORNING" eyebrow', () => {
     const card = resolveNextStepCard({ period: 'morning', cardState: 'completed' });
     expect(card.eyebrow).toBe('YOUR MORNING');
-    expect(card.title).toBe('Morning Reset complete');
+    expect(card.title).toBe('Morning routine complete');
     expect(card.supportingText).toBe('You made time to begin your day with intention.');
     expect(card.buttonLabel).toBe('Repeat Morning Routine');
     expect(card.duration).toBeNull();

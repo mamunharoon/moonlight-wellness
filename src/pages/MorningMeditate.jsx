@@ -359,7 +359,7 @@ export const MorningMeditate = () => {
             </div>,
             <div key="greeting" className="space-y-2">
               <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Meditation Completed</span>
-              <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              <h2 className="text-2xl font-bold text-on-surface font-morning-display max-w-xs mx-auto" role="status">
                 {completionGreeting}
               </h2>
               <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">

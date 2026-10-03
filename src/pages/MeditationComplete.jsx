@@ -98,14 +98,23 @@ export const MeditationComplete = () => {
   };
 
   return (
-    // Build 16 physical-iPhone correction (F8) - see Affirmation.jsx's
-    // identical block for the full rationale.
+    // Physical-iPhone TestFlight report — status-bar overlap fix. See
+    // IntentionSetup.jsx's/Affirmation.jsx's identical block for the full
+    // rationale: the old min-height-percentage-of-viewport wrapper was
+    // only ever a floor, never a real scroll owner, so this screen now
+    // owns the same proven h-dvh/overflow-y-auto scroll container instead,
+    // with `min-h-full` replacing that old floor and the flat,
+    // safe-area-unaware `pb-6` now a genuine `paddingBottom` calc(). The
+    // internal justify-between/space-y-10 layout is completely untouched.
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
-      className="min-h-[85vh] flex flex-col justify-between pb-6 max-w-md mx-auto space-y-10"
+      className="min-h-full flex flex-col justify-between max-w-md mx-auto space-y-10"
       style={{
         paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
         paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
-        paddingRight: 'calc(1rem + env(safe-area-inset-right))'
+        paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+        paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))'
       }}
     >
       <div className="flex items-center gap-3">
@@ -164,6 +173,8 @@ export const MeditationComplete = () => {
           Choose another meditation
         </button>
       </div>
+    </div>
+    </div>
     </div>
   );
 };

@@ -191,6 +191,35 @@
     background-color: var(--color-background);
     color: var(--color-on-surface);
   }
+
+  /* Physical-iPhone TestFlight report — status-bar overlap fix, round 2.
+     Root cause (this time corroborated by a real, externally-documented
+     fix for the identical class of bug - a Capacitor app with
+     `ios.contentInset: 'never'` and native `scrollView.bounces = false`
+     still showing content shift into the status-bar/home-indicator area
+     on a swipe): `overflow: hidden` on <body> above only stops BODY
+     ITSELF from being a scrollable box - it does not stop WebKit's own
+     document/viewport-level overscroll effect, a separate rendering
+     layer from the native UIScrollView.bounces flag (which this app's
+     own MainViewController.swift already confirmed is redundant -
+     Capacitor's CAPBridgeViewController sets it to false by default,
+     before any app code runs). `overscroll-behavior: none` is the
+     correct, CSS-level switch for THIS layer specifically - it tells
+     WebKit never to rubber-band/chain scroll at the document edges
+     regardless of what any native scrollView property says. Applied to
+     both <html> and <body> since either can be the element WebKit
+     treats as the root scroller depending on exactly which other rules
+     are in play (see this file's own already-adjacent doc comment on
+     overflow-y propagation between the two). `-y` only, matching every
+     real scroll container's own existing overscrollBehaviorY convention
+     throughout this app (ExerciseScreenShell.jsx, Affirmation.jsx,
+     Introduction.jsx, etc.) - horizontal is already separately blocked
+     everywhere via overflow-x-hidden, so there is nothing for an X-axis
+     rule to ever need to contain. */
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 /* WakeWise Phase 1 correction — the border was rgba(255,255,255,0.12),

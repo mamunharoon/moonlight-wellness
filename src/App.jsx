@@ -87,6 +87,11 @@ const Meditate = lazy(() => import('./pages/Meditate').then((m) => ({ default: m
 const SelfGuidedMeditation = lazy(() => import('./pages/SelfGuidedMeditation').then((m) => ({ default: m.SelfGuidedMeditation })));
 const SelfGuidedMeditationComplete = lazy(() => import('./pages/SelfGuidedMeditationComplete').then((m) => ({ default: m.SelfGuidedMeditationComplete })));
 const AnytimeReset = lazy(() => import('./pages/AnytimeReset').then((m) => ({ default: m.AnytimeReset })));
+// DEV integration (Supabase-backed) — guided Stretch, reached from AnytimeReset.jsx's
+// own "Or choose another quick reset" row. Plays narration audio fetched
+// via the same signed-URL mechanism as every other beta exercise; see
+// AnytimeStretch.jsx's own doc comment.
+const AnytimeStretch = lazy(() => import('./pages/AnytimeStretch').then((m) => ({ default: m.AnytimeStretch })));
 const MeditationComplete = lazy(() => import('./pages/MeditationComplete').then((m) => ({ default: m.MeditationComplete })));
 const Grounding = lazy(() => import('./pages/Grounding').then((m) => ({ default: m.Grounding })));
 const SupportComplete = lazy(() => import('./pages/SupportComplete').then((m) => ({ default: m.SupportComplete })));
@@ -274,6 +279,31 @@ function App() {
                     page's own established chrome, and Breathe's other
                     neighbor (Affirmation) already sits outside <Layout> too. */}
                 <Route path="morning-meditate" element={withFallback(<MorningMeditate />)} />
+                {/* Morning scroll/header-placement correction — Breathe and
+                    MorningFlow (Stretch) both already build their own
+                    correct fixed-header/scrollable-body frame via
+                    ExerciseScreenShell (see that component's own doc
+                    comment), but were still being mounted one level deeper,
+                    inside <Layout>'s "/" route below. Layout's own Outlet
+                    wrapper (the hideNavigation branch) is itself a SEPARATE
+                    `overflow-y-auto` box with its own safe-area top padding
+                    - even with the header/nav hidden, that wrapper still
+                    renders. Nesting ExerciseScreenShell's `h-dvh
+                    overflow-hidden` frame inside it put two independent
+                    scroll contexts on screen at once: the shell's own
+                    (correct) one, plus Layout's own unrelated Outlet
+                    scroller still wrapped around it, whose own padded box
+                    is shorter than the full-dvh shell forced inside it -
+                    real, measurable leftover scroll room at the outer
+                    layer, underneath the shell's own protected header.
+                    Every other ExerciseScreenShell screen (this one,
+                    Affirmation, IntentionSetup, SessionComplete below) is
+                    registered full-bleed, outside <Layout>, with no such
+                    wrapper - moving these two here makes Breathe/MorningFlow
+                    match that same already-correct, already-shipped
+                    placement instead of inventing a new pattern. */}
+                <Route path="breathe" element={withFallback(<Breathe />)} />
+                <Route path="morning-flow" element={withFallback(<MorningFlow />)} />
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
@@ -369,6 +399,12 @@ function App() {
                     see AnytimeReset.jsx's own doc comment. */}
                 <Route path="anytime-reset" element={withFallback(<AnytimeReset />)} />
 
+                {/* DEV integration (Supabase-backed) — guided Stretch. Same standalone,
+                    outside-<Layout> placement as breathe-standalone/
+                    self-guided-meditation above - see AnytimeStretch.jsx's
+                    own doc comment. */}
+                <Route path="anytime-stretch" element={withFallback(<AnytimeStretch />)} />
+
                 {/* WakeWise Phase 1 correction — the MLT-3A-16 Stage 3
                     internal preview route was removed here (dormant-branding
                     audit): even unlinked from nav, it was still a real,
@@ -448,9 +484,7 @@ function App() {
                   <Route path="change-password" element={withFallback(<ChangePassword />)} />
 
                   {/* Secondary pages */}
-                  <Route path="breathe" element={withFallback(<Breathe />)} />
                   <Route path="journal" element={withFallback(<Journal />)} />
-                  <Route path="morning-flow" element={withFallback(<MorningFlow />)} />
 
                   {/* Subscription Model, Stage 1A: /premium retired. It was
                       an orphaned, unwired mock page (fabricated price, dead

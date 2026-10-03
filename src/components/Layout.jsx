@@ -37,7 +37,13 @@ export const Layout = () => {
     { label: 'Profile', path: '/profile', icon: 'person' }
   ];
 
-  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/affirmation', '/intention-setup', '/morning-flow', '/breathe', '/evening-wind-down', '/reflection', '/gratitude', '/evening-breathing', '/prepare-for-rest', '/evening-complete'].includes(location.pathname);
+  // Morning scroll/header-placement correction — '/morning-flow' and
+  // '/breathe' were removed from this list: both routes now live outside
+  // <Layout> entirely (see App.jsx's own doc comment on that route move),
+  // so Layout never mounts for them and this flag can never apply to them
+  // again. Left here as dead entries would wrongly imply Layout still has
+  // a role on those paths.
+  const hideNavigation = ['/onboarding', '/alarm-trigger', '/session-complete', '/landing', '/affirmation', '/intention-setup', '/evening-wind-down', '/reflection', '/gratitude', '/evening-breathing', '/prepare-for-rest', '/evening-complete'].includes(location.pathname);
 
   return (
     <div

@@ -17,10 +17,10 @@ import { fileURLToPath } from 'node:url';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
 describe('Anytime visual-choice uplift — checklist cross-references (already covered elsewhere, listed here for one-stop visibility)', () => {
-  it('1-2. Home\'s four Anytime tiles are larger/equally-sized with no connectors between them - see homeAnytimeVisualUplift.test.js and pathwayConnectors.test.js', () => {
+  it('1-2. Home\'s five Anytime tiles (Stretch - LOCALHOST TRIAL ONLY - first) are larger/equally-sized, with Morning/Evening-style chevron_right direction markers between them, never the old <JourneyConnector> - see homeAnytimeVisualUplift.test.js and pathwayConnectors.test.js', () => {
     const homeSource = read('./Home.jsx');
-    expect(homeSource).toMatch(/grid grid-cols-4 gap-1/);
-    expect(homeSource).not.toMatch(/aria-label="Includes Breathe, Meditate, Instant Calm, and Explore">[\s\S]*?<JourneyConnector/);
+    expect(homeSource).toMatch(/grid grid-cols-5 gap-1/);
+    expect(homeSource).not.toMatch(/aria-label="Includes Stretch, Breathe, Meditate, Instant Calm, and Explore">[\s\S]*?<JourneyConnector/);
   });
 
   it('3. "About 1-10 minutes" is removed from the Anytime card\'s live markup - see homeAnytimeVisualUplift.test.js', () => {

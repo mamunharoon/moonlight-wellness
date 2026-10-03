@@ -21,7 +21,7 @@ export const REFLECTION_PROMPTS = [
     // Evening Visual Uplift (Phase 7) — short, question-specific
     // supporting line (PromptStepper.jsx's own approved copy), replacing
     // the one generic repeated sentence every question previously shared.
-    supportingText: 'Choose the moment that feels closest to your day.',
+    supportingText: 'Choose what feels closest to your day.',
     layout: 'rows',
     options: [
       'Reached a small milestone',
@@ -59,7 +59,7 @@ export const REFLECTION_PROMPTS = [
   },
   {
     id: 'release',
-    label: 'What are you ready to release?',
+    label: 'What can you let go of?',
     supportingText: 'Choose what you do not need to carry forward.',
     options: [
       "Today's stress",
@@ -98,8 +98,8 @@ export const resolveSavedAnswerDisplay = (prompt, savedValue) => {
 export const GRATITUDE_PROMPTS = [
   {
     id: 'appreciated-moment',
-    label: 'Name one moment you appreciated today.',
-    supportingText: 'Notice one good moment before closing your day.',
+    label: 'What did you appreciate today?',
+    supportingText: 'Notice the good moments before closing your day.',
     options: [
       'Morning stillness',
       'A comforting meal',
@@ -118,7 +118,7 @@ export const GRATITUDE_PROMPTS = [
   {
     id: 'who-made-better',
     label: 'Who made your day better?',
-    supportingText: 'Choose the person or connection that mattered.',
+    supportingText: 'Choose the people or connections that mattered.',
     options: [
       'Partner or family',
       'Friend',
@@ -191,4 +191,80 @@ export const computeChangedEntries = (original, draft, prompts) => {
     }
   }
   return changed;
+};
+
+// ---------------------------------------------------------------------
+// Evening Reflection/Gratitude multiple-selection enhancement — every
+// question now allows selecting more than one preset option, plus
+// optional custom text alongside the selection(s). NO database migration:
+// the existing `response text` column (supabase/migrations/
+// 20260919120000_routine_responses.sql) still holds a single string.
+//
+// A single selection with no custom text is still stored as that exact
+// option string - byte-identical to every historical single-answer
+// record, so every legacy reader (resolveSavedAnswerDisplay included)
+// keeps reading it unchanged; free text alone is still stored as that
+// exact trimmed text, exactly as before. Only once a saved answer is
+// genuinely multi-valued (two or more selections, or any selection(s)
+// plus custom text) does this encode to a small JSON object string -
+// {"selections": string[], "custom": string} - still a plain string to
+// every constraint/index in the schema (well under the 5000-char limit,
+// no HTML-like `<tag` content).
+// ---------------------------------------------------------------------
+
+// The one option, across all six questions, that is deliberately
+// mutually exclusive with every other option for its own question -
+// selecting it clears any other selection (and any custom text);
+// selecting a different option, or typing custom text, clears it in
+// turn. Currently only Reflection's "release" question has this option;
+// the exclusivity logic below is generic and simply never triggers for a
+// question that doesn't contain this literal string.
+export const NOT_SURE_YET_OPTION = 'Not sure yet';
+
+// The exact, approved instruction shown under the supporting text of
+// every multi-select question (live journey and Edit Mode) - never
+// repeated on the read-only, non-interactive Review screens.
+export const MULTI_SELECT_INSTRUCTION = 'Select all that apply. One is enough.';
+
+export const encodeMultiAnswer = ({ selections = [], custom = '' }) => {
+  const trimmedCustom = custom.trim();
+  if (selections.length === 0 && !trimmedCustom) return '';
+  if (selections.length === 1 && !trimmedCustom) return selections[0];
+  if (selections.length === 0) return trimmedCustom;
+  return JSON.stringify({ selections, custom: trimmedCustom });
+};
+
+export const decodeMultiAnswer = (prompt, savedValue) => {
+  const trimmed = (savedValue ?? '').trim();
+  if (!trimmed) return { selections: [], custom: '', hasValue: false };
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && Array.isArray(parsed.selections)) {
+        const selections = parsed.selections.filter((value) => prompt?.options?.includes(value));
+        const custom = typeof parsed.custom === 'string' ? parsed.custom.trim() : '';
+        return { selections, custom, hasValue: selections.length > 0 || custom.length > 0 };
+      }
+    } catch {
+      // Not valid JSON - fall through to legacy single-answer handling.
+    }
+  }
+  // Legacy record (or a genuinely single-valued new answer): the whole
+  // trimmed string is either one of this question's own preset options,
+  // or free-text custom - the exact same derivation
+  // resolveSavedAnswerDisplay already uses, kept deliberately in sync.
+  const selectedOption = prompt?.options?.find((option) => option === trimmed) ?? null;
+  if (selectedOption) return { selections: [selectedOption], custom: '', hasValue: true };
+  return { selections: [], custom: trimmed, hasValue: true };
+};
+
+export const toggleMultiSelectOption = (selections, option) => {
+  const isSelected = selections.includes(option);
+  if (option === NOT_SURE_YET_OPTION) {
+    return isSelected ? [] : [NOT_SURE_YET_OPTION];
+  }
+  if (isSelected) {
+    return selections.filter((value) => value !== option);
+  }
+  return [...selections.filter((value) => value !== NOT_SURE_YET_OPTION), option];
 };

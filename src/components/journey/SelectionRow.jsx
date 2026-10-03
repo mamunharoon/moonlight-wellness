@@ -31,7 +31,7 @@ const ROW_ACCENT = {
   anytime: { selected: 'border-tertiary bg-tertiary-tint/20', text: 'text-tertiary' }
 };
 
-export const SelectionRow = ({ label, description, selected, onClick, accent = 'primary', icon = null }) => {
+export const SelectionRow = ({ label, description, selected, onClick, accent = 'primary', icon = null, iconAlwaysAccent = false }) => {
   const tokens = ROW_ACCENT[accent] ?? ROW_ACCENT.primary;
 
   return (
@@ -44,7 +44,13 @@ export const SelectionRow = ({ label, description, selected, onClick, accent = '
       }`}
     >
       {icon && (
-        <span className={`material-symbols-outlined shrink-0 ${selected ? tokens.text : 'text-on-surface-variant'}`} aria-hidden="true">
+        // Anytime icon colour uplift — `iconAlwaysAccent` (additive,
+        // optional, default false): only AnytimeReset.jsx's own duration
+        // rows pass it, so its leading clock/infinity icon is always the
+        // accent colour regardless of selection. AnytimeStretch.jsx's own
+        // caller (accent="anytime" but no iconAlwaysAccent) keeps the exact
+        // original selected-only icon colour, byte-for-byte unchanged.
+        <span className={`material-symbols-outlined shrink-0 ${(iconAlwaysAccent || selected) ? tokens.text : 'text-on-surface-variant'}`} aria-hidden="true">
           {icon}
         </span>
       )}

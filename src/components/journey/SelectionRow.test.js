@@ -62,8 +62,12 @@ describe('SelectionRow.jsx — Anytime Visual Flow and Closing Handoff uplift: i
     expect(source).toMatch(/\{selected \? 'check_circle' : 'chevron_right'\}/);
   });
 
-  it('the icon colours match the row\'s own selected/unselected state (same tokens.text), never a fixed colour independent of selection', () => {
+  it('the icon colour defaults to matching the row\'s own selected/unselected state (same tokens.text) - AnytimeStretch.jsx\'s caller (no iconAlwaysAccent) is byte-for-byte unaffected by the Anytime icon colour uplift below', () => {
     const iconBlock = source.match(/\{icon && \([\s\S]*?\)\}/)?.[0] ?? '';
-    expect(iconBlock).toMatch(/selected \? tokens\.text : 'text-on-surface-variant'/);
+    expect(iconBlock).toMatch(/\(iconAlwaysAccent \|\| selected\) \? tokens\.text : 'text-on-surface-variant'/);
+  });
+
+  it('Anytime icon colour uplift — `iconAlwaysAccent` (additive, optional, default false) makes the leading icon always the accent colour regardless of selection, for AnytimeReset.jsx\'s own duration rows only', () => {
+    expect(source).toMatch(/iconAlwaysAccent = false/);
   });
 });

@@ -27,7 +27,7 @@ const source = read('./Breathe.jsx');
 describe('Breathe.jsx — pre-start pattern-selection view', () => {
   it('Morning Visual Uplift (Phase 6) — "Mindful Breathing" eyebrow is gold; heading is now "Choose Your Breath" (Playfair Display), replacing the longer original', () => {
     expect(source).toMatch(/text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing/);
-    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breath<\/h2>/);
+    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display">Choose Your Breath<\/h2>/);
   });
 
   it('Morning Visual Uplift (Phase 6) — the supporting copy is now the shorter approved "Choose a rhythm that feels right."', () => {
@@ -44,7 +44,7 @@ describe('Breathe.jsx — pre-start pattern-selection view', () => {
 describe('Breathe.jsx — active "Center Yourself" grounding view', () => {
   it('"Grounding Exercise" eyebrow is gold; "Center Yourself" uses Playfair Display - this is the real active-breathing screen text, distinct from (and not to be confused with) the 4-step journey\'s own step id "breathe"', () => {
     expect(source).toMatch(/text-xs text-morning-accent uppercase tracking-widest font-bold">Grounding Exercise/);
-    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display italic">Center Yourself/);
+    expect(source).toMatch(/text-2xl font-bold text-on-surface font-morning-display">Center Yourself/);
   });
 
   it('the real supporting copy is unchanged', () => {

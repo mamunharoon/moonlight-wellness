@@ -187,7 +187,11 @@ describe('Read-only presentation (item 5) - no Skip, no Clear response, no edita
     // label/icon/descriptor (getOptionPresentation), so the tolerance
     // between the opening tag and `readOnly` is widened accordingly.
     expect(reviewQuestionSource).toMatch(/<AnswerOptionButton[\s\S]{0,400}readOnly/);
-    expect(reviewQuestionSource).toMatch(/selected=\{selectedOption === option\}/);
+    // Evening Reflection/Gratitude multiple-selection enhancement —
+    // `selected` is now derived from the decoded multi-answer's own
+    // `selections` array (zero, one, or many may read as checked), never
+    // a single selectedOption equality check.
+    expect(reviewQuestionSource).toMatch(/selected=\{selections\.includes\(option\)\}/);
     // Evening Visual Uplift (Phase 7) — now a block body (computes
     // `presentation` via getOptionPresentation before returning the JSX),
     // not a bare parenthesised expression.
@@ -196,7 +200,11 @@ describe('Read-only presentation (item 5) - no Skip, no Clear response, no edita
 
   it('a saved custom answer renders expanded, as a plain non-editable paragraph, labelled "Your own words" - never a textarea, never Save/Clear/Cancel', () => {
     const reviewQuestionSource = read('../components/evening/EveningReviewQuestion.jsx');
-    expect(reviewQuestionSource).toMatch(/\{isCustomAnswer && \(/);
+    // Evening Reflection/Gratitude multiple-selection enhancement — the
+    // custom-answer block is now gated on the decoded `custom` string
+    // itself (truthy = non-empty), rather than a separate isCustomAnswer
+    // boolean - still renders only when real custom text was saved.
+    expect(reviewQuestionSource).toMatch(/\{custom && \(/);
     expect(reviewQuestionSource).toMatch(/Your own words/);
     expect(reviewQuestionSource).toMatch(/<p className="w-full bg-white\/5 border border-white\/10 rounded-2xl p-4 text-sm text-on-surface leading-relaxed">/);
     expect(reviewQuestionSource).not.toMatch(/>Save</);

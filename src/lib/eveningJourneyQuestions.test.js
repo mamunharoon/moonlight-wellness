@@ -10,11 +10,16 @@ import {
   GRATITUDE_PROMPTS,
   resolveSavedAnswerDisplay,
   EVENING_EDIT_PROMPTS,
-  computeChangedEntries
+  computeChangedEntries,
+  encodeMultiAnswer,
+  decodeMultiAnswer,
+  toggleMultiSelectOption,
+  NOT_SURE_YET_OPTION
 } from './eveningJourneyQuestions';
 
 const wentWell = REFLECTION_PROMPTS.find((p) => p.id === 'went-well');
 const whoMadeBetter = GRATITUDE_PROMPTS.find((p) => p.id === 'who-made-better');
+const release = REFLECTION_PROMPTS.find((p) => p.id === 'release');
 
 describe('resolveSavedAnswerDisplay - a saved value that exactly matches one of the question\'s real options', () => {
   it('is reported as that selected preset, never as a custom answer', () => {
@@ -156,5 +161,154 @@ describe('computeChangedEntries - real execution against real prompts and draft 
 
   it('no changes anywhere returns an empty array', () => {
     expect(computeChangedEntries({}, {}, EVENING_EDIT_PROMPTS)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Evening Reflection/Gratitude multiple-selection enhancement —
+// encodeMultiAnswer/decodeMultiAnswer/toggleMultiSelectOption. Pure and
+// genuinely executable (no React, no DOM), so these are real function
+// calls against real prompt objects and saved-value strings, matching
+// this file's own established convention above. NO schema change: every
+// encoded value is still a single plain string written to the same
+// `response text` column - a single selection with no custom text (or
+// custom text alone) still encodes to that exact bare string, byte-
+// identical to a historical single-answer record; only a genuinely
+// multi-valued answer (two or more selections, or any selection(s) plus
+// custom text) encodes to a small JSON object string.
+// ---------------------------------------------------------------------
+describe('encodeMultiAnswer - single-valued answers stay a plain string, byte-identical to a legacy single-answer record', () => {
+  it('no selections and no custom text encodes to an empty string', () => {
+    expect(encodeMultiAnswer({ selections: [], custom: '' })).toBe('');
+    expect(encodeMultiAnswer({})).toBe('');
+  });
+
+  it('exactly one selection with no custom text encodes to that bare option string - never JSON-wrapped', () => {
+    expect(encodeMultiAnswer({ selections: ['Had a peaceful moment'], custom: '' })).toBe('Had a peaceful moment');
+  });
+
+  it('custom text alone (no selections) encodes to that trimmed bare string - never JSON-wrapped', () => {
+    expect(encodeMultiAnswer({ selections: [], custom: '  My own words  ' })).toBe('My own words');
+  });
+});
+
+describe('encodeMultiAnswer - genuinely multi-valued answers encode to a small JSON object string', () => {
+  it('two or more selections (no custom) encode to {"selections":[...],"custom":""}', () => {
+    const encoded = encodeMultiAnswer({ selections: ['Had a peaceful moment', 'Helped someone'], custom: '' });
+    expect(JSON.parse(encoded)).toEqual({ selections: ['Had a peaceful moment', 'Helped someone'], custom: '' });
+  });
+
+  it('exactly one selection PLUS custom text also encodes to JSON - the one case a bare string cannot represent unambiguously', () => {
+    const encoded = encodeMultiAnswer({ selections: ['Had a peaceful moment'], custom: 'and a bit more' });
+    expect(JSON.parse(encoded)).toEqual({ selections: ['Had a peaceful moment'], custom: 'and a bit more' });
+  });
+});
+
+describe('decodeMultiAnswer - no saved value (skipped/missing)', () => {
+  it('undefined, null, empty string, and whitespace-only all resolve to hasValue: false, zero selections, no custom text', () => {
+    for (const missing of [undefined, null, '', '   ']) {
+      expect(decodeMultiAnswer(wentWell, missing)).toEqual({ selections: [], custom: '', hasValue: false });
+    }
+  });
+});
+
+describe('decodeMultiAnswer - legacy single-answer records (pre-dating this enhancement) decode exactly like resolveSavedAnswerDisplay', () => {
+  it('a legacy value that exactly matches one of the question\'s real options decodes as that one selection, no custom text', () => {
+    expect(decodeMultiAnswer(wentWell, 'Had a peaceful moment')).toEqual({
+      selections: ['Had a peaceful moment'],
+      custom: '',
+      hasValue: true
+    });
+  });
+
+  it('a legacy value that matches no option decodes as pure custom text, zero selections', () => {
+    expect(decodeMultiAnswer(wentWell, '  Finally finished the garden project  ')).toEqual({
+      selections: [],
+      custom: 'Finally finished the garden project',
+      hasValue: true
+    });
+  });
+});
+
+describe('decodeMultiAnswer - genuinely multi-valued (JSON-encoded) answers', () => {
+  it('decodes every selection plus custom text back out exactly as encoded', () => {
+    const encoded = encodeMultiAnswer({ selections: ['Had a peaceful moment', 'Helped someone'], custom: 'and a bit more' });
+    expect(decodeMultiAnswer(wentWell, encoded)).toEqual({
+      selections: ['Had a peaceful moment', 'Helped someone'],
+      custom: 'and a bit more',
+      hasValue: true
+    });
+  });
+
+  it('a selection that no longer belongs to this question\'s own options list is filtered out, never surfaced as a phantom checked box', () => {
+    const encoded = JSON.stringify({ selections: ['Had a peaceful moment', 'An option that no longer exists'], custom: '' });
+    expect(decodeMultiAnswer(wentWell, encoded)).toEqual({
+      selections: ['Had a peaceful moment'],
+      custom: '',
+      hasValue: true
+    });
+  });
+
+  it('malformed JSON-like text that merely starts with "{" falls back to being read as plain custom text, never throws', () => {
+    const malformed = '{not valid json';
+    expect(() => decodeMultiAnswer(wentWell, malformed)).not.toThrow();
+    expect(decodeMultiAnswer(wentWell, malformed)).toEqual({ selections: [], custom: malformed, hasValue: true });
+  });
+});
+
+describe('toggleMultiSelectOption - independent add/remove, more than one may be selected at once', () => {
+  it('toggling an unselected option onto an empty selection adds it', () => {
+    expect(toggleMultiSelectOption([], 'Had a peaceful moment')).toEqual(['Had a peaceful moment']);
+  });
+
+  it('toggling an already-selected option off removes only that option, leaving every other selection untouched', () => {
+    const selections = ['Had a peaceful moment', 'Helped someone', 'Got outside or moved'];
+    expect(toggleMultiSelectOption(selections, 'Helped someone')).toEqual(['Had a peaceful moment', 'Got outside or moved']);
+  });
+
+  it('toggling a second, third option onto an existing selection appends it, never replacing the prior selection(s)', () => {
+    expect(toggleMultiSelectOption(['Had a peaceful moment'], 'Helped someone')).toEqual(['Had a peaceful moment', 'Helped someone']);
+  });
+});
+
+describe('toggleMultiSelectOption - "Not sure yet" (release question) is exclusive with every other selection', () => {
+  it('selecting "Not sure yet" while other options are already selected clears them, leaving it as the sole selection', () => {
+    expect(toggleMultiSelectOption(["Today's stress", 'A mistake I made'], NOT_SURE_YET_OPTION)).toEqual([NOT_SURE_YET_OPTION]);
+  });
+
+  it('toggling "Not sure yet" off (it was the sole selection) clears the selection entirely', () => {
+    expect(toggleMultiSelectOption([NOT_SURE_YET_OPTION], NOT_SURE_YET_OPTION)).toEqual([]);
+  });
+
+  it('selecting a real option while "Not sure yet" is the current selection replaces it with that option alone', () => {
+    expect(toggleMultiSelectOption([NOT_SURE_YET_OPTION], "Today's stress")).toEqual(["Today's stress"]);
+  });
+
+  it('the exclusivity is specific to this literal option string - a question with no "Not sure yet" option never triggers it for any of its own options', () => {
+    expect(toggleMultiSelectOption(['Had a peaceful moment'], 'Helped someone')).toEqual(['Had a peaceful moment', 'Helped someone']);
+  });
+});
+
+describe('Persistence round-trip - a legacy single-answer record survives an encode(decode(...)) pass byte-for-byte', () => {
+  it('a legacy preset selection round-trips to the exact same bare string', () => {
+    const legacy = 'Had a peaceful moment';
+    expect(encodeMultiAnswer(decodeMultiAnswer(wentWell, legacy))).toBe(legacy);
+  });
+
+  it('legacy free-text custom round-trips to the exact same trimmed string', () => {
+    const legacy = 'Finally finished the garden project';
+    expect(encodeMultiAnswer(decodeMultiAnswer(wentWell, `  ${legacy}  `))).toBe(legacy);
+  });
+
+  it('a genuinely multi-valued answer round-trips to an equivalent decode (selections/custom), even though the JSON string itself is regenerated', () => {
+    const original = { selections: ['Had a peaceful moment', 'Helped someone'], custom: 'and a bit more' };
+    const roundTripped = decodeMultiAnswer(wentWell, encodeMultiAnswer(original));
+    expect(roundTripped).toEqual({ ...original, hasValue: true });
+  });
+
+  it('the "release" question\'s real "Not sure yet" option round-trips correctly as a single-valued legacy-compatible record', () => {
+    const encoded = encodeMultiAnswer({ selections: [NOT_SURE_YET_OPTION], custom: '' });
+    expect(encoded).toBe(NOT_SURE_YET_OPTION);
+    expect(decodeMultiAnswer(release, encoded)).toEqual({ selections: [NOT_SURE_YET_OPTION], custom: '', hasValue: true });
   });
 });

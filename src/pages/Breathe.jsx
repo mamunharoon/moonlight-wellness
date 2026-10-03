@@ -597,7 +597,7 @@ export const Breathe = () => {
               all three together. */}
           <div className="text-center space-y-1.5">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Mindful Breathing</span>
-            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Choose Your Breath</h2>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display">Choose Your Breath</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto">
               Choose a rhythm that feels right.
             </p>
@@ -764,7 +764,7 @@ export const Breathe = () => {
             </div>,
             <div key="greeting" className="space-y-2">
               <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Exercise Completed</span>
-              <h2 className="text-2xl font-bold text-on-surface font-morning-display italic max-w-xs mx-auto" role="status">
+              <h2 className="text-2xl font-bold text-on-surface font-morning-display max-w-xs mx-auto" role="status">
                 {completionGreeting}
               </h2>
               <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
@@ -792,7 +792,7 @@ export const Breathe = () => {
         >
           <div className="text-center space-y-2">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Grounding Exercise</span>
-            <h2 className="text-2xl font-bold text-on-surface font-morning-display italic">Center Yourself</h2>
+            <h2 className="text-2xl font-bold text-on-surface font-morning-display">Center Yourself</h2>
             <p className="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
               Bring your attention to the present before the day becomes busy.
             </p>

@@ -64,14 +64,15 @@ describe('AnytimeReset.jsx — expanding reveals the genuine existing alternativ
     expect(panelBlock).toMatch(/onClick=\{\(\) => handleSelectAlternativeItem\(index\)\}/);
   });
 
-  it('the three existing quick-reset practices (Breathe/Meditate/Instant Calm) are still rendered from the same unmodified QUICK_RESET_ALTERNATIVES data, now inside the disclosure', () => {
+  it('the quick-reset practices (Breathe/Meditate/Instant Calm, plus Stretch - LOCALHOST TRIAL ONLY) are still rendered from the same QUICK_RESET_ALTERNATIVES data, now inside the disclosure', () => {
     const panelBlock = source.match(/\{!isComplete && alternativesOpen && \([\s\S]*?\n {10}\)\}/)?.[0] ?? '';
     expect(panelBlock).toMatch(/QUICK_RESET_ALTERNATIVES\.map/);
     expect(panelBlock).toMatch(/onClick=\{\(\) => handleQuickResetAlternative\(alt\.id\)\}/);
     expect(source).toMatch(/id: 'breathe', icon: 'air', label: 'Breathe'/);
     expect(source).toMatch(/id: 'meditate', icon: 'self_improvement', label: 'Meditate'/);
     expect(source).toMatch(/id: 'instant-calm', icon: 'bolt', label: 'Instant Calm'/);
-    expect(source).not.toMatch(/label: 'Stretch'|label: 'Quick Walk'/);
+    expect(source).toMatch(/id: 'stretch', icon: 'accessibility_new', label: 'Stretch'/);
+    expect(source).not.toMatch(/label: 'Quick Walk'/);
   });
 
   it('the disclosure is hidden entirely during the completion state, matching the existing "Choose another quick reset" two-action panel as the one way back', () => {
