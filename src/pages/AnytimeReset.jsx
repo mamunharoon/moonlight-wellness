@@ -20,6 +20,7 @@ import { JourneyGlow } from '../components/JourneyGlow';
 import { ExploreCard } from '../components/ExploreCard';
 import { getAnytimeExploreCatalog } from '../lib/exploreFiltering';
 import { AnytimePathway } from '../components/AnytimePathway';
+import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 
 // Build 15 Phase B — Material Symbols icon per need, for the restyled
 // SelectionChip grid. A local lookup, not a mediaCatalog.js field (out
@@ -373,118 +374,43 @@ export const AnytimeReset = () => {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
-  return (
-    // Mobile scroll repair (Build 15 viewport audit): rendered outside
-    // <Layout> with no scroll container of its own, relying on document
-    // scroll - which index.html deliberately disables on both axes (see
-    // Introduction.jsx's own identical fix and doc comment). Step 1's need
-    // grid and Step 3's recommendation actions were unreachable on small
-    // phones as a result. Same proven shape as Introduction.jsx/
-    // Layout.jsx: this screen now owns its own single scroll container.
-    <div className="h-dvh overflow-hidden">
-    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
-    <div
-      className="min-h-full max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
-      style={{
-        // Build 15 Phase B — 20px mobile margin, reducing safely to 16px
-        // on very small screens (clamp between the two, scaling on
-        // viewport width in between) combined with the existing
-        // safe-area-inset handling in one calc - a Tailwind responsive
-        // class can't also carry the safe-area addition without an
-        // inline style winning and making the class dead, so this stays
-        // a single inline mechanism for both.
-        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
-        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
-        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
-      }}
-    >
-      {/* WakeWise DEV — colour glow extension: subtle sage/mint ambient
-          backdrop, matching Anytime's own established tertiary/mint
-          identity (the need-selection icons and progress bar already
-          use it). */}
-      <JourneyGlow journey="anytime" />
+  // Physical-iPhone correction — "Recommended for you" is the one Anytime
+  // step with enough content to ever need to scroll (alternatives list +
+  // quick resets + Change need/time + Explore Anytime), so it's the one
+  // step that gets the same ExerciseScreenShell fixed-header/scrolling-
+  // body split already proven on Morning (Breathe.jsx/MorningFlow.jsx):
+  // Back/Close + the Need/Time/Reset progress row move into the shell's
+  // non-scrolling `header` slot (opaque, safe-area-aware, divider below),
+  // so they can never scroll away or let real content render under the
+  // status bar. Need/Time selection below are each a single short grid/
+  // list that always fits without scrolling on real devices, so they
+  // deliberately keep their own original single-scroll-container shape
+  // unchanged - this is a per-step fix, not a shared-component rewrite.
+  if (step === 'recommend') {
+    return (
+      <ExerciseScreenShell
+        journeyTone="anytime"
+        maxWidthClassName="max-w-md"
+        header={
+          <>
+            <JourneyHeader
+              showBackButton={false}
+              backFallback="/"
+              onStepBack={handleStepBack}
+              onClose={handleClose}
+            />
+            <AnytimePathway currentStageId="reset" needSelected={Boolean(needId)} timeSelected={Boolean(durationId)} />
+          </>
+        }
+      >
+        {/* WakeWise DEV — colour glow extension: subtle sage/mint ambient
+            backdrop, matching Anytime's own established tertiary/mint
+            identity (the need-selection icons and progress bar already
+            use it). */}
+        <JourneyGlow journey="anytime" />
 
-      <JourneyHeader
-        showBackButton={step === 'need'}
-        backFallback="/"
-        onStepBack={handleStepBack}
-        onClose={handleClose}
-      />
-      {/* Anytime Visual Flow and Closing Handoff uplift — the Need -> Time
-          -> Reset decision pathway, replacing the former plain 3-segment
-          AnytimeResetProgress bar (still on disk, now dormant - its own
-          getSegmentClassName unit test is unaffected either way). Genuine
-          stage icons stay visible in every state; Need/Time only ever
-          receive their own small secondary check once that step's real
-          value is genuinely already set (needSelected/timeSelected -
-          never inferred from step position); the current step gets the
-          existing mint highlight. Selecting Need or Time is a plain
-          navigation action, never itself recorded as a completion - see
-          this component's own doc comment for the full contract. */}
-      <AnytimePathway currentStageId={step === 'need' ? 'need' : step === 'duration' ? 'time' : 'reset'} needSelected={Boolean(needId)} timeSelected={Boolean(durationId)} />
-
-      {step === 'need' && (
-        <div className="space-y-6">
-          <div className="space-y-1">
-            <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt</span>
-            {/* Anytime Visual Flow and Closing Handoff uplift — one
-                heading, one short supporting sentence (Part 4/Part 12),
-                replacing the former two-heading "Take an Anytime Reset" /
-                "What do you need right now?" pair. */}
-            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">What would support you now?</h1>
-            {/* F3 (pre-Build-15 usability pass) — found live: a guest could
-                complete the whole Need -> Time -> Recommendation wizard
-                and only discover the sign-in requirement after tapping
-                Start. One calm, early disclosure at the first useful
-                point (this subtitle), guest-only - authenticated copy is
-                completely unchanged. See Step 3's RecommendationCard
-                `locked` badge + "Sign in to start" label below for the
-                second half of this fix. */}
-            <p className="text-sm text-on-surface-variant">
-              {isGuest
-                ? 'Sign in is required to play your personalised recommendation.'
-                : 'Choose what fits, then how much time you have.'}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3" role="group" aria-label="What would support you now?">
-            {ANYTIME_RESET_NEEDS.map((need) => (
-              <SelectionChip
-                key={need.id}
-                label={need.label}
-                icon={NEED_ICONS[need.id]}
-                selected={needId === need.id}
-                onClick={() => handleSelectNeed(need.id)}
-                accent="anytime"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {step === 'duration' && (
-        <div className="space-y-6">
-          <div className="space-y-1">
-            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">How much time do you have?</h1>
-            <p className="text-sm text-on-surface-variant">{ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label}</p>
-          </div>
-          <div className="space-y-3" role="group" aria-label="How much time do you have?">
-            {ANYTIME_RESET_DURATIONS.map((duration) => (
-              <SelectionRow
-                key={duration.id}
-                label={duration.label}
-                selected={durationId === duration.id}
-                onClick={() => handleSelectDuration(duration.id)}
-                accent="anytime"
-                icon={duration.id === 'any' ? 'all_inclusive' : 'schedule'}
-                iconAlwaysAccent
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {step === 'recommend' && (
-        <div className="space-y-6">
+        {step === 'recommend' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
           <div className="space-y-1">
             {/* A genuine natural completion is now acknowledged entirely
                 inside BetaVideoModal's own shared overlay (completionContext
@@ -639,49 +565,166 @@ export const AnytimeReset = () => {
             />
           )}
         </div>
+        )}
+
+        {openVideo && (
+          <BetaVideoModal
+            entry={openVideo}
+            onClose={handleVideoClose}
+            onEnded={() => setIsComplete(true)}
+            completionContext={{
+              journey: 'anytime',
+              // Anytime Visual Flow and Closing Handoff uplift (Part 9) —
+              // the shared three-action row: "Continue My Day" (primary
+              // slot) leaves the wizard entirely; "Choose Another Reset"
+              // (secondary slot) un-completes this same screen (needId/
+              // durationId untouched) so the full recommendation +
+              // alternatives reappears immediately - exactly what the
+              // former two-action overlay's own "Choose Another Session"
+              // already did, just now the secondary rather than the primary
+              // action, matching the approved action order everywhere else
+              // this closing handoff appears; "Explore More" opens the same
+              // filtered Anytime Library this screen's own ExploreCard
+              // below already links to, preserving this exact Need/Time
+              // selection via the identical allowlisted query params.
+              onPrimaryAction: () => {
+                setIsComplete(false);
+                setOpenVideoId(null);
+                navigate('/');
+              },
+              onSecondaryAction: () => {
+                setIsComplete(false);
+                setOpenVideoId(null);
+              },
+              onExploreMore: () => {
+                navigate(`/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(needId)}&duration=${encodeURIComponent(durationId)}`);
+              }
+            }}
+          />
+        )}
+        <SignInPromptDialog
+          open={signInPromptOpen}
+          onSignIn={handleSignIn}
+          onCreateAccount={handleCreateAccount}
+          onDismiss={() => setSignInPromptOpen(false)}
+        />
+      </ExerciseScreenShell>
+    );
+  }
+
+  return (
+    // Mobile scroll repair (Build 15 viewport audit): rendered outside
+    // <Layout> with no scroll container of its own, relying on document
+    // scroll - which index.html deliberately disables on both axes (see
+    // Introduction.jsx's own identical fix and doc comment). Step 1's need
+    // grid and Step 2's duration list were unreachable on small phones as
+    // a result. Same proven shape as Introduction.jsx/Layout.jsx: these
+    // two steps keep their own single scroll container - each is a single
+    // short grid/list that always fits without scrolling on real devices,
+    // so neither needs the ExerciseScreenShell fixed-header split the
+    // recommend step above now uses (see this component's own doc
+    // comment on that branch for the full root cause/fix).
+    <div className="h-dvh overflow-hidden">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
+    <div
+      className="min-h-full max-w-md w-full mx-auto space-y-8 animate-in fade-in duration-500 pb-4"
+      style={{
+        // Build 15 Phase B — 20px mobile margin, reducing safely to 16px
+        // on very small screens (clamp between the two, scaling on
+        // viewport width in between) combined with the existing
+        // safe-area-inset handling in one calc - a Tailwind responsive
+        // class can't also carry the safe-area addition without an
+        // inline style winning and making the class dead, so this stays
+        // a single inline mechanism for both.
+        paddingLeft: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-left))',
+        paddingRight: 'calc(clamp(1rem, 4vw, 1.25rem) + env(safe-area-inset-right))',
+        paddingTop: 'calc(1rem + env(safe-area-inset-top))'
+      }}
+    >
+      {/* WakeWise DEV — colour glow extension: subtle sage/mint ambient
+          backdrop, matching Anytime's own established tertiary/mint
+          identity (the need-selection icons and progress bar already
+          use it). */}
+      <JourneyGlow journey="anytime" />
+
+      <JourneyHeader
+        showBackButton={step === 'need'}
+        backFallback="/"
+        onStepBack={handleStepBack}
+        onClose={handleClose}
+      />
+      {/* Anytime Visual Flow and Closing Handoff uplift — the Need -> Time
+          -> Reset decision pathway, replacing the former plain 3-segment
+          AnytimeResetProgress bar (still on disk, now dormant - its own
+          getSegmentClassName unit test is unaffected either way). Genuine
+          stage icons stay visible in every state; Need/Time only ever
+          receive their own small secondary check once that step's real
+          value is genuinely already set (needSelected/timeSelected -
+          never inferred from step position); the current step gets the
+          existing mint highlight. Selecting Need or Time is a plain
+          navigation action, never itself recorded as a completion - see
+          this component's own doc comment for the full contract. */}
+      <AnytimePathway currentStageId={step === 'need' ? 'need' : step === 'duration' ? 'time' : 'reset'} needSelected={Boolean(needId)} timeSelected={Boolean(durationId)} />
+
+      {step === 'need' && (
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <span className="material-symbols-outlined text-tertiary text-3xl" aria-hidden="true">bolt</span>
+            {/* Anytime Visual Flow and Closing Handoff uplift — one
+                heading, one short supporting sentence (Part 4/Part 12),
+                replacing the former two-heading "Take an Anytime Reset" /
+                "What do you need right now?" pair. */}
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight mt-2">What would support you now?</h1>
+            {/* F3 (pre-Build-15 usability pass) — found live: a guest could
+                complete the whole Need -> Time -> Recommendation wizard
+                and only discover the sign-in requirement after tapping
+                Start. One calm, early disclosure at the first useful
+                point (this subtitle), guest-only - authenticated copy is
+                completely unchanged. See Step 3's RecommendationCard
+                `locked` badge + "Sign in to start" label below for the
+                second half of this fix. */}
+            <p className="text-sm text-on-surface-variant">
+              {isGuest
+                ? 'Sign in is required to play your personalised recommendation.'
+                : 'Choose what fits, then how much time you have.'}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3" role="group" aria-label="What would support you now?">
+            {ANYTIME_RESET_NEEDS.map((need) => (
+              <SelectionChip
+                key={need.id}
+                label={need.label}
+                icon={NEED_ICONS[need.id]}
+                selected={needId === need.id}
+                onClick={() => handleSelectNeed(need.id)}
+                accent="anytime"
+              />
+            ))}
+          </div>
+        </div>
       )}
 
-      {openVideo && (
-        <BetaVideoModal
-          entry={openVideo}
-          onClose={handleVideoClose}
-          onEnded={() => setIsComplete(true)}
-          completionContext={{
-            journey: 'anytime',
-            // Anytime Visual Flow and Closing Handoff uplift (Part 9) —
-            // the shared three-action row: "Continue My Day" (primary
-            // slot) leaves the wizard entirely; "Choose Another Reset"
-            // (secondary slot) un-completes this same screen (needId/
-            // durationId untouched) so the full recommendation +
-            // alternatives reappears immediately - exactly what the
-            // former two-action overlay's own "Choose Another Session"
-            // already did, just now the secondary rather than the primary
-            // action, matching the approved action order everywhere else
-            // this closing handoff appears; "Explore More" opens the same
-            // filtered Anytime Library this screen's own ExploreCard
-            // below already links to, preserving this exact Need/Time
-            // selection via the identical allowlisted query params.
-            onPrimaryAction: () => {
-              setIsComplete(false);
-              setOpenVideoId(null);
-              navigate('/');
-            },
-            onSecondaryAction: () => {
-              setIsComplete(false);
-              setOpenVideoId(null);
-            },
-            onExploreMore: () => {
-              navigate(`/library?journey=anytime&from=anytime-recommend&need=${encodeURIComponent(needId)}&duration=${encodeURIComponent(durationId)}`);
-            }
-          }}
-        />
+      {step === 'duration' && (
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="font-headline-lg text-3xl text-on-surface font-bold tracking-tight">How much time do you have?</h1>
+            <p className="text-sm text-on-surface-variant">{ANYTIME_RESET_NEEDS.find((n) => n.id === needId)?.label}</p>
+          </div>
+          <div className="space-y-3" role="group" aria-label="How much time do you have?">
+            {ANYTIME_RESET_DURATIONS.map((duration) => (
+              <SelectionRow
+                key={duration.id}
+                label={duration.label}
+                selected={durationId === duration.id}
+                onClick={() => handleSelectDuration(duration.id)}
+                accent="anytime"
+                icon={duration.id === 'any' ? 'all_inclusive' : 'schedule'}
+                iconAlwaysAccent
+              />
+            ))}
+          </div>
+        </div>
       )}
-      <SignInPromptDialog
-        open={signInPromptOpen}
-        onSignIn={handleSignIn}
-        onCreateAccount={handleCreateAccount}
-        onDismiss={() => setSignInPromptOpen(false)}
-      />
     </div>
     </div>
     </div>

@@ -43,7 +43,11 @@ describe('Every migrated call site passes a real, allowlisted completionContext.
 
   it('AnytimeReset.jsx: journey "anytime" - Anytime Visual Flow and Closing Handoff uplift (Part 9) now provides all three shared actions: primary "Continue My Day" leaves the wizard, secondary "Choose Another Reset" un-completes this screen, and onExploreMore opens the filtered Anytime Library, all real, reachable destinations', () => {
     const source = read('../pages/AnytimeReset.jsx');
-    const block = source.match(/completionContext=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
+    // Physical-iPhone correction — the recommend step's BetaVideoModal now
+    // renders one level deeper (inside ExerciseScreenShell's own
+    // scrolling body), shifting this block from 10 to 12 spaces; the
+    // callback bodies themselves are untouched.
+    const block = source.match(/completionContext=\{\{[\s\S]*?\n {12}\}\}/)?.[0] ?? '';
     expect(block).toMatch(/journey: 'anytime',/);
     expect(block).toMatch(/onPrimaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*navigate\('\/'\);\s*\n\s*\},/);
     expect(block).toMatch(/onSecondaryAction: \(\) => \{\s*\n\s*setIsComplete\(false\);\s*\n\s*setOpenVideoId\(null\);\s*\n\s*\},/);
