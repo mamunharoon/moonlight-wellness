@@ -10,7 +10,7 @@ apply plugin: 'com.android.application'
 // repo) when unset. A release build fails fast with a clear message if the
 // password env vars aren't present, rather than silently producing an
 // unsigned bundle.
-def wakewiseKeystorePath = System.getenv("WAKEWISE_KEYSTORE_PATH") ?: "C:\\Users\\mamun\\Documents\\WakeWise-Signing\\wakewise-upload-key.jks"
+def wakewiseKeystorePath = System.getenv("WAKEWISE_KEYSTORE_PATH") ?: "C:\\Users\\mamun\\Documents\\moonlight-wellness\\signing\\wakewise-upload-key.jks"
 def wakewiseStorePassword = System.getenv("WAKEWISE_STORE_PASSWORD")
 def wakewiseKeyPassword = System.getenv("WAKEWISE_KEY_PASSWORD")
 
