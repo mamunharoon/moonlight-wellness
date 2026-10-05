@@ -25,7 +25,7 @@
 // header comment, and GUEST_ALLOWED_IDS's own comment before adding
 // anything else to it.
 //
-// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S09 and
+// E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M06, S01-S09 and
 // SL01-SL10 no longer require profiles.beta_access: any authenticated,
 // non-anonymous user may request a signed URL for a video in
 // EXERCISE_PATHS below. That column and its admin_set_beta_access RPC
@@ -137,6 +137,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['M03', 'faststart-v1/WW_M03_LovingKindness_v1.mp4_faststart.mp4'],
   ['M04', 'faststart-v1/WW_M04_GratitudeMeditation_v1.mp4_faststart.mp4'],
   ['M05', 'faststart-v1/WW_M05_GuidedReflection_v1.mp4_faststart.mp4'],
+  // Mindful Listening - real MP3 (no video track), and its own still
+  // cover-image sibling (M06COVER) resolved via this exact same
+  // mechanism - see src/lib/betaVideoManifest.js's matching entries for
+  // the full explanation.
+  ['M06', 'faststart-v1/WW_M06_Mindful_Listening_v01.MP3'],
+  ['M06COVER', 'faststart-v1/WW_M06_Mindful_Listening_Cover_v1.png'],
   // S01-MUSIC (the pre-mixed narrated+music variant) removed - that
   // approach no longer represents the approved architecture. The original
   // S01 mapping below is untouched. WW_S01_NeckRelease_MusicBed_v2.mp4

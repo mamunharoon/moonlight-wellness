@@ -38,7 +38,9 @@ describe('betaVideoManifest.js — IM02 is registered exactly once, with the ver
 describe('mediaCatalog.js — IM02 is excluded from the browsable Library catalogue, same as IM01/IB01/IS01', () => {
   it('INTERACTIVE_ONLY_IDS includes IM02 alongside IM01/IB01/IS01', () => {
     const mediaCatalogSource = read('./mediaCatalog.js');
-    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02'\]\);/);
+    // 2026-10-05 meditation refresh: M06COVER joined this same Set (M06
+    // Mindful Listening's still cover image - same exclusion reason).
+    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER'\]\);/);
   });
 
   it('IM02 never appears in the real, browsable MEDIA_CATALOG', () => {

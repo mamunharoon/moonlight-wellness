@@ -165,6 +165,11 @@ const METADATA = {
   M03: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/reflection' },
   M04: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/reflection' },
   M05: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/reflection' },
+  // Mindful Listening - new real audio-only addition to this same
+  // Evening Wind-Down batch (2026-10-05 meditation content refresh).
+  // M06COVER (its still cover image) is deliberately absent here - see
+  // INTERACTIVE_ONLY_IDS below, same exclusion reason as IB01/IS01/IM01/IM02.
+  M06: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/reflection' },
 
   // Stretching
   S01: { category: 'Stretching', timeOfDay: 'any', page: '/morning-flow' },
@@ -236,17 +241,31 @@ export const MEDITATION_DURATION_GROUPS = [
 // actually made (need + duration group), so it can never narrate a
 // duration window ("fits your short 3-5 minute window") the user didn't
 // choose, e.g. when they picked "Any duration" instead.
+//
+// 2026-10-05 meditation content refresh: M01-M05's underlying Storage
+// objects were replaced with new exports (same filenames, genuinely
+// different runtimes - verified via ffprobe against the live objects,
+// not assumed) - every durationSeconds below for M01-M05 is updated to
+// match. Two (M01, M03) no longer cleanly fit the 'short' 180-300s
+// window the way they used to - flagged via exactGroupFit: false, same
+// precedent as E27's own pre-existing shortfall below, rather than
+// silently presenting an inexact match as exact:
+//   M01: 316s (was 215s) - 16s OVER short's 300s ceiling.
+//   M03: 164s (was 204s) - 16s UNDER short's 180s floor, and also
+//        doesn't fit 'quick' (60-120s cap) - genuinely between groups;
+//        'short' is the closer of the two and what's tagged here.
+// M02/M04/M05 still land cleanly inside 'short' with their new runtimes.
 const MEDITATION_METADATA = {
   E03: { meditationEligible: true, needs: ['calm'], durationSeconds: 100, durationGroup: 'quick' },
   E04: { meditationEligible: true, needs: ['stress-relief'], durationSeconds: 110, durationGroup: 'quick' },
   E08: { meditationEligible: true, needs: ['calm', 'body-awareness'], durationSeconds: 120, durationGroup: 'quick' },
   B02: { meditationEligible: true, needs: ['focus', 'calm'], durationSeconds: 180, durationGroup: 'short' },
-  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 215, durationGroup: 'short' },
-  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 227, durationGroup: 'short' },
+  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 316, durationGroup: 'short', exactGroupFit: false },
+  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 205, durationGroup: 'short' },
   E27: { meditationEligible: true, needs: ['deep-relaxation', 'calm'], durationSeconds: 155, durationGroup: 'short', exactGroupFit: false },
-  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 204, durationGroup: 'short' },
-  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 216, durationGroup: 'short' },
-  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 212, durationGroup: 'short' }
+  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 164, durationGroup: 'short', exactGroupFit: false },
+  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 242, durationGroup: 'short' },
+  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 245, durationGroup: 'short' }
 };
 
 // IB01/IS01 are audio-only interactive-ambient-music loops (see their own
@@ -268,7 +287,11 @@ const MEDITATION_METADATA = {
 // IM01/IM02 (Self-Guided Meditation's two selectable sound tracks) join the
 // same exclusion for the same reason as IB01/IS01 above - see their own
 // entries in betaVideoManifest.js.
-const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02']);
+// M06COVER (Mindful Listening's still cover image) joins this same
+// exclusion for the same structural reason: it must stay reachable only
+// via M06's own coverId lookup inside BetaVideoModal.jsx, never as a
+// general Library/catalog-browsable row in its own right.
+const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER']);
 
 // Anytime Stretch (DEV integration) — S06-S09 are real narrated exercises
 // (unlike the interactive-only loops above), but per the approved scope
@@ -364,9 +387,15 @@ const ANYTIME_RESET_METADATA = {
   S01: { needs: ['body-reset'], durationSeconds: 198.0 },
   S02: { needs: ['body-reset'], durationSeconds: 200.7 },
   S03: { needs: ['body-reset'], durationSeconds: 198.2 },
-  M01: { needs: ['quiet-time'], durationSeconds: 215.8 },
-  M03: { needs: ['quiet-time'], durationSeconds: 204.4 },
-  M05: { needs: ['quiet-time'], durationSeconds: 211.5 },
+  // M01/M03/M05 updated 2026-10-05 - the meditation content refresh
+  // replaced their underlying Storage objects with new exports of
+  // genuinely different runtimes (ffprobe-verified against the live
+  // objects); all three still comfortably clear this feature's own
+  // 'short' 330s cap either way, so no need/tier reclassification here,
+  // only the numbers themselves.
+  M01: { needs: ['quiet-time'], durationSeconds: 316.3 },
+  M03: { needs: ['quiet-time'], durationSeconds: 164.4 },
+  M05: { needs: ['quiet-time'], durationSeconds: 245.0 },
   E23: { needs: ['better-mood'], durationSeconds: 116.4 },
   A05: { needs: ['better-mood'], durationSeconds: 163.5 },
   A01: { needs: ['better-mood'], durationSeconds: 147.8 }

@@ -131,11 +131,16 @@ describe('getCuratedExploreCatalog', () => {
 });
 
 describe('Catalogue facts reconfirmed against current source (audit cross-check)', () => {
-  it('67 Library-visible items, 10 looping Sleep Soundscapes, 57 items capable of a natural ended event', () => {
-    expect(MEDIA_CATALOG.length).toBe(67);
+  it('68 Library-visible items, 10 looping Sleep Soundscapes, 58 items capable of a natural ended event', () => {
+    // 2026-10-05 meditation refresh: M06 (Mindful Listening) joined
+    // MEDIA_CATALOG as a real, Library-visible, non-looping entry - 67
+    // became 68, and the non-sleep-soundscape count became 58 to match.
+    // M06COVER stays excluded (INTERACTIVE_ONLY_IDS), so it's not part
+    // of either number.
+    expect(MEDIA_CATALOG.length).toBe(68);
     const sleepSoundscapes = MEDIA_CATALOG.filter((e) => e.category === 'Sleep Soundscapes');
     expect(sleepSoundscapes.length).toBe(10);
-    expect(MEDIA_CATALOG.length - sleepSoundscapes.length).toBe(57);
+    expect(MEDIA_CATALOG.length - sleepSoundscapes.length).toBe(58);
   });
 
   it('no interactive-only/draft id (IB01/IS01/IM01/IM02/I01/I02) ever appears in any Explore catalogue - they are already excluded from MEDIA_CATALOG itself', () => {

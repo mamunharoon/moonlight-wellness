@@ -3,8 +3,8 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because sixty-seven narrated exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M05, S01-S09, SL01-SL10) are live in Storage
+// because sixty-eight narrated exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, M01-M06, S01-S09, SL01-SL10) are live in Storage
 // today and need a minimal, typed, isolated place to map an id -> title ->
 // object path, plus four audio-only interactive-ambient-music loops
 // (IB01, IS01, IM01, IM02 - see their own entries below) that share this
@@ -43,7 +43,7 @@
 // Every original `exercises/` object remains in Storage for rollback.
 //
 // @typedef {Object} BetaVideoEntry
-// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M05, S01-S09, SL01-SL10)
+// @property {string} id            - stable id sent to the Edge Function (E02-E30, A01-A06, B01-B05, F01-F03, G01-G04, M01-M06, S01-S09, SL01-SL10)
 // @property {string} title         - exercise/video title shown on the beta card. Distinct
 //                                     from Support.jsx's "I feel overwhelmed" mood-card copy
 //                                     (E02's filename concept, "OverwhelmedMind") - that mood
@@ -51,7 +51,7 @@
 // @property {string} storagePath   - object path within the private `wellness-videos` bucket
 // @property {string} description   - short, non-clinical one-liner for the beta card
 // @property {string} [durationLabel] - optional short duration badge (e.g. "5 min"), shown by
-//                                       BetaVideoRow only when provided; only SL01-SL10 set this
+//                                       BetaVideoRow only when provided; only SL01-SL10 and M06 set this
 // @property {string} [musicVariantId] - id of this entry's own pre-mixed "-MUSIC" sibling
 //                                        entry (see docs/background-music-specification.md),
 //                                        only when one has actually been produced and
@@ -59,6 +59,18 @@
 //                                        shouldShowMusicToggle in backgroundMusicSelection.js
 //                                        fall back to the plain id whenever this is absent
 //                                        or doesn't resolve to a real entry
+// @property {string} [mediaType]   - 'audio' marks an entry with no video track at all (only
+//                                     M06 today) - BetaVideoModal.jsx renders its still cover
+//                                     image + native <audio controls> instead of a <video>
+//                                     element for these, and skips fullscreen entirely (no
+//                                     video frame to be fullscreen about). Absent/undefined
+//                                     means the ordinary <video> path, unchanged.
+// @property {string} [coverId]     - for a mediaType:'audio' entry, the id of its own still
+//                                     cover-image sibling entry below (fetched as a second
+//                                     signed URL via this exact same mechanism, private bucket
+//                                     included) - see M06COVER's own entry and
+//                                     INTERACTIVE_ONLY_IDS in mediaCatalog.js (a cover entry is
+//                                     never itself a browsable Library row)
 
 /** @type {BetaVideoEntry[]} */
 export const BETA_VIDEO_MANIFEST = [
@@ -439,6 +451,31 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Guided Reflection',
     storagePath: 'faststart-v1/WW_M05_GuidedReflection_v1.mp4_faststart.mp4',
     description: 'A guided meditation for quiet reflection.'
+  },
+  {
+    // Mindful Listening - the one entry in this manifest with no video
+    // track at all (real MP3, verified via ffprobe: codec mp3, 44.1kHz
+    // stereo, 105.769792s). Intentionally has no background music mixed
+    // in (unlike M01-M05) - narration only, so no musicVariantId either.
+    // durationLabel is this exact measured duration rounded to whole
+    // minutes, same convention as SL01-SL10's own verified labels above.
+    id: 'M06',
+    title: 'Mindful Listening',
+    storagePath: 'faststart-v1/WW_M06_Mindful_Listening_v01.MP3',
+    description: 'A guided mindful listening session.',
+    durationLabel: '2 min',
+    mediaType: 'audio',
+    coverId: 'M06COVER'
+  },
+  {
+    // M06's still cover image (real PNG, verified via ffprobe: 941x1672).
+    // Resolved as its own signed URL via the exact same get-beta-video-url
+    // mechanism M06 itself uses (see M06's coverId above) - never a
+    // standalone Library row, see INTERACTIVE_ONLY_IDS in mediaCatalog.js.
+    id: 'M06COVER',
+    title: 'Mindful Listening (cover image)',
+    storagePath: 'faststart-v1/WW_M06_Mindful_Listening_Cover_v1.png',
+    description: 'Cover image for the Mindful Listening audio session.'
   },
   {
     // S01-MUSIC (the pre-mixed narrated+music variant) was removed here -

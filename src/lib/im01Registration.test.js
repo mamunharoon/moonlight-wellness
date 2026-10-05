@@ -32,7 +32,9 @@ describe('mediaCatalog.js — IM01 is excluded from the browsable Library catalo
   const mediaCatalogSource = read('./mediaCatalog.js');
 
   it('INTERACTIVE_ONLY_IDS includes IM01 alongside IB01/IS01/IM02', () => {
-    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02'\]\);/);
+    // 2026-10-05 meditation refresh: M06COVER joined this same Set (M06
+    // Mindful Listening's still cover image - same exclusion reason).
+    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER'\]\);/);
   });
 });
 

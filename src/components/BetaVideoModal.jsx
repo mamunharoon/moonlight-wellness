@@ -108,9 +108,24 @@ const formatRemaining = (ms) => {
 export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded, completionContext = null, onDurationKnown }) => {
   const { isGuest } = useAuth();
   const isSleepSound = entry.category === 'Sleep Soundscapes';
+  // Audio-only entries (today, only M06 "Mindful Listening") have no
+  // video track at all - rendered as a still cover image + native
+  // <audio controls> below instead of a <video> element, and never
+  // fullscreen (there's no video frame to be fullscreen about). videoRef
+  // is bound to the <audio> element in this case: HTMLAudioElement
+  // shares the exact same play/pause/currentTime/readyState/ended-event
+  // surface as HTMLVideoElement, so every generic handler below
+  // (handleBegin, handleStop, handleEnded, the cleanup effects) works
+  // unchanged - only the video-specific fullscreen calls are gated off,
+  // immediately below and in the two handlers that call them.
+  const isAudioOnly = entry.mediaType === 'audio';
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [videoUrl, setVideoUrl] = useState(null);
+  // Audio-only entries' still cover image - a second signed URL, fetched
+  // alongside videoUrl in the same effect below whenever entry.coverId
+  // is present (today, only M06). null for every ordinary <video> entry.
+  const [coverUrl, setCoverUrl] = useState(null);
   // Bumped by the Retry button. The fetch effect depends on it (alongside
   // entry.id) instead of on a `load` function reference — keeps the whole
   // fetch fully local to the effect, so there's no outer function identity
@@ -274,12 +289,17 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       setFallbackFullscreen(false);
       setHasEnded(false);
       setCompletionMessage(null);
+      setCoverUrl(null);
       hasEndedProcessedRef.current = false;
       try {
-        const { url, expiresAt } = await requestBetaVideoUrl(playbackId);
+        const [{ url, expiresAt }, coverResult] = await Promise.all([
+          requestBetaVideoUrl(playbackId),
+          entry.coverId ? requestBetaVideoUrl(entry.coverId) : Promise.resolve(null)
+        ]);
         if (cancelled) return;
         expiresAtRef.current = expiresAt;
         setVideoUrl(url);
+        if (coverResult) setCoverUrl(coverResult.url);
         setStatus('ready');
       } catch (e) {
         if (cancelled) return;
@@ -292,7 +312,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     return () => {
       cancelled = true;
     };
-  }, [playbackId, retryToken]);
+  }, [playbackId, retryToken, entry.coverId]);
 
   // Owns the <video> element's lifecycle, separately from the fetch above.
   // Depends on videoUrl specifically so it re-runs (and re-captures the
@@ -601,6 +621,35 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     );
   };
 
+  // Shared by both the <video> and the audio-only <audio> branch below -
+  // identical onPlay/onPause/onLoadedMetadata behaviour regardless of
+  // which element type is actually mounted, since both are
+  // HTMLMediaElement under the hood. Extracted once here instead of
+  // duplicated per branch, so the two paths can never drift apart.
+  const handleMediaPlay = () => {
+    setHasStarted(true);
+    setIsVideoPlaying(true);
+    // "Play again" after the timer ended - a completely fresh countdown,
+    // never continuing from 0. (Only ever relevant for Sleep Soundscapes,
+    // which are always the <video> branch - harmless no-op otherwise.)
+    if (timerEnded) setRemainingMs(sleepTimerMinutes * 60 * 1000);
+    setTimerEnded(false);
+  };
+
+  const handleMediaPause = () => setIsVideoPlaying(false);
+
+  const handleMediaLoadedMetadata = (e) => {
+    cacheDurationSeconds(entry.id, e.currentTarget.duration);
+    // "Your Momentum" foundation, Phase 2 — the genuine, exact-seconds
+    // media duration (this cosmetic cache above only ever stores whole
+    // minutes), for a caller that wants to credit a real completion with
+    // its real duration rather than a selected/estimated one. Fires once
+    // metadata is available, always well before `ended` can ever fire
+    // for this same element - optional, additive; every existing caller
+    // that omits this prop is completely unaffected.
+    onDurationKnown?.(e.currentTarget.duration);
+  };
+
   const handleClose = () => {
     videoRef.current?.pause();
     onClose();
@@ -668,7 +717,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
   const handleBegin = () => {
     const video = videoRef.current;
     if (!video) return;
-    if (!isSleepSound) requestVideoFullscreen(video);
+    if (!isSleepSound && !isAudioOnly) requestVideoFullscreen(video);
     video.play().catch(() => {
       setStatus('error');
       setErrorMessage("Couldn't start playback.");
@@ -688,7 +737,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       setCompletionMessage(null);
       hasEndedProcessedRef.current = false;
     }
-    if (!isSleepSound) requestVideoFullscreen(video);
+    if (!isSleepSound && !isAudioOnly) requestVideoFullscreen(video);
     video.play().catch(() => {
       setStatus('error');
       setErrorMessage("Couldn't start playback.");
@@ -740,62 +789,80 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
 
           {status === 'ready' && videoUrl && (
             <>
-              <video
-                ref={videoRef}
-                key={videoUrl}
-                src={videoUrl}
-                // Physical-iPhone completion-overlay defect fix — native
-                // controls are disabled once hasEnded, for every caller
-                // (not just completionContext ones): a completed video's
-                // own built-in ended-state chrome (including its native
-                // "replay" affordance) must never remain live and tappable
-                // underneath either completion overlay - both already
-                // fully cover this frame with their own buttons, so this
-                // removes zero user-visible affordance while closing the
-                // one native surface that could otherwise restart
-                // playback outside any of this component's own handlers.
-                // Sleep Soundscapes never set hasEnded (loop never fires
-                // `ended`), so this is always `true` for them, unaffected.
-                controls={!hasEnded}
-                playsInline
-                loop={isSleepSound}
-                preload="metadata"
-                onError={handleVideoError}
-                onPlay={() => {
-                  setHasStarted(true);
-                  setIsVideoPlaying(true);
-                  // "Play again" after the timer ended - a completely
-                  // fresh countdown, never continuing from 0.
-                  if (timerEnded) setRemainingMs(sleepTimerMinutes * 60 * 1000);
-                  setTimerEnded(false);
-                }}
-                onPause={() => setIsVideoPlaying(false)}
-                onLoadedMetadata={(e) => {
-                  cacheDurationSeconds(entry.id, e.currentTarget.duration);
-                  // "Your Momentum" foundation, Phase 2 — the genuine,
-                  // exact-seconds media duration (this cosmetic cache above
-                  // only ever stores whole minutes), for a caller that
-                  // wants to credit a real completion with its real
-                  // duration rather than a selected/estimated one. Fires
-                  // once metadata is available, always well before `ended`
-                  // can ever fire for this same element - optional, additive;
-                  // every existing caller that omits this prop is
-                  // completely unaffected.
-                  onDurationKnown?.(e.currentTarget.duration);
-                }}
-                // Fallback-fullscreen, Defect 2 fix: the SAME <video>
-                // element is simply repositioned full-viewport via CSS
-                // when neither native fullscreen API is available -
-                // never a second, duplicate video element (only one
-                // video may ever exist/play at a time).
-                className={
-                  fallbackFullscreen
-                    ? 'fixed inset-0 z-[200] w-screen h-screen object-contain bg-black'
-                    : 'w-full h-full object-contain bg-black'
-                }
-              >
-                Your browser doesn&apos;t support embedded video.
-              </video>
+              {isAudioOnly ? (
+                // Mindful Listening (M06) and any future audio-only entry:
+                // still cover image fills the frame exactly like a video
+                // would, native <audio controls> sits over the bottom of
+                // it - no subtitles, no video animation, no fullscreen
+                // (there's nothing visual to be fullscreen about). Shares
+                // handleMediaPlay/Pause/LoadedMetadata/handleVideoError
+                // with the <video> branch below so the completion/caching/
+                // error-retry behaviour is identical, not reimplemented -
+                // and shares every overlay below too (Begin Exercise,
+                // completion, etc.), since those are siblings of this
+                // ternary, not nested inside either branch of it.
+                <>
+                  {coverUrl && (
+                    <img
+                      src={coverUrl}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  )}
+                  <audio
+                    ref={videoRef}
+                    key={videoUrl}
+                    src={videoUrl}
+                    controls={!hasEnded}
+                    preload="metadata"
+                    className="absolute bottom-0 left-0 right-0 w-full z-[1]"
+                    onError={handleVideoError}
+                    onPlay={handleMediaPlay}
+                    onPause={handleMediaPause}
+                    onLoadedMetadata={handleMediaLoadedMetadata}
+                  >
+                    Your browser doesn&apos;t support embedded audio.
+                  </audio>
+                </>
+              ) : (
+                <video
+                  ref={videoRef}
+                  key={videoUrl}
+                  src={videoUrl}
+                  // Physical-iPhone completion-overlay defect fix — native
+                  // controls are disabled once hasEnded, for every caller
+                  // (not just completionContext ones): a completed video's
+                  // own built-in ended-state chrome (including its native
+                  // "replay" affordance) must never remain live and tappable
+                  // underneath either completion overlay - both already
+                  // fully cover this frame with their own buttons, so this
+                  // removes zero user-visible affordance while closing the
+                  // one native surface that could otherwise restart
+                  // playback outside any of this component's own handlers.
+                  // Sleep Soundscapes never set hasEnded (loop never fires
+                  // `ended`), so this is always `true` for them, unaffected.
+                  controls={!hasEnded}
+                  playsInline
+                  loop={isSleepSound}
+                  preload="metadata"
+                  onError={handleVideoError}
+                  onPlay={handleMediaPlay}
+                  onPause={handleMediaPause}
+                  onLoadedMetadata={handleMediaLoadedMetadata}
+                  // Fallback-fullscreen, Defect 2 fix: the SAME <video>
+                  // element is simply repositioned full-viewport via CSS
+                  // when neither native fullscreen API is available -
+                  // never a second, duplicate video element (only one
+                  // video may ever exist/play at a time).
+                  className={
+                    fallbackFullscreen
+                      ? 'fixed inset-0 z-[200] w-screen h-screen object-contain bg-black'
+                      : 'w-full h-full object-contain bg-black'
+                  }
+                >
+                  Your browser doesn&apos;t support embedded video.
+                </video>
+              )}
 
               {/* Full-viewport in-app fallback exit control - only ever
                   rendered when neither native fullscreen API was
@@ -963,7 +1030,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   instead); a plain hasEnded with no completionContext
                   still falls through to this original "Done"/"Play
                   Again" pair, byte-for-byte unchanged. */}
-              {hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !(hasEnded && completionContext) && (
+              {hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !isAudioOnly && !(hasEnded && completionContext) && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm text-center px-6">
                   <span className="material-symbols-outlined text-3xl text-white/80">
                     {hasEnded ? 'check_circle' : 'pause_circle'}

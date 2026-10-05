@@ -19,8 +19,13 @@ describe('Resolve before playback, never swap during playback', () => {
   });
 
   it('the signed-URL fetch effect requests playbackId, and depends on it (so a pre-playback toggle re-fetches, a mid-playback one cannot)', () => {
-    expect(modalSource).toMatch(/await requestBetaVideoUrl\(playbackId\);/);
-    expect(modalSource).toMatch(/\}, \[playbackId, retryToken\]\);/);
+    // 2026-10-05 meditation refresh: the primary fetch is now one leg of
+    // a Promise.all (alongside an optional cover-image fetch for
+    // mediaType:'audio' entries like M06 - see betaVideoManifest.test.js
+    // sibling coverage) - still requestBetaVideoUrl(playbackId), just no
+    // longer directly preceded by its own `await`.
+    expect(modalSource).toMatch(/requestBetaVideoUrl\(playbackId\),/);
+    expect(modalSource).toMatch(/\}, \[playbackId, retryToken, entry\.coverId\]\);/);
   });
 
   it('musicEnabled is seeded once from getMusicPreference as this instance\'s own initial state, not re-read from storage every render', () => {
@@ -45,9 +50,16 @@ describe('Never add music over Sleep Soundscapes / music-only content', () => {
 });
 
 describe('Missing music variants fall back safely to narration-only', () => {
-  it('playbackId resolution is the ONLY thing requestBetaVideoUrl is ever called with - no separate direct entry.id call path exists that could bypass the fallback', () => {
+  it('playbackId resolution is the ONLY thing requestBetaVideoUrl is ever called with for the PRIMARY media fetch - no separate direct entry.id call path exists that could bypass the fallback', () => {
+    // 2026-10-05 meditation refresh: a second call now exists -
+    // requestBetaVideoUrl(entry.coverId), for mediaType:'audio' entries'
+    // still cover image (M06). That's a deliberately separate, narrower
+    // lookup (a static image id, never subject to music-variant
+    // resolution) - the guarantee this test actually protects is that
+    // the PRIMARY media fetch is never called with a raw entry.id that
+    // could bypass resolvePlaybackId's fallback logic, which still holds.
     const requestCalls = modalSource.match(/requestBetaVideoUrl\([^)]*\)/g) ?? [];
-    expect(requestCalls).toEqual(['requestBetaVideoUrl(playbackId)']);
+    expect(requestCalls).toEqual(['requestBetaVideoUrl(playbackId)', 'requestBetaVideoUrl(entry.coverId)']);
   });
 });
 
@@ -60,13 +72,23 @@ describe('Playback cleanup — stop on close/back/route-change/unmount (already 
     expect(modalSource).toMatch(/const handleClose = \(\) => \{\s*\n\s*videoRef\.current\?\.pause\(\);/);
   });
 
-  it('still exactly one <video> element in the whole component - no second media element was introduced for music (per the pre-mixed, not dual-track, architecture decision)', () => {
-    // Matches only the actual JSX tag opening (ref={videoRef} immediately
-    // follows it in this file), not the many prose mentions of "<video>"
-    // in this file's own doc comments.
+  it('exactly one video and one audio element author site, both bound to videoRef as the ONE mutually-exclusive playback element (isAudioOnly ternary) - no second, dual-track media element was introduced for music', () => {
+    // Matches only the actual JSX tag openings (ref={videoRef} immediately
+    // follows each one in this file), not the many prose mentions of
+    // "<video>"/"<audio>" in this file's own doc comments. 2026-10-05
+    // meditation refresh: a genuine <audio ref={videoRef}> now exists
+    // for mediaType:'audio' entries (M06) - an intentional, unrelated
+    // addition (a still-cover-image audio player). It and the original
+    // <video> are the two arms of one ternary (isAudioOnly ? <audio> :
+    // <video>), never both mounted at once - this test can't verify
+    // runtime exclusivity via source text, but confirms exactly this
+    // pair exists and nothing more, which is what would catch a THIRD,
+    // genuinely-simultaneous media element for background music.
     const videoTags = modalSource.match(/<video\s*\n\s*ref=\{videoRef\}/g) ?? [];
+    const audioTags = modalSource.match(/<audio\s*\n\s*ref=\{videoRef\}/g) ?? [];
     expect(videoTags.length).toBe(1);
-    expect(modalSource).not.toMatch(/<audio[\s>]/);
+    expect(audioTags.length).toBe(1);
+    expect(modalSource).toMatch(/isAudioOnly \? \(/);
   });
 });
 

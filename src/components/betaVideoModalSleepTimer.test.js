@@ -41,8 +41,13 @@ describe('Sleep Soundscapes timer options - no indefinite/continuous choice', ()
 
 describe('Live countdown - tied to the <video> element\'s own native play/pause events', () => {
   it('tracks isVideoPlaying from real onPlay/onPause handlers, not an assumption', () => {
+    // 2026-10-05 meditation refresh: onPlay/onPause were extracted into
+    // named handleMediaPlay/handleMediaPause (shared with the audio-only
+    // branch) - same underlying setIsVideoPlaying calls, just no longer
+    // inline in the JSX.
     expect(source).toMatch(/const \[isVideoPlaying, setIsVideoPlaying\] = useState\(false\);/);
-    expect(source).toMatch(/onPause=\{\(\) => setIsVideoPlaying\(false\)\}/);
+    expect(source).toMatch(/const handleMediaPause = \(\) => setIsVideoPlaying\(false\);/);
+    expect(source).toMatch(/onPause=\{handleMediaPause\}/g);
     expect(source).toMatch(/setIsVideoPlaying\(true\);/);
   });
 
@@ -149,7 +154,11 @@ describe('Duplicate-player/timer guard - re-fetching (a genuinely different entr
 
 describe('"Play again" after the timer ends starts a genuinely fresh countdown, never continuing from zero', () => {
   it('onPlay resets remainingMs to the full selected duration specifically when resuming from timerEnded', () => {
-    const body = source.match(/onPlay=\{\(\) => \{[\s\S]*?\n {16}\}\}/)?.[0] ?? '';
+    // 2026-10-05 meditation refresh: onPlay was extracted into the named
+    // handleMediaPlay function (shared with the audio-only branch,
+    // though Sleep Soundscapes are always the <video> path in practice)
+    // - same body, just no longer an inline JSX arrow.
+    const body = source.match(/const handleMediaPlay = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(body).toMatch(/if \(timerEnded\) setRemainingMs\(sleepTimerMinutes \* 60 \* 1000\);/);
   });
 });

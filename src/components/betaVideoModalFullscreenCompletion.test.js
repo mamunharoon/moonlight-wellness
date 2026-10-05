@@ -162,9 +162,9 @@ describe('manual early full-screen exit (before the video ends) is completely un
 });
 
 describe('sleep soundscapes remain structurally excluded from every part of this fix - loop means `ended` never fires, so hasEnded/exitFullscreenAfterCompletion/controls={!hasEnded} are all inert no-ops for them, exactly as before', () => {
-  it('requestVideoFullscreen (and therefore any fullscreen presentation at all) is never invoked for isSleepSound entries, per the existing, unmodified guard in handleBegin/handleResumeOrReplay', () => {
-    expect(source).toMatch(/if \(!isSleepSound\) requestVideoFullscreen\(video\);/g);
-    expect((source.match(/if \(!isSleepSound\) requestVideoFullscreen\(video\);/g) ?? []).length).toBe(2);
+  it('requestVideoFullscreen (and therefore any fullscreen presentation at all) is never invoked for isSleepSound entries, per the guard in handleBegin/handleResumeOrReplay (2026-10-05: also guards audio-only entries now, same guard extended, not a second one)', () => {
+    expect(source).toMatch(/if \(!isSleepSound && !isAudioOnly\) requestVideoFullscreen\(video\);/g);
+    expect((source.match(/if \(!isSleepSound && !isAudioOnly\) requestVideoFullscreen\(video\);/g) ?? []).length).toBe(2);
   });
 
   it('controls={!hasEnded} evaluates to controls={true} for every sleep soundscape, since hasEnded can never become true for a looping <video> (no `ended` event ever fires) - completely unaffected by this fix', () => {

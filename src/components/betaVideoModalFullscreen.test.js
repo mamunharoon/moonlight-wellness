@@ -99,15 +99,15 @@ describe('BetaVideoModal.jsx — Begin requests fullscreen synchronously, within
   });
 
   it('never introduces autoplay - requestVideoFullscreen and play() are only ever called from a real button onClick (handleBegin/handleResumeOrReplay), never on mount or from an effect', () => {
-    const fetchEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*let cancelled = false;[\s\S]*?\}, \[playbackId, retryToken\]\);/)?.[0] ?? '';
+    const fetchEffect = source.match(/useEffect\(\(\) => \{\s*\n\s*let cancelled = false;[\s\S]*?\}, \[playbackId, retryToken, entry\.coverId\]\);/)?.[0] ?? '';
     expect(fetchEffect).not.toMatch(/\.play\(\)|requestVideoFullscreen/);
   });
 
-  it('Sleep Soundscapes are excluded from fullscreen in both entry points', () => {
+  it('Sleep Soundscapes and audio-only entries (mediaType:"audio", e.g. M06 - no video frame to be fullscreen about) are excluded from fullscreen in both entry points', () => {
     const beginBody = source.match(/const handleBegin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(beginBody).toMatch(/if \(!isSleepSound\) requestVideoFullscreen\(video\);/);
+    expect(beginBody).toMatch(/if \(!isSleepSound && !isAudioOnly\) requestVideoFullscreen\(video\);/);
     const resumeBody = source.match(/const handleResumeOrReplay = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(resumeBody).toMatch(/if \(!isSleepSound\) requestVideoFullscreen\(video\);/);
+    expect(resumeBody).toMatch(/if \(!isSleepSound && !isAudioOnly\) requestVideoFullscreen\(video\);/);
   });
 });
 
@@ -120,7 +120,11 @@ describe('BetaVideoModal.jsx — Play Again restarts from zero; Resume continues
 
 describe('BetaVideoModal.jsx — Pause is never equated with Stop/Exit', () => {
   it('onPause only ever updates isVideoPlaying - it never touches isFullscreen, fallbackFullscreen, hasEnded, or onClose', () => {
-    expect(source).toMatch(/onPause=\{\(\) => setIsVideoPlaying\(false\)\}/);
+    // 2026-10-05 meditation refresh: extracted into handleMediaPause,
+    // shared by both the <video> and the audio-only <audio> branch -
+    // same single-line body, just named instead of inline.
+    expect(source).toMatch(/const handleMediaPause = \(\) => setIsVideoPlaying\(false\);/);
+    expect(source).toMatch(/onPause=\{handleMediaPause\}/g);
   });
 });
 
@@ -162,14 +166,20 @@ describe('BetaVideoModal.jsx — only one <video> element ever exists, even for 
 });
 
 describe('BetaVideoModal.jsx — the returned-to-preview overlay', () => {
-  it('renders only once playback has started AND neither fullscreen mode is active, and only for non-Sleep-Soundscape entries (Shared guided-media completion correction: also excluded once hasEnded && completionContext - the new shared overlay takes over that exact case instead)', () => {
+  it('renders only once playback has started AND neither fullscreen mode is active, and only for non-Sleep-Soundscape, non-audio-only entries (Shared guided-media completion correction: also excluded once hasEnded && completionContext - the new shared overlay takes over that exact case instead)', () => {
+    // 2026-10-05 meditation refresh: audio-only entries (mediaType:
+    // 'audio', e.g. M06) never enter fullscreen at all (isFullscreen
+    // stays permanently false for them), so without this extra
+    // exclusion this overlay would incorrectly cover the native audio
+    // controls the instant playback starts, every time - added
+    // alongside the pre-existing !isSleepSound exclusion.
     expect(source).toMatch(
-      /\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !\(hasEnded && completionContext\) && \(/
+      /\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !isAudioOnly && !\(hasEnded && completionContext\) && \(/
     );
   });
 
   it('offers Play Again + Close Video on natural completion, Resume + Close Video otherwise - unchanged for the case this overlay still covers (no completionContext)', () => {
-    const body = source.match(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !\(hasEnded && completionContext\) && \([\s\S]*?\n {14}\)\}/)?.[0] ?? '';
+    const body = source.match(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !isAudioOnly && !\(hasEnded && completionContext\) && \([\s\S]*?\n {14}\)\}/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/\{hasEnded \? 'Play Again' : 'Resume'\}/);
     expect(body).toMatch(/Close Video/);
@@ -206,8 +216,11 @@ describe('BetaVideoModal.jsx — cleanup releases fullscreen on every exit path'
 });
 
 describe('BetaVideoModal.jsx — signed-URL access is untouched by this fix', () => {
-  it('requestBetaVideoUrl / the fetch effect are unchanged - fullscreen logic never touches URL fetching, signing, or auth', () => {
-    expect(source).toMatch(/const \{ url, expiresAt \} = await requestBetaVideoUrl\(playbackId\);/);
+  it('requestBetaVideoUrl / the fetch effect are unaffected by fullscreen logic - fullscreen never touches URL fetching, signing, or auth', () => {
+    // 2026-10-05 meditation refresh: the primary fetch is now one leg of
+    // a Promise.all (alongside an optional cover-image fetch) - still
+    // requestBetaVideoUrl(playbackId), destructured from the array.
+    expect(source).toMatch(/const \[\{ url, expiresAt \}, coverResult\] = await Promise\.all\(\[\s*\n\s*requestBetaVideoUrl\(playbackId\),/);
     expect(source).not.toMatch(/webkitEnterFullscreen[\s\S]{0,200}requestBetaVideoUrl/);
   });
 });

@@ -47,7 +47,10 @@ describe('BetaVideoModal.jsx — natural `ended` event is the ONLY gate for the 
   });
 
   it('the idempotency ref and the completion message are both reset on every fresh fetch (a genuinely different entry, or Retry) - a second natural completion in the same mounted instance always gets its own fresh pick', () => {
-    const fetchEffectResetBlock = source.match(/setHasEnded\(false\);\s*\n\s*setCompletionMessage\(null\);\s*\n\s*hasEndedProcessedRef\.current = false;\s*\n\s*try \{/)?.[0] ?? '';
+    // 2026-10-05 meditation refresh: setCoverUrl(null) was inserted into
+    // this same reset block (the audio-only cover image is entry-
+    // specific too, same staleness risk as everything else here).
+    const fetchEffectResetBlock = source.match(/setHasEnded\(false\);\s*\n\s*setCompletionMessage\(null\);\s*\n\s*setCoverUrl\(null\);\s*\n\s*hasEndedProcessedRef\.current = false;\s*\n\s*try \{/)?.[0] ?? '';
     expect(fetchEffectResetBlock).not.toBe('');
   });
 
@@ -80,7 +83,7 @@ describe('BetaVideoModal.jsx — the shared completion overlay renders only for 
   });
 
   it('never renders both the new overlay and the old generic Done/Paused overlay at once - the old one\'s own guard explicitly excludes hasEnded && completionContext', () => {
-    expect(source).toMatch(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !\(hasEnded && completionContext\) && \(/);
+    expect(source).toMatch(/\{hasStarted && !isFullscreen && !fallbackFullscreen && !isSleepSound && !isAudioOnly && !\(hasEnded && completionContext\) && \(/);
   });
 
   it('does not autoplay another item and does not automatically advance a guided journey - the overlay renders only the two caller-supplied action buttons, no third "play next" control of any kind', () => {
