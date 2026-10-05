@@ -104,19 +104,29 @@ describe('recommendAnytimeReset — duration honesty (never silently implies a s
     }
   });
 
-  it('body-reset has no item short enough for "About 2 minutes" — correctly falls back to "closest match" and explicitly states no item fits, plus the real shortest available duration (3:18 for S01, verified via ffprobe), never silently claiming a 2-minute fit', () => {
+  it('body-reset now HAS an item short enough for "About 2 minutes" (2026-10-05 stretching refresh: S01 dropped from 3:18 to 1:57, verified via ffprobe) - genuinely an exact match, not a closest-fallback', () => {
     const { items, matchQuality } = recommendAnytimeReset({ needId: 'body-reset', durationId: 'quick' });
+    expect(matchQuality).toBe('exact');
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.anytimeReset.durationSeconds).toBeLessThanOrEqual(135);
+      expect(item.matchReason).toMatch(/Matches your need for body reset and fits about 2 minutes\./i);
+    }
+    expect(items.some((i) => i.id === 'S01')).toBe(true);
+  });
+
+  it('quiet-time (meditation) still has no item short enough for "About 2 minutes" — correctly falls back to "closest match" and explicitly states no item fits, plus the real shortest available duration, never silently claiming a 2-minute fit', () => {
+    const { items, matchQuality } = recommendAnytimeReset({ needId: 'quiet-time', durationId: 'quick' });
     expect(matchQuality).toBe('closest');
     expect(items.length).toBeGreaterThan(0);
     for (const item of items) {
       expect(item.anytimeReset.durationSeconds).toBeGreaterThan(135);
       expect(item.matchReason).toMatch(/No .* option fits within about 2 minutes\./i);
-      expect(item.matchReason).toMatch(/The shortest option is 3:18\./);
     }
   });
 
   it('the "shortest option" stated in the reason is the true minimum across the whole fallback pool, not the currently-displayed item\'s own (possibly longer) duration - stays accurate through every "Choose another" cycle', () => {
-    const { items } = recommendAnytimeReset({ needId: 'body-reset', durationId: 'quick' });
+    const { items } = recommendAnytimeReset({ needId: 'quiet-time', durationId: 'quick' });
     expect(items.length).toBeGreaterThan(1);
     const trueShortest = Math.min(...items.map((i) => i.anytimeReset.durationSeconds));
     for (const item of items) {

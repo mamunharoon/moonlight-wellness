@@ -161,10 +161,20 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   // states for every other id, typos and double extensions included).
   // wellness-videos' allowed_mime_types was extended with 'audio/mpeg' in
   // DEV to accept these (video/mp4 and audio/mp4 only, before).
-  ['S06', 'faststart-v1/ST01_Chest_Shoulder_Stretch.mp3.MP3'],
+  // 2026-10-05 stretching content refresh: S06's object was renamed on
+  // reupload (gained a "1" before the extension) - verified the old
+  // no-"1" name no longer exists in storage.objects. S07-S09 kept their
+  // exact prior filenames. Each also gained a *COVER sibling (still PNG
+  // cover image for Library's audio-only player) - see
+  // src/lib/betaVideoManifest.js's matching entries.
+  ['S06', 'faststart-v1/ST01_Chest_Shoulder_Stretch1.mp3.MP3'],
+  ['S06COVER', 'faststart-v1/ST01_Chest_Shoulder_Stretch.png'],
   ['S07', 'faststart-v1/ST02_Hands_Wrists_Refresh.mp3.MP3'],
+  ['S07COVER', 'faststart-v1/ST02_Hands_Wrists_Refresh.png'],
   ['S08', 'faststart-v1/ST03_Feet_Ankles_Refresh.mp3.MP3'],
+  ['S08COVER', 'faststart-v1/ST03_Feet_Ankles_Refresh.png'],
   ['S09', 'faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3'],
+  ['S09COVER', 'faststart-v1/ST04_Gentle_Side_Stretch.png'],
   ['IS01', 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a'],
   // Build 15 — SL01-SL10 true-fast-start migration. The original
   // faststart-v1 objects below were replaced: a live Storage audit found

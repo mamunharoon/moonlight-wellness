@@ -518,32 +518,85 @@ export const BETA_VIDEO_MANIFEST = [
   // Anytime Stretch (DEV integration) — mirrored byte-for-byte from
   // get-beta-video-url/index.ts's own EXERCISE_PATHS (see that file's
   // comment on this exact block for the storagePath/naming rationale).
-  // Audio-only (no video track) - same shape as IS01 below, fetched
-  // through this identical signed-URL mechanism and played via a plain
-  // <audio> element (AnytimeStretch.jsx), never BetaVideoModal.
+  // Audio-only (no video track), same shape as M06 above: mediaType:
+  // 'audio' + coverId resolve to BetaVideoModal's still-cover-image
+  // player when opened from Library. Still ALSO played via
+  // AnytimeStretch.jsx's own separate plain <audio> element/exerciseId
+  // lookup - these extra fields are additive and that existing feature
+  // reads neither, so it's completely unaffected.
+  //
+  // 2026-10-05 stretching content refresh: all four MP3s + new cover
+  // PNGs verified against live storage.objects (not assumed). S06's
+  // filename changed on reupload (gained a "1" before the extension -
+  // confirmed the old no-"1" object no longer exists, this is a rename
+  // not a duplicate); S07-S09 kept their exact prior filenames.
+  // durationSeconds dropped notably from the previous batch (content
+  // was re-recorded, not just re-uploaded) - durationLabel below is the
+  // new ffprobe-measured value, same whole-minute-rounding convention
+  // as SL01-SL10/M06. 2026-10-05 Library expansion: these four are now
+  // also browsable/playable via Library (see mediaCatalog.js's
+  // METADATA block and the removal of S06-S09 from
+  // LIBRARY_EXCLUDED_STRETCH_IDS there) - an explicit, later product
+  // decision superseding the original "No Library expansion" scope.
   {
     id: 'S06',
     title: 'Chest & Shoulder Stretch',
-    storagePath: 'faststart-v1/ST01_Chest_Shoulder_Stretch.mp3.MP3',
-    description: 'A guided audio stretch for your chest and shoulders.'
+    storagePath: 'faststart-v1/ST01_Chest_Shoulder_Stretch1.mp3.MP3',
+    description: 'A guided audio stretch for your chest and shoulders.',
+    durationLabel: '1 min',
+    mediaType: 'audio',
+    coverId: 'S06COVER'
+  },
+  {
+    id: 'S06COVER',
+    title: 'Chest & Shoulder Stretch (cover image)',
+    storagePath: 'faststart-v1/ST01_Chest_Shoulder_Stretch.png',
+    description: 'Cover image for the Chest & Shoulder Stretch audio session.'
   },
   {
     id: 'S07',
     title: 'Hands & Wrists Refresh',
     storagePath: 'faststart-v1/ST02_Hands_Wrists_Refresh.mp3.MP3',
-    description: 'A guided audio stretch to refresh your hands and wrists.'
+    description: 'A guided audio stretch to refresh your hands and wrists.',
+    durationLabel: '1 min',
+    mediaType: 'audio',
+    coverId: 'S07COVER'
+  },
+  {
+    id: 'S07COVER',
+    title: 'Hands & Wrists Refresh (cover image)',
+    storagePath: 'faststart-v1/ST02_Hands_Wrists_Refresh.png',
+    description: 'Cover image for the Hands & Wrists Refresh audio session.'
   },
   {
     id: 'S08',
     title: 'Feet & Ankles Refresh',
     storagePath: 'faststart-v1/ST03_Feet_Ankles_Refresh.mp3.MP3',
-    description: 'A guided audio stretch to refresh your feet and ankles.'
+    description: 'A guided audio stretch to refresh your feet and ankles.',
+    durationLabel: '1 min',
+    mediaType: 'audio',
+    coverId: 'S08COVER'
+  },
+  {
+    id: 'S08COVER',
+    title: 'Feet & Ankles Refresh (cover image)',
+    storagePath: 'faststart-v1/ST03_Feet_Ankles_Refresh.png',
+    description: 'Cover image for the Feet & Ankles Refresh audio session.'
   },
   {
     id: 'S09',
     title: 'Gentle Side Stretch',
     storagePath: 'faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3',
-    description: 'A gentle guided audio side stretch.'
+    description: 'A gentle guided audio side stretch.',
+    durationLabel: '1 min',
+    mediaType: 'audio',
+    coverId: 'S09COVER'
+  },
+  {
+    id: 'S09COVER',
+    title: 'Gentle Side Stretch (cover image)',
+    storagePath: 'faststart-v1/ST04_Gentle_Side_Stretch.png',
+    description: 'Cover image for the Gentle Side Stretch audio session.'
   },
   {
     // Interactive-ambient-music loop for MorningFlow.jsx's own silent

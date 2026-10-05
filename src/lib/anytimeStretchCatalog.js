@@ -18,30 +18,34 @@
 // the same canonical Stretch glyph Morning's own pathway preview already
 // uses, so this integration introduces no new icon identity for the same
 // concept.
+// 2026-10-05 stretching content refresh: all four durations updated to
+// match the re-recorded MP3s (ffprobe-measured against the live
+// objects, not guessed) - notably shorter than the previous batch, not
+// a measurement error.
 export const ANYTIME_STRETCH_SESSIONS = [
   {
     id: 'chest-shoulder',
     exerciseId: 'S06',
     title: 'Chest & Shoulder Stretch',
-    durationSeconds: 73
+    durationSeconds: 52
   },
   {
     id: 'hands-wrists',
     exerciseId: 'S07',
     title: 'Hands & Wrists Refresh',
-    durationSeconds: 57
+    durationSeconds: 44
   },
   {
     id: 'feet-ankles',
     exerciseId: 'S08',
     title: 'Feet & Ankles Refresh',
-    durationSeconds: 78
+    durationSeconds: 41
   },
   {
     id: 'gentle-side',
     exerciseId: 'S09',
     title: 'Gentle Side Stretch',
-    durationSeconds: 96
+    durationSeconds: 49
   }
 ];
 

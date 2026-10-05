@@ -177,6 +177,19 @@ const METADATA = {
   S03: { category: 'Stretching', timeOfDay: 'any', page: '/morning-flow' },
   S04: { category: 'Stretching', timeOfDay: 'morning', page: '/morning-flow' },
   S05: { category: 'Stretching', timeOfDay: 'evening', page: '/morning-flow' },
+  // S06-S09 (Anytime Stretch audio sessions) join Stretching here as of
+  // the 2026-10-05 stretching content refresh's explicit Library
+  // expansion decision - see LIBRARY_EXCLUDED_STRETCH_IDS below for the
+  // superseded original "No Library expansion" scope. Their own primary
+  // page stays /anytime-stretch (unchanged, still their main entry
+  // point); Library is now a second, equally valid way to reach them.
+  // S06COVER-S09COVER (their still cover images) are deliberately absent
+  // here - see INTERACTIVE_ONLY_IDS below, same exclusion reason as
+  // M06COVER.
+  S06: { category: 'Stretching', timeOfDay: 'any', page: '/anytime-stretch' },
+  S07: { category: 'Stretching', timeOfDay: 'any', page: '/anytime-stretch' },
+  S08: { category: 'Stretching', timeOfDay: 'any', page: '/anytime-stretch' },
+  S09: { category: 'Stretching', timeOfDay: 'any', page: '/anytime-stretch' },
 
   // Sleep Soundscapes
   SL01: { category: 'Sleep Soundscapes', timeOfDay: 'evening', page: '/prepare-for-rest' },
@@ -291,19 +304,27 @@ const MEDITATION_METADATA = {
 // exclusion for the same structural reason: it must stay reachable only
 // via M06's own coverId lookup inside BetaVideoModal.jsx, never as a
 // general Library/catalog-browsable row in its own right.
-const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER']);
+// S06COVER-S09COVER (Anytime Stretch's own still cover images, added in
+// the 2026-10-05 stretching refresh) join for the identical reason -
+// reachable only via S06-S09's own coverId lookups.
+const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER']);
 
 // Anytime Stretch (DEV integration) — S06-S09 are real narrated exercises
-// (unlike the interactive-only loops above), but per the approved scope
-// for this feature they must stay reachable ONLY via AnytimeStretch.jsx's
-// own exerciseId lookup (requestBetaVideoUrl -> get-beta-video-url), never
-// as a general Library/catalog-browsable row - "No Library expansion" was
-// an explicit requirement when this integration was approved. Kept as its
-// own separate set (not folded into INTERACTIVE_ONLY_IDS itself) so that
-// set's own exact-membership tests (e.g. im01Registration.test.js) stay
-// untouched and accurate - these ids are excluded from Library for a
-// different reason, not because they're interactive-only content.
-const LIBRARY_EXCLUDED_STRETCH_IDS = new Set(['S06', 'S07', 'S08', 'S09']);
+// (unlike the interactive-only loops above). Originally excluded from
+// Library entirely ("No Library expansion" was an explicit requirement
+// when this integration was approved - reachable ONLY via
+// AnytimeStretch.jsx's own exerciseId lookup). SUPERSEDED 2026-10-05: the
+// stretching content refresh explicitly asked for all nine stretching
+// sessions (S01-S09) to appear in Library, so S06-S09 are no longer
+// listed here - see their own METADATA entries above instead.
+// AnytimeStretch.jsx's own exerciseId lookup is completely unaffected
+// either way; Library is now simply a second, additional path to the
+// same four ids. Kept as its own named (now empty) set rather than
+// deleted outright, in case a future id needs this same
+// excluded-from-Library-but-real-content treatment - the structural
+// distinction from INTERACTIVE_ONLY_IDS above (a different exclusion
+// reason) stays documented and ready to reuse.
+const LIBRARY_EXCLUDED_STRETCH_IDS = new Set([]);
 
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id) && !LIBRARY_EXCLUDED_STRETCH_IDS.has(entry.id)).map((entry) => ({
   ...entry,
@@ -384,9 +405,13 @@ const ANYTIME_RESET_METADATA = {
   B02: { needs: ['stress-relief'], durationSeconds: 168.9 },
   G02: { needs: ['stress-relief'], durationSeconds: 196.9 },
   G04: { needs: ['stress-relief'], durationSeconds: 172.7 },
-  S01: { needs: ['body-reset'], durationSeconds: 198.0 },
-  S02: { needs: ['body-reset'], durationSeconds: 200.7 },
-  S03: { needs: ['body-reset'], durationSeconds: 198.2 },
+  // S01-S03 updated 2026-10-05 - the stretching content refresh replaced
+  // their underlying Storage objects with new exports of genuinely
+  // different runtimes (ffprobe-verified against the live objects); all
+  // three still comfortably clear this feature's own 'short' 330s cap.
+  S01: { needs: ['body-reset'], durationSeconds: 117.0 },
+  S02: { needs: ['body-reset'], durationSeconds: 212.9 },
+  S03: { needs: ['body-reset'], durationSeconds: 208.3 },
   // M01/M03/M05 updated 2026-10-05 - the meditation content refresh
   // replaced their underlying Storage objects with new exports of
   // genuinely different runtimes (ffprobe-verified against the live

@@ -40,7 +40,9 @@ describe('mediaCatalog.js — IM02 is excluded from the browsable Library catalo
     const mediaCatalogSource = read('./mediaCatalog.js');
     // 2026-10-05 meditation refresh: M06COVER joined this same Set (M06
     // Mindful Listening's still cover image - same exclusion reason).
-    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER'\]\);/);
+    // 2026-10-05 stretching refresh: S06COVER-S09COVER joined too (same
+    // reason, Anytime Stretch's own still cover images).
+    expect(mediaCatalogSource).toMatch(/INTERACTIVE_ONLY_IDS = new Set\(\['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I02', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER'\]\);/);
   });
 
   it('IM02 never appears in the real, browsable MEDIA_CATALOG', () => {
