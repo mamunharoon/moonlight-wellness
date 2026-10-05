@@ -73,11 +73,53 @@ describe('anytimeStretchCatalog.js — durations corrected to match the re-recor
   });
 });
 
-describe('AnytimeStretch.jsx — its own separate integration is unaffected by the new fields', () => {
+describe('AnytimeStretch.jsx — its own separate integration, still never BetaVideoModal or mediaType', () => {
   const source = read('../pages/AnytimeStretch.jsx');
-  it('still uses requestBetaVideoUrl(exerciseId) directly and its own plain <audio> element - never BetaVideoModal, never reads mediaType/coverId', () => {
+  it('still uses requestBetaVideoUrl(exerciseId) directly and its own plain <audio> element - never BetaVideoModal, never reads mediaType', () => {
     expect(source).toMatch(/requestBetaVideoUrl\(/);
-    expect(source).not.toMatch(/mediaType|coverId|BetaVideoModal/);
+    expect(source).not.toMatch(/mediaType|BetaVideoModal/);
+  });
+
+  it('cover-image fix (generic icon -> real session cover): resolves session.coverId via the same requestBetaVideoUrl mechanism, its own coverUrl state - a parallel usage, not a dependency on BetaVideoModal\'s coverId', () => {
+    expect(source).toMatch(/requestBetaVideoUrl\(s\.coverId\)/);
+    expect(source).toMatch(/requestBetaVideoUrl\(coverId\)/);
+    expect(source).toMatch(/const \[coverUrl, setCoverUrl\] = useState\(null\);/);
+  });
+
+  it('cover resolution never blocks or gates the audio play() call - handleSelect\'s synchronous play() path stays untouched', () => {
+    const handleSelectBody = source.match(/const handleSelect = \(id\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleSelectBody).not.toBe('');
+    expect(handleSelectBody).toMatch(/resolveCover\(target\.coverId\);/);
+    // resolveCover is called, but play() itself still only ever depends
+    // on `cached`/the fetch-on-tap fallback - same as before this fix.
+    expect(handleSelectBody).toMatch(/audio\.play\(\)\.catch/);
+  });
+
+  it('guards against a fast session-switch race: a cover fetch that resolves after a different session is already selected never overwrites the wrong cover', () => {
+    const resolveCoverBody = source.match(/const resolveCover = \(coverId\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(resolveCoverBody).not.toBe('');
+    expect(resolveCoverBody).toMatch(/currentCoverIdRef\.current = coverId;/);
+    expect(resolveCoverBody).toMatch(/if \(currentCoverIdRef\.current === coverId\) setCoverUrl\(url\);/);
+  });
+
+  it('falls back to the original plain icon badge whenever coverUrl is not yet available - never a broken-image state', () => {
+    expect(source).toMatch(/\{coverUrl \? \(/);
+    expect(source).toMatch(/material-symbols-outlined text-4xl" aria-hidden="true">accessibility_new<\/span>/);
+  });
+});
+
+describe('anytimeStretchCatalog.js — coverId wired to the exact same S06COVER-S09COVER entries Library uses', () => {
+  it.each([
+    ['chest-shoulder', 'S06COVER'],
+    ['hands-wrists', 'S07COVER'],
+    ['feet-ankles', 'S08COVER'],
+    ['gentle-side', 'S09COVER']
+  ])('%s has coverId %s', (id, expectedCoverId) => {
+    const session = ANYTIME_STRETCH_SESSIONS.find((s) => s.id === id);
+    expect(session.coverId).toBe(expectedCoverId);
+    // The cover must actually resolve through betaVideoManifest.js too -
+    // one shared mapping, not a second, divergent one.
+    expect(getBetaVideoById(expectedCoverId)).toBeTruthy();
   });
 });
 

@@ -22,28 +22,40 @@
 // match the re-recorded MP3s (ffprobe-measured against the live
 // objects, not guessed) - notably shorter than the previous batch, not
 // a measurement error.
+//
+// coverId (added for the Anytime player's own cover-image display,
+// matching the generic icon -> real session cover fix) resolves through
+// this exact same signed-URL mechanism (requestBetaVideoUrl) - the
+// identical S06COVER-S09COVER entries betaVideoManifest.js/
+// get-beta-video-url already carry for Library's own BetaVideoModal use
+// of these same four sessions. One shared id/path mapping, two
+// independent consumers - never a second cover upload or path.
 export const ANYTIME_STRETCH_SESSIONS = [
   {
     id: 'chest-shoulder',
     exerciseId: 'S06',
+    coverId: 'S06COVER',
     title: 'Chest & Shoulder Stretch',
     durationSeconds: 52
   },
   {
     id: 'hands-wrists',
     exerciseId: 'S07',
+    coverId: 'S07COVER',
     title: 'Hands & Wrists Refresh',
     durationSeconds: 44
   },
   {
     id: 'feet-ankles',
     exerciseId: 'S08',
+    coverId: 'S08COVER',
     title: 'Feet & Ankles Refresh',
     durationSeconds: 41
   },
   {
     id: 'gentle-side',
     exerciseId: 'S09',
+    coverId: 'S09COVER',
     title: 'Gentle Side Stretch',
     durationSeconds: 49
   }
