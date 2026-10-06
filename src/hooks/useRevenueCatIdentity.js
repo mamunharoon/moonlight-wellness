@@ -20,6 +20,13 @@
 // not possible via this app's own UI today, but not assumed impossible
 // here) always logs out the previous identity before logging in the new
 // one, never the reverse order.
+//
+// Native purchase integration — this hook is now also the ONLY writer of
+// the shared revenueCatIdentityStatus.js store, so Subscription.jsx and
+// useNativeRestore.js can answer "is it safe to purchase/restore right
+// now, for this exact user" without duplicating any of this race-safety
+// logic themselves. Every ref update below has a matching status publish
+// immediately beside it, so the two can never drift apart.
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { onSignOutBroadcast } from '../lib/signOutCleanup';
@@ -29,6 +36,7 @@ import {
   logOutRevenueCat,
   isRevenueCatSupported
 } from '../lib/revenueCatAdapter';
+import { REVENUECAT_IDENTITY_STATUS, setRevenueCatIdentityStatus } from '../lib/revenueCatIdentityStatus';
 
 export const useRevenueCatIdentity = () => {
   const { user, loading, isGuest } = useAuth();
@@ -41,17 +49,22 @@ export const useRevenueCatIdentity = () => {
     return onSignOutBroadcast(() => {
       if (!isRevenueCatSupported()) return;
       loggedInUserIdRef.current = null;
+      setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.PENDING, forUserId: null });
       logOutRevenueCat();
     });
   }, []);
 
   useEffect(() => {
-    if (!isRevenueCatSupported()) return;
+    if (!isRevenueCatSupported()) {
+      setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.UNAVAILABLE, forUserId: null });
+      return undefined;
+    }
     // Wait for AuthContext's own getSession()/onAuthStateChange to settle
     // before acting on `user` at all — acting on a transient
     // "not yet loaded" state is exactly the startup race this phase warns
-    // against.
-    if (loading) return;
+    // against. Status stays whatever it already was (PENDING by the
+    // store's own initial default) rather than being reasserted here.
+    if (loading) return undefined;
 
     let cancelled = false;
 
@@ -63,15 +76,28 @@ export const useRevenueCatIdentity = () => {
         // out. Never configures or logs in as any kind of guest identity
         // — RevenueCat's own anonymous id (generated internally once
         // configure() has run) is exactly what should represent a guest,
-        // never a WakeWise-generated substitute.
+        // never a WakeWise-generated substitute. Never READY for a
+        // guest — isRevenueCatIdentityReadyFor can never match a null
+        // user id, but this is still set explicitly for clarity.
         if (loggedInUserIdRef.current) {
           loggedInUserIdRef.current = null;
           await logOutRevenueCat();
         }
+        if (!cancelled) setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.PENDING, forUserId: null });
         return;
       }
 
-      if (loggedInUserIdRef.current === user.id) return; // already correct — no-op
+      if (loggedInUserIdRef.current === user.id) {
+        // Already correct — no-op, but still assert READY so a prior
+        // transient FAILED (e.g. a retry that happens to land on a
+        // render where nothing else changed) is cleared.
+        setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.READY, forUserId: user.id });
+        return;
+      }
+
+      // An account switch (or first sign-in) is starting — never READY
+      // for the new user until it's actually confirmed below.
+      setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.PENDING, forUserId: user.id });
 
       // Account switch: a different real user id was previously logged
       // in. Log out first so the previous identity's cached entitlement
@@ -85,6 +111,7 @@ export const useRevenueCatIdentity = () => {
 
       if (configureResult.outcome === 'configured') {
         loggedInUserIdRef.current = user.id;
+        setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.READY, forUserId: user.id });
         return;
       }
       // configure() had already run in an earlier session/render (e.g.
@@ -94,7 +121,16 @@ export const useRevenueCatIdentity = () => {
       if (cancelled) return;
       if (loginResult.outcome === 'logged-in') {
         loggedInUserIdRef.current = user.id;
+        setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.READY, forUserId: user.id });
+        return;
       }
+      // Neither configure() nor the logIn() fallback confirmed this
+      // user's identity — a genuine failure (SDK/network error), not a
+      // transient race this hook already knows how to resolve. Never
+      // left silently as "still pending forever": every purchase/restore
+      // call site reads FAILED and refuses to act until a future
+      // sign-in-state change gives this effect another chance to run.
+      setRevenueCatIdentityStatus({ status: REVENUECAT_IDENTITY_STATUS.FAILED, forUserId: null });
     };
 
     sync();

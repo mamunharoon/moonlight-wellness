@@ -36,3 +36,27 @@ describe('SubscriptionContext — refreshSubscription()/loadSubscription() retur
     expect(source).toMatch(/const load = async \(\) => \{\s*\n\s*if \(authLoading\) return;\s*\n\s*await loadSubscription\(user\);\s*\n\s*\};/);
   });
 });
+
+// Native purchase integration — the identical correction, applied to
+// loadEntitlement()/refreshEntitlement() for the same reason: useNativeRestore.js
+// needs the real, just-refreshed unified entitlement (not the legacy,
+// Stripe-only `subscription`) immediately after an awaited restore/purchase
+// confirmation poll, without racing this Provider's own re-render.
+describe('SubscriptionContext — refreshEntitlement()/loadEntitlement() also return the resolved value (readiness-gap item 4)', () => {
+  const loadEntitlementBody = () => source.match(/const loadEntitlement = async \(currentUser\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+
+  it('both the guest/no-user branch and the success path return the resolved value, never undefined', () => {
+    const body = loadEntitlementBody();
+    expect(body).toMatch(/const resolved = resolveUnifiedEntitlement\(\{ loading: false \}, \[\]\);\s*\n\s*setEntitlement\(resolved\);\s*\n\s*return resolved;/);
+    expect(body).toMatch(/const resolved = resolveUnifiedEntitlement\(\{ loading: false, error: fetchError \}, records\);\s*\n\s*setEntitlement\(resolved\);\s*\n\s*return resolved;/);
+    expect(body).not.toMatch(/return;\s*\n {4}\}/);
+  });
+
+  it('refreshEntitlement is still just loadEntitlement(user) - the return value flows through automatically', () => {
+    expect(source).toMatch(/const refreshEntitlement = \(\) => loadEntitlement\(user\);/);
+  });
+
+  it('this is purely additive - the effect\'s own fire-and-forget call site is untouched', () => {
+    expect(source).toMatch(/const load = async \(\) => \{\s*\n[\s\S]*?await loadEntitlement\(user\);\s*\n\s*\};/);
+  });
+});

@@ -184,6 +184,47 @@ describe('revenueCatAdapter — restore never conflates a receipt-ownership conf
   });
 });
 
+describe('revenueCatAdapter — CustomerInfo listener (native purchase integration)', () => {
+  it('addRevenueCatCustomerInfoListener returns a no-op cleanup function, never throwing, when unsupported/unconfigured', () => {
+    const body = source.match(/export const addRevenueCatCustomerInfoListener = \(callback\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(!configured \|\| !isRevenueCatSupported\(\)\) return \(\) => \{\};/);
+  });
+
+  it('uses the real plugin API (addCustomerInfoUpdateListener / removeCustomerInfoUpdateListener with a callback id), never the different addListener(event, cb) shape applePurchaseAdapter.js uses', () => {
+    const body = source.match(/export const addRevenueCatCustomerInfoListener = \(callback\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/Purchases\.addCustomerInfoUpdateListener\(/);
+    expect(body).toMatch(/Purchases\.removeCustomerInfoUpdateListener\(\{ listenerToRemove \}\)/);
+    expect(body).not.toMatch(/\.addListener\(/);
+  });
+
+  it('only ever reports a plain isActive boolean to the caller - never the full CustomerInfo object', () => {
+    const body = source.match(/export const addRevenueCatCustomerInfoListener = \(callback\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/callback\(\{ isActive: Boolean\(entitlement\) \}\);/);
+    expect(body).not.toMatch(/callback\(customerInfo\)/);
+  });
+});
+
+describe('revenueCatAdapter — purchaseGoogleOrdinaryAnnual never reaches the founder tier', () => {
+  it('is Android-only and tries "trial" before falling back to "base"', () => {
+    const body = source.match(/export const purchaseGoogleOrdinaryAnnual = async \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/currentPlatform\(\) !== 'android'/);
+    expect(body).toMatch(/purchaseGoogleAnnualTierExplicit\(annualPackage, 'trial'\)/);
+    expect(body).toMatch(/purchaseGoogleAnnualTierExplicit\(annualPackage, 'base'\)/);
+  });
+
+  it('never names the founder tier anywhere in its own body - the founder purchase only ever happens at its own separate call site', () => {
+    const body = source.match(/export const purchaseGoogleOrdinaryAnnual = async \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/founder/i);
+  });
+
+  it('only retries on "not_found" (a catalogue gap), never retries or substitutes on "mismatch" (a structural rejection)', () => {
+    const body = source.match(/export const purchaseGoogleOrdinaryAnnual = async \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(trialResult\.outcome !== 'not_found'\) return trialResult;/);
+  });
+});
+
 describe('revenueCatAdapter — coexistence with the existing Apple-direct adapter', () => {
   it('does not import or call anything from applePurchaseAdapter.js - the two purchase paths stay fully separate until the documented cutover', () => {
     expect(source).not.toMatch(/from '\.\/applePurchaseAdapter'/);

@@ -7,8 +7,12 @@ import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DataExportDialog } from '../components/DataExportDialog';
 import { getMembershipStatusLabelFromEntitlement } from '../lib/membershipStatus';
-import { isAppleIAPSupported } from '../lib/applePurchaseAdapter';
-import { useAppleRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE } from '../hooks/useAppleRestore';
+// Native purchase integration — Profile's Restore Purchases row is now
+// consolidated onto the same platform-aware (iOS + Android) RevenueCat
+// flow Subscription.jsx uses, via useNativeRestore.js, instead of the
+// legacy iOS-only useAppleRestore.js. Android restore is now possible
+// here for the first time.
+import { useNativeRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE, IDENTITY_NOT_READY_MESSAGE } from '../hooks/useNativeRestore';
 
 /*
  * WakeWise Phase 2A — minimum launch-ready Profile
@@ -67,7 +71,8 @@ const RESTORE_MESSAGES = {
   restoring: { role: 'status', text: 'Restoring…' },
   restored: { role: 'status', text: 'Restore complete — your subscription status has been refreshed.' },
   completed: { role: 'status', text: NEUTRAL_RESTORE_COMPLETION_MESSAGE },
-  failed: { role: 'alert', text: null } // uses the hook's own error message
+  failed: { role: 'alert', text: null }, // uses the hook's own error message
+  identity_not_ready: { role: 'alert', text: IDENTITY_NOT_READY_MESSAGE }
 };
 
 export const Profile = () => {
@@ -101,15 +106,12 @@ export const Profile = () => {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
 
-  // WakeWise Phase 2A — Restore Purchases. Native iOS only (see
-  // useAppleRestore's own doc comment) — Android has real Google Play
-  // Billing wired into its native build but zero application-layer
-  // restore/verification code exists yet (confirmed by direct inspection
-  // of the android-prep worktree), so this row is hidden entirely on
-  // Android rather than shown non-functional or routed to Stripe and
-  // called "restore" — see the Phase 2A report's Android limitation note.
-  const restoreSupported = isAppleIAPSupported();
-  const { state: restoreState, error: restoreError, restore } = useAppleRestore();
+  // Native purchase integration — Restore Purchases, iOS and Android,
+  // through the same RevenueCat flow Subscription.jsx uses (see
+  // useNativeRestore.js's own header). `supported` already covers both
+  // platforms; web still has no restore concept (Stripe's hosted Checkout
+  // has no separate restore step).
+  const { state: restoreState, error: restoreError, restore, supported: restoreSupported } = useNativeRestore();
   const [restoreSignInPrompt, setRestoreSignInPrompt] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 

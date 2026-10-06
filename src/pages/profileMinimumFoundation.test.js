@@ -110,17 +110,17 @@ describe('Profile.jsx — dead avatar treatment removed', () => {
   });
 });
 
-describe('Profile.jsx — Restore Purchases: reuse, guest gating, honest platform scoping', () => {
-  it('reuses the shared useAppleRestore hook rather than a second, divergent implementation', () => {
-    expect(source).toMatch(/import \{ useAppleRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE \} from '\.\.\/hooks\/useAppleRestore';/);
-    expect(source).toMatch(/const \{ state: restoreState, error: restoreError, restore \} = useAppleRestore\(\);/);
+describe('Profile.jsx — Restore Purchases: reuse, guest gating, honest platform scoping (native purchase integration: consolidated onto useNativeRestore)', () => {
+  it('reuses the shared useNativeRestore hook (iOS + Android, via RevenueCat) rather than the legacy iOS-only useAppleRestore, and rather than a second, divergent implementation', () => {
+    expect(source).toMatch(/import \{ useNativeRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE, IDENTITY_NOT_READY_MESSAGE \} from '\.\.\/hooks\/useNativeRestore';/);
+    expect(source).toMatch(/const \{ state: restoreState, error: restoreError, restore, supported: restoreSupported \} = useNativeRestore\(\);/);
+    expect(source).not.toMatch(/from '\.\.\/hooks\/useAppleRestore'/);
   });
 
-  it('the row only renders when isAppleIAPSupported() is true - never shown on web/Android, and never silently routed to Stripe', () => {
-    expect(source).toMatch(/import \{ isAppleIAPSupported \} from '\.\.\/lib\/applePurchaseAdapter';/);
-    expect(source).toMatch(/const restoreSupported = isAppleIAPSupported\(\);/);
+  it('the row renders based on the hook\'s own platform-aware `supported` flag - never a re-derived, possibly-drifting iOS-only check, and never silently routed to Stripe', () => {
     expect(source).toMatch(/\{restoreSupported && \(/);
     expect(source).not.toMatch(/startCheckout|openBillingPortal/);
+    expect(source).not.toMatch(/isAppleIAPSupported/);
   });
 
   it('a guest tapping Restore Purchases is prompted to sign in, never allowed to restore anonymously', () => {
@@ -135,22 +135,23 @@ describe('Profile.jsx — Restore Purchases: reuse, guest gating, honest platfor
     expect(source).toMatch(/disabled=\{restoreState === 'restoring'\}/);
   });
 
-  it('every restore UI state (restoring/restored/completed/failed) has a distinct message, and the failed state shows the hook\'s own error text, never a guessed one', () => {
+  it('every restore UI state (restoring/restored/completed/failed/identity_not_ready) has a distinct message, and the failed state shows the hook\'s own error text, never a guessed one', () => {
     expect(source).toMatch(/restoring: \{ role: 'status', text: 'Restoring…' \}/);
     expect(source).toMatch(/restored: \{ role: 'status', text: 'Restore complete/);
     expect(source).toMatch(/completed: \{ role: 'status', text: NEUTRAL_RESTORE_COMPLETION_MESSAGE \}/);
     expect(source).toMatch(/failed: \{ role: 'alert', text: null \}/);
+    expect(source).toMatch(/identity_not_ready: \{ role: 'alert', text: IDENTITY_NOT_READY_MESSAGE \}/);
     expect(source).toMatch(/\{restoreMessage\.text \?\? restoreError\}/);
   });
 
-  it('the Phase 2A "nothing to restore" timeout inference is fully withdrawn from Profile.jsx\'s actual code', () => {
+  it('the Phase 2A "nothing to restore" timeout-as-failure inference is still fully withdrawn from Profile.jsx\'s actual code (the hook\'s own bounded confirmation poll is a UI-pacing bound, never an inference of failure)', () => {
     expect(codeOnly).not.toMatch(/nothing-to-restore/);
     expect(codeOnly).not.toMatch(/No previous purchases were found to restore/);
   });
 
-  it('imports the neutral completion message from the hook rather than re-authoring it here', () => {
+  it('imports the neutral completion and identity-not-ready messages from the hook rather than re-authoring them here', () => {
     expect(source).toMatch(
-      /import \{ useAppleRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE \} from '\.\.\/hooks\/useAppleRestore';/
+      /import \{ useNativeRestore, NEUTRAL_RESTORE_COMPLETION_MESSAGE, IDENTITY_NOT_READY_MESSAGE \} from '\.\.\/hooks\/useNativeRestore';/
     );
   });
 });

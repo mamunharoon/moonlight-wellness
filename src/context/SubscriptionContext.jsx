@@ -133,14 +133,25 @@ export const SubscriptionProvider = ({ children }) => {
   // status row).
   const [entitlement, setEntitlement] = useState(() => resolveUnifiedEntitlement({ loading: true }, []));
 
+  // Returns the exact value it just set as state — same correction as
+  // setResolvedSubscription's own header above, and for the identical
+  // reason: native purchase integration's useNativeRestore.js needs the
+  // real, just-refreshed entitlement immediately after refreshEntitlement()
+  // resolves, and cannot safely rely on this Provider's own re-render
+  // having already reached a consumer's closure by the time an awaited
+  // call resolves. Every existing caller already ignores this return
+  // value, so this is purely additive.
   const loadEntitlement = async (currentUser) => {
     if (!currentUser || currentUser.is_anonymous) {
-      setEntitlement(resolveUnifiedEntitlement({ loading: false }, []));
-      return;
+      const resolved = resolveUnifiedEntitlement({ loading: false }, []);
+      setEntitlement(resolved);
+      return resolved;
     }
     setEntitlement((current) => (current.state === ENTITLEMENT_STATES.LOADING ? current : resolveUnifiedEntitlement({ loading: true }, [])));
     const { records, error: fetchError } = await fetchEntitlementRecords(supabase, currentUser.id);
-    setEntitlement(resolveUnifiedEntitlement({ loading: false, error: fetchError }, records));
+    const resolved = resolveUnifiedEntitlement({ loading: false, error: fetchError }, records);
+    setEntitlement(resolved);
+    return resolved;
   };
 
   useEffect(() => {

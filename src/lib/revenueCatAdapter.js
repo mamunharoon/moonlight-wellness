@@ -309,6 +309,33 @@ export const purchaseGoogleAnnualTierExplicit = async (annualPackage, intendedTi
 };
 
 /**
+ * The production "Subscribe — Annual" button's Android call, for a
+ * subscriber who is NOT redeeming a founder offer. Never purchases
+ * 'founder' under any circumstance — that tier is only ever reached via
+ * its own separate, explicitly-confirmed call site (Subscription.jsx's
+ * founder redemption action), never this function.
+ *
+ * Tries 'trial' first (GOOGLE_OFFER_NAMES.trial, 'annual-trial-7-days') —
+ * the approved standard 7-day introductory offer every new subscriber
+ * should receive (docs/release-readiness-register.md's 2026-09-16
+ * commercial-decisions update) — and falls back to 'base' (no offer) only
+ * on purchaseGoogleAnnualTierExplicit's 'not_found' outcome, i.e. the
+ * trial offer simply isn't present on the resolved package (a catalogue
+ * state, not a per-user eligibility question — real per-user trial
+ * eligibility is Google/Play Billing's own decision at the actual
+ * purchase moment, never computed client-side here). A 'mismatch' from
+ * either attempt is returned as-is, never silently retried as something
+ * else — see purchaseGoogleAnnualTierExplicit's own header for why a
+ * structural mismatch must reject, not fall through.
+ */
+export const purchaseGoogleOrdinaryAnnual = async (annualPackage) => {
+  if (currentPlatform() !== 'android') return { outcome: 'unavailable' };
+  const trialResult = await purchaseGoogleAnnualTierExplicit(annualPackage, 'trial');
+  if (trialResult.outcome !== 'not_found') return trialResult;
+  return purchaseGoogleAnnualTierExplicit(annualPackage, 'base');
+};
+
+/**
  * The founder offer's Apple mechanism, exactly as configured today
  * (source-confirmed — see revenueCatConfig.js's own FOUNDER_OFFER_MODEL).
  * A plain, synchronous config read — never calls the SDK itself. Exists
@@ -514,4 +541,38 @@ export const getRevenueCatEntitlementSnapshot = async () => {
     console.warn('[revenueCatAdapter] getCustomerInfo failed, continuing without it', safeErrorMessage(error));
     return null;
   }
+};
+
+/**
+ * Subscribes to RevenueCat's own CustomerInfo updates — the real
+ * completion signal for anything that changes entitlement OUTSIDE a
+ * direct purchasePackage()/purchaseGoogleSubscriptionOption() return
+ * value, most importantly redeemAppleFounderOfferCode() above:
+ * presentCodeRedemptionSheet() only opens the OS sheet and resolves once
+ * presented, never once redeemed — this listener is what actually learns
+ * the redemption completed. The real RevenueCat Capacitor plugin API is
+ * callback-id based (addCustomerInfoUpdateListener returns a
+ * Promise<PurchasesCallbackId>; removal takes that id back via
+ * removeCustomerInfoUpdateListener), not the plain
+ * addListener(event, cb)-returns-a-remove()-handle shape
+ * applePurchaseAdapter.js's addAppleTransactionUpdateListener uses — the
+ * two plugins have genuinely different listener APIs, never conflated
+ * here. Still returns a plain cleanup function, matching this codebase's
+ * existing native-listener call-site convention either way.
+ *
+ * Same non-entitlement-granting discipline as every other function in
+ * this file: the callback only ever reports the SDK's own locally-cached
+ * isActive flag for UI convenience (e.g. "stop showing a spinner, go
+ * re-check real access") — never the access decision itself, and never
+ * the full CustomerInfo object.
+ */
+export const addRevenueCatCustomerInfoListener = (callback) => {
+  if (!configured || !isRevenueCatSupported()) return () => {};
+  const callbackIdPromise = Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+    const entitlement = customerInfo?.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID];
+    callback({ isActive: Boolean(entitlement) });
+  });
+  return () => {
+    callbackIdPromise.then((listenerToRemove) => Purchases.removeCustomerInfoUpdateListener({ listenerToRemove }));
+  };
 };

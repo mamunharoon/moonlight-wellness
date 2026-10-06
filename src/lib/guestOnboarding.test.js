@@ -170,8 +170,9 @@ describe('Guests cannot create saved routine/subscription data - every launch po
     expect(journalSource).not.toMatch(/localStorage\.setItem\(JOURNAL_KEY/);
   });
 
-  it('Subscription.jsx already gates both the Apple purchase and the upgrade/checkout entry points behind isGuest (pre-existing, unaffected by this change)', () => {
-    expect(subscriptionSource).toMatch(/const handleApplePurchase = async \(\) => \{\s*\n\s*if \(isGuest\) \{/);
+  it('Subscription.jsx gates the native purchase, founder offer, and web checkout entry points behind isGuest (native purchase integration renamed handleApplePurchase to handleNativePurchase and added a new founder-offer entry point - both still gate exactly like the pre-existing checkout entry point)', () => {
+    expect(subscriptionSource).toMatch(/const handleNativePurchase = async \(\) => \{\s*\n\s*if \(isGuest\) \{/);
+    expect(subscriptionSource).toMatch(/const handleFounderOfferAction = \(\) => \{\s*\n\s*if \(isGuest\) \{/);
     expect(subscriptionSource).toMatch(/const handleUpgradeClick = \(\) => \{\s*\n\s*if \(isGuest\) \{/);
   });
 });

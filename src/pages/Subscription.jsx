@@ -1,9 +1,8 @@
 /* eslint-disable no-unused-vars */
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
-import { isSubscribed } from '../lib/entitlements';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getSubscriptionOverride } from '../lib/subscriptionOverride';
 import { startCheckout, openBillingPortal } from '../lib/stripeApi';
@@ -16,29 +15,66 @@ import {
   formatMonthlyPrice,
   trialDisclosureText
 } from '../lib/pricingConfig';
+import { isNativePlatform, isIOS, isAndroid } from '../lib/platform';
+// Native purchase/restore integration — readiness-gap item: wires the
+// real Subscription screen onto revenueCatAdapter.js (exactly the same
+// functions SubscriptionSandboxTest.jsx has exercised end-to-end against
+// a real RevenueCat sandbox) instead of applePurchaseAdapter.js's
+// direct-Apple path. applePurchaseAdapter.js and its server-verification
+// counterparts (verify-apple-transaction, apple-server-notifications) are
+// deliberately left untouched and still deployed — this is a client-side
+// CUTOVER of which SDK this screen's buttons call, per revenueCatAdapter.js's
+// own documented migration strategy, not a removal of the legacy path.
+// `openAppleManageSubscriptions` is the one exception kept from the Apple
+// adapter: it just opens iOS's own OS-level subscription-management
+// screen, a platform feature unrelated to which SDK made the purchase —
+// correct for a RevenueCat-originated Apple subscription exactly as it
+// was for a direct-Apple one.
+import { openAppleManageSubscriptions } from '../lib/applePurchaseAdapter';
 import {
-  isAppleIAPSupported,
-  getAppleProducts,
-  purchaseAppleProduct,
-  restoreApplePurchases,
-  openAppleManageSubscriptions,
-  addAppleTransactionUpdateListener,
-  resolveAppleProductDisplay,
-  getActiveApplePlan,
-  formatActiveApplePlanMessage
-} from '../lib/applePurchaseAdapter';
-import { verifyAppleTransaction } from '../lib/appleVerificationApi';
+  getPackage,
+  purchasePackage,
+  purchaseGoogleOrdinaryAnnual,
+  purchaseGoogleAnnualTierExplicit,
+  redeemAppleFounderOfferCode,
+  addRevenueCatCustomerInfoListener
+} from '../lib/revenueCatAdapter';
+// Native purchase integration — restore is now consolidated onto the same
+// shared hook Profile.jsx uses (readiness-gap item 1), rather than this
+// page's own separate inline implementation.
+// Reuses the exact same bounded-retry constants useNativeRestore.js's own
+// confirmation poll uses, so a purchase and a restore wait the same real
+// amount of time for the same underlying webhook, never two independently
+// drifting numbers.
+import {
+  useNativeRestore,
+  NEUTRAL_RESTORE_COMPLETION_MESSAGE,
+  CONFIRMATION_MAX_ATTEMPTS,
+  CONFIRMATION_RETRY_DELAY_MS
+} from '../hooks/useNativeRestore';
+import { useRevenueCatIdentityStatus, isRevenueCatIdentityReadyFor } from '../lib/revenueCatIdentityStatus';
+// Verified package/product details for the Android management deep link
+// below (readiness-gap item 2) — com.zavaraai.wakewise is confirmed in
+// android/app/build.gradle's applicationId and codemagic.yaml's own
+// BUNDLE_ID anchor, not a guessed/invented value.
+const ANDROID_PACKAGE_NAME = 'com.zavaraai.wakewise';
 
-// Platform behaviour (Apple Subscription Architecture task, Phase B):
-// computed once — the platform an app is running on never changes
-// within a session, so this is a plain module-scope constant, not
-// component state. iOS native build: Apple IAP only, Stripe checkout/
-// portal hidden entirely below. Web build: Stripe only, unchanged. An
-// existing active Stripe subscriber still sees their real entitlement on
-// iOS (the "Current plan"/status sections below read subscription from
-// SubscriptionContext exactly the same way on every platform) — they
-// just don't see a Stripe purchase or portal CTA there.
-const IS_NATIVE_IOS = isAppleIAPSupported();
+// Platform behaviour (native purchase integration): computed once — the
+// platform an app is running on never changes within a session, so these
+// are plain module-scope constants, not component state. Native iOS/
+// Android: RevenueCat purchase/restore only, Stripe checkout/portal
+// hidden entirely below for BOTH (not just iOS — see readiness-gap item
+// 7, a native Android build must never fall through to the Stripe/web
+// branch the way it silently would have before IS_NATIVE_ANDROID
+// existed). Web build: Stripe only, unchanged. An existing active
+// Stripe/Apple/Google subscriber still sees their real entitlement on
+// any platform (the "Current plan" section below reads the unified,
+// provider-aware `entitlement` from SubscriptionContext the same way on
+// every platform) — they just don't see a purchase CTA for a channel
+// that isn't theirs.
+const IS_NATIVE_IOS = isNativePlatform() && isIOS();
+const IS_NATIVE_ANDROID = isNativePlatform() && isAndroid();
+const IS_NATIVE = IS_NATIVE_IOS || IS_NATIVE_ANDROID;
 
 /*
  * Subscription Model, Sprint 2 Stage 1 (+ Stage 1A, Stage 3A) — Subscription screen
@@ -78,20 +114,51 @@ const PLUS_FEATURES = [
 ];
 
 const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
-const STATUS_LABELS = { trial: 'Trial', active: 'Active', cancelled: 'Cancelled', expired: 'Expired' };
+// Covers every entitlementResolver.js ENTITLEMENT_STATES value this page
+// can now genuinely show, not just the legacy table's narrower
+// trial/active/cancelled/expired vocabulary — a native (Apple/Google)
+// subscriber can land in grace_period/billing_issue/
+// cancelled_active_until_period_end, none of which the old legacy-table
+// read could ever produce.
+const STATUS_LABELS = {
+  free: 'Free',
+  trial: 'Trial',
+  active: 'Active',
+  cancelled_active_until_period_end: 'Active (cancelling)',
+  grace_period: 'Grace period',
+  billing_issue: 'Billing issue',
+  expired: 'Expired',
+  verification_unavailable: 'Unavailable'
+};
 const INTERVAL_LABELS = { monthly: 'Monthly', yearly: 'Yearly' };
 
-const formatRenewalDate = (subscription) => {
-  if (subscription.plan === 'free' || !subscription.expires_at) return 'No renewal date';
-  return formatExpiryDate(subscription.expires_at);
+const formatRenewalDate = (entitlement) => {
+  if (!entitlement.isEntitled || !entitlement.currentPeriodEnd) return 'No renewal date';
+  return formatExpiryDate(entitlement.currentPeriodEnd);
 };
 
 export const Subscription = () => {
   const navigate = useNavigate();
+  // RevenueCat identity (the Supabase user id passed as appUserID) is
+  // already established app-wide by App.jsx's RevenueCatIdentityHandler
+  // (useRevenueCatIdentity.js) before this page ever mounts — unlike the
+  // legacy direct-Apple path, purchasePackage() takes no appAccountToken
+  // parameter. `user` is still read here, though, for two reasons neither
+  // of which is "identify the purchase": (1) checking RevenueCat's own
+  // identity readiness is READY for THIS exact id before allowing a
+  // purchase/founder action (readiness-gap item 3), and (2) detecting an
+  // account switch while a purchase/confirmation poll is in flight, so a
+  // late result can never be applied to a different signed-in user
+  // (readiness-gap item 5).
   const { isGuest, user } = useAuth();
-  const { subscription, loading, error, refreshSubscription } = useSubscription();
+  const identityStatus = useRevenueCatIdentityStatus();
+  // `subscription` (the legacy Stripe/manual-only table) is intentionally
+  // not read here anymore — see `entitlement`'s own header below. Still
+  // destructured via refreshSubscription only, for the existing Stripe
+  // checkout-return flow, which writes to that same legacy table.
+  const { entitlement, refreshSubscription, refreshEntitlement } = useSubscription();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeDialog, setActiveDialog] = useState(null); // 'sign-in' | null
+  const [activeDialog, setActiveDialog] = useState(null); // 'sign-in' | 'founder-confirm' | null
   const [interval, setInterval_] = useState('monthly'); // 'monthly' | 'yearly'
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
@@ -100,76 +167,133 @@ export const Subscription = () => {
   const [banner, setBanner] = useState(null); // 'success' | 'cancelled' | null
   const devOverride = getSubscriptionOverride();
 
-  // Apple Subscription Architecture task, Phase B — native purchase
-  // state. Entirely inert on web (every setter below is only ever
-  // reached from native-gated effects/handlers).
-  const [appleProducts, setAppleProducts] = useState({});
-  const [appleProductsState, setAppleProductsState] = useState(IS_NATIVE_IOS ? 'loading' : 'idle'); // 'idle'|'loading'|'ready'|'unavailable'
-  const [applePurchaseState, setApplePurchaseState] = useState('idle'); // 'idle'|'purchasing'|'verifying'|'awaiting-confirmation'|'cancelled'|'failed'
-  const [applePurchaseError, setApplePurchaseError] = useState(null);
-  const [appleRestoreState, setAppleRestoreState] = useState('idle'); // 'idle'|'restoring'|'restored'|'failed'
+  // Native purchase integration — RevenueCat-backed state, shared by iOS
+  // and Android (unlike the legacy Apple-only state this replaces).
+  // Entirely inert on web (every setter below is only ever reached from
+  // native-gated effects/handlers).
+  const [monthlyPackage, setMonthlyPackage] = useState(null);
+  const [annualPackage, setAnnualPackage] = useState(null);
+  const [nativeProductsState, setNativeProductsState] = useState(IS_NATIVE ? 'loading' : 'idle'); // 'idle'|'loading'|'ready'|'unavailable'
+  // idle|purchasing|awaiting-confirmation|confirmation_timeout|cancelled|failed|identity_not_ready
+  const [nativePurchaseState, setNativePurchaseState] = useState('idle');
+  const [nativePurchaseError, setNativePurchaseError] = useState(null);
   const [appleManageState, setAppleManageState] = useState('idle'); // 'idle'|'opening'|'failed'
+  // Restore is consolidated onto the same hook Profile.jsx uses
+  // (readiness-gap item 1) — no separate inline restore state here.
+  const { state: nativeRestoreState, error: nativeRestoreError, restore: handleNativeRestore } = useNativeRestore();
 
-  // Current Plan's localised price line for an Apple-provider subscriber
-  // (see getActiveApplePlan's own doc comment) - stays null on every other
-  // platform/provider, so the Current Plan section renders exactly as
-  // before for a Stripe subscriber or a signed-out/free user.
-  const [activeApplePlan, setActiveApplePlan] = useState(null);
+  // Account-switch safety (readiness-gap item 5): the user id THIS
+  // purchase/founder/confirmation-poll attempt was started for — checked
+  // before applying any async result, never assumed to still be the
+  // current signed-in user. A separate tracking ref from
+  // useNativeRestore.js's own (restore and purchase are independent
+  // in-flight operations that must not clobber each other's checks).
+  const startedForUserIdRef = useRef(null);
 
-  // Never grants access from a client-side purchase/restore callback —
-  // this only ever sends the transaction to the server (Phase C's
-  // verify-apple-transaction, currently a fail-closed stub — see
-  // docs/apple-subscription-implementation.md) and then re-reads real
-  // entitlement state from Supabase via refreshSubscription(), exactly
-  // like the existing Stripe return-from-checkout flow already does.
-  const handleAppleTransactionResult = async (result) => {
+  // Never grants access from a client-side purchase callback —
+  // RevenueCat purchases are verified asynchronously, server-side, by
+  // RevenueCat's own systems and reported to this app only via the
+  // deployed revenuecat-webhook (never a client-initiated verify call —
+  // unlike the legacy direct-Apple path, a RevenueCat purchasePackage()
+  // result carries no jwsRepresentation for this app to forward anywhere).
+  // The only source of truth for whether the user has access is a fresh
+  // read of real entitlement state via refreshEntitlement() — the
+  // provider_subscriptions-aware read, NOT refreshSubscription() (the
+  // legacy Stripe-only `subscriptions` table a native purchase never
+  // writes to).
+  const handleNativePurchaseResult = async (result) => {
     if (result.outcome === 'cancelled') {
-      setApplePurchaseState('cancelled');
+      setNativePurchaseState('cancelled');
       return;
     }
     if (result.outcome === 'unavailable') {
-      setApplePurchaseState('failed');
-      setApplePurchaseError('In-app purchases are not available right now.');
+      setNativePurchaseState('failed');
+      setNativePurchaseError('In-app purchases are not available right now.');
+      return;
+    }
+    if (result.outcome === 'not_found' || result.outcome === 'mismatch') {
+      // purchaseGoogleOrdinaryAnnual/purchaseGoogleAnnualTierExplicit's
+      // own explicit-selection enforcement rejected rather than
+      // purchasing something the user didn't ask for — surfaced plainly,
+      // never silently retried as a different tier.
+      setNativePurchaseState('failed');
+      setNativePurchaseError("We couldn't match the expected plan. Please try again or contact support.");
+      return;
+    }
+    if (result.outcome === 'receipt_already_in_use') {
+      setNativePurchaseState('failed');
+      setNativePurchaseError('That purchase is already linked to a different account.');
       return;
     }
     if (result.outcome === 'failed') {
-      setApplePurchaseState('failed');
-      setApplePurchaseError(result.message || "We couldn't complete that purchase. Please try again.");
+      setNativePurchaseState('failed');
+      setNativePurchaseError(result.message || "We couldn't complete that purchase. Please try again.");
       return;
     }
     if (result.outcome === 'purchased') {
-      setApplePurchaseState('verifying');
-      try {
-        await verifyAppleTransaction({
-          transactionId: result.transactionId,
-          productIdentifier: result.productIdentifier,
-          jwsRepresentation: result.jwsRepresentation
-        });
-      } catch (e) {
-        console.warn('[Subscription] Apple transaction verification call failed', e?.message);
-      }
-      // Whether or not verification above actually confirmed anything
-      // (in this phase it never does — see the stub's own file header),
-      // the only source of truth for whether the user has access is a
-      // fresh read of their real subscription state, never this
-      // callback's own outcome.
-      await refreshSubscription();
-      setApplePurchaseState('awaiting-confirmation');
+      await beginConfirmationPoll();
     }
   };
 
+  // Handle delayed webhook confirmation (readiness-gap item 4): the
+  // native purchase call succeeding is NOT the same as the entitlement
+  // actually being recorded — that depends on revenuecat-webhook, an
+  // async, server-side event this client cannot await directly. A
+  // bounded number of real entitlement re-reads (never a single fixed
+  // delay used to INFER failure — see useNativeRestore.js's own header
+  // for why that inference must never return in any form) decides
+  // whether to show a confirmed state or an honest recovery offer.
+  // Shared with the "founder purchase confirmed" path below — both start
+  // from the exact same poll.
+  const beginConfirmationPoll = async () => {
+    const forUserId = startedForUserIdRef.current;
+    setNativePurchaseState('awaiting-confirmation');
+    for (let attempt = 0; attempt < CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_RETRY_DELAY_MS));
+      // The signed-in user may have changed WHILE this poll was running —
+      // never apply a result (or even keep polling) for a now-different
+      // account.
+      if (startedForUserIdRef.current !== forUserId) return;
+      const refreshed = await refreshEntitlement();
+      if (startedForUserIdRef.current !== forUserId) return;
+      if (refreshed?.isEntitled) return; // the !plusActive-gated section unmounts itself once this re-renders
+    }
+    if (startedForUserIdRef.current === forUserId) {
+      setNativePurchaseState('confirmation_timeout');
+    }
+  };
+
+  // A manual recovery action (readiness-gap item 4's "offer recovery")
+  // for when the bounded poll above exhausted without confirmation —
+  // restarts the exact same bounded wait rather than claiming anything
+  // new happened.
+  const handleCheckConfirmationAgain = () => {
+    beginConfirmationPoll();
+  };
+
   useEffect(() => {
-    if (!IS_NATIVE_IOS) return undefined;
+    if (!IS_NATIVE) return undefined;
 
     let ignore = false;
-    getAppleProducts().then((products) => {
+    Promise.all([getPackage('monthly'), getPackage('annual')]).then(([monthly, annual]) => {
       if (ignore) return;
-      setAppleProducts(products);
-      setAppleProductsState(Object.keys(products).length > 0 ? 'ready' : 'unavailable');
+      setMonthlyPackage(monthly);
+      setAnnualPackage(annual);
+      setNativeProductsState(monthly || annual ? 'ready' : 'unavailable');
     });
 
-    const removeListener = addAppleTransactionUpdateListener((result) => {
-      handleAppleTransactionResult(result);
+    // The real completion signal for a founder offer-code redemption
+    // (iOS) and a safety net for any purchase/renewal RevenueCat observes
+    // out-of-band — see addRevenueCatCustomerInfoListener's own header.
+    // Only acted on if it's for the account a purchase/founder action was
+    // actually started for from THIS page (readiness-gap item 5) — a
+    // listener fire with nothing in flight here (startedForUserIdRef
+    // null) is correctly ignored; useNativeRestore.js's own listener
+    // instance is what reacts to restore-originated events.
+    const removeListener = addRevenueCatCustomerInfoListener(() => {
+      if (startedForUserIdRef.current && startedForUserIdRef.current === user?.id) {
+        refreshEntitlement();
+      }
     });
 
     return () => {
@@ -179,51 +303,121 @@ export const Subscription = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Current Plan's localised price line — only once the product catalog
-  // has actually loaded (appleProductsState 'ready'), and only for a real
-  // Apple-provider subscriber; never queries native purchase history for
-  // a Stripe subscriber or a free/guest account. A stale resolved plan
-  // from a prior provider is never shown even if this effect doesn't
-  // re-run in time to clear it — the render guard below re-checks
-  // subscription.provider on every render, so it alone decides whether
-  // activeApplePlan is ever displayed.
+  // Account-switch safety: if the signed-in user changes while a
+  // purchase/confirmation-poll from a PREVIOUS user is still tracked,
+  // forget it entirely — never let a late poll iteration or listener
+  // callback touch the new user's state, and never show the previous
+  // user's purchase status to whoever is signed in now on a shared
+  // device.
   useEffect(() => {
-    if (!IS_NATIVE_IOS || appleProductsState !== 'ready' || subscription.provider !== 'apple') {
-      return undefined;
+    if (startedForUserIdRef.current && startedForUserIdRef.current !== (user?.id ?? null)) {
+      startedForUserIdRef.current = null;
+      setNativePurchaseState('idle');
+      setNativePurchaseError(null);
     }
+  }, [user?.id]);
 
-    let ignore = false;
-    getActiveApplePlan(appleProducts).then((plan) => {
-      if (!ignore) setActiveApplePlan(plan);
-    });
-
-    return () => {
-      ignore = true;
-    };
-  }, [appleProductsState, appleProducts, subscription.provider]);
-
-  const handleApplePurchase = async () => {
+  const handleNativePurchase = async () => {
     if (isGuest) {
       setActiveDialog('sign-in');
       return;
     }
-    setApplePurchaseState('purchasing');
-    setApplePurchaseError(null);
-    const { productId } = resolveAppleProductDisplay(interval, appleProducts);
-    const result = await purchaseAppleProduct(productId, { appAccountToken: user?.id });
-    await handleAppleTransactionResult(result);
+    if (!isRevenueCatIdentityReadyFor(identityStatus, user?.id)) {
+      setNativePurchaseState('identity_not_ready');
+      setNativePurchaseError('Still preparing your account. Please try again in a moment.');
+      return;
+    }
+    setNativePurchaseState('purchasing');
+    setNativePurchaseError(null);
+    startedForUserIdRef.current = user?.id ?? null;
+
+    let result;
+    if (interval === 'monthly') {
+      result = await purchasePackage(monthlyPackage);
+    } else if (IS_NATIVE_ANDROID) {
+      // Never purchasePackage()/defaultOption for Android annual — see
+      // purchaseGoogleOrdinaryAnnual's own header. Founder is never
+      // reachable from this button; it has its own explicit action below.
+      result = await purchaseGoogleOrdinaryAnnual(annualPackage);
+    } else {
+      // iOS annual: no defaultOption ambiguity, a plain package purchase
+      // is safe — the founder tier is never purchased this way on this
+      // platform at all (offer-code redemption instead, its own action
+      // below).
+      result = await purchasePackage(annualPackage);
+    }
+    // The signed-in user may have changed WHILE the native call was in
+    // flight — never apply its result to a now-different account.
+    if (startedForUserIdRef.current !== (user?.id ?? null)) return;
+    await handleNativePurchaseResult(result);
   };
 
-  const handleAppleRestore = async () => {
-    setAppleRestoreState('restoring');
-    const result = await restoreApplePurchases();
-    if (result.outcome === 'restored') {
-      await refreshSubscription();
-      setAppleRestoreState('restored');
-    } else {
-      setAppleRestoreState('failed');
+  // Android's founder mechanism is a real purchase (a distinct
+  // SubscriptionOption on the same annual product) — gated behind an
+  // explicit confirmation so it is never one accidental tap away from a
+  // real charge. iOS's founder mechanism is Apple's own OS code-
+  // redemption sheet, which is already its own explicit, user-driven
+  // confirmation step — no extra dialog needed before presenting it.
+  const handleFounderOfferAction = () => {
+    if (isGuest) {
+      setActiveDialog('sign-in');
+      return;
+    }
+    if (!isRevenueCatIdentityReadyFor(identityStatus, user?.id)) {
+      setNativePurchaseState('identity_not_ready');
+      setNativePurchaseError('Still preparing your account. Please try again in a moment.');
+      return;
+    }
+    if (IS_NATIVE_ANDROID) {
+      setActiveDialog('founder-confirm');
+      return;
+    }
+    if (IS_NATIVE_IOS) {
+      handleAppleFounderRedemption();
     }
   };
+
+  const handleAppleFounderRedemption = async () => {
+    setNativePurchaseState('purchasing');
+    setNativePurchaseError(null);
+    startedForUserIdRef.current = user?.id ?? null;
+    const result = await redeemAppleFounderOfferCode();
+    if (result.outcome !== 'presented') {
+      setNativePurchaseState('failed');
+      setNativePurchaseError("We couldn't open the code redemption screen. Please try again.");
+      return;
+    }
+    // The user is now in Apple's own OS sheet; completion (if any) arrives
+    // asynchronously via the CustomerInfo listener above, never this
+    // function's own return — resetting to idle here would otherwise show
+    // a confusing "Subscribe" button while the OS sheet is still open.
+    setNativePurchaseState('idle');
+  };
+
+  const confirmGoogleFounderPurchase = async () => {
+    setActiveDialog(null);
+    setNativePurchaseState('purchasing');
+    setNativePurchaseError(null);
+    startedForUserIdRef.current = user?.id ?? null;
+    const result = await purchaseGoogleAnnualTierExplicit(annualPackage, 'founder');
+    if (startedForUserIdRef.current !== (user?.id ?? null)) return;
+    await handleNativePurchaseResult(result);
+  };
+
+  // The verified Android package name (ANDROID_PACKAGE_NAME, above) plus
+  // the real, server-recorded product id for THIS subscriber
+  // (entitlement.product — never a guessed/hardcoded one of the two
+  // possible product ids) — Google's own documented deep-link format for
+  // managing a specific subscription (readiness-gap item 2). A plain
+  // external link, not a new native plugin: this Capacitor WebView has no
+  // existing @capacitor/browser dependency, and a play.google.com link
+  // already resolves to the Play Store app via the device's own intent
+  // handling in the common case — not independently re-verified against
+  // a real device in this task.
+  const androidManageSubscriptionUrl =
+    entitlement.provider === 'google' && entitlement.product
+      ? `https://play.google.com/store/account/subscriptions?sku=${encodeURIComponent(entitlement.product)}&package=${encodeURIComponent(ANDROID_PACKAGE_NAME)}`
+      : null;
 
   const handleAppleManage = async () => {
     setAppleManageState('opening');
@@ -260,7 +454,22 @@ export const Subscription = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const plusActive = isSubscribed(subscription.plan, subscription.status);
+  // The unified, provider-aware entitlement is the only source that can
+  // ever reflect a real Apple/Google purchase — `subscription` (the
+  // legacy table) is Stripe/manual-only and a native purchase never
+  // writes to it. See entitlement/refreshEntitlement's own header above.
+  const loading = entitlement.state === 'loading';
+  const verificationUnavailable = entitlement.state === 'verification_unavailable';
+  const plusActive = entitlement.isEntitled;
+  // getStatusExplanation/formatExpiryDate (subscriptionStatusMessages.js)
+  // were written against the legacy row's own field names — reused
+  // unchanged via this small adapter object rather than touching that
+  // file, exactly the same vocabulary, just sourced from `entitlement`.
+  const statusExplanationInput = {
+    status: entitlement.status,
+    expires_at: entitlement.currentPeriodEnd,
+    cancel_at_period_end: entitlement.cancelAtPeriodEnd
+  };
 
   const handleUpgradeClick = () => {
     if (isGuest) {
@@ -338,44 +547,39 @@ export const Subscription = () => {
         </p>
       )}
 
-      {/* Current plan */}
+      {/* Current plan — sourced from `entitlement`, the unified read
+          across Stripe, Apple, and Google (see its own header above), so
+          this is correct for every provider and every platform, not just
+          Stripe/legacy-table subscribers. */}
       <section className="space-y-2">
         <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Current plan</h3>
         <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           <div className={rowClass}>
             <span className="text-sm font-semibold text-on-surface-variant">Current plan</span>
             <span className="text-sm font-bold text-on-surface">
-              {loading ? 'Loading…' : PLAN_LABELS[subscription.plan] ?? subscription.plan}
+              {loading ? 'Loading…' : PLAN_LABELS[plusActive ? 'plus' : 'free']}
             </span>
           </div>
           <div className={rowClass}>
             <span className="text-sm font-semibold text-on-surface-variant">Status</span>
             <span className="text-sm font-bold text-on-surface">
-              {loading ? 'Loading…' : STATUS_LABELS[subscription.status] ?? subscription.status}
+              {loading ? 'Loading…' : STATUS_LABELS[entitlement.state] ?? entitlement.state}
             </span>
           </div>
           <div className={rowClass}>
             <span className="text-sm font-semibold text-on-surface-variant">Renewal date</span>
             <span className="text-sm font-bold text-on-surface">
-              {loading ? 'Loading…' : formatRenewalDate(subscription)}
+              {loading ? 'Loading…' : formatRenewalDate(entitlement)}
             </span>
           </div>
         </div>
-        {/* Apple-provider subscriber only (see getActiveApplePlan's own
-            doc comment) — never rendered for a Stripe subscriber or a
-            free/guest account, and never a guessed price when StoreKit
-            data hasn't loaded yet (formatActiveApplePlanMessage returns
-            null in that case, so nothing extra renders). */}
-        {!loading && IS_NATIVE_IOS && subscription.provider === 'apple' && formatActiveApplePlanMessage(activeApplePlan, subscription.status) && (
-          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">
-            {formatActiveApplePlanMessage(activeApplePlan, subscription.status)}
+        {!loading && getStatusExplanation(statusExplanationInput) && (
+          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(statusExplanationInput)}</p>
+        )}
+        {verificationUnavailable && (
+          <p role="alert" className="text-[10px] text-red-400 font-medium px-1">
+            We couldn't verify your subscription right now. Showing the last known state.
           </p>
-        )}
-        {!loading && getStatusExplanation(subscription) && (
-          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(subscription)}</p>
-        )}
-        {error && (
-          <p role="alert" className="text-[10px] text-red-400 font-medium px-1">{error}</p>
         )}
       </section>
 
@@ -414,9 +618,12 @@ export const Subscription = () => {
         </div>
       </section>
 
-      {/* Actions — native iOS: Apple In-App Purchase only, never Stripe.
-          Web: Stripe only, unchanged from before this task. */}
-      {!plusActive && !IS_NATIVE_IOS && (
+      {/* Actions — native iOS/Android: RevenueCat purchase only, never
+          Stripe (readiness-gap item 7: IS_NATIVE, not just IS_NATIVE_IOS,
+          so a native Android build can never fall through to the
+          Stripe/web branch below it). Web: Stripe only, unchanged from
+          before this task. */}
+      {!plusActive && !IS_NATIVE && (
         <div className="space-y-3">
           <div className="flex glass-panel rounded-full p-1 border-white/10">
             {Object.entries(INTERVAL_LABELS).map(([value, label]) => (
@@ -467,7 +674,7 @@ export const Subscription = () => {
         </div>
       )}
 
-      {!plusActive && IS_NATIVE_IOS && (
+      {!plusActive && IS_NATIVE && (
         <div className="space-y-3">
           <div className="flex glass-panel rounded-full p-1 border-white/10">
             {Object.entries(INTERVAL_LABELS).map(([value, label]) => (
@@ -484,25 +691,47 @@ export const Subscription = () => {
           </div>
 
           <div className="glass-panel rounded-2xl p-4 text-center space-y-1 border-white/10">
-            {appleProductsState === 'loading' && (
-              <p className="text-sm text-on-surface-variant">Loading prices from the App Store…</p>
-            )}
-            {appleProductsState === 'unavailable' && (
+            {nativeProductsState === 'loading' && (
               <p className="text-sm text-on-surface-variant">
-                We couldn't load App Store pricing right now. Please try again shortly.
+                Loading prices from {IS_NATIVE_IOS ? 'the App Store' : 'Google Play'}…
               </p>
             )}
-            {appleProductsState === 'ready' && (
+            {nativeProductsState === 'unavailable' && (
+              <p className="text-sm text-on-surface-variant">
+                We couldn't load {IS_NATIVE_IOS ? 'App Store' : 'Google Play'} pricing right now. Please try again
+                shortly.
+              </p>
+            )}
+            {nativeProductsState === 'ready' && (
               <>
-                {/* Never a hard-coded price on iOS — always the exact,
-                    localised string StoreKit itself returned. */}
+                {/* Never a hard-coded price on native — always the exact,
+                    localised priceString the provider's own package
+                    (RevenueCat → StoreKit/Play Billing) returned. */}
                 <p className="text-lg font-bold text-on-surface">
-                  {resolveAppleProductDisplay(interval, appleProducts).priceString ?? '—'}
+                  {(interval === 'monthly' ? monthlyPackage : annualPackage)?.product?.priceString ?? '—'}
                 </p>
+                {/* Trial messaging reflects what is actually structurally
+                    configured, never a universal promise (validation
+                    requirement): the standard 7-day trial exists as a
+                    real offer/introductory price on the ANNUAL product on
+                    both platforms (GOOGLE_OFFER_NAMES.trial on Android;
+                    Apple's own per-product Introductory Offer mechanism)
+                    — the monthly product has no such offer modelled
+                    anywhere in this codebase, so monthly makes no trial
+                    claim at all rather than repeating the same sentence
+                    regardless of interval. Even for annual, this never
+                    asserts the CURRENT user is eligible — only the store's
+                    own purchase sheet decides and discloses that. */}
+                {interval === 'yearly' && (
+                  <p className="text-xs text-on-surface-variant pt-1">
+                    New subscribers may be eligible for a free trial on the annual plan —{' '}
+                    {IS_NATIVE_IOS ? 'the App Store' : 'Google Play'} will show your exact eligibility and terms
+                    before you're charged.
+                  </p>
+                )}
                 <p className="text-xs text-on-surface-variant pt-1">
-                  A free trial or introductory offer may be available — the App Store will show your exact eligibility
-                  and terms before you're charged. Subscriptions renew automatically unless cancelled at least 24 hours
-                  before the end of the current period.
+                  Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current
+                  period.
                 </p>
               </>
             )}
@@ -516,58 +745,105 @@ export const Subscription = () => {
           </p>
 
           <button
-            onClick={handleApplePurchase}
-            disabled={appleProductsState !== 'ready' || applePurchaseState === 'purchasing' || applePurchaseState === 'verifying'}
+            onClick={handleNativePurchase}
+            disabled={nativeProductsState !== 'ready' || nativePurchaseState === 'purchasing'}
             className="w-full bg-primary text-on-primary py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-60"
           >
-            {applePurchaseState === 'purchasing' && 'Purchasing…'}
-            {applePurchaseState === 'verifying' && 'Confirming your subscription…'}
-            {(applePurchaseState === 'idle' || applePurchaseState === 'cancelled' || applePurchaseState === 'failed' || applePurchaseState === 'awaiting-confirmation') &&
-              `Subscribe with Apple — ${interval === 'monthly' ? 'Monthly' : 'Annual'}`}
+            {nativePurchaseState === 'purchasing' && 'Purchasing…'}
+            {(nativePurchaseState === 'idle' ||
+              nativePurchaseState === 'cancelled' ||
+              nativePurchaseState === 'failed' ||
+              nativePurchaseState === 'identity_not_ready' ||
+              nativePurchaseState === 'awaiting-confirmation' ||
+              nativePurchaseState === 'confirmation_timeout') &&
+              `Subscribe — ${interval === 'monthly' ? 'Monthly' : 'Annual'}`}
           </button>
 
-          {applePurchaseState === 'cancelled' && (
+          {/* Founder offer — its own explicit action, never reachable from
+              the ordinary Subscribe button above (readiness-gap item 5).
+              Annual only: the founder mechanism only exists on the annual
+              product on either platform. */}
+          {interval === 'yearly' && (
+            <button
+              onClick={handleFounderOfferAction}
+              disabled={nativeProductsState !== 'ready' || nativePurchaseState === 'purchasing'}
+              className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 text-sm"
+            >
+              Have a founder offer code?
+            </button>
+          )}
+
+          {nativePurchaseState === 'cancelled' && (
             <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
               Purchase cancelled — no changes were made.
             </p>
           )}
-          {applePurchaseState === 'failed' && (
+          {nativePurchaseState === 'identity_not_ready' && (
             <p role="alert" className="text-[10px] text-red-400 font-medium px-1 text-center">
-              {applePurchaseError || "We couldn't complete that purchase."}
+              {nativePurchaseError}
             </p>
           )}
-          {applePurchaseState === 'awaiting-confirmation' && (
-            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
-              Purchase received — we're confirming your subscription. This can take a moment; check back shortly, or
-              contact support if it doesn't update.
+          {nativePurchaseState === 'failed' && (
+            <p role="alert" className="text-[10px] text-red-400 font-medium px-1 text-center">
+              {nativePurchaseError || "We couldn't complete that purchase."}
             </p>
+          )}
+          {nativePurchaseState === 'awaiting-confirmation' && (
+            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+              Purchase received — we're confirming your subscription. This can take a moment; check back shortly.
+            </p>
+          )}
+          {/* Delayed webhook confirmation recovery (readiness-gap item 4):
+              the bounded poll above gave up without confirming access —
+              an honest "still don't know" state, never a claim the
+              purchase failed. "Check again" simply restarts the same
+              bounded wait on demand. */}
+          {nativePurchaseState === 'confirmation_timeout' && (
+            <div className="space-y-2">
+              <p role="alert" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+                We still haven't been able to confirm your subscription. If you were charged, this can take a few
+                minutes to finish — try checking again, or contact support with your purchase date if it doesn't
+                update.
+              </p>
+              <button
+                onClick={handleCheckConfirmationAgain}
+                className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary text-sm"
+              >
+                Check again
+              </button>
+            </div>
           )}
 
           <button
-            onClick={handleAppleRestore}
-            disabled={appleRestoreState === 'restoring'}
+            onClick={handleNativeRestore}
+            disabled={nativeRestoreState === 'restoring'}
             className="w-full glass-panel text-on-surface-variant py-3 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 text-sm"
           >
-            {appleRestoreState === 'restoring' ? 'Restoring…' : 'Restore Purchases'}
+            {nativeRestoreState === 'restoring' ? 'Restoring…' : 'Restore Purchases'}
           </button>
-          {appleRestoreState === 'restored' && (
+          {nativeRestoreState === 'restored' && (
             <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
-              Restore complete — refreshing your subscription status.
+              Restore complete — your subscription status has been refreshed.
             </p>
           )}
-          {appleRestoreState === 'failed' && (
+          {nativeRestoreState === 'completed' && (
+            <p role="status" className="text-[10px] text-on-surface-variant font-medium px-1 text-center">
+              {NEUTRAL_RESTORE_COMPLETION_MESSAGE}
+            </p>
+          )}
+          {(nativeRestoreState === 'failed' || nativeRestoreState === 'identity_not_ready') && (
             <p role="alert" className="text-[10px] text-red-400 font-medium px-1 text-center">
-              We couldn't restore purchases. Please try again.
+              {nativeRestoreError || "We couldn't restore purchases. Please try again."}
             </p>
           )}
         </div>
       )}
 
       {/* Manage subscription — web/Stripe subscribers only ever see the
-          Stripe portal (never on iOS, where Stripe Checkout/Portal must
-          never open). A Stripe subscriber using the iOS app instead sees
+          Stripe portal (never on native, where Stripe Checkout/Portal must
+          never open). A Stripe subscriber using a native app instead sees
           an informational message plus a link to manage on the web. */}
-      {subscription.provider === 'stripe' && !IS_NATIVE_IOS && (
+      {entitlement.managementDestination === 'stripe_portal' && !IS_NATIVE && (
         <div className="space-y-3">
           <button
             onClick={handleManageSubscription}
@@ -582,19 +858,18 @@ export const Subscription = () => {
         </div>
       )}
 
-      {subscription.provider === 'stripe' && IS_NATIVE_IOS && (
+      {entitlement.managementDestination === 'stripe_portal' && IS_NATIVE && (
         <p className="text-xs text-on-surface-variant text-center px-1 leading-relaxed">
           You're subscribed via the web. Manage or cancel your subscription at wakewise.com or in a browser — Stripe
-          billing management isn't available inside the iOS app.
+          billing management isn't available inside the app.
         </p>
       )}
 
-      {/* Apple-channel Manage Subscription — not reachable in this
-          phase (see docs/apple-subscription-implementation.md: no live
-          Apple entitlement can exist yet), included so this UI is
-          already correct once a future task's server verification goes
-          live and subscription.provider can genuinely be 'apple'. */}
-      {IS_NATIVE_IOS && subscription.provider === 'apple' && (
+      {/* Apple-channel Manage Subscription — opens iOS's own OS-level
+          subscription screen, correct regardless of whether this
+          subscription was purchased via RevenueCat or the legacy
+          direct-Apple path. */}
+      {IS_NATIVE_IOS && entitlement.managementDestination === 'apple_settings' && (
         <div className="space-y-3">
           <button
             onClick={handleAppleManage}
@@ -611,7 +886,40 @@ export const Subscription = () => {
         </div>
       )}
 
-      {plusActive && subscription.provider !== 'stripe' && subscription.provider !== 'apple' && (
+      {/* Google-channel Manage Subscription (readiness-gap item 2) —
+          Google's own documented deep-link format
+          (play.google.com/store/account/subscriptions?sku=...&package=...),
+          built from the verified package name and this subscriber's real,
+          server-recorded product id (androidManageSubscriptionUrl, above)
+          — never a guessed product. Falls back to plain informational
+          text only if entitlement.product is somehow unavailable (should
+          not happen for a real 'google' provider record, but never
+          renders a broken/undefined link). A plain external link, not a
+          new native plugin — see androidManageSubscriptionUrl's own
+          comment for the un-verified-on-device caveat. */}
+      {entitlement.managementDestination === 'google_play' && androidManageSubscriptionUrl && (
+        <div className="space-y-2">
+          <a
+            href={androidManageSubscriptionUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full glass-panel text-on-surface-variant py-4 rounded-full font-semibold text-center hover:bg-white/10 active:scale-95 transition-all border-white/10 focus-visible:ring-2 focus-visible:ring-primary block"
+          >
+            Manage subscription
+          </a>
+          <p className="text-[10px] text-on-surface-variant text-center px-1">
+            Opens the Subscriptions section of the Google Play Store app.
+          </p>
+        </div>
+      )}
+      {entitlement.managementDestination === 'google_play' && !androidManageSubscriptionUrl && (
+        <p className="text-xs text-on-surface-variant text-center px-1 leading-relaxed">
+          You're subscribed via Google Play. Manage or cancel your subscription from the Subscriptions section of the
+          Google Play Store app.
+        </p>
+      )}
+
+      {plusActive && entitlement.managementDestination === null && (
         <p className="text-xs text-on-surface-variant text-center px-1">
           Your Plus access was granted by an administrator.
         </p>
@@ -624,6 +932,21 @@ export const Subscription = () => {
         confirmLabel="Sign in"
         cancelLabel="Cancel"
         onConfirm={() => navigate('/auth')}
+        onDismiss={() => setActiveDialog(null)}
+      />
+
+      {/* Android founder offer is a real purchase — confirmed explicitly
+          before it fires, never one accidental tap away (readiness-gap
+          item 5). iOS's equivalent is Apple's own OS code-redemption
+          sheet, already its own confirmation step — no dialog needed. */}
+      <ConfirmDialog
+        open={activeDialog === 'founder-confirm'}
+        title="Redeem founder offer?"
+        message="This starts a real purchase at the founder price for your first year, renewing at the standard annual price afterward unless you cancel."
+        confirmLabel="Redeem"
+        cancelLabel="Cancel"
+        confirmPending={nativePurchaseState === 'purchasing'}
+        onConfirm={confirmGoogleFounderPurchase}
         onDismiss={() => setActiveDialog(null)}
       />
     </div>
