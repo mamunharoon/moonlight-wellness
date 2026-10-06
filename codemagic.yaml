@@ -471,9 +471,27 @@ workflows:
           # every run, not just this one. Same no-guessing discipline as
           # before: if the query fails, this aborts rather than falling
           # back to a counter or timestamp.
-          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$BUNDLE_ID")"
+          #
+          # `app-store-connect get-latest-build-number` takes the app's
+          # numeric Apple ID (APPLICATION_ID_RESOURCE_ID per the CLI's own
+          # docs), not the bundle identifier -- passing $BUNDLE_ID directly
+          # (as this step previously did) made the CLI request
+          # /v1/apps/com.zavaraai.wakewise/appStoreVersions, which App
+          # Store Connect 404s because no app resource is ever addressed
+          # by its bundle ID in that API. Resolve the numeric app ID first,
+          # via the same authenticated wakewise_app_store_connect
+          # integration, instead of hardcoding it.
+          APP_LOOKUP_JSON="$(app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" --strict-match-identifier --json)"
+          APP_ID="$(echo "$APP_LOOKUP_JSON" | jq -r 'if type == "array" then . else .data end | map(.id) | if length == 1 then .[0] else "" end')"
+          if [ -z "$APP_ID" ] || ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
+            echo "Could not resolve exactly one numeric App Store Connect app ID for bundle ID $BUNDLE_ID (lookup returned: $APP_LOOKUP_JSON). Refusing to guess -- aborting rather than hardcoding or falling back to a cached value."
+            exit 1
+          fi
+          echo "Resolved App Store Connect app ID $APP_ID for bundle ID $BUNDLE_ID."
+
+          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$APP_ID")"
           if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "Could not obtain a valid highest-build-number response from App Store Connect for $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
+            echo "Could not obtain a valid highest-build-number response from App Store Connect for app ID $APP_ID / bundle ID $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
             exit 1
           fi
 
