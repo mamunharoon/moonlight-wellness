@@ -13,7 +13,8 @@ import {
   annualSavingsPercent,
   formatAnnualPrice,
   formatMonthlyPrice,
-  trialDisclosureText
+  trialDisclosureText,
+  CURRENCY
 } from '../lib/pricingConfig';
 import { isNativePlatform, isIOS, isAndroid } from '../lib/platform';
 // Native purchase/restore integration — readiness-gap item: wires the
@@ -37,8 +38,25 @@ import {
   purchaseGoogleOrdinaryAnnual,
   purchaseGoogleAnnualTierExplicit,
   redeemAppleFounderOfferCode,
-  addRevenueCatCustomerInfoListener
+  addRevenueCatCustomerInfoListener,
+  checkIntroEligibility,
+  describeGoogleTrialOffer,
+  getGoogleNamedOfferOption,
+  getGoogleBasePlanAnnualOption
 } from '../lib/revenueCatAdapter';
+import { GOOGLE_OFFER_NAMES } from '../lib/revenueCatConfig';
+// Explicit-currency native pricing (readiness-gap fix): a bare "$" from
+// RevenueCat's own priceString is exactly how a USD figure got mistaken
+// for AUD on a TestFlight sandbox tester's device — see
+// currencyDisplay.js's own header for the full root-cause writeup.
+// Always built from the package/option's own real price + ISO currency
+// code, never a hardcoded/converted figure.
+import { formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount } from '../lib/currencyDisplay';
+// Trial/intro-offer wording, reconciled per-product instead of a single
+// "annual only" assumption — see trialOfferWording.js's own header for
+// why (a real sandbox purchase recorded a TRIAL period on the MONTHLY
+// iOS product).
+import { describeIntroOfferWording } from '../lib/trialOfferWording';
 // Native purchase integration — restore is now consolidated onto the same
 // shared hook Profile.jsx uses (readiness-gap item 1), rather than this
 // page's own separate inline implementation.
@@ -75,6 +93,42 @@ const ANDROID_PACKAGE_NAME = 'com.zavaraai.wakewise';
 const IS_NATIVE_IOS = isNativePlatform() && isIOS();
 const IS_NATIVE_ANDROID = isNativePlatform() && isAndroid();
 const IS_NATIVE = IS_NATIVE_IOS || IS_NATIVE_ANDROID;
+
+// The same build-time kill-switch SubscriptionSandboxTest.jsx already
+// uses (see that file's own header) — Vite inlines this at BUILD time,
+// and codemagic.yaml only ever sets it 'true' for the dedicated
+// wakewise-ios-sandbox-test workflow, never wakewise-ios-testflight. Used
+// here only to adjust COPY (never charge wording, never a date, never an
+// entitlement rule) on the real Subscription screen so a sandbox tester
+// is never told a real charge/renewal will follow a test purchase.
+const IS_SANDBOX_TEST_BUILD = import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST === 'true';
+const NATIVE_STORE_LABEL = IS_NATIVE_IOS ? 'the App Store' : 'Google Play';
+
+// Sandbox "no real charge" wording is PLATFORM-SPECIFIC (readiness-gap
+// fix) — whether this build's purchases actually avoid a real charge is
+// a store-level fact the VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST build flag
+// alone cannot establish:
+//   - iOS/TestFlight: Apple ALWAYS routes a TestFlight build's in-app
+//     purchases through its sandbox backend, regardless of which Apple
+//     ID is signed in (Apple/RevenueCat-documented — see
+//     https://developer.apple.com/help/app-store-connect/test-a-beta-version/testing-subscriptions-and-in-app-purchases-in-testflight/
+//     and RevenueCat's own sandbox docs) — a confident, unconditional
+//     claim is accurate here.
+//   - Android/Google Play: a purchase only avoids a real charge if the
+//     SPECIFIC Google account making it is added as a Play Console
+//     License Tester (Monetization setup -> License testing) — a Play
+//     Console configuration fact this app's own build flag has no
+//     bearing on whatsoever (confirmed via Google's own Play Console
+//     documentation). Never claimed unconditionally here.
+const SANDBOX_BANNER_TEXT = IS_NATIVE_IOS
+  ? "Sandbox test build — TestFlight purchases always run through Apple's test environment and never charge real money. Trials and renewals here run much faster than in production."
+  : 'Sandbox test build — purchases are only test purchases if your Google account is a Play Console License Tester; confirm this first. Trials and renewals here may also run faster than in production.';
+const SANDBOX_TRIAL_CLAUSE = IS_NATIVE_IOS
+  ? 'this sandbox build never charges real money'
+  : 'this sandbox build only avoids a real charge for Play Console License Tester accounts';
+const SANDBOX_RENEWAL_TEXT = IS_NATIVE_IOS
+  ? 'This sandbox test build never charges real money, regardless of what renews or expires below.'
+  : 'This sandbox test build only avoids a real charge for Play Console License Tester accounts, regardless of what renews or expires below.';
 
 /*
  * Subscription Model, Sprint 2 Stage 1 (+ Stage 1A, Stage 3A) — Subscription screen
@@ -174,6 +228,14 @@ export const Subscription = () => {
   const [monthlyPackage, setMonthlyPackage] = useState(null);
   const [annualPackage, setAnnualPackage] = useState(null);
   const [nativeProductsState, setNativeProductsState] = useState(IS_NATIVE ? 'loading' : 'idle'); // 'idle'|'loading'|'ready'|'unavailable'
+  // Per-user introductory-offer eligibility (readiness-gap fix: trial
+  // wording reconciliation) — keyed by real product id, iOS only
+  // (checkIntroEligibility itself is a no-op everywhere else, per
+  // revenueCatAdapter.js's own header). Android's per-user eligibility is
+  // always genuinely unknowable (RevenueCat-documented), so this stays an
+  // empty map there and every lookup below correctly falls back to
+  // conditional wording.
+  const [introEligibility, setIntroEligibility] = useState({});
   // idle|purchasing|awaiting-confirmation|confirmation_timeout|cancelled|failed|identity_not_ready
   const [nativePurchaseState, setNativePurchaseState] = useState('idle');
   const [nativePurchaseError, setNativePurchaseError] = useState(null);
@@ -275,11 +337,20 @@ export const Subscription = () => {
     if (!IS_NATIVE) return undefined;
 
     let ignore = false;
-    Promise.all([getPackage('monthly'), getPackage('annual')]).then(([monthly, annual]) => {
+    Promise.all([getPackage('monthly'), getPackage('annual')]).then(async ([monthly, annual]) => {
       if (ignore) return;
       setMonthlyPackage(monthly);
       setAnnualPackage(annual);
       setNativeProductsState(monthly || annual ? 'ready' : 'unavailable');
+
+      // Per-user trial/intro eligibility (iOS only — see
+      // checkIntroEligibility's own header) for whichever real product
+      // ids actually came back, never a guessed/hardcoded id.
+      if (IS_NATIVE_IOS) {
+        const productIds = [monthly?.product?.identifier, annual?.product?.identifier].filter(Boolean);
+        const eligibility = await checkIntroEligibility(productIds);
+        if (!ignore) setIntroEligibility(eligibility);
+      }
     });
 
     // The real completion signal for a founder offer-code redemption
@@ -471,6 +542,89 @@ export const Subscription = () => {
     cancel_at_period_end: entitlement.cancelAtPeriodEnd
   };
 
+  // Trial end vs. next renewal (readiness-gap fix): the SAME
+  // entitlement.currentPeriodEnd timestamp either way — it already comes
+  // straight from the provider's own authoritative expiry
+  // (revenuecat-webhook writes event.expiration_at_ms verbatim, never a
+  // locally-computed or extended date) — but the LABEL must say which
+  // kind of date it is, never call a still-in-trial date a "renewal".
+  const periodEndRowLabel = entitlement.status === 'trial' ? 'Trial ends' : 'Next renewal';
+
+  // Native pricing/trial section data (readiness-gap fix: explicit
+  // currency + per-product trial reconciliation). The selected package's
+  // own real product data only — never a different package's, never a
+  // hardcoded figure.
+  const selectedNativePackage = interval === 'monthly' ? monthlyPackage : annualPackage;
+  const selectedNativeProductId = selectedNativePackage?.product?.identifier ?? null;
+  // iOS: a real per-product introPrice (StoreKit/RevenueCat), checked
+  // independently for monthly and annual — never assumed to exist only
+  // on annual. Android: the only trial offer this codebase models is the
+  // annual product's own 'annual-trial-7-days' offer (GOOGLE_OFFER_NAMES)
+  // — there is no equivalent monthly offer in the Play Console catalogue
+  // today, so monthly correctly makes no claim there.
+  const selectedIntroOffer = IS_NATIVE_IOS
+    // iOS's introPrice carries price/period fields but no currencyCode of
+    // its own (a product's introductory price is always in the SAME
+    // currency as its standard price) — explicitly attached here so
+    // trialOfferWording.js can show the real discounted amount, never
+    // the product's standard/renewal price mistaken for it.
+    ? selectedNativePackage?.product?.introPrice
+      ? { ...selectedNativePackage.product.introPrice, currencyCode: selectedNativePackage.product.currencyCode }
+      : null
+    : interval === 'yearly'
+      ? describeGoogleTrialOffer(annualPackage)
+      : null;
+  const selectedIntroEligibility = IS_NATIVE_IOS ? introEligibility[selectedNativeProductId] ?? null : null;
+  const introOfferWording = describeIntroOfferWording(
+    selectedIntroOffer,
+    selectedIntroEligibility,
+    NATIVE_STORE_LABEL,
+    IS_SANDBOX_TEST_BUILD ? SANDBOX_TRIAL_CLAUSE : null
+  );
+
+  // Founder-offer price (Android only — iOS's founder mechanism is Apple's
+  // own offer-code redemption sheet, which shows its own price, never
+  // this app's). Resolved from the SAME already-fetched annualPackage,
+  // never a second network round-trip, and never shown unless the real
+  // SubscriptionOption/price actually resolved.
+  //
+  // readiness-gap fix: fullPricePhase is explicitly documented as "the
+  // period of fullPricePhase (AFTER free and intro trials)" — i.e. the
+  // STANDARD RENEWAL price (AUD 59.99), not the founder offer's own
+  // discounted first-year amount (AUD 49.99). introPhase is the real
+  // discounted phase (RevenueCat's own "first pricing phase where
+  // amountMicros is greater than 0") — the correct source for what this
+  // offer actually charges first. Falls back to the first pricing phase
+  // generically (never to fullPricePhase, which would silently show the
+  // wrong, higher renewal amount as if it were the offer price) if
+  // introPhase itself is somehow absent.
+  const googleFounderOption = IS_NATIVE_ANDROID ? getGoogleNamedOfferOption(annualPackage, GOOGLE_OFFER_NAMES.founder) : null;
+  const googleFounderOfferPrice = googleFounderOption?.introPhase?.price ?? googleFounderOption?.pricingPhases?.[0]?.price ?? null;
+  const googleFounderPriceText = googleFounderOfferPrice ? formatGoogleMicrosPrice(googleFounderOfferPrice) : null;
+
+  // Headline "Annual" price (readiness-gap fix — task 3's "a package's
+  // standard product price may differ from its offer price"):
+  // PurchasesStoreProduct.price/currencyCode are documented as containing
+  // "the price value of defaultOption for Google Play" — and this
+  // project's OWN describeDefaultAnnualSelection finding already warns
+  // defaultOption can resolve to the trial/founder offer rather than the
+  // base plan (RevenueCat's own defaultOption algorithm picks the
+  // longest-trial/cheapest-first-phase option). So the plain "Annual"
+  // headline figure must come from the explicitly-resolved BASE PLAN
+  // option's own fullPricePhase (its one real, standard recurring price)
+  // — never from product.price, which could silently show a discounted
+  // offer's price as if it were the ordinary annual price. iOS has no
+  // equivalent risk (no SubscriptionOption/defaultOption concept;
+  // product.price is always the plain standard price there), so this
+  // only branches for Android + the annual interval.
+  const googleBasePlanAnnualOption = IS_NATIVE_ANDROID ? getGoogleBasePlanAnnualOption(annualPackage) : null;
+  const selectedNativePriceText =
+    IS_NATIVE_ANDROID && interval === 'yearly'
+      ? googleBasePlanAnnualOption?.fullPricePhase?.price
+        ? formatGoogleMicrosPrice(googleBasePlanAnnualOption.fullPricePhase.price)
+        : null
+      : formatNativeStorePrice(selectedNativePackage?.product);
+
   const handleUpgradeClick = () => {
     if (isGuest) {
       setActiveDialog('sign-in');
@@ -567,7 +721,7 @@ export const Subscription = () => {
             </span>
           </div>
           <div className={rowClass}>
-            <span className="text-sm font-semibold text-on-surface-variant">Renewal date</span>
+            <span className="text-sm font-semibold text-on-surface-variant">{loading ? 'Next renewal' : periodEndRowLabel}</span>
             <span className="text-sm font-bold text-on-surface">
               {loading ? 'Loading…' : formatRenewalDate(entitlement)}
             </span>
@@ -575,6 +729,23 @@ export const Subscription = () => {
         </div>
         {!loading && getStatusExplanation(statusExplanationInput) && (
           <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(statusExplanationInput)}</p>
+        )}
+        {/* Sandbox-only clarification (readiness-gap fix, task 6): Apple's
+            own TestFlight sandbox renews/compresses EVERY subscription
+            period — including the initial trial — to a fixed 24-hour
+            cycle regardless of the real configured duration (RevenueCat:
+            "As of December 2024, Apple changed TestFlight subscription
+            renewals to occur once every 24 hours, regardless of the
+            subscription duration"). Never changes the date shown (still
+            the same authoritative entitlement.currentPeriodEnd) or access
+            itself — text only, so a tester does not mistake the
+            compressed sandbox date for the real production trial length. */}
+        {!loading && IS_SANDBOX_TEST_BUILD && entitlement.status === 'trial' && (
+          <p className="text-[10px] text-on-surface-variant px-1 leading-relaxed">
+            This sandbox test build uses the store's own accelerated test clock — Apple/Google compress trial and
+            renewal periods for testing, so the date above will not match the real duration advertised to production
+            users.
+          </p>
         )}
         {verificationUnavailable && (
           <p role="alert" className="text-[10px] text-red-400 font-medium px-1">
@@ -648,7 +819,8 @@ export const Subscription = () => {
             </p>
             {interval === 'yearly' && (
               <p className="text-xs text-on-surface-variant">
-                Approximately {`AUD $${annualEffectiveMonthly().toFixed(2)}`} per month — save approximately {annualSavingsPercent()}% compared with monthly billing.
+                Approximately {formatExplicitCurrencyAmount(annualEffectiveMonthly(), CURRENCY)} per month — save
+                approximately {annualSavingsPercent()}% compared with monthly billing.
               </p>
             )}
             <p className="text-xs text-on-surface-variant pt-1">{trialDisclosureText()}</p>
@@ -704,38 +876,68 @@ export const Subscription = () => {
             )}
             {nativeProductsState === 'ready' && (
               <>
-                {/* Never a hard-coded price on native — always the exact,
-                    localised priceString the provider's own package
-                    (RevenueCat → StoreKit/Play Billing) returned. */}
-                <p className="text-lg font-bold text-on-surface">
-                  {(interval === 'monthly' ? monthlyPackage : annualPackage)?.product?.priceString ?? '—'}
-                </p>
-                {/* Trial messaging reflects what is actually structurally
-                    configured, never a universal promise (validation
-                    requirement): the standard 7-day trial exists as a
-                    real offer/introductory price on the ANNUAL product on
-                    both platforms (GOOGLE_OFFER_NAMES.trial on Android;
-                    Apple's own per-product Introductory Offer mechanism)
-                    — the monthly product has no such offer modelled
-                    anywhere in this codebase, so monthly makes no trial
-                    claim at all rather than repeating the same sentence
-                    regardless of interval. Even for annual, this never
-                    asserts the CURRENT user is eligible — only the store's
-                    own purchase sheet decides and discloses that. */}
-                {interval === 'yearly' && (
-                  <p className="text-xs text-on-surface-variant pt-1">
-                    New subscribers may be eligible for a free trial on the annual plan —{' '}
-                    {IS_NATIVE_IOS ? 'the App Store' : 'Google Play'} will show your exact eligibility and terms
-                    before you're charged.
+                {/* Never a hard-coded/converted price on native, and never
+                    the ambiguous bare-symbol priceString (readiness-gap
+                    fix — see currencyDisplay.js's own header for the
+                    incident this replaces): always a real price + ISO
+                    4217 currency code, explicitly labelled (e.g. "AUD
+                    9.99"). For Android annual specifically, the EXPLICITLY
+                    RESOLVED base-plan option's own standard price
+                    (selectedNativePriceText, above) — never product.price,
+                    which is documented as reflecting Google's own
+                    defaultOption and could silently show a discounted
+                    trial/founder offer's price as if it were the ordinary
+                    annual price. If that specific plan's price didn't come
+                    back at all, an honest unavailable message is shown
+                    instead — never a different number. */}
+                {selectedNativePackage?.product ? (
+                  <p className="text-lg font-bold text-on-surface">{selectedNativePriceText ?? 'Price unavailable'}</p>
+                ) : (
+                  <p className="text-sm text-on-surface-variant">
+                    We couldn't load pricing for this plan right now. Please try again shortly.
                   </p>
                 )}
+                {/* Trial/intro-offer wording, reconciled per PRODUCT
+                    (readiness-gap fix: a real sandbox purchase recorded a
+                    TRIAL period on the MONTHLY iOS product, contradicting
+                    this section's previous "annual only" assumption) —
+                    see trialOfferWording.js's own header. Renders nothing
+                    at all when the selected product genuinely has no
+                    offer, and never claims the CURRENT user is eligible
+                    beyond what checkIntroEligibility (iOS) actually
+                    reports — Android's eligibility is always unknown, so
+                    its wording stays conditional and lets the store's own
+                    purchase sheet decide. */}
+                {introOfferWording && <p className="text-xs text-on-surface-variant pt-1">{introOfferWording}</p>}
                 <p className="text-xs text-on-surface-variant pt-1">
-                  Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current
-                  period.
+                  {IS_SANDBOX_TEST_BUILD
+                    ? SANDBOX_RENEWAL_TEXT
+                    : 'Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period.'}
                 </p>
               </>
             )}
           </div>
+
+          {/* Sandbox-test clarity banner (task 3): a prominent, separate
+              notice — not just folded into the renewal sentence above —
+              with concise, PLATFORM-SPECIFIC "no real charge" wording
+              (SANDBOX_BANNER_TEXT, above — see its own header: iOS/
+              TestFlight is unconditionally sandboxed, Android depends on
+              Play Console License Tester setup this build flag cannot
+              establish) plus a concise timing note (trials/renewals here
+              run faster than production). Text only: never changes
+              entitlement access, never hardcodes a sandbox expiry date.
+              Gated on the SAME VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST
+              build-time flag codemagic.yaml only sets for
+              wakewise-ios-sandbox-test. */}
+          {IS_SANDBOX_TEST_BUILD && (
+            <p
+              role="status"
+              className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-2 text-center leading-relaxed"
+            >
+              {SANDBOX_BANNER_TEXT}
+            </p>
+          )}
 
           <p className="text-[11px] text-on-surface-variant text-center leading-relaxed px-2">
             By subscribing, you agree to our{' '}
@@ -942,7 +1144,27 @@ export const Subscription = () => {
       <ConfirmDialog
         open={activeDialog === 'founder-confirm'}
         title="Redeem founder offer?"
-        message="This starts a real purchase at the founder price for your first year, renewing at the standard annual price afterward unless you cancel."
+        message={
+          // Explicit-currency founder price (task 1 extension: "every
+          // subscription price ... wherever displayed"), from the
+          // offer's own REAL discounted phase (googleFounderOfferPrice,
+          // above — never fullPricePhase, the standard renewal price a
+          // founder offer specifically discounts away from). Falls back
+          // to the original, still-correct generic wording if the real
+          // price hasn't resolved yet, never a guessed number.
+          //
+          // This dialog is reachable on Android only (iOS's founder
+          // mechanism is Apple's own offer-code sheet — see the comment
+          // above), so its sandbox copy states the Android-specific Play
+          // Console License Tester caveat directly, rather than the
+          // generic "never charged" claim this task found was never true
+          // for Android regardless of this app's own build flag.
+          IS_SANDBOX_TEST_BUILD
+            ? `Sandbox test build — this only avoids a real charge if your Google account is a Play Console License Tester (confirm first). Starts a purchase${googleFounderPriceText ? ` at ${googleFounderPriceText}` : ' at the founder price'} for your first year, renewing at the standard annual price afterward unless you cancel.`
+            : googleFounderPriceText
+              ? `This starts a real purchase at the founder price (${googleFounderPriceText}) for your first year, renewing at the standard annual price afterward unless you cancel.`
+              : 'This starts a real purchase at the founder price for your first year, renewing at the standard annual price afterward unless you cancel.'
+        }
         confirmLabel="Redeem"
         cancelLabel="Cancel"
         confirmPending={nativePurchaseState === 'purchasing'}

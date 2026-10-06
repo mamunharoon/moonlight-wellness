@@ -62,7 +62,7 @@
 //      left it — Profile's existing Restore Purchases row keeps using
 //      the Apple-direct path, unchanged by this phase.
 // ==========================================================================
-import { Purchases } from '@revenuecat/purchases-capacitor';
+import { Purchases, INTRO_ELIGIBILITY_STATUS } from '@revenuecat/purchases-capacitor';
 import { isNativePlatform, isIOS, isAndroid } from './platform';
 import {
   REVENUECAT_ENTITLEMENT_ID,
@@ -194,6 +194,65 @@ export const getPackage = async (tier) => {
     console.warn('[revenueCatAdapter] getOfferings failed, continuing without it', safeErrorMessage(error));
     return null;
   }
+};
+
+/**
+ * iOS only (RevenueCat/Apple-documented: Android always reports
+ * INTRO_ELIGIBILITY_STATUS_UNKNOWN for every product). Computes whether
+ * THIS signed-in user is actually eligible for the introductory
+ * offer/free trial of each given product id — never assumed from
+ * whether the product merely HAS an offer (that is a catalogue fact,
+ * checked separately via product.introPrice). Returns an empty map
+ * (never a guessed status) if RevenueCat is unavailable, the call fails,
+ * or no product ids are given — callers must treat a missing entry the
+ * same as 'UNKNOWN', never as ineligible or eligible.
+ */
+export const checkIntroEligibility = async (productIdentifiers) => {
+  const ids = (productIdentifiers ?? []).filter(Boolean);
+  if (!configured || !isRevenueCatSupported() || ids.length === 0) return {};
+  try {
+    const result = await Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids });
+    // Reverse-lookup against the SDK's own real enum (never a
+    // hand-copied numeric table that could drift from it) — e.g.
+    // INTRO_ELIGIBILITY_STATUS_ELIGIBLE -> 'ELIGIBLE', matching this
+    // app's own trialOfferWording.js vocabulary.
+    const statusNameFor = (value) =>
+      Object.keys(INTRO_ELIGIBILITY_STATUS)
+        .find((key) => INTRO_ELIGIBILITY_STATUS[key] === value)
+        ?.replace('INTRO_ELIGIBILITY_STATUS_', '') ?? 'UNKNOWN';
+    return Object.fromEntries(
+      Object.entries(result ?? {}).map(([productId, eligibility]) => [productId, statusNameFor(eligibility?.status)])
+    );
+  } catch (error) {
+    console.warn('[revenueCatAdapter] checkTrialOrIntroductoryPriceEligibility failed, continuing without it', safeErrorMessage(error));
+    return {};
+  }
+};
+
+/**
+ * Android's real trial-offer data for the annual product, normalized to
+ * the SAME {price, periodUnit, periodNumberOfUnits} shape iOS's own
+ * product.introPrice already uses (trialOfferWording.js's
+ * describeIntroOfferWording takes either interchangeably) — never a
+ * second, differently-shaped representation of "is there a free trial
+ * here". Resolves the REAL SubscriptionOption via the existing
+ * getGoogleNamedOfferOption (id-suffix matched, never guessed) and reads
+ * its own freePhase (the pricing phase RevenueCat itself identifies as
+ * free, i.e. amountMicros === 0) — never the full-price phase. Returns
+ * null (never invented) if there is no such offer on this package, or it
+ * has no free phase (e.g. a discounted-but-not-free intro offer, which
+ * this app does not model as a "trial" claim).
+ */
+export const describeGoogleTrialOffer = (annualPackage) => {
+  const option = getGoogleNamedOfferOption(annualPackage, GOOGLE_OFFER_NAMES.trial);
+  const freePhase = option?.freePhase ?? null;
+  if (!freePhase) return null;
+  return {
+    price: 0,
+    currencyCode: freePhase.price?.currencyCode ?? null,
+    periodUnit: freePhase.billingPeriod?.unit ?? null,
+    periodNumberOfUnits: freePhase.billingPeriod?.value ?? null
+  };
 };
 
 /**

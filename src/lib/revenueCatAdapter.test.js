@@ -225,6 +225,46 @@ describe('revenueCatAdapter — purchaseGoogleOrdinaryAnnual never reaches the f
   });
 });
 
+describe('revenueCatAdapter — trial/intro-offer reconciliation (readiness-gap fix: a real sandbox TRIAL purchase on the monthly iOS product)', () => {
+  it('checkIntroEligibility is iOS-eligibility-only and returns an empty map (never a guessed status) when unsupported/unconfigured or given no product ids', () => {
+    const body = source.match(/export const checkIntroEligibility = async \(productIdentifiers\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(!configured \|\| !isRevenueCatSupported\(\) \|\| ids\.length === 0\) return \{\};/);
+    expect(body).toMatch(/Purchases\.checkTrialOrIntroductoryPriceEligibility\(\{ productIdentifiers: ids \}\);/);
+  });
+
+  it('checkIntroEligibility resolves status names from the SDK\'s own real INTRO_ELIGIBILITY_STATUS enum, never a hand-copied numeric table', () => {
+    expect(source).toMatch(/import \{ Purchases, INTRO_ELIGIBILITY_STATUS \} from '@revenuecat\/purchases-capacitor';/);
+    const body = source.match(/export const checkIntroEligibility = async \(productIdentifiers\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/INTRO_ELIGIBILITY_STATUS\[key\] === value/);
+  });
+
+  it('checkIntroEligibility never throws on a failed SDK call - caught and returns an empty map', () => {
+    const body = source.match(/export const checkIntroEligibility = async \(productIdentifiers\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/\} catch \(error\) \{[\s\S]*?return \{\};\s*\n\s*\}/);
+  });
+
+  it('describeGoogleTrialOffer resolves the REAL annual-trial-7-days SubscriptionOption via the existing suffix-matched getGoogleNamedOfferOption, never a guessed id', () => {
+    const body = source.match(/export const describeGoogleTrialOffer = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/getGoogleNamedOfferOption\(annualPackage, GOOGLE_OFFER_NAMES\.trial\)/);
+  });
+
+  it('describeGoogleTrialOffer reads the SDK\'s own freePhase (amountMicros === 0), never the full-price phase, and returns null when there is none', () => {
+    const body = source.match(/export const describeGoogleTrialOffer = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/option\?\.freePhase \?\? null;/);
+    expect(body).toMatch(/if \(!freePhase\) return null;/);
+  });
+
+  it('describeGoogleTrialOffer normalizes to the same {price, currencyCode, periodUnit, periodNumberOfUnits} shape iOS\'s own product.introPrice (+ product.currencyCode) uses, so trialOfferWording.js can take either interchangeably', () => {
+    const body = source.match(/export const describeGoogleTrialOffer = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/price: 0,/);
+    expect(body).toMatch(/currencyCode: freePhase\.price\?\.currencyCode \?\? null,/);
+    expect(body).toMatch(/periodUnit: freePhase\.billingPeriod\?\.unit \?\? null,/);
+    expect(body).toMatch(/periodNumberOfUnits: freePhase\.billingPeriod\?\.value \?\? null/);
+  });
+});
+
 describe('revenueCatAdapter — coexistence with the existing Apple-direct adapter', () => {
   it('does not import or call anything from applePurchaseAdapter.js - the two purchase paths stay fully separate until the documented cutover', () => {
     expect(source).not.toMatch(/from '\.\/applePurchaseAdapter'/);

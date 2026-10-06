@@ -204,14 +204,144 @@ describe('Subscription.jsx — Android subscription management uses verified pac
   });
 });
 
-describe('Subscription.jsx — trial messaging reflects what is actually eligible, never a universal promise', () => {
-  it('the trial sentence only renders for the annual interval - the monthly product has no trial offer modelled anywhere in this codebase', () => {
-    expect(source).toMatch(/\{interval === 'yearly' && \(\s*\n\s*<p className="text-xs text-on-surface-variant pt-1">\s*\n\s*New subscribers may be eligible for a free trial/);
+describe('Subscription.jsx — trial messaging is reconciled per PRODUCT, never a single "annual only" assumption (readiness-gap fix: a real sandbox purchase recorded a TRIAL period on the MONTHLY iOS product)', () => {
+  it('checks monthly and annual independently via describeIntroOfferWording, rather than gating the whole trial sentence on interval === \'yearly\'', () => {
+    expect(source).toMatch(/import \{ describeIntroOfferWording \} from '\.\.\/lib\/trialOfferWording';/);
+    expect(source).toMatch(/const introOfferWording = describeIntroOfferWording\(/);
+    // The old hard gate on interval === 'yearly' around the trial
+    // paragraph is gone - wording is now a function of the SELECTED
+    // package's own real offer data, computed once above the JSX.
+    expect(source).not.toMatch(/\{interval === 'yearly' && \(\s*\n\s*<p className="text-xs text-on-surface-variant pt-1">\s*\n\s*New subscribers may be eligible for a free trial/);
   });
 
-  it('even for annual, the copy says "may be eligible" and defers the actual determination to the store - never asserts the current user will get a trial', () => {
-    expect(source).toMatch(/New subscribers may be eligible for a free trial on the annual plan/);
-    expect(source).toMatch(/will show your exact eligibility and terms/);
+  it('iOS resolves the real per-product introPrice for whichever package is selected, never assuming only the annual product has one', () => {
+    const body = source.match(/const selectedIntroOffer = IS_NATIVE_IOS\s*\n[\s\S]*?\n {2}const selectedIntroEligibility/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/selectedNativePackage\?\.product\?\.introPrice\s*\n\s*\? \{ \.\.\.selectedNativePackage\.product\.introPrice, currencyCode: selectedNativePackage\.product\.currencyCode \}\s*\n\s*: null/);
+  });
+
+  it('attaches the product\'s own currencyCode to the iOS introOffer - introPrice itself carries no currency field, and the real offer amount (checked below) must never be formatted with a guessed/missing currency', () => {
+    expect(source).toMatch(/currencyCode: selectedNativePackage\.product\.currencyCode/);
+  });
+
+  it('Android still only models the annual-trial-7-days offer (no equivalent monthly offer exists in the Play Console catalogue) via describeGoogleTrialOffer, gated on the yearly interval', () => {
+    expect(source).toMatch(/: interval === 'yearly'\s*\n\s*\? describeGoogleTrialOffer\(annualPackage\)\s*\n\s*: null;/);
+  });
+
+  it('passes per-user eligibility (iOS only) into the wording function, rather than asserting the current user is eligible in the component itself', () => {
+    expect(source).toMatch(/const selectedIntroEligibility = IS_NATIVE_IOS \? introEligibility\[selectedNativeProductId\] \?\? null : null;/);
+  });
+
+  it('renders nothing at all when the wording function returns null - no trial claim when the selected product genuinely has none', () => {
+    expect(source).toMatch(/\{introOfferWording && <p className="text-xs text-on-surface-variant pt-1">\{introOfferWording\}<\/p>\}/);
+  });
+});
+
+describe('Subscription.jsx — explicit-currency native pricing (readiness-gap fix: a bare "$" read as USD when the tester expected AUD)', () => {
+  it('never reads .priceString anywhere in actual code - the ambiguous bare-symbol price this task replaces (comments mentioning the name for context are fine)', () => {
+    expect(source).not.toMatch(/\.priceString/);
+  });
+
+  it('uses formatNativeStorePrice (ISO currency code + real price) as the default headline price, with an explicit unavailable fallback instead of a different price', () => {
+    expect(source).toMatch(/import \{ formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount \} from '\.\.\/lib\/currencyDisplay';/);
+    expect(source).toMatch(/: formatNativeStorePrice\(selectedNativePackage\?\.product\);/);
+    expect(source).toMatch(/\{selectedNativePriceText \?\? 'Price unavailable'\}/);
+  });
+
+  it('shows an explicit "couldn\'t load pricing for this plan" message when the selected plan\'s own package is missing, even if the other plan loaded fine', () => {
+    expect(source).toMatch(/We couldn't load pricing for this plan right now\. Please try again shortly\./);
+  });
+
+  it('the web/Stripe approximate-monthly-price line also uses the explicit-currency formatter, never a hardcoded "AUD $" literal', () => {
+    expect(source).not.toMatch(/`AUD \$\$\{annualEffectiveMonthly/);
+    expect(source).toMatch(/formatExplicitCurrencyAmount\(annualEffectiveMonthly\(\), CURRENCY\)/);
+  });
+});
+
+describe('Subscription.jsx — Android headline "Annual" price resolves the EXPLICIT base-plan option, never product.price (readiness-gap fix: "a package\'s standard product price may differ from its offer price")', () => {
+  it('product.price/currencyCode are documented as reflecting Google\'s own defaultOption, which this codebase\'s own describeDefaultAnnualSelection finding already warns can resolve to the trial/founder offer', () => {
+    expect(source).toMatch(/PurchasesStoreProduct\.price\/currencyCode are documented as containing/);
+  });
+
+  it('resolves getGoogleBasePlanAnnualOption explicitly and reads its fullPricePhase (the base plan\'s own one real standard price), only for Android + the yearly interval', () => {
+    expect(source).toMatch(/import \{[\s\S]*?getGoogleBasePlanAnnualOption[\s\S]*?\} from '\.\.\/lib\/revenueCatAdapter';/);
+    expect(source).toMatch(/const googleBasePlanAnnualOption = IS_NATIVE_ANDROID \? getGoogleBasePlanAnnualOption\(annualPackage\) : null;/);
+    const body = source.match(/const selectedNativePriceText =\s*\n[\s\S]*?: formatNativeStorePrice\(selectedNativePackage\?\.product\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/IS_NATIVE_ANDROID && interval === 'yearly'/);
+    expect(body).toMatch(/googleBasePlanAnnualOption\?\.fullPricePhase\?\.price/);
+  });
+
+  it('iOS and Android monthly are untouched by this branch - they keep using formatNativeStorePrice(product) directly, since only Android annual has the defaultOption ambiguity', () => {
+    const body = source.match(/const selectedNativePriceText =\s*\n[\s\S]*?: formatNativeStorePrice\(selectedNativePackage\?\.product\);/)?.[0] ?? '';
+    expect(body).toMatch(/: formatNativeStorePrice\(selectedNativePackage\?\.product\);$/);
+  });
+});
+
+describe('Subscription.jsx — Android founder price reads the offer\'s own discounted phase, never the standard renewal price (readiness-gap fix)', () => {
+  it('uses introPhase (the real first non-zero-price phase), never fullPricePhase (documented as the price AFTER free/intro trials end)', () => {
+    expect(source).toMatch(/fullPricePhase is explicitly documented as "the\s*\n\s*\/\/ period of fullPricePhase \(AFTER free and intro trials\)"/);
+    expect(source).toMatch(/const googleFounderOfferPrice = googleFounderOption\?\.introPhase\?\.price \?\? googleFounderOption\?\.pricingPhases\?\.\[0\]\?\.price \?\? null;/);
+    expect(source).not.toMatch(/googleFounderOption\?\.fullPricePhase/);
+  });
+});
+
+describe('Subscription.jsx — sandbox-test build copy never implies a real charge (task 3)', () => {
+  it('defines IS_SANDBOX_TEST_BUILD from the same build-time flag SubscriptionSandboxTest.jsx uses', () => {
+    expect(source).toMatch(/const IS_SANDBOX_TEST_BUILD = import\.meta\.env\.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST === 'true';/);
+  });
+
+  it('shows a dedicated, prominent sandbox banner distinct from the renewal sentence, using the platform-specific SANDBOX_BANNER_TEXT constant', () => {
+    expect(source).toMatch(/\{IS_SANDBOX_TEST_BUILD && \(\s*\n\s*<p\s*\n\s*role="status"/);
+    expect(source).toMatch(/\{SANDBOX_BANNER_TEXT\}/);
+  });
+
+  it('the renewal sentence itself is conditional on IS_SANDBOX_TEST_BUILD (using SANDBOX_RENEWAL_TEXT), never unconditionally implying a real charge follows', () => {
+    expect(source).toMatch(/\{IS_SANDBOX_TEST_BUILD\s*\n\s*\? SANDBOX_RENEWAL_TEXT\s*\n\s*: 'Subscriptions renew automatically/);
+  });
+
+  it('the Android founder-redemption confirm dialog also gets sandbox-safe wording, not just the trial sentence', () => {
+    const body = source.match(/message=\{[\s\S]*?IS_SANDBOX_TEST_BUILD[\s\S]*?\n {8}\}/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/Sandbox test build — this only avoids a real charge/);
+  });
+
+  it('sandbox wording is PLATFORM-SPECIFIC (check 2): iOS claims no real charge unconditionally (TestFlight always sandboxes), Android qualifies it on Play Console License Tester setup - the build flag alone never establishes Google Play test billing', () => {
+    expect(source).toMatch(/const SANDBOX_BANNER_TEXT = IS_NATIVE_IOS/);
+    expect(source).toMatch(/const SANDBOX_TRIAL_CLAUSE = IS_NATIVE_IOS/);
+    expect(source).toMatch(/const SANDBOX_RENEWAL_TEXT = IS_NATIVE_IOS/);
+    expect(source).toMatch(/Play Console License Tester/);
+    // The iOS branch of every sandbox constant must assert "never
+    // charged" unconditionally (TestFlight-documented); the Android
+    // branch must never make that same unconditional claim.
+    expect(source).toMatch(/never charges real money/);
+  });
+
+  it('the trial-offer sentence passes the platform-specific SANDBOX_TRIAL_CLAUSE into describeIntroOfferWording, never a bare boolean the wording module would have to interpret itself', () => {
+    expect(source).toMatch(/IS_SANDBOX_TEST_BUILD \? SANDBOX_TRIAL_CLAUSE : null/);
+  });
+
+  it('adds a concise sandbox TIMING note (trials/renewals run faster than production) alongside the real-charge claim, without touching the authoritative expiry timestamp anywhere', () => {
+    expect(source).toMatch(/run much faster than in production/);
+    expect(source).toMatch(/may also run faster than in production/);
+  });
+});
+
+describe('Subscription.jsx — "Trial ends" vs "Next renewal" uses the same authoritative entitlement.currentPeriodEnd (task 6)', () => {
+  it('the row label depends on entitlement.status === \'trial\', never a separately computed/guessed date', () => {
+    expect(source).toMatch(/const periodEndRowLabel = entitlement\.status === 'trial' \? 'Trial ends' : 'Next renewal';/);
+    expect(source).toMatch(/\{loading \? 'Next renewal' : periodEndRowLabel\}/);
+  });
+
+  it('still reads the date from formatRenewalDate(entitlement) - the label changes, the authoritative timestamp does not', () => {
+    expect(source).toMatch(/\{loading \? 'Loading…' : formatRenewalDate\(entitlement\)\}/);
+  });
+
+  it('a sandbox-build trial explains the accelerated test clock, without hardcoding a date or changing entitlement.currentPeriodEnd', () => {
+    const body = source.match(/\{!loading && IS_SANDBOX_TEST_BUILD && entitlement\.status === 'trial' && \([\s\S]*?\n {8}\)\}/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/accelerated test clock/);
+    expect(body).not.toMatch(/new Date\(|\d{4}-\d{2}-\d{2}/); // never a literal/computed date
   });
 });
 
