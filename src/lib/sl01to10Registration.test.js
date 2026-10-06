@@ -14,29 +14,30 @@ import { getBetaVideoById, BETA_VIDEO_MANIFEST } from './betaVideoManifest';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 
 const SL_ENTRIES = {
-  SL01: { storagePath: 'faststart-v2/WW_SL01_Rain_v2_faststart.mp4', durationLabel: '2 min' },
-  SL02: { storagePath: 'faststart-v2/WW_SL02_OceanWaves_Preview_v2_faststart.mp4', durationLabel: '3 min' },
-  SL03: { storagePath: 'faststart-v2/WW_SL03_ForestAmbience_v2_faststart.mp4', durationLabel: '3 min' },
-  SL04: { storagePath: 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4', durationLabel: '3 min' },
-  SL05: { storagePath: 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4', durationLabel: '2 min' },
-  SL06: { storagePath: 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL07: { storagePath: 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL08: { storagePath: 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL09: { storagePath: 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4', durationLabel: '3 min' },
-  SL10: { storagePath: 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4', durationLabel: '3 min' }
+  SL01: { storagePath: 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4', durationLabel: '3 min' },
+  SL02: { storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4', durationLabel: '3 min' },
+  SL03: { storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4', durationLabel: '3 min' },
+  SL04: { storagePath: 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4', durationLabel: '3 min' },
+  SL05: { storagePath: 'faststart-v1/WW_SL05_Wind_v2.mp4_faststart.mp4', durationLabel: '2 min' },
+  SL06: { storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v2.mp4_faststart.mp4', durationLabel: '3 min' },
+  SL07: { storagePath: 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4', durationLabel: '3 min' },
+  SL08: { storagePath: 'faststart-v1/WW_SL08_BrownNoise_v2.mp4_faststart.mp4', durationLabel: '2 min' },
+  SL09: { storagePath: 'faststart-v1/WW_SL09_SoothingBirds_v1.mp4', durationLabel: '2 min' },
+  SL10: { storagePath: 'faststart-v1/WW_SL10_RustlingLeaves_v1.mp4', durationLabel: '3 min' }
 };
 
-describe('betaVideoManifest.js — every SL01-SL10 id is registered exactly once, with the verified faststart-v2/ path', () => {
+describe('betaVideoManifest.js — every SL01-SL10 id is registered exactly once, with the 2026-10-06 re-upload\'s verified faststart-v1/ path', () => {
   for (const [id, { storagePath, durationLabel }] of Object.entries(SL_ENTRIES)) {
-    it(`${id} resolves to its real, corrected faststart-v2/ object path and rounded duration`, () => {
+    it(`${id} resolves to its real, corrected faststart-v1/ object path and rounded duration`, () => {
       const entry = getBetaVideoById(id);
       expect(entry).toBeDefined();
       expect(entry.storagePath).toBe(storagePath);
       expect(entry.durationLabel).toBe(durationLabel);
-      // None of the ten may still point at the original faststart-v1/
-      // objects - those are left in Storage untouched for rollback, but
-      // must no longer be referenced by the live manifest.
-      expect(entry.storagePath.startsWith('faststart-v2/')).toBe(true);
+      // All ten now point at the owner's 2026-10-06 faststart-v1/
+      // re-upload (reusing their exact original filenames) - the Build 15
+      // faststart-v2/ objects are left in Storage untouched for rollback,
+      // but must no longer be referenced by the live manifest.
+      expect(entry.storagePath.startsWith('faststart-v1/')).toBe(true);
       // None of the ten may still claim the old, unverified "5 min" label.
       expect(entry.durationLabel).not.toBe('5 min');
     });
@@ -50,7 +51,7 @@ describe('betaVideoManifest.js — every SL01-SL10 id is registered exactly once
   });
 });
 
-describe('get-beta-video-url/index.ts — every SL01-SL10 id maps to the same verified faststart-v2/ path server-side', () => {
+describe('get-beta-video-url/index.ts — every SL01-SL10 id maps to the same verified faststart-v1/ path server-side', () => {
   const edgeFunctionSource = read('../../supabase/functions/get-beta-video-url/index.ts');
 
   for (const [id, { storagePath }] of Object.entries(SL_ENTRIES)) {

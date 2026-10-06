@@ -26,10 +26,13 @@ import { BETA_VIDEO_MANIFEST } from './betaVideoManifest';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts');
 
-const FASTSTART_V2_IDS = [
-  'E04', 'E05', 'E06', 'E11', 'E13',
-  'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10'
-];
+// SL01-SL10 left this list on 2026-10-06: the owner re-uploaded genuinely
+// new source content directly into faststart-v1/ (their original object
+// names, from before Build 15's v2 migration) - see betaVideoManifest.js's
+// own updated comment on this series for the full explanation. The
+// Build 15 faststart-v2/ objects remain in Storage, untouched, for
+// rollback - just no longer the live mapping.
+const FASTSTART_V2_IDS = ['E04', 'E05', 'E06', 'E11', 'E13'];
 
 const edgeFnPaths = Object.fromEntries(
   [...edgeFnSource.matchAll(/\['([A-Z0-9]+)',\s*'([^']+)'\]/g)].map((m) => [m[1], m[2]])
@@ -99,7 +102,17 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
   // reason as M06COVER: real PNG still cover images, never remuxed.
   // S01-S05 themselves are NOT exempt - they too are genuine Fast Start
   // remuxes of this batch's own replaced exports.
-  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER'];
+  //
+  // SL09/SL10 (2026-10-06 owner re-upload) join for a DIFFERENT reason
+  // than the rest of this list: both objects genuinely ARE fast-start
+  // remuxed (verified via real moov-before-mdat box inspection - see
+  // betaVideoManifest.js's own comment on this series) - they're exempted
+  // here only because their object names preserve the owner's exact
+  // original upload filenames (WW_SL09_SoothingBirds_v1.mp4,
+  // WW_SL10_RustlingLeaves_v1.mp4), which never carried a "_faststart"
+  // marker. This test checks a NAMING convention, not the actual box
+  // order - never renamed these to manufacture a passing name.
+  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10'];
 
   it('every remuxed path carries the _faststart marker before its extension (the remux naming convention)', () => {
     for (const [id, path] of Object.entries(edgeFnPaths)) {
@@ -108,8 +121,8 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     }
   });
 
-  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
-    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER']);
+  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER/SL09/SL10 are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
+    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10']);
     expect(edgeFnPaths.IM01).toBe('faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a');
     expect(edgeFnPaths.IM02).toBe('faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a');
     // S06 renamed on the 2026-10-05 stretching refresh reupload (gained
@@ -120,6 +133,8 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     expect(edgeFnPaths.M06COVER).toBe('faststart-v1/WW_M06_Mindful_Listening_Cover_v1.png');
     expect(edgeFnPaths.S06COVER).toBe('faststart-v1/ST01_Chest_Shoulder_Stretch.png');
     expect(edgeFnPaths.S09COVER).toBe('faststart-v1/ST04_Gentle_Side_Stretch.png');
+    expect(edgeFnPaths.SL09).toBe('faststart-v1/WW_SL09_SoothingBirds_v1.mp4');
+    expect(edgeFnPaths.SL10).toBe('faststart-v1/WW_SL10_RustlingLeaves_v1.mp4');
   });
 });
 
