@@ -327,9 +327,11 @@ describe('Subscription.jsx — sandbox-test build copy never implies a real char
   });
 });
 
-describe('Subscription.jsx — "Trial ends" vs "Next renewal" uses the same authoritative entitlement.currentPeriodEnd (task 6)', () => {
-  it('the row label depends on entitlement.status === \'trial\', never a separately computed/guessed date', () => {
-    expect(source).toMatch(/const periodEndRowLabel = entitlement\.status === 'trial' \? 'Trial ends' : 'Next renewal';/);
+describe('Subscription.jsx — "Trial ends" vs "Next renewal" vs "Access ends" uses the same authoritative entitlement.currentPeriodEnd (task 6 + cancellation-wording fix)', () => {
+  it('a cancelled-but-still-active subscription (entitlement.state === cancelled_active_until_period_end) gets its own "Access ends" label, checked before trial/active, never "Next renewal" (which would wrongly imply it is still auto-renewing)', () => {
+    expect(source).toMatch(
+      /const periodEndRowLabel =\s*\n\s*entitlement\.state === 'cancelled_active_until_period_end'\s*\n\s*\? 'Access ends'\s*\n\s*: entitlement\.status === 'trial'\s*\n\s*\? 'Trial ends'\s*\n\s*: 'Next renewal';/
+    );
     expect(source).toMatch(/\{loading \? 'Next renewal' : periodEndRowLabel\}/);
   });
 
@@ -342,6 +344,20 @@ describe('Subscription.jsx — "Trial ends" vs "Next renewal" uses the same auth
     expect(body).not.toBe('');
     expect(body).toMatch(/accelerated test clock/);
     expect(body).not.toMatch(/new Date\(|\d{4}-\d{2}-\d{2}/); // never a literal/computed date
+  });
+});
+
+describe('Subscription.jsx — Current Plan trial sentence is sandbox-platform-accurate (physical-device finding, iOS build 35)', () => {
+  it('passes the same platform-accurate SANDBOX_TRIAL_CLAUSE used elsewhere on this page into getStatusExplanation, never a second, separately-maintained claim', () => {
+    expect(source).toMatch(
+      /const statusExplanation = getStatusExplanation\(\s*\n\s*statusExplanationInput,\s*\n\s*IS_SANDBOX_TEST_BUILD \? SANDBOX_TRIAL_CLAUSE : null\s*\n\s*\);/
+    );
+  });
+
+  it('renders the memoised statusExplanation variable, never a second raw getStatusExplanation(statusExplanationInput) call with no sandbox context', () => {
+    expect(source).toMatch(/\{!loading && statusExplanation && \(/);
+    expect(source).toMatch(/<p className="text-xs text-on-surface-variant px-1 leading-relaxed">\{statusExplanation\}<\/p>/);
+    expect(source).not.toMatch(/getStatusExplanation\(statusExplanationInput\)/);
   });
 });
 

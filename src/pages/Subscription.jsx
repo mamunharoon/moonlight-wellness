@@ -541,14 +541,32 @@ export const Subscription = () => {
     expires_at: entitlement.currentPeriodEnd,
     cancel_at_period_end: entitlement.cancelAtPeriodEnd
   };
+  // Sandbox accuracy fix (physical-device finding, iOS build 35): the
+  // Current Plan trial sentence's "will not be charged" claim is the
+  // SAME platform-specific billing fact SANDBOX_TRIAL_CLAUSE already
+  // exists for (see that constant's own header) — reused here rather
+  // than a second, separately-maintained copy of the same fact.
+  const statusExplanation = getStatusExplanation(
+    statusExplanationInput,
+    IS_SANDBOX_TEST_BUILD ? SANDBOX_TRIAL_CLAUSE : null
+  );
 
-  // Trial end vs. next renewal (readiness-gap fix): the SAME
-  // entitlement.currentPeriodEnd timestamp either way — it already comes
-  // straight from the provider's own authoritative expiry
+  // Trial end / next renewal / access ends (readiness-gap fix): the SAME
+  // entitlement.currentPeriodEnd timestamp in every case — it already
+  // comes straight from the provider's own authoritative expiry
   // (revenuecat-webhook writes event.expiration_at_ms verbatim, never a
   // locally-computed or extended date) — but the LABEL must say which
-  // kind of date it is, never call a still-in-trial date a "renewal".
-  const periodEndRowLabel = entitlement.status === 'trial' ? 'Trial ends' : 'Next renewal';
+  // kind of date it is. A cancelled-but-still-active subscription
+  // (entitlement.state === 'cancelled_active_until_period_end' — see
+  // entitlementResolver.js) must say "Access ends", never "Next renewal"
+  // (which would wrongly imply it's still auto-renewing) and never
+  // "Trial ends" once a real renewal has actually happened at least once.
+  const periodEndRowLabel =
+    entitlement.state === 'cancelled_active_until_period_end'
+      ? 'Access ends'
+      : entitlement.status === 'trial'
+        ? 'Trial ends'
+        : 'Next renewal';
 
   // Native pricing/trial section data (readiness-gap fix: explicit
   // currency + per-product trial reconciliation). The selected package's
@@ -727,8 +745,8 @@ export const Subscription = () => {
             </span>
           </div>
         </div>
-        {!loading && getStatusExplanation(statusExplanationInput) && (
-          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{getStatusExplanation(statusExplanationInput)}</p>
+        {!loading && statusExplanation && (
+          <p className="text-xs text-on-surface-variant px-1 leading-relaxed">{statusExplanation}</p>
         )}
         {/* Sandbox-only clarification (readiness-gap fix, task 6): Apple's
             own TestFlight sandbox renews/compresses EVERY subscription

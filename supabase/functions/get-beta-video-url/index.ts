@@ -176,28 +176,33 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['S09', 'faststart-v1/ST04_Gentle_Side_Stretch.mp3.MP3'],
   ['S09COVER', 'faststart-v1/ST04_Gentle_Side_Stretch.png'],
   ['IS01', 'faststart-v1/WW_IS01_InteractiveStretchingLoop_MusicBed_v2_faststart.m4a'],
-  // 2026-10-06 owner re-upload — SL01-SL10 moved BACK to faststart-v1/.
-  // Build 15 previously moved these ten to faststart-v2/ (moov was at
-  // ~99% of the file despite the "_faststart" filename marker on the
-  // then-current faststart-v1 objects). The owner has since uploaded
-  // genuinely new source content for all ten, reusing their EXACT
-  // original faststart-v1/ filenames (verified byte-for-byte against live
-  // storage.objects, not assumed from the filename) - and those new
-  // uploads again had moov after mdat despite the name, so they were
-  // losslessly remuxed in place (stream copy, +faststart, no re-encode)
-  // and re-verified via real box-order inspection, never trusted from the
-  // filename alone. See betaVideoManifest.js's own matching comment for
-  // the full explanation and the measured durations behind this phase's
-  // updated SL01/SL08/SL09 duration labels. The faststart-v2/ objects from
-  // Build 15 are left in Storage untouched for rollback, just no longer
-  // referenced here. Paths below are mirrored byte-for-byte from
+  // 2026-10-12 owner re-upload — SL01-SL10 replaced AGAIN in faststart-v1/,
+  // same filenames as the 2026-10-06 re-upload with ONE exception: SL06
+  // landed under a NEW object name the owner chose themselves
+  // (WW_SL06_WhiteNoise_v2_compressed_faststart.mp4) — verified against
+  // live storage.objects (the old WW_SL06_WhiteNoise_v2.mp4_faststart.mp4
+  // name no longer exists at all, created_at/updated_at confirm this is
+  // the live mapping, not assumed from the filename). All ten new objects
+  // were downloaded in full and checked for real moov-before-mdat box
+  // order (never trusted from the "_faststart" filename alone, same trap
+  // as every prior SL01-SL10 incident): SL01-SL09 already had moov right
+  // after ftyp (genuinely fast-start as uploaded); SL10 again had moov at
+  // ~99% of the file despite the name. All ten were losslessly remuxed in
+  // place (stream copy, +faststart, no re-encode — duration and audio
+  // stream verified byte-identical before/after) and re-verified via real
+  // box-order inspection after upload, against the actual served objects,
+  // not just the local output. See betaVideoManifest.js's own matching
+  // comment for the measured durations behind this phase's updated
+  // SL01-SL04/SL06/SL07/SL10 duration labels. The faststart-v2/ objects
+  // from Build 15 are left in Storage untouched for rollback, just no
+  // longer referenced here. Paths below are mirrored byte-for-byte from
   // betaVideoManifest.js.
   ['SL01', 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4'],
   ['SL02', 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4'],
   ['SL03', 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4'],
   ['SL04', 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4'],
   ['SL05', 'faststart-v1/WW_SL05_Wind_v2.mp4_faststart.mp4'],
-  ['SL06', 'faststart-v1/WW_SL06_WhiteNoise_v2.mp4_faststart.mp4'],
+  ['SL06', 'faststart-v1/WW_SL06_WhiteNoise_v2_compressed_faststart.mp4'],
   ['SL07', 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4'],
   ['SL08', 'faststart-v1/WW_SL08_BrownNoise_v2.mp4_faststart.mp4'],
   ['SL09', 'faststart-v1/WW_SL09_SoothingBirds_v1.mp4'],

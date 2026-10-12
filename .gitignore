@@ -36,3 +36,8 @@ supabase/.temp/
 /build/
 *.ipa
 *.xcarchive
+
+# Scratch media originals/processed outputs pulled from Storage for local
+# verification/remuxing (e.g. the SL01-SL10 Fast Start checks) -- large
+# binaries, never committed.
+/.media-work/

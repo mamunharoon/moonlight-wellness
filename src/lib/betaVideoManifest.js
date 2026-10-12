@@ -619,35 +619,40 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'Ambient background loop for the interactive stretching timer.'
   },
   {
-    // 2026-10-06 owner re-upload — SL01-SL10 moved BACK to faststart-v1/.
-    // Build 15's own migration note (preserved in git history) explained
-    // moving these ten to faststart-v2/ because the original faststart-v1
-    // objects had moov at ~99% of the file despite the "_faststart" name.
-    // The owner has since uploaded genuinely new source content for all
-    // ten, reusing their EXACT original faststart-v1/ filenames (verified
-    // byte-for-byte against live storage.objects — upload timestamps,
-    // sizes, and a cross-check against the owner's own Google Drive
-    // working files, not assumed from the filename alone — the same
-    // "_faststart" naming trap Build 15 already warned about). Those new
-    // uploads again had moov AFTER mdat despite the name — losslessly
-    // remuxed in place (`-map 0 -c copy -movflags +faststart`, no
-    // re-encode — mdat payload size verified byte-identical before/after)
-    // and re-verified with real moov-before-mdat box inspection, never
-    // trusted from the filename (see fastStartMapping.test.js's own
-    // "filename suffix alone never proves fast-start" test). The
-    // faststart-v2/ objects from Build 15 are left in Storage untouched
-    // for rollback, just no longer referenced here. Real measured
-    // durations (ffprobe against the new objects, not assumed): SL01
-    // 200.625000s, SL02 170.016848s, SL03/SL04 198.345011s, SL05/SL08/SL09
-    // 113.337007s, SL06 188.083333s, SL07 170.458333s, SL10 176.958333s —
-    // durationLabel below is the rounded whole-minute UI label, recomputed
-    // from these new measurements (SL01 and SL08/SL09 round to a
-    // different whole minute than the superseded Build 15 content did).
+    // 2026-10-12 owner re-upload — SL01-SL10 replaced AGAIN in
+    // faststart-v1/, same filenames as the 2026-10-06 re-upload with ONE
+    // exception: SL06 landed under a NEW object name the owner chose
+    // themselves (WW_SL06_WhiteNoise_v2_compressed_faststart.mp4) —
+    // verified against live storage.objects (the old
+    // WW_SL06_WhiteNoise_v2.mp4_faststart.mp4 name no longer exists at
+    // all; created_at/updated_at on every SL01-SL10 object confirm this
+    // is a genuinely new 2026-10-12 upload, not assumed from the filename
+    // alone). All ten new objects were downloaded in full and checked for
+    // real moov-before-mdat box order (never trusted from the
+    // "_faststart" filename alone — see fastStartMapping.test.js's own
+    // "filename suffix alone never proves fast-start" test): SL01-SL09
+    // already had moov right after ftyp (genuinely fast-start as
+    // uploaded); SL10 again had moov at ~99% of the file despite the
+    // name, the same break pattern as the prior SL01-SL10 Storage audit.
+    // All ten were losslessly remuxed in place (`-map 0 -c copy -movflags
+    // +faststart`, no re-encode — duration and audio stream verified
+    // byte-identical before/after) and re-verified with real
+    // moov-before-mdat box inspection against the actual served objects
+    // after upload, not just the local output. The faststart-v2/ objects
+    // from Build 15 are left in Storage untouched for rollback, just no
+    // longer referenced here. Real measured durations (ffprobe against
+    // the served objects): SL01 75.306667s, SL02 80.938667s, SL03
+    // 57.066667s, SL04 86.058667s, SL05 109.760000s, SL06 114.560000s,
+    // SL07 115.306667s, SL08 105.366667s, SL09 96.853000s, SL10
+    // 86.762667s — durationLabel below is the rounded whole-minute UI
+    // label, recomputed from these new measurements (SL01-SL04/SL06/SL07/
+    // SL10 round to a different whole minute than the superseded
+    // 2026-10-06 content did; SL05/SL08/SL09 happen to round the same).
     id: 'SL01',
     title: 'Rain',
     storagePath: 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4',
     description: 'Settle into the steady rhythm of gentle rain.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   {
     id: 'SL02',
@@ -658,21 +663,21 @@ export const BETA_VIDEO_MANIFEST = [
     // User-facing title stays "Ocean Waves" regardless.
     storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4',
     description: 'Rest with slow waves meeting a quiet shore.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   {
     id: 'SL03',
     title: 'Forest Ambience',
     storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4',
     description: 'Unwind among soft woodland sounds.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   {
     id: 'SL04',
     title: 'Fireplace',
     storagePath: 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4',
     description: 'Relax beside the warmth of a gently crackling fire.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   {
     id: 'SL05',
@@ -684,18 +689,22 @@ export const BETA_VIDEO_MANIFEST = [
     durationLabel: '2 min'
   },
   {
+    // 2026-10-12: renamed by the owner on upload (gained "_compressed"
+    // before "_faststart") - preserved exactly, never renamed back. See
+    // this block's own header comment for how this was confirmed against
+    // live storage.objects rather than assumed.
     id: 'SL06',
     title: 'White Noise',
-    storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v2.mp4_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v2_compressed_faststart.mp4',
     description: 'A steady sound to soften surrounding distractions.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL07',
     title: 'Pink Noise',
     storagePath: 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4',
     description: 'A balanced, gentle sound for restful sleep.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL08',
@@ -723,7 +732,7 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Rustling Leaves',
     storagePath: 'faststart-v1/WW_SL10_RustlingLeaves_v1.mp4',
     description: 'Unwind with soft rustling leaves and gentle piano.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   // Introduction guide videos - see mediaCatalog.js's INTERACTIVE_ONLY_IDS
   // (I01/I02 are added there too): never a Library-browsable "Watch" row,

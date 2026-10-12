@@ -27,8 +27,16 @@ export const formatExpiryDate = (expiresAt) => {
 // period, and "unpaid"/"incomplete" fold into "expired"), so payment
 // failures surface to the user as one of these two existing states
 // rather than a dedicated "payment failed" screen.
+const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// The default, unconditional "will I be charged" claim for a normal
+// production trial — reused below so the sandbox-override path (see
+// getStatusExplanation's own header) never has two separately-maintained
+// copies of the same default sentence.
+const DEFAULT_ACTIVE_TRIAL_CHARGE_CLAUSE = 'you will not be charged until it ends unless you cancel first';
+
 const STATUS_EXPLANATIONS = {
-  trial: 'Your free trial is active. You will not be charged until it ends unless you cancel first.',
+  trial: `Your free trial is active. ${capitalize(DEFAULT_ACTIVE_TRIAL_CHARGE_CLAUSE)}.`,
   active: "Your subscription is active and will renew automatically unless you cancel. If a recent payment failed, we're still retrying it — you keep access in the meantime.",
   cancelled: 'Your subscription is cancelled. Depending on your billing provider, you may keep access until the end of your current paid period.',
   expired: 'Your subscription has ended, including after repeated failed payments. Subscribe again any time to restore Plus access.'
@@ -49,16 +57,47 @@ const STATUS_EXPLANATIONS = {
 // Falls back to the normal status message whenever no expiry date is
 // available, rather than ever rendering a broken "scheduled to cancel on
 // [nothing]" sentence — the exact date is never hardcoded.
-export const getStatusExplanation = (subscription) => {
+//
+// Wording correction (physical-device finding, iOS build 35): the prior
+// cancelled-but-still-active copy read "is scheduled to cancel on
+// {date}", which implies the CANCELLATION ITSELF happens later. In this
+// app cancel_at_period_end=true means the renewal has ALREADY been
+// cancelled now — only access continues until {date}. Reworded to say
+// that plainly, matching the Current Plan row's "Access ends" label
+// (Subscription.jsx's periodEndRowLabel) rather than contradicting it.
+//
+// Sandbox accuracy fix (same physical-device session): the trial
+// sentence's "will not be charged" claim is a platform-specific billing
+// fact a build flag alone cannot prove (see getStatusExplanation's own
+// param doc below) — the optional sandboxChargeClause substitutes the
+// caller's platform-accurate wording in both the active-trial and
+// cancelled-trial sentences, exactly like trialOfferWording.js's own
+// sandboxConfirmationClause parameter.
+const DEFAULT_CANCELLED_TRIAL_CHARGE_CLAUSE = 'you will not be charged';
+
+/**
+ * @param {{status?: string, expires_at?: string|null, cancel_at_period_end?: boolean}} subscription
+ * @param {string|null} [sandboxChargeClause] when provided (non-null),
+ *   replaces the default production "will not be charged" claim in the
+ *   trial sentence with this platform-accurate sandbox fact (e.g.
+ *   Subscription.jsx's SANDBOX_TRIAL_CLAUSE). Omit/null for normal
+ *   production wording.
+ */
+export const getStatusExplanation = (subscription, sandboxChargeClause = null) => {
   const status = subscription?.status;
   const expiryDate = formatExpiryDate(subscription?.expires_at);
 
   if (status === 'trial' && subscription?.cancel_at_period_end && expiryDate) {
-    return `Your free trial is active until ${expiryDate}. Your subscription is scheduled to cancel on that date, and you will not be charged.`;
+    const chargeClause = sandboxChargeClause ?? DEFAULT_CANCELLED_TRIAL_CHARGE_CLAUSE;
+    return `Your free trial's renewal is cancelled. ${capitalize(chargeClause)}, and access continues until ${expiryDate}.`;
   }
 
   if (status === 'active' && subscription?.cancel_at_period_end && expiryDate) {
-    return `Your subscription is scheduled to cancel on ${expiryDate}. You will retain WakeWise Plus access until then.`;
+    return `Your subscription's renewal is cancelled. Access continues until ${expiryDate}.`;
+  }
+
+  if (status === 'trial' && sandboxChargeClause) {
+    return `Your free trial is active. ${capitalize(sandboxChargeClause)}.`;
   }
 
   return STATUS_EXPLANATIONS[status];
