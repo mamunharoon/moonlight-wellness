@@ -32,6 +32,17 @@
 // explicit, non-implicit fields (see `supportingLabel: null` above) and
 // is what lets resolveBreathPhase's own arithmetic below treat every
 // pattern uniformly, with no special-casing per id.
+// Phase 2C (docs/phase-2c-access-specification.md §2) — `premium`, added
+// explicitly on every pattern (never omitted/implicit, matching this
+// file's own established "explicit, non-implicit fields" convention —
+// see `supportingLabel: null`/`holdAfterExhaleSeconds` above). morning/
+// evening/quiet/box stay Free (morning/evening/quiet already unrestricted
+// in production; box amended Free this round); coherent is the one Plus
+// pattern. There is no backend media call tied to a breathing pattern
+// choice — the exercise itself is a client-side cadence animation plus
+// the shared, guest-allowed IB01 ambient bed — so this field is read only
+// by the client-side pattern picker (QuietBreathing.jsx) as a UI
+// convenience; there is no server enforcement surface for it.
 export const BREATHING_PATTERNS = [
   {
     id: 'morning',
@@ -43,7 +54,8 @@ export const BREATHING_PATTERNS = [
     holdAfterExhaleSeconds: 0,
     cycleSeconds: 14,
     totalCycles: 4,
-    totalSeconds: 56
+    totalSeconds: 56,
+    premium: false
   },
   {
     id: 'evening',
@@ -55,7 +67,8 @@ export const BREATHING_PATTERNS = [
     holdAfterExhaleSeconds: 0,
     cycleSeconds: 19,
     totalCycles: 4,
-    totalSeconds: 76
+    totalSeconds: 76,
+    premium: false
   },
   {
     id: 'quiet',
@@ -67,7 +80,8 @@ export const BREATHING_PATTERNS = [
     holdAfterExhaleSeconds: 0,
     cycleSeconds: 16,
     totalCycles: 4,
-    totalSeconds: 64
+    totalSeconds: 64,
+    premium: false
   },
   {
     id: 'box',
@@ -79,7 +93,8 @@ export const BREATHING_PATTERNS = [
     holdAfterExhaleSeconds: 4,
     cycleSeconds: 16,
     totalCycles: 4,
-    totalSeconds: 64
+    totalSeconds: 64,
+    premium: false
   },
   {
     id: 'coherent',
@@ -91,7 +106,8 @@ export const BREATHING_PATTERNS = [
     holdAfterExhaleSeconds: 0,
     cycleSeconds: 10,
     totalCycles: 6,
-    totalSeconds: 60
+    totalSeconds: 60,
+    premium: true
   }
 ];
 

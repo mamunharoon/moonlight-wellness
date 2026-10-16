@@ -99,11 +99,17 @@ describe('RecommendationCard.jsx — F3 guest-gate disclosure: locked badge (add
     expect(source).toMatch(/locked = false/);
   });
 
-  it('the badge only renders when locked is true, reuses the established lock-icon pill shape (AudioPlayerPlaceholder.jsx premium badge), and reads "Sign in to play"', () => {
+  it('the badge only renders when locked is true, reuses the established lock-icon pill shape (AudioPlayerPlaceholder.jsx premium badge), and reads "Sign in to play" by default', () => {
+    // Phase 2C parametrized the badge's text as `lockedLabel` (so
+    // Meditate.jsx/AnytimeReset.jsx can pass 'Unlock with Plus' for the
+    // premium-lock case) - every existing caller that never passes it
+    // still sees the exact original "Sign in to play" text, via the
+    // default parameter value asserted separately below.
     const block = source.match(/\{locked && \([\s\S]*?\)\}/)?.[0] ?? '';
     expect(block).toMatch(/material-symbols-outlined text-xs" aria-hidden="true">lock</);
-    expect(block).toMatch(/Sign in to play/);
+    expect(block).toMatch(/\{lockedLabel\}/);
     expect(block).toMatch(/text-primary bg-primary\/10/);
+    expect(source).toMatch(/lockedLabel = 'Sign in to play'/);
   });
 
   it('locked never touches onStart/startLabel/startDisabled - the caller (AnytimeReset.jsx) still fully owns the gate action and the "Sign in to start" label text', () => {

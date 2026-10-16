@@ -323,10 +323,14 @@ describe('AnytimeReset.jsx — F3 guest-gate disclosure', () => {
     expect(block).toMatch(/: 'Choose what fits, then how much time you have\.'/);
   });
 
-  it('Step 3: RecommendationCard receives locked={isGuest} and a guest-specific startLabel, never a hardcoded "Start"', () => {
+  it('Step 3: RecommendationCard receives locked={isGuest} (plus Phase 2C\'s own premium-locked extension) and a guest-specific startLabel, never a hardcoded "Start"', () => {
     const block = source.match(/<RecommendationCard[\s\S]*?\/>/)?.[0] ?? '';
     expect(block).toMatch(/startLabel=\{isGuest \? 'Sign in to start' : 'Start'\}/);
-    expect(block).toMatch(/locked=\{isGuest\}/);
+    // Phase 2C extended this to also lock for a signed-in, non-entitled
+    // user tapping a Plus recommendation - `locked={isGuest}` on its own
+    // is still true for every guest (isGuest || ... short-circuits),
+    // this just also covers the new premium case.
+    expect(block).toMatch(/locked=\{isGuest \|\| \(!isGuest && resolvePremiumGate\(current, entitlement\) === PREMIUM_GATE\.LOCKED\)\}/);
   });
 
   it('the actual gate action (handleBegin -> SignInPromptDialog) is completely untouched by this fix - still the one real mechanism, not duplicated', () => {

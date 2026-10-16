@@ -115,6 +115,13 @@ export const RecommendationCard = ({
   chooseAnotherLabel,
   accent = 'primary',
   locked = false,
+  // Phase 2C — additive, optional, default 'Sign in to play' (every
+  // existing caller's exact original guest-lock copy, byte-for-byte
+  // unchanged). Meditate.jsx/AnytimeReset.jsx pass 'Unlock with Plus' when
+  // `locked` is true for a premium-content reason rather than a guest
+  // one, so the same badge shape never claims "sign in" when the real
+  // blocker is a subscription.
+  lockedLabel = 'Sign in to play',
   expanded,
   controlsId
 }) => (
@@ -132,7 +139,7 @@ export const RecommendationCard = ({
     {locked && (
       <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
         <span className="material-symbols-outlined text-xs" aria-hidden="true">lock</span>
-        Sign in to play
+        {lockedLabel}
       </span>
     )}
     {isClosestMatch && (

@@ -12,14 +12,17 @@ import { isFeatureEnabled } from '../lib/featureFlags';
 import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 import { getBetaVideoById } from '../lib/mediaCatalog';
 import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { getMusicPreference, setMusicPreferenceForUser } from '../lib/musicPreference';
 import { BREATHING_PATTERNS, getBreathingPatternById, resolveBreathPhase } from '../lib/breathingPatterns';
 import { BREATHE_VIDEOS, BREATHING_SESSION_VIDEOS } from '../lib/guidedBreathingVideos';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { BetaVideoRow } from '../components/BetaVideoRow';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
@@ -155,6 +158,27 @@ export const QuietBreathing = ({ standalone = false }) => {
   // change it.
   const [selectedPatternId, setSelectedPatternId] = useState(DEFAULT_STANDALONE_PATTERN_ID);
   const activePattern = getBreathingPatternById(selectedPatternId) ?? getBreathingPatternById(DEFAULT_STANDALONE_PATTERN_ID);
+  // Phase 2C — records which pattern a paywall-blocked selection was for,
+  // so the paywall's own Retry (above) can re-check and apply that exact
+  // pattern rather than guessing. A ref, not state: it's only ever read
+  // inside an event handler (never rendered), so it doesn't need to
+  // trigger a re-render on its own.
+  const pendingPatternIdRef = useRef(DEFAULT_STANDALONE_PATTERN_ID);
+  // Phase 2C — guest users never reach the pattern picker at all today
+  // (Support's own embedded, non-standalone usage is the only !isGuest-
+  // gated path into this page per its own existing guard elsewhere), so
+  // this gate only ever needs to check premium, not sign-in — isGuest is
+  // read defensively anyway in case that assumption ever changes.
+  const handleSelectPattern = (id) => {
+    const gate = resolvePremiumGate(getBreathingPatternById(id), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return;
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      pendingPatternIdRef.current = id;
+      setPatternPaywallState(gate);
+      return;
+    }
+    setSelectedPatternId(id);
+  };
 
   // Release-quality guided-breathing discoverability — standalone only
   // (Support's own embedded usage is untouched, see below). Collapsed by
@@ -171,8 +195,24 @@ export const QuietBreathing = ({ standalone = false }) => {
     promptOpen,
     dismissPrompt,
     confirmSignIn: confirmSignInForVideo,
-    confirmCreateAccount: confirmCreateAccountForVideo
+    confirmCreateAccount: confirmCreateAccountForVideo,
+    // Phase 2C — useProtectedVideo.js now resolves the same premium gate
+    // for every guided video it opens (this page's own "Explore guided
+    // breathing" catalogue), additive and automatic — no further wiring
+    // needed here beyond rendering its dialog below.
+    paywallOpen: videoPaywallOpen,
+    paywallState: videoPaywallState,
+    dismissPaywall: dismissVideoPaywall,
+    retryPaywall: retryVideoPaywall,
+    viewPlusOptions: viewPlusOptionsForVideo
   } = useProtectedVideo();
+  const entitlement = useUnifiedEntitlement();
+  // Phase 2C — the breathing PATTERN picker's own premium gate, separate
+  // from the guided-video one above: selecting 'coherent' (the one Plus
+  // pattern, breathingPatterns.js) without entitlement shows this paywall
+  // instead of switching patterns; selectedPatternId is left untouched
+  // until genuine access is confirmed.
+  const [patternPaywallState, setPatternPaywallState] = useState(null);
 
   const [breatheState, setBreatheState] = useState('Inhale');
   const [secondsLeft, setSecondsLeft] = useState(activePattern.totalSeconds);
@@ -637,7 +677,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                   accent={journeyTone}
                   pattern={pattern}
                   selected={selectedPatternId === pattern.id}
-                  onSelect={setSelectedPatternId}
+                  onSelect={handleSelectPattern}
                   groupName="breathing-pattern"
                   icon={BREATHING_PATTERN_ICONS[pattern.id]}
                 />
@@ -903,6 +943,31 @@ export const QuietBreathing = ({ standalone = false }) => {
           onSignIn={confirmSignInForVideo}
           onCreateAccount={confirmCreateAccountForVideo}
           onDismiss={dismissPrompt}
+        />
+        <PlusPaywallDialog
+          open={videoPaywallOpen}
+          state={videoPaywallState}
+          onViewPlus={viewPlusOptionsForVideo}
+          onRetry={retryVideoPaywall}
+          onDismiss={dismissVideoPaywall}
+        />
+        <PlusPaywallDialog
+          open={!!patternPaywallState}
+          state={patternPaywallState}
+          onViewPlus={() => {
+            setPatternPaywallState(null);
+            navigate('/subscription');
+          }}
+          onRetry={() => {
+            const gate = resolvePremiumGate(getBreathingPatternById(pendingPatternIdRef.current), entitlement);
+            if (gate === PREMIUM_GATE.ALLOWED) {
+              setSelectedPatternId(pendingPatternIdRef.current);
+              setPatternPaywallState(null);
+              return;
+            }
+            if (gate !== PREMIUM_GATE.LOADING) setPatternPaywallState(gate);
+          }}
+          onDismiss={() => setPatternPaywallState(null)}
         />
         {/* Standalone Home quick-action correction — describes ending THIS
             breathing session, never "leaving the entire Breathe feature"

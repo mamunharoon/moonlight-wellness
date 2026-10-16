@@ -3,11 +3,14 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { EveningSceneShell } from '../components/evening/EveningSceneShell';
 import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { getCatalogEntryById } from '../lib/mediaCatalog';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { setPendingContent } from '../lib/pendingContent';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { BackButton } from '../components/BackButton';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
@@ -135,6 +138,7 @@ const MOOD_RECOMMENDATIONS = {
 export const Support = () => {
   const navigate = useNavigate();
   const { isGuest } = useAuth();
+  const entitlement = useUnifiedEntitlement();
   const [searchParams, setSearchParams] = useSearchParams();
   // id of the mood currently showing its recommendation (Back returns to
   // the card list), or null for the normal card-list view.
@@ -155,6 +159,11 @@ export const Support = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Phase 2C — the premium paywall, shown instead of SignInPromptDialog
+  // once a signed-in user is already past that guest check (handleBegin
+  // below checks isGuest first, exactly as before) but the recommended
+  // option is premium and this user isn't currently entitled.
+  const [paywallState, setPaywallState] = useState(null);
 
   // Strips the now-consumed params so they can't re-trigger on a later
   // re-render or a browser back/forward — touches only router state.
@@ -197,6 +206,15 @@ export const Support = () => {
       setSignInPromptOpen(true);
       return;
     }
+    // Phase 2C — checked only after the guest gate above, matching every
+    // other recommendation-flow call site's own ordering: a guest always
+    // sees the sign-in prompt first regardless of premium.
+    const gate = resolvePremiumGate(getCatalogEntryById(option.id), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return;
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallState(gate);
+      return;
+    }
     setOpenVideoId(option.id);
   };
 
@@ -210,6 +228,22 @@ export const Support = () => {
     setPendingContent({ id: option.id, returnPath: `/support?mood=${activeMoodId}&option=${optionIndex}` });
     setSignInPromptOpen(false);
     navigate('/auth?tab=signup');
+  };
+
+  const dismissPaywall = () => setPaywallState(null);
+  const retryPaywall = () => {
+    if (!option) return;
+    const gate = resolvePremiumGate(getCatalogEntryById(option.id), entitlement);
+    if (gate === PREMIUM_GATE.ALLOWED) {
+      setPaywallState(null);
+      setOpenVideoId(option.id);
+      return;
+    }
+    if (gate !== PREMIUM_GATE.LOADING) setPaywallState(gate);
+  };
+  const viewPlusOptions = () => {
+    setPaywallState(null);
+    navigate('/subscription');
   };
 
   // WakeWise guided-media completion phase — this used to always advance
@@ -256,6 +290,13 @@ export const Support = () => {
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">{optionDescription}</p>
+
+              {!isGuest && option?.kind === 'video' && resolvePremiumGate(getCatalogEntryById(option.id), entitlement) === PREMIUM_GATE.LOCKED && (
+                <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                  <span className="material-symbols-outlined text-xs" aria-hidden="true">lock</span>
+                  Unlock with Plus
+                </span>
+              )}
 
               <button
                 type="button"
@@ -339,6 +380,13 @@ export const Support = () => {
         onSignIn={handleSignIn}
         onCreateAccount={handleCreateAccount}
         onDismiss={() => setSignInPromptOpen(false)}
+      />
+      <PlusPaywallDialog
+        open={!!paywallState}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </EveningSceneShell>
   );

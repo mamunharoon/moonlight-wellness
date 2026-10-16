@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlarm } from '../context/AlarmContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { supabase } from '../lib/supabaseClient';
 import { ANYTIME_RESET_DURATIONS, ANYTIME_RESET_NEEDS, getCatalogEntryById } from '../lib/mediaCatalog';
 import { recommendAnytimeReset } from '../lib/anytimeResetRecommendations';
@@ -10,8 +11,10 @@ import { setPendingContent } from '../lib/pendingContent';
 import { getZonedParts } from '../lib/timezone';
 import { now as devNow } from '../lib/devClock';
 import { OUTCOME, JOURNEY, getOutcomeMessage } from '../lib/outcomeMessages';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
@@ -86,6 +89,7 @@ export const AnytimeReset = () => {
   const navigate = useNavigate();
   const { isGuest, loading: authLoading } = useAuth();
   const { effectiveTimezone } = useAlarm();
+  const entitlement = useUnifiedEntitlement();
   const today = getZonedParts(effectiveTimezone, devNow()).dateKey;
   const [searchParams, setSearchParams] = useSearchParams();
   // Guest/auth wrong-modal fix (Build 15 remediation): a signed-in-looking
@@ -142,6 +146,16 @@ export const AnytimeReset = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Phase 2C — the premium paywall, shown instead of SignInPromptDialog
+  // once a signed-in user is already past that guest check (handleBegin/
+  // handleQuickResetAlternative below check isGuest first, exactly as
+  // before) but the item they tapped is premium and they aren't currently
+  // entitled. `paywallTargetId` records which id the dialog's own Retry
+  // should re-check and open on success — `current` (the recommendation)
+  // for the main Start action, or a fixed id (e.g. E03) for a quick-reset
+  // alternative.
+  const [paywallState, setPaywallState] = useState(null);
+  const [paywallTargetId, setPaywallTargetId] = useState(null);
   // Anytime Reset completion fix — true only once the recommended media's
   // own natural end event fires (BetaVideoModal's new onEnded callback,
   // below); closing the modal early (handleVideoClose) never sets this.
@@ -273,6 +287,17 @@ export const AnytimeReset = () => {
         setSignInPromptOpen(true);
         return;
       }
+      // E03 is Free (§3b) and so always resolves ALLOWED here, but this
+      // quick-reset entry point is gated identically to every other one
+      // in this file on principle — a future catalogue reclassification
+      // of E03 would otherwise silently bypass the gate.
+      const gate = resolvePremiumGate(getCatalogEntryById('E03'), entitlement);
+      if (gate === PREMIUM_GATE.LOADING) return;
+      if (gate !== PREMIUM_GATE.ALLOWED) {
+        setPaywallTargetId('E03');
+        setPaywallState(gate);
+        return;
+      }
       verifyAndOpenVideo('E03');
       return;
     }
@@ -296,6 +321,16 @@ export const AnytimeReset = () => {
     if (!current || authLoading || verifyingAuthRef.current) return;
     if (isGuest) {
       setSignInPromptOpen(true);
+      return;
+    }
+    // Phase 2C — checked only after the guest gate above, matching
+    // useProtectedVideo.js's/Meditate.jsx's own ordering: a guest always
+    // sees the sign-in prompt first regardless of premium.
+    const gate = resolvePremiumGate(current, entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return;
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallTargetId(current.id);
+      setPaywallState(gate);
       return;
     }
     setJustEndedEarly(false);
@@ -340,6 +375,26 @@ export const AnytimeReset = () => {
     setPendingContent({ id: current.id, returnPath: returnPath() });
     setSignInPromptOpen(false);
     navigate('/auth?tab=signup');
+  };
+
+  const dismissPaywall = () => {
+    setPaywallState(null);
+    setPaywallTargetId(null);
+  };
+  const retryPaywall = () => {
+    if (!paywallTargetId) return;
+    const gate = resolvePremiumGate(getCatalogEntryById(paywallTargetId), entitlement);
+    if (gate === PREMIUM_GATE.ALLOWED) {
+      const id = paywallTargetId;
+      dismissPaywall();
+      verifyAndOpenVideo(id);
+      return;
+    }
+    if (gate !== PREMIUM_GATE.LOADING) setPaywallState(gate);
+  };
+  const viewPlusOptions = () => {
+    dismissPaywall();
+    navigate('/subscription');
   };
 
   // Closing the video returns to the recommendation step, not out of the
@@ -450,7 +505,8 @@ export const AnytimeReset = () => {
               expanded={alternativesOpen}
               controlsId="anytime-reset-alternatives"
               accent="anytime"
-              locked={isGuest}
+              locked={isGuest || (!isGuest && resolvePremiumGate(current, entitlement) === PREMIUM_GATE.LOCKED)}
+              lockedLabel={isGuest ? 'Sign in to play' : 'Unlock with Plus'}
             />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">
@@ -607,6 +663,13 @@ export const AnytimeReset = () => {
           onSignIn={handleSignIn}
           onCreateAccount={handleCreateAccount}
           onDismiss={() => setSignInPromptOpen(false)}
+        />
+        <PlusPaywallDialog
+          open={!!paywallState}
+          state={paywallState}
+          onViewPlus={viewPlusOptions}
+          onRetry={retryPaywall}
+          onDismiss={dismissPaywall}
         />
       </ExerciseScreenShell>
     );

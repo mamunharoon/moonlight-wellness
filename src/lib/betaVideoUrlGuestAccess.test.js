@@ -29,12 +29,22 @@ const okSignUrl = vi.fn(async (path) => ({ signedUrl: `https://signed.example/${
 const anonymousUser = { user: { is_anonymous: true } };
 const realUser = { user: { is_anonymous: false } };
 
+// Phase 2C added its own separate §6 premium-authorization branch,
+// checked after this file's own guest-allowlist/sign-in decision. This
+// file's job is guest-allowlist coverage specifically (see
+// betaVideoUrlAccess.test.js for the dedicated Phase 2C premium-matrix
+// coverage) - defaulting to an always-authorized fake here keeps every
+// existing "signed-in session succeeds" test asserting exactly what it
+// always asserted, regardless of E02's own §3c Plus classification.
+const alwaysAuthorized = vi.fn(async () => ({ records: [{ provider: 'manual', status: 'active', currentPeriodExpiresAt: null }], error: null }));
+
 const baseArgs = (overrides = {}) => ({
   authorizationHeader: null,
   body: {},
   resolvePath,
   verifyUser: vi.fn(),
   signUrl: okSignUrl,
+  checkPremiumAccess: alwaysAuthorized,
   ...overrides
 });
 

@@ -62,6 +62,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { resolveBetaVideoUrlRequest } from '../_shared/betaVideoUrlAccess.ts';
+import { fetchEntitlementRecords } from '../_shared/entitlementRecords.ts';
 
 // A Map, not a plain object literal - EXERCISE_PATHS.get('__proto__') /
 // .get('constructor') / .get('toString') simply return undefined, where
@@ -268,6 +269,20 @@ Deno.serve(async (req) => {
         console.error('get-beta-video-url: failed to sign URL', error.message);
       }
       return { signedUrl: data?.signedUrl, error };
+    },
+    // Phase 2C §6/§7 — the real Plus authorization boundary. Reads with
+    // the service-role admin client (same client signUrl already uses
+    // above) so this check sees every subscriptions/provider_subscriptions
+    // row for the already-verified userId regardless of RLS - see
+    // entitlementRecords.ts's own header for why this is a narrow,
+    // purpose-built read rather than the richer client-side
+    // entitlementSnapshot.js shape.
+    checkPremiumAccess: async (userId) => {
+      const result = await fetchEntitlementRecords(createSupabaseAdminClient(), userId);
+      if (result.error) {
+        console.error('get-beta-video-url: failed to verify premium entitlement', result.error);
+      }
+      return result;
     }
   });
 

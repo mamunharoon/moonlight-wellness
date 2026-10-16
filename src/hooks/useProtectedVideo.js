@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { getCatalogEntryById } from '../lib/mediaCatalog';
 import { setPendingContent } from '../lib/pendingContent';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 
 /*
  * Guest access repair — useProtectedVideo
@@ -59,7 +61,19 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isGuest } = useAuth();
+  const entitlement = useUnifiedEntitlement();
   const [promptId, setPromptId] = useState(null);
+  // Phase 2C — the premium paywall prompt, a sibling of promptId above but
+  // deliberately independent: a guest always sees the sign-in prompt first
+  // (promptId) regardless of whether the tapped id is premium — this one
+  // only ever opens for an already signed-in, non-guest user who tapped a
+  // premium id they aren't currently entitled to. `paywallState` carries
+  // which of PREMIUM_GATE.LOCKED/VERIFICATION_UNAVAILABLE applies, so the
+  // dialog can tell a genuine lock apart from a failed verification read
+  // (see premiumAccess.js's own header for why those must never be
+  // conflated).
+  const [paywallId, setPaywallId] = useState(null);
+  const [paywallState, setPaywallState] = useState(null);
 
   const returnPath = returnPathOverride ?? `${location.pathname}${location.search}`;
 
@@ -88,11 +102,43 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
       setPromptId(id);
       return;
     }
+    // Phase 2C — premium gate, checked only once the guest check above has
+    // already passed (a guest is always routed to sign-in first, never to
+    // this paywall, regardless of the tapped id's premium flag). Resolved
+    // against the resolved entry, not a bare id, so a free id is always
+    // PREMIUM_GATE.ALLOWED without needing its own lookup here.
+    const gate = resolvePremiumGate(resolveEntry(id), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return; // defer — never guess, never flash a paywall before the real read resolves
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallId(id);
+      setPaywallState(gate);
+      return;
+    }
     setOpenVideoId(id);
   };
 
   const closeVideo = () => setOpenVideoId(null);
   const dismissPrompt = () => setPromptId(null);
+  const dismissPaywall = () => {
+    setPaywallId(null);
+    setPaywallState(null);
+  };
+  // Re-checks the same id's gate on demand (the paywall's own "Try Again"
+  // action, for the VERIFICATION_UNAVAILABLE case) — never auto-retries on
+  // a timer, only on an explicit user action. Opens the video directly if
+  // the retry now resolves ALLOWED, so a genuinely-recovered connection
+  // doesn't make the user tap the row a second time.
+  const retryPaywall = () => {
+    if (!paywallId) return;
+    const gate = resolvePremiumGate(resolveEntry(paywallId), entitlement);
+    if (gate === PREMIUM_GATE.ALLOWED) {
+      const id = paywallId;
+      dismissPaywall();
+      setOpenVideoId(id);
+      return;
+    }
+    if (gate !== PREMIUM_GATE.LOADING) setPaywallState(gate);
+  };
 
   const confirmSignIn = () => {
     setPendingContent({ id: promptId, returnPath });
@@ -106,6 +152,11 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
     navigate('/auth?tab=signup');
   };
 
+  const viewPlusOptions = () => {
+    dismissPaywall();
+    navigate('/subscription');
+  };
+
   return {
     openVideo: openVideoId ? resolveEntry(openVideoId) : null,
     handleSelect,
@@ -113,6 +164,16 @@ export const useProtectedVideo = (returnPathOverride, resolveEntry = getCatalogE
     promptOpen: !!promptId,
     dismissPrompt,
     confirmSignIn,
-    confirmCreateAccount
+    confirmCreateAccount,
+    // Phase 2C — the premium paywall's own open/state/actions, a sibling
+    // set to promptOpen/dismissPrompt/confirmSignIn/confirmCreateAccount
+    // above. Every existing caller that destructures only the original
+    // fields is completely unaffected; Library.jsx (and any future
+    // caller) renders <PlusPaywallDialog> with these.
+    paywallOpen: !!paywallId,
+    paywallState,
+    dismissPaywall,
+    retryPaywall,
+    viewPlusOptions
   };
 };

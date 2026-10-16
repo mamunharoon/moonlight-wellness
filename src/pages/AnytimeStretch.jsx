@@ -5,11 +5,16 @@ import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { setPendingContent } from '../lib/pendingContent';
 import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/anytimeStretchCatalog';
+import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
+import { getCatalogEntryById } from '../lib/mediaCatalog';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 
 /*
  * Anytime Stretch.
@@ -84,7 +89,52 @@ import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/a
  * unchanged, including its existing guest/unauthorized handling - this
  * fix narrows the window the original bug can occur in, it does not
  * remove the one genuinely unavoidable case (a cold tap faster than any
- * network round trip could ever complete).
+ * network round trip could ever complete). The preload effect itself is
+ * deliberately left untouched by the Phase 2C gate added below - gating
+ * it too would risk reintroducing this exact bug if entitlement is still
+ * resolving at mount (a brief, common window), and an unentitled
+ * preload attempt is already harmless (server-rejected, silently
+ * swallowed, see that effect's own comment).
+ *
+ * Cross-account cache safety - the preload effect is keyed by the
+ * resolved `userId` (the same `user && !user.is_anonymous ? user.id :
+ * null` shape AlarmContext.jsx already uses), not `[]`. Ordinary
+ * navigation already unmounts this page on every real sign-out/account
+ * switch in this app today (fresh refs on remount), so this was never
+ * reachable through a normal tap - but nothing previously stopped
+ * `preloadedRef`/`preloadedCoverRef` from surviving an identity change
+ * if this component were ever kept mounted through one (e.g. a silent
+ * auth-state event while backgrounded), which would let a tap reuse a
+ * signed URL fetched under a PREVIOUS identity's request. The effect now
+ * resets both caches and re-preloads from scratch whenever `userId`
+ * actually changes, so a stale identity's entries can never be read by a
+ * later one - this does not weaken anything above: `handleSelect`'s own
+ * isGuest/resolvePremiumGate checks (added below) still run first, on
+ * every tap, regardless of what's cached. For the common, unchanged
+ * case - one identity for the page's whole lifetime - `userId` never
+ * changes, so this adds no extra fetch and the autoplay-timing fix above
+ * is completely unaffected.
+ *
+ * Phase 2C gate (docs/phase-2c-access-specification.md §11a-iii) - this
+ * page previously had NO isGuest/entitlement check anywhere, unlike
+ * every other content page (Library/Meditate/AnytimeReset/Support/
+ * QuietBreathing). The real server-side boundary (get-beta-video-url)
+ * was never actually bypassable either way. Correction to this
+ * comment's own prior wording: a guest here has no Supabase session at
+ * all, not an anonymous one carrying a JWT (AuthContext.jsx's own
+ * header - this app has never called `signInAnonymously()`), so a
+ * guest's request already reached the server with no Authorization
+ * header, hit its 401 "Sign in required" branch, and the pre-existing
+ * catch-block below already handled that specific case correctly via
+ * `err.code === 'unauthorized'`, even before this round. What was
+ * actually missing: a *signed-in* but non-entitled user's 403 had no
+ * paywall at all - the catch-block only ever recognised that one 401
+ * code, so a 403 fell through to the generic "You don't have access to
+ * this beta preview" dead end regardless of who hit it. `handleSelect`
+ * now checks isGuest/resolvePremiumGate BEFORE ever calling
+ * requestBetaVideoUrl, exactly matching every other page's own
+ * pre-check ordering (guest first, then premium) - never relying on
+ * catching a server error after the fact, for either case.
  */
 const formatTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -95,12 +145,28 @@ const formatTime = (seconds) => {
 
 export const AnytimeStretch = () => {
   const navigate = useNavigate();
+  const { isGuest, user } = useAuth();
+  // Same shape AlarmContext.jsx's own userId already uses - this app has
+  // no real anonymous session (AuthContext.jsx's own header), so today
+  // this is equivalent to `user?.id ?? null`, but matching the
+  // established convention keeps this correct if that ever changes.
+  const userId = user && !user.is_anonymous ? user.id : null;
+  const entitlement = useUnifiedEntitlement();
   const audioRef = useRef(null);
   const [view, setView] = useState('select'); // 'select' | 'loading' | 'playing' | 'complete' | 'error'
   const [selectedId, setSelectedId] = useState(null);
   const [signedUrl, setSignedUrl] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Phase 2C — the premium paywall, a sibling of signInPromptOpen above:
+  // a guest always sees the sign-in prompt first (handleSelect checks
+  // isGuest before this), this only ever opens for an already signed-in,
+  // non-guest user who tapped a session they aren't currently entitled
+  // to. `paywallTargetId` records which session id Retry should
+  // re-attempt via handleSelect itself, same shape as AnytimeReset.jsx's
+  // own paywallTargetId.
+  const [paywallState, setPaywallState] = useState(null);
+  const [paywallTargetId, setPaywallTargetId] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   // Real, loaded-metadata duration (the actual file), never the catalog's
@@ -135,15 +201,27 @@ export const AnytimeStretch = () => {
   const preloadedCoverRef = useRef({});
 
   // Speculatively resolves every session's signed URL as soon as this
-  // screen mounts - see this file's own top-of-file doc comment for the
-  // full root-cause trace. Every result is independent and silent: a
-  // failed preload (including a guest's unauthorized error) simply never
-  // populates preloadedRef for that id, and handleSelect's own existing
-  // fetch-on-tap fallback below handles it exactly as before, including
-  // opening the sign-in prompt - a background preload must never itself
-  // surface a dialog or error state with no tap behind it.
+  // screen mounts (or the resolved identity changes, see this file's own
+  // top-of-file doc comment on cross-account cache safety) - see the
+  // same comment for the full autoplay-timing root-cause trace. Every
+  // result is independent and silent: a failed preload (including a
+  // guest's unauthorized error) simply never populates preloadedRef for
+  // that id, and handleSelect's own existing fetch-on-tap fallback below
+  // handles it exactly as before, including opening the sign-in prompt -
+  // a background preload must never itself surface a dialog or error
+  // state with no tap behind it.
+  //
+  // Both refs are reset at the top of this effect, not just declared
+  // once at the top of the component: this effect re-runs whenever
+  // `userId` changes, and a previous identity's resolved entries must
+  // never be readable once a different identity is current - handled
+  // here rather than relying solely on `cancelled` (which only guards
+  // in-flight promises, not entries a prior identity's requests already
+  // wrote before the change).
   useEffect(() => {
     let cancelled = false;
+    preloadedRef.current = {};
+    preloadedCoverRef.current = {};
     ANYTIME_STRETCH_SESSIONS.forEach((s) => {
       requestBetaVideoUrl(s.exerciseId)
         .then(({ url, expiresAt }) => {
@@ -161,7 +239,7 @@ export const AnytimeStretch = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   // Back/exit cleanup — stop playback the instant this page leaves the
   // 'playing' view for ANY reason (selecting a different session, Back,
@@ -198,6 +276,21 @@ export const AnytimeStretch = () => {
 
   const handleSelect = (id) => {
     const target = getAnytimeStretchSessionById(id);
+    // Phase 2C — checked BEFORE any network call, never after catching a
+    // server error (see this file's own top-of-file doc comment for why
+    // that used to be the only handling, and why it was wrong). Guest
+    // first, exactly matching every other page's ordering.
+    if (isGuest) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    const gate = resolvePremiumGate(getCatalogEntryById(target.exerciseId), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return; // defer — never guess, never flash a paywall before the real read resolves
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallTargetId(id);
+      setPaywallState(gate);
+      return;
+    }
     setSelectedId(id);
     setCurrentTime(0);
     setDuration(0);
@@ -294,6 +387,25 @@ export const AnytimeStretch = () => {
     setPendingContent({ returnPath: '/anytime-stretch' });
     setSignInPromptOpen(false);
     navigate('/auth?tab=signup');
+  };
+
+  const dismissPaywall = () => {
+    setPaywallState(null);
+    setPaywallTargetId(null);
+  };
+  // Re-attempts the exact same tap via handleSelect itself (which
+  // re-checks isGuest/the premium gate fresh) rather than duplicating
+  // that logic here — if the retry still isn't allowed, handleSelect's
+  // own gate re-sets paywallState to whatever the fresh result is.
+  const retryPaywall = () => {
+    if (!paywallTargetId) return;
+    const id = paywallTargetId;
+    dismissPaywall();
+    handleSelect(id);
+  };
+  const viewPlusOptions = () => {
+    dismissPaywall();
+    navigate('/subscription');
   };
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -459,6 +571,13 @@ export const AnytimeStretch = () => {
         onSignIn={handleSignIn}
         onCreateAccount={handleCreateAccount}
         onDismiss={() => setSignInPromptOpen(false)}
+      />
+      <PlusPaywallDialog
+        open={!!paywallState}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </ExerciseScreenShell>
   );

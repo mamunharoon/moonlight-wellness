@@ -2,12 +2,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { CATALOG_CATEGORIES, MEDIA_CATALOG, ANYTIME_RESET_NEEDS, ANYTIME_RESET_DURATIONS, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
 import { isValidExploreJourney, getExploreCatalogForJourney, getCuratedExploreCatalog } from '../lib/exploreFiltering';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
+import { isPremiumLocked } from '../lib/premiumAccess';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { BackButton } from '../components/BackButton';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
@@ -105,6 +108,7 @@ const MEDITATION_FILTER = 'Meditation';
  */
 export const Library = () => {
   const { isGuest } = useAuth();
+  const entitlement = useUnifiedEntitlement();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory =
     [...CATALOG_CATEGORIES, MEDITATION_FILTER].find((c) => slugify(c) === searchParams.get('category')) || null;
@@ -246,7 +250,12 @@ export const Library = () => {
     promptOpen,
     dismissPrompt,
     confirmSignIn,
-    confirmCreateAccount
+    confirmCreateAccount,
+    paywallOpen,
+    paywallState,
+    dismissPaywall,
+    retryPaywall,
+    viewPlusOptions
   } = useProtectedVideo();
 
   // "Explore More" discovery, Phase 5 — while journeyScopeActive, every
@@ -322,6 +331,12 @@ export const Library = () => {
     const cachedMinutes = getCachedDurationMinutes(entry.id);
     const durationLabel = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');
     const isUnavailable = entry.active === false;
+    // Phase 2C — a signed-in, non-guest user who isn't entitled sees the
+    // same lock icon a guest already sees (never a premium cue while the
+    // entitlement read is still loading or unresolved — see
+    // isPremiumLocked's own header). A guest sees the lock for every row
+    // regardless of premium, exactly as before this change.
+    const premiumLocked = !isGuest && isPremiumLocked(entry, entitlement);
     return (
       <button
         key={entry.id}
@@ -334,7 +349,7 @@ export const Library = () => {
       >
         <span className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-primary text-xl">
-            {isUnavailable ? 'error_outline' : isGuest ? 'lock' : 'play_circle'}
+            {isUnavailable ? 'error_outline' : isGuest || premiumLocked ? 'lock' : 'play_circle'}
           </span>
         </span>
         <span className="flex-1 min-w-0">
@@ -343,6 +358,11 @@ export const Library = () => {
             {isUnavailable ? 'Unavailable right now.' : entry.description}
           </span>
         </span>
+        {premiumLocked && !isUnavailable && (
+          <span className="text-[10px] text-primary font-bold uppercase tracking-wider shrink-0 bg-primary/10 px-2 py-1 rounded-full">
+            Plus
+          </span>
+        )}
         <span className="text-[10px] text-on-surface-variant/70 font-semibold uppercase tracking-wider shrink-0">
           {isUnavailable ? '' : durationLabel}
         </span>
@@ -571,6 +591,13 @@ export const Library = () => {
         onSignIn={confirmSignIn}
         onCreateAccount={confirmCreateAccount}
         onDismiss={dismissPrompt}
+      />
+      <PlusPaywallDialog
+        open={paywallOpen}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </div>
   );

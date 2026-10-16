@@ -132,8 +132,15 @@ describe('Every audio/video entry point invokes the same authentication gate (us
     // guestAllowedIds exception (see useProtectedVideo.test.js's own
     // dedicated coverage) - every page in VIDEO_GATED_PAGES below still
     // omits that parameter entirely, so this exact "always prompt" guard
-    // is completely unaffected for all of them.
-    expect(useProtectedVideoSource).toMatch(/if \(isGuest && !guestAllowedIds\.has\(id\)\) \{\s*\n\s*setPromptId\(id\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*setOpenVideoId\(id\);/);
+    // is completely unaffected for all of them. Phase 2C inserted its own
+    // premium gate between the guest check and setOpenVideoId (an
+    // authenticated-and-entitled tap still reaches setOpenVideoId; see
+    // premiumAccess.test.js/useProtectedVideo.test.js for that gate's own
+    // dedicated coverage) - `[\s\S]*?` below tolerates that insertion
+    // without re-pinning this test to Phase 2C's exact implementation.
+    expect(useProtectedVideoSource).toMatch(
+      /if \(isGuest && !guestAllowedIds\.has\(id\)\) \{\s*\n\s*setPromptId\(id\);\s*\n\s*return;\s*\n\s*\}[\s\S]*?setOpenVideoId\(id\);/
+    );
   });
 
   it('every known video/sleep-sound page imports useProtectedVideo - no page was left ungated', () => {

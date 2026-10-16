@@ -206,6 +206,47 @@ const METADATA = {
 
 const DEFAULT_METADATA = { category: 'Calm & Support', timeOfDay: 'any', page: null };
 
+// Phase 2C — Free vs. WakeWise Plus Access Specification (§3b), the
+// approved, complete classification of this spec's OWN 73-entry baseline:
+// docs/phase-2c-access-specification.md. These are the ONLY 19 ids that
+// stay Free; every §3b/§3c id that reaches MEDIA_CATALOG and isn't one of
+// these 19 is Plus — see §3c's own "pure breadth/variety" rule. This
+// mirrors, and must be kept in sync with, supabase/functions/_shared/
+// premiumExerciseIds.ts's own independently-declared FREE_EXERCISE_IDS —
+// deliberately duplicated across the Deno/Vite boundary rather than
+// imported, the same established convention this project already uses
+// for KNOWN_APPLE_PLUS_PRODUCT_IDS (see planMapping.ts's own comment) —
+// mediaCatalogPremiumClassification.test.js asserts the two sets stay
+// identical.
+//
+// M06/S06-S09 (5 ids, APPROVED_PLUS_IDS below) and their 5 cover images
+// (already excluded from MEDIA_CATALOG by INTERACTIVE_ONLY_IDS above, for
+// the unrelated "never an independent Library row" reason) are NOT part
+// of this spec's 73-entry baseline — both were added to the live
+// catalogue after the spec's baseline commit (ecef8bf..., see the spec
+// doc's header) and were never classified in §3b/§3c's original tables.
+// MEDIA_CATALOG therefore actually holds 72 entries today (73 - the 5
+// covers + the 5 still-real M06/S06-S09 parents = 72), not 73 - see the
+// spec doc's own §11a-i (owner-approved Plus) and premiumExerciseIds.ts's
+// matching comment.
+const FREE_EXERCISE_IDS = new Set([
+  'S04', 'S05', 'S01', 'E03', 'E04', 'E11', 'E23', 'E30', 'B02',
+  'M01', 'M02', 'M03', 'M04', 'F01', 'SL01', 'SL04', 'SL06', 'G01', 'A02'
+]);
+
+// Mirrors premiumExerciseIds.ts's own identically-named, identically-
+// reasoned constant - kept here purely so this file's own classification
+// of these five ids is an explicit, traceable, testable record (see
+// mediaCatalogPremiumClassification.test.js) rather than an invisible
+// side effect of "not in FREE_EXERCISE_IDS." APPROVED — owner confirmed
+// Plus for all five (§11a-i, docs/phase-2c-access-specification.md).
+// Already enforced identically either way (every id not in
+// FREE_EXERCISE_IDS/not a preview-only cover was already Plus); this set
+// exists for traceability, not to change behaviour.
+export const APPROVED_PLUS_IDS = new Set(['M06', 'S06', 'S07', 'S08', 'S09']);
+
+export const isFreeExerciseId = (id) => FREE_EXERCISE_IDS.has(id);
+
 // ============================================================================
 // Meditation experience — additive metadata, reusing the exact same 67-id
 // catalogue and Storage objects above. No new manifest, no new media, no
@@ -330,6 +371,14 @@ export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
   meditation: MEDITATION_METADATA[entry.id] || null,
+  // Phase 2C — every real catalogue entry that reaches this far (i.e. is
+  // not one of §3a's out-of-scope ids, already excluded above) is Plus
+  // unless it's one of the 19 approved Free ids (FREE_EXERCISE_IDS,
+  // above). This is a UI-convenience classification only — see
+  // get-beta-video-url's own server-side authorization check
+  // (supabase/functions/_shared/betaVideoUrlAccess.ts) for the real,
+  // unweakened access boundary this can never substitute for.
+  premium: !FREE_EXERCISE_IDS.has(entry.id),
   active: true
 }));
 

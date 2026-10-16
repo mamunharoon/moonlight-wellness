@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlarm } from '../context/AlarmContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { supabase } from '../lib/supabaseClient';
 import {
   MEDITATION_DURATION_GROUPS,
@@ -16,8 +17,10 @@ import { now as devNow } from '../lib/devClock';
 import { getMeditationCompletionKey } from '../lib/dailyCompletion';
 import { recordPracticeCompletion } from '../lib/practiceCompletions';
 import { useMomentumCompletion } from '../hooks/useMomentumCompletion';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionChip } from '../components/journey/SelectionChip';
 import { SelectionRow } from '../components/journey/SelectionRow';
@@ -72,6 +75,7 @@ export const Meditate = () => {
   const navigate = useNavigate();
   const { isGuest, loading: authLoading } = useAuth();
   const { effectiveTimezone, userId } = useAlarm();
+  const entitlement = useUnifiedEntitlement();
   const [searchParams, setSearchParams] = useSearchParams();
   // Build 15 Phase B remediation — the same stale-session gap
   // AnytimeReset.jsx's own verifyingAuth/handleBegin already closed:
@@ -168,6 +172,11 @@ export const Meditate = () => {
     return openId && !isGuest && getCatalogEntryById(openId) ? openId : null;
   });
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Phase 2C — the premium paywall, shown instead of SignInPromptDialog
+  // once a signed-in user is already past that guest check (handleBegin
+  // below checks isGuest first, exactly as before) but the recommended
+  // item (`current`) is premium and this user isn't currently entitled.
+  const [paywallState, setPaywallState] = useState(null);
 
   // "Your Momentum" foundation, Phase 2 — mints this open's session id for
   // the post-auth restore path specifically. Deliberately an effect, not
@@ -253,6 +262,16 @@ export const Meditate = () => {
       setSignInPromptOpen(true);
       return;
     }
+    // Phase 2C — checked only after the guest gate above, so a guest
+    // always sees the sign-in prompt first regardless of the recommended
+    // item's premium flag, exactly matching useProtectedVideo.js's own
+    // ordering.
+    const gate = resolvePremiumGate(current, entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return; // defer — never guess, never flash a paywall before the real read resolves
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallState(gate);
+      return;
+    }
     verifyAndOpenVideo(current.id);
   };
 
@@ -292,6 +311,22 @@ export const Meditate = () => {
     setPendingContent({ id: current.id, returnPath: returnPath() });
     setSignInPromptOpen(false);
     navigate('/auth?tab=signup');
+  };
+
+  const dismissPaywall = () => setPaywallState(null);
+  const retryPaywall = () => {
+    if (!current) return;
+    const gate = resolvePremiumGate(current, entitlement);
+    if (gate === PREMIUM_GATE.ALLOWED) {
+      setPaywallState(null);
+      verifyAndOpenVideo(current.id);
+      return;
+    }
+    if (gate !== PREMIUM_GATE.LOADING) setPaywallState(gate);
+  };
+  const viewPlusOptions = () => {
+    setPaywallState(null);
+    navigate('/subscription');
   };
 
   // WakeWise guided-media completion phase — this used to navigate to a
@@ -414,6 +449,8 @@ export const Meditate = () => {
               onChooseAnother={handleChooseAnother}
               showChooseAnother={items.length > 1}
               chooseAnotherLabel="Choose Another"
+              locked={!isGuest && resolvePremiumGate(current, entitlement) === PREMIUM_GATE.LOCKED}
+              lockedLabel="Unlock with Plus"
             />
           ) : (
             <div className="glass-panel rounded-3xl p-6 text-center space-y-2">
@@ -499,6 +536,13 @@ export const Meditate = () => {
         onSignIn={handleSignIn}
         onCreateAccount={handleCreateAccount}
         onDismiss={() => setSignInPromptOpen(false)}
+      />
+      <PlusPaywallDialog
+        open={!!paywallState}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </div>
   );
