@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 /*
  * Guest access repair — SignInPromptDialog
@@ -21,6 +22,14 @@ import { useEffect, useRef } from 'react';
 export const SignInPromptDialog = ({ open, onSignIn, onCreateAccount, onDismiss }) => {
   const primaryButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
+
+  // Android system Back button/gesture repair — same treatment as
+  // ConfirmDialog.jsx: kind 'overlay' dismisses this dialog first, ahead
+  // of whatever screen it's layered over, regardless of registration
+  // order (e.g. OnboardingGate.jsx's guest-journey guard renders this
+  // with `open` true from its very first render, before any screen-level
+  // handler could exist). See backHandlerRegistry.js.
+  useBackHandler(onDismiss, open, 'overlay');
 
   useEffect(() => {
     if (!open) return;

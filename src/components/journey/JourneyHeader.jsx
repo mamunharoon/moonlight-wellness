@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { BackButton } from '../BackButton';
+import { useBackHandler } from '../../hooks/useBackHandler';
 
 /*
  * WakeWise — Build 15 Phase B — shared journey header.
@@ -68,7 +69,18 @@ export const JourneyHeader = ({
   stepCount,
   onBackBeforeLeave,
   alwaysFallback = false
-}) => (
+}) => {
+  // Android system Back button/gesture repair — when the local step-back
+  // arrow is the one showing (showBackButton false), it - not the
+  // internal BackButton below, which isn't rendered in that branch -
+  // is this screen's real "in-app back arrow", so it's what gets
+  // registered. When showBackButton is true, BackButton registers itself
+  // instead (see BackButton.jsx); registering onStepBack too here would
+  // double-handle a single hardware Back press. See
+  // backHandlerRegistry.js.
+  useBackHandler(onStepBack, !showBackButton);
+
+  return (
   <div className="space-y-4">
     <div className="flex items-center justify-between gap-3">
       {showBackButton ? (
@@ -115,4 +127,5 @@ export const JourneyHeader = ({
       </div>
     )}
   </div>
-);
+  );
+};

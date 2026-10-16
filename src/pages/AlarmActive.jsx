@@ -7,6 +7,7 @@ import { getStepIndex } from '../session/sessionRegistry';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export const AlarmActive = () => {
   const { snooze, dismissAlarm, alarmTime, setJourneyStep, effectiveTimezone } = useAlarm();
@@ -33,6 +34,20 @@ export const AlarmActive = () => {
   // repeated navigation to the same route) and are deliberately left
   // outside this guard.
   const hasMirroredUnlockRef = useRef(false);
+
+  // Android system Back button/gesture repair — this screen deliberately
+  // has no Back/Close/exit control of any kind (see
+  // backCloseConsistency.test.js's own "a ringing alarm should not be
+  // casually backed out of" - the only three ways off this screen are
+  // slide-to-unlock, Remind me shortly, and Skip this morning, all
+  // explicit user choices). Without this, the no-handler-registered
+  // default (App.exitApp(), see useAndroidBackButton.js) would let
+  // hardware Back or the back-gesture close the app entirely while the
+  // alarm is ringing - a real phone alarm's hardware Back does nothing
+  // while it rings, so this registers an explicit no-op instead: the
+  // event is consumed (exitApp never runs) and nothing happens, matching
+  // that same real-alarm convention.
+  useBackHandler(() => {}, true);
 
   // Tick the clock dynamically every second. Global timezone correctness:
   // shows the alarm's own effectiveTimezone wall-clock, not the device's

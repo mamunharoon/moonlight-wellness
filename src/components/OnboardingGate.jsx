@@ -9,6 +9,8 @@ import { hasPostAuthRedirectBeenHandled, markPostAuthRedirectHandled } from '../
 import { consumePendingJourneyIntent, resolveJourneyResumeTarget, setPendingJourneyIntent } from '../lib/pendingJourneyIntent';
 import { Welcome } from '../pages/Welcome';
 import { SignInPromptDialog } from './SignInPromptDialog';
+import { useBackHandler } from '../hooks/useBackHandler';
+import { App as CapacitorApp } from '@capacitor/app';
 
 /*
  * Guest Onboarding — OnboardingGate
@@ -192,6 +194,26 @@ export const OnboardingGate = ({ children }) => {
     if (needsIntroductionRedirect) markPostAuthRedirectHandled();
   }, [needsIntroductionRedirect]);
 
+  // Android system Back button/gesture repair — Welcome has no in-app
+  // back arrow of its own. Reuses this component's own existing
+  // needsWelcome gate (computed here, unchanged) rather than a second,
+  // driftable copy of the same condition. Registered whenever Welcome is
+  // genuinely about to render (needsWelcome, and not still on the
+  // `loading` screen above it) so hardware Back/gesture always exits the
+  // app deterministically - regardless of location.pathname, which fixes
+  // the one gap useAndroidBackButton.js's own pathname-only root policy
+  // couldn't: a deep link/notification tap that lands Welcome on a
+  // non-'/' path (OnboardingGate shows Welcome instead of <Routes>
+  // either way - see this file's own top doc comment) used to make
+  // Back's fallback navigate('/', { replace: true }) a silent no-op,
+  // since this same gate re-renders Welcome again regardless of
+  // pathname. `kind` left at its 'screen' default - Welcome is never
+  // shown underneath a dialog/overlay this early in the tree, so there's
+  // no overlay to defer to.
+  const isAllowedPreEntryPath = ALLOWED_PRE_ENTRY_PATHS.has(location.pathname);
+  const needsWelcome = !user && !guestEntryChosen && !isAllowedPreEntryPath;
+  useBackHandler(() => CapacitorApp.exitApp(), needsWelcome && !loading);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-on-surface-variant text-sm">
@@ -199,9 +221,6 @@ export const OnboardingGate = ({ children }) => {
       </div>
     );
   }
-
-  const isAllowedPreEntryPath = ALLOWED_PRE_ENTRY_PATHS.has(location.pathname);
-  const needsWelcome = !user && !guestEntryChosen && !isAllowedPreEntryPath;
 
   if (needsWelcome) {
     return (

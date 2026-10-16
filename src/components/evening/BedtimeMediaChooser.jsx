@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect } from 'react';
 import { BetaVideoRow } from '../BetaVideoRow';
+import { useBackHandler } from '../../hooks/useBackHandler';
 
 /*
  * Build 16 physical-iPhone correction (F10) — dedicated full-catalogue
@@ -61,6 +62,13 @@ import { BetaVideoRow } from '../BetaVideoRow';
  *                    never dismiss the whole chooser).
  */
 export const BedtimeMediaChooser = ({ videos, sounds, onSelect, onClose }) => {
+  // Android system Back button/gesture repair — same Escape-key parity
+  // as this overlay already has; kind 'overlay' dismisses this chooser
+  // first, ahead of Prepare for Rest's own BackButton underneath
+  // (EveningSceneShell), regardless of registration order. See
+  // backHandlerRegistry.js.
+  useBackHandler(onClose, true, 'overlay');
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
