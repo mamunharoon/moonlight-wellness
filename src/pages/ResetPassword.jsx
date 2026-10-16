@@ -3,7 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { shouldTreatAsValidRecovery } from '../lib/resetPasswordAccess';
-import { resolveAuthError, logAuthDiagnostic, isWeakPasswordError, WEAK_PASSWORD_MESSAGE } from '../lib/authErrorMessages';
+import {
+  resolveAuthError,
+  logAuthDiagnostic,
+  isWeakPasswordError,
+  isPasswordTooShortServerError,
+  getPasswordTooShortServerMessage,
+  WEAK_PASSWORD_MESSAGE
+} from '../lib/authErrorMessages';
 import { NEW_PASSWORD_HINT, getPasswordTooShortMessage, isPasswordTooShort, PASSWORD_MISMATCH_MESSAGE } from '../lib/passwordPolicy';
 
 export const ResetPassword = () => {
@@ -88,6 +95,17 @@ export const ResetPassword = () => {
     setIsSubmitting(false);
 
     if (updateError) {
+      // Checked before isWeakPasswordError - see authErrorMessages.js's own
+      // header comment on why a plain length rejection must never share
+      // the breach/predictability copy below.
+      if (isPasswordTooShortServerError(updateError)) {
+        setPassword('');
+        setConfirmPassword('');
+        setPasswordError(getPasswordTooShortServerMessage(updateError));
+        passwordInputRef.current?.focus();
+        return;
+      }
+
       if (isWeakPasswordError(updateError)) {
         setPassword('');
         setConfirmPassword('');

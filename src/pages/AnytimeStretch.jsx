@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { getCatalogEntryById } from '../lib/mediaCatalog';
 import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 /*
  * Anytime Stretch.
@@ -241,6 +242,12 @@ export const AnytimeStretch = () => {
     };
   }, [userId]);
 
+  // Tester-reported defect: screen sleeps mid-stretch. Mirrors the native
+  // onPlay/onPause-driven `isPlaying` state below exactly, so it releases
+  // the instant playback actually pauses/ends, not merely when the view
+  // changes (see useWakeLock.js's own header for the release mechanics).
+  useWakeLock(isPlaying);
+
   // Back/exit cleanup — stop playback the instant this page leaves the
   // 'playing' view for ANY reason (selecting a different session, Back,
   // Close/unmount), never leaving audio running in the background.
@@ -359,6 +366,70 @@ export const AnytimeStretch = () => {
     if (!el) return;
     if (el.paused) el.play();
     else el.pause();
+  };
+
+  // Tester-reported defect: the progress bar couldn't seek at all - it was
+  // a plain, non-interactive fill div (width driven by progressPercent),
+  // never wired to any pointer/keyboard handler. The underlying file is a
+  // plain MP3 (no moov-atom/"Fast Start" concept that applies to MP4 -
+  // confirmed against betaVideoManifest.js), so nothing about the media
+  // itself blocks seeking; this was purely a missing control. The real
+  // <audio> element's own currentTime is the single source of truth seeking
+  // writes to - the displayed time/progress-fill derive from it exactly as
+  // before (onTimeUpdate), so they can never drift out of sync with a seek.
+  // No separate "mark complete" logic exists on this page to protect
+  // against (see this file's own top doc comment: no dailyCompletion flag,
+  // no Session Engine, no momentum credit) - seeking to the very end only
+  // ever reaches 'complete' via the real `ended` event once the browser's
+  // own playback genuinely catches up to the end, the same as it always
+  // could with the native scrubber on any other player in this app.
+  const trackRef = useRef(null);
+  const seekFromClientX = (clientX) => {
+    const el = audioRef.current;
+    const track = trackRef.current;
+    const total = duration || session?.durationSeconds || 0;
+    if (!el || !track || total <= 0) return;
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const fraction = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    el.currentTime = fraction * total;
+    setCurrentTime(el.currentTime);
+  };
+  const isSeekingRef = useRef(false);
+  const handleTrackPointerDown = (e) => {
+    isSeekingRef.current = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    seekFromClientX(e.clientX);
+  };
+  const handleTrackPointerMove = (e) => {
+    if (!isSeekingRef.current) return;
+    seekFromClientX(e.clientX);
+  };
+  const stopSeeking = () => {
+    isSeekingRef.current = false;
+  };
+  const handleTrackKeyDown = (e) => {
+    const el = audioRef.current;
+    const total = duration || session?.durationSeconds || 0;
+    if (!el || total <= 0) return;
+    const step = 5; // seconds per key press, matching common player conventions
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      el.currentTime = Math.min(el.currentTime + step, total);
+      setCurrentTime(el.currentTime);
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      el.currentTime = Math.max(el.currentTime - step, 0);
+      setCurrentTime(el.currentTime);
+      e.preventDefault();
+    } else if (e.key === 'Home') {
+      el.currentTime = 0;
+      setCurrentTime(0);
+      e.preventDefault();
+    } else if (e.key === 'End') {
+      el.currentTime = total;
+      setCurrentTime(total);
+      e.preventDefault();
+    }
   };
 
   const handleBackFromPlaying = () => {
@@ -518,7 +589,26 @@ export const AnytimeStretch = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+              {/* Tester-reported defect fix: now a real seek control (click/
+                  drag/arrow-keys), same exact visual markup/sizing as
+                  before - only pointer/keyboard handlers and ARIA slider
+                  semantics were added, nothing about the layout changed. */}
+              <div
+                ref={trackRef}
+                role="slider"
+                tabIndex={0}
+                aria-label={`Seek ${session.title}`}
+                aria-valuemin={0}
+                aria-valuemax={Math.round(duration || session.durationSeconds)}
+                aria-valuenow={Math.round(currentTime)}
+                aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration || session.durationSeconds)}`}
+                onPointerDown={handleTrackPointerDown}
+                onPointerMove={handleTrackPointerMove}
+                onPointerUp={stopSeeking}
+                onPointerCancel={stopSeeking}
+                onKeyDown={handleTrackKeyDown}
+                className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden cursor-pointer touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tertiary"
+              >
                 <div className="h-full bg-tertiary transition-all duration-150" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="text-xs text-on-surface-variant font-semibold">

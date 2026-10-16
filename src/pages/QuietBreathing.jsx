@@ -35,6 +35,7 @@ import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
 import { AnytimeClosingHandoffMessage, AnytimeClosingHandoffActions } from '../components/AnytimeClosingHandoff';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 // Background Music — same shared, reserved interactive-breathing loop id
 // as EveningBreathing.jsx/Breathe.jsx.
@@ -360,6 +361,13 @@ export const QuietBreathing = ({ standalone = false }) => {
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [completionGreeting, setCompletionGreeting] = useState(null);
+
+  // Tester-reported defect: screen sleeps mid-breathing-exercise. Mirrors
+  // the standalone tick effect's own active-ticking guard above exactly
+  // (hasBegun && !earlyEnded && !isCompleted && !endConfirmOpen) - released
+  // the instant the exercise ends, is left early, or the end-confirm
+  // dialog opens.
+  useWakeLock(hasBegun && !earlyEnded && !isCompleted && !endConfirmOpen);
   // Completion-transition-tuning pass — purely additive/visual; isCompleted/
   // earlyEnded themselves keep their exact original timing for every other
   // consumer. Only the render ternary below (standalone branch) swaps from

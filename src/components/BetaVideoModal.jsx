@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { cacheDurationSeconds, getCachedDurationMinutes } from '../lib/durationCache';
 import { getBetaVideoById } from '../lib/mediaCatalog';
@@ -351,12 +352,25 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     if (!video) return;
 
     const handleBeginFullscreen = () => setIsFullscreen(true);
+    // Tester-reported defect: exiting fullscreen (native Done, or Android
+    // hardware Back/edge-swipe, which this app's own back-handler comment
+    // already documents as being consumed by native fullscreen exit before
+    // ever reaching the app) showed the "Paused" overlay below without ever
+    // actually pausing the element - the video/audio kept playing, audibly,
+    // behind that overlay. Exiting fullscreen without a natural `ended` was
+    // never wired to call pause() anywhere; `handleEnded` only pauses for
+    // the natural-completion path. The "Paused"/Resume overlay's own text
+    // and Resume button already assume playback stopped on fullscreen exit
+    // (see its own render condition/doc comment below) - this makes that
+    // true instead of just claimed.
     const handleEndFullscreen = () => {
+      video.pause();
       setIsFullscreen(false);
       setFallbackFullscreen(false);
     };
     const handleStandardFullscreenChange = () => {
       const active = document.fullscreenElement === video;
+      if (!active) video.pause();
       setIsFullscreen(active);
       if (!active) setFallbackFullscreen(false);
     };
@@ -529,6 +543,12 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     if (!video) return;
     video.volume = remainingMs <= FADE_DURATION_MS ? Math.max(remainingMs / FADE_DURATION_MS, 0) : 1;
   }, [remainingMs, isSleepSound, hasStarted]);
+
+  // Tester-reported defect: screen sleeps mid-playback. Active only while
+  // genuinely playing (native play/pause events, not merely "modal open") -
+  // released the instant the element pauses, the video ends, or this modal
+  // unmounts (see useWakeLock.js's own header for the release mechanics).
+  useWakeLock(hasStarted && isVideoPlaying && !hasEnded);
 
   // Sign-out defensive guard - same pattern as
   // InteractiveAmbientMusic.jsx's own equivalent: if this modal somehow
@@ -829,6 +849,7 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                     key={videoUrl}
                     src={videoUrl}
                     controls={!hasEnded}
+                    controlsList="nodownload"
                     preload="metadata"
                     className="absolute bottom-0 left-0 right-0 w-full z-[1]"
                     onError={handleVideoError}
@@ -857,6 +878,17 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   // Sleep Soundscapes never set hasEnded (loop never fires
                   // `ended`), so this is always `true` for them, unaffected.
                   controls={!hasEnded}
+                  // Tester-reported defect: "Download" does nothing useful -
+                  // this is the WebView's own native video-controls download
+                  // icon (Chromium adds it by default), not a WakeWise
+                  // control; this app has no supported download/offline
+                  // feature behind it (a future, explicitly post-launch
+                  // feature - see AudioDetails.jsx's own comment), and a
+                  // short-lived signed Storage URL isn't a stable target for
+                  // it anyway. controlsList is a standard, widely-supported
+                  // attribute (silently ignored where unsupported, e.g.
+                  // Safari/iOS, which never showed this icon to begin with).
+                  controlsList="nodownload"
                   playsInline
                   loop={isSleepSound}
                   preload="metadata"
@@ -888,7 +920,14 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
               {fallbackFullscreen && (
                 <button
                   type="button"
-                  onClick={() => setFallbackFullscreen(false)}
+                  onClick={() => {
+                    // Same "exiting fullscreen actually pauses" correction
+                    // as the native fullscreen-exit handlers above - this
+                    // button is the CSS-only fallback's own exit control,
+                    // with no native event of its own to hook into.
+                    videoRef.current?.pause();
+                    setFallbackFullscreen(false);
+                  }}
                   aria-label="Exit fullscreen"
                   className="fixed z-[201] w-11 h-11 rounded-full bg-black/50 flex items-center justify-center active:scale-95 transition-all"
                   style={{ top: 'calc(1rem + env(safe-area-inset-top))', right: '1rem' }}

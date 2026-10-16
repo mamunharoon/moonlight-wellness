@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { MeditationProgressRing } from '../MeditationProgressRing';
 import { getJourneyPrimaryActionClasses } from '../../lib/journeyAction';
 import { getJourneyToneTokens } from '../../lib/journeyTone';
+import { useWakeLock } from '../../hooks/useWakeLock';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared active-
@@ -179,6 +180,13 @@ export const MeditationActiveSession = ({
   journeyTone = 'primary',
   onEndSession = null
 }) => {
+  // Tester-reported defect: screen sleeps mid-meditation (including the
+  // short two-minute duration). Mirrors the ring/Pause-Resume button's own
+  // `snapshot.status === 'paused'` check exactly, so it's released the
+  // instant the user pauses, the pause-for-dialog guard above pauses it,
+  // or the session ends/this screen unmounts.
+  useWakeLock(snapshot.status !== 'paused');
+
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [bottomActionConfirmOpen, setBottomActionConfirmOpen] = useState(false);
   const [chooseAnotherConfirmOpen, setChooseAnotherConfirmOpen] = useState(false);

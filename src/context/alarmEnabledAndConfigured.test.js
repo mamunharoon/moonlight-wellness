@@ -131,6 +131,11 @@ describe('useCurrentTimezone — a pure timezone confirmation, never a silent al
 
 describe('context value exposes alarmConfigured (isAlarmSet/setIsAlarmSet were already exposed before this work)', () => {
   it('alarmConfigured is in the Provider value object', () => {
-    expect(source).toMatch(/isAlarmSet,\s*\n\s*setIsAlarmSet,\s*\n\s*alarmConfigured,\s*\n\s*isRinging,/);
+    // Tester-reported alarm-display defect — rhythmSettled (the settled-
+    // identity flag Profile.jsx now gates its display on) was added
+    // directly after alarmConfigured; this only needs to confirm
+    // alarmConfigured itself is still exposed in the same relative
+    // position, not that nothing was ever added after it.
+    expect(source).toMatch(/isAlarmSet,\s*\n\s*setIsAlarmSet,\s*\n\s*alarmConfigured,\s*\n\s*rhythmSettled,\s*\n\s*isRinging,/);
   });
 });

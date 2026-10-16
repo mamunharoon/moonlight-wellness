@@ -34,6 +34,37 @@ export const NEUTRAL_NO_SESSION_MESSAGE =
 export const WEAK_PASSWORD_MESSAGE =
   'That password is too common or has been exposed before. Please choose a different, unique password.';
 
+// Tester-investigation finding (earlier "valid password rejected" reports):
+// GoTrue's own plain minimum-length rejection ("Password should be at
+// least N characters") was previously treated as the SAME case as the
+// real breach/predictability rejection (weak_password), both shown as
+// WEAK_PASSWORD_MESSAGE above - actively misleading for a length-only
+// rejection, which has nothing to do with the password being common or
+// exposed. This matters specifically if this project's own Supabase Auth
+// dashboard password-length setting is ever configured higher than this
+// app's own client-side NEW_PASSWORD_MIN_LENGTH (8, passwordPolicy.js) -
+// a password the app's own hint says is long enough would still be
+// rejected server-side, and until this fix, shown the wrong reason why.
+// This repo has no way to read or confirm that dashboard setting from
+// code - report to the owner: verify Supabase's configured minimum
+// matches 8 (recommended, since 8 is this app's own deliberate,
+// NIST-SP-800-63B-aligned decision - see passwordPolicy.js), not a higher
+// value than what this app actually tells users. Not a client bug to
+// silently "fix" by raising NEW_PASSWORD_MIN_LENGTH without that
+// confirmation - see this file's own explicit instruction not to do that.
+//
+// The extracted number comes directly from GoTrue's own message, so the
+// user is told the REAL required length whatever that dashboard setting
+// actually is, without this app needing to know or hardcode it.
+const PASSWORD_TOO_SHORT_PATTERN = /Password should be at least (\d+) characters/i;
+
+export const getPasswordTooShortServerMessage = (error) => {
+  const match = PASSWORD_TOO_SHORT_PATTERN.exec(error?.message || '');
+  return match ? `Your password must be at least ${match[1]} characters. Please choose a longer password and try again.` : null;
+};
+
+export const isPasswordTooShortServerError = (error) => Boolean(getPasswordTooShortServerMessage(error));
+
 // Shown for over_email_send_rate_limit - deliberately reassuring rather
 // than punitive ("we already sent it, go check" rather than "you did
 // something wrong, wait"), since this fires on a perfectly legitimate
@@ -74,12 +105,15 @@ const CODE_MESSAGES = {
 };
 
 // Backward-compatible fallback only - matched exclusively when `.code` is
-// missing or unrecognized. Order matters: first match wins.
+// missing or unrecognized. Order matters: first match wins. The plain
+// minimum-length rejection is handled separately, in resolveAuthError
+// itself, BEFORE this list runs - see getPasswordTooShortServerMessage's
+// own header for why it must never share WEAK_PASSWORD_MESSAGE.
 const MESSAGE_SUBSTRING_FALLBACKS = [
   [/Invalid login credentials/, CODE_MESSAGES.invalid_credentials],
   [/User already registered/, NEUTRAL_NO_SESSION_MESSAGE],
   [/Email not confirmed/, CODE_MESSAGES.email_not_confirmed],
-  [/Password should be at least/i, WEAK_PASSWORD_MESSAGE],
+  [/weak and easy to guess/i, WEAK_PASSWORD_MESSAGE],
   [/Unable to validate email address|invalid format|Invalid email/, EMAIL_ADDRESS_INVALID_MESSAGE],
 ];
 
@@ -148,6 +182,17 @@ export const resolveAuthError = (error, { fallbackMessage = FALLBACK_MESSAGE } =
     return { message: OFFLINE_MESSAGE, code, status, isUnknown: false };
   }
 
+  // Checked before any `.code` lookup, deliberately - a plain minimum-
+  // length rejection must never be misrouted into a different code's
+  // message (e.g. validation_failed's own email-field copy below) just
+  // because GoTrue happens to pair it with an unrelated/ambiguous code.
+  // See getPasswordTooShortServerMessage's own header comment for why this
+  // must also never share weak_password/WEAK_PASSWORD_MESSAGE.
+  const tooShortMessage = getPasswordTooShortServerMessage(error);
+  if (tooShortMessage) {
+    return { message: tooShortMessage, code, status, isUnknown: false };
+  }
+
   if (code && CODE_MESSAGES[code]) {
     return { message: CODE_MESSAGES[code], code, status, isUnknown: false };
   }
@@ -172,8 +217,14 @@ export const resolveAuthError = (error, { fallbackMessage = FALLBACK_MESSAGE } =
 export const isAccountAlreadyExistsError = (error) =>
   Boolean(error) && (error.code === 'user_already_exists' || /User already registered/.test(error.message || ''));
 
+// Deliberately excludes a plain "Password should be at least N characters"
+// message now - that is the DIFFERENT, length-only rejection
+// isPasswordTooShortServerError/getPasswordTooShortServerMessage handle,
+// never this breach/predictability one. A caller must check
+// isPasswordTooShortServerError first (see Auth.jsx/ResetPassword.jsx/
+// ChangePassword.jsx) so the two can never be shown the same message.
 export const isWeakPasswordError = (error) =>
-  Boolean(error) && (error.code === 'weak_password' || /Password should be at least|weak and easy to guess/i.test(error.message || ''));
+  Boolean(error) && (error.code === 'weak_password' || /weak and easy to guess/i.test(error.message || ''));
 
 export const isEmailRateLimitError = (error) =>
   Boolean(error) && (error.code === 'over_email_send_rate_limit' || /email.*rate.?limit|rate.?limit.*email/i.test(error.message || ''));

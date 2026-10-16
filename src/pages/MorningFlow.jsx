@@ -34,6 +34,7 @@ import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 // Background Music — the interactive stretching timer's own loop, distinct
 // from IB01 (breathing/grounding). Registered in betaVideoManifest.js
@@ -386,6 +387,14 @@ export const MorningFlow = () => {
 
     return () => stopStretchInterval();
   }, [hasBegun, activeSequence, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
+
+  // Tester-reported defect: screen sleeps mid-Morning-routine (timed
+  // stretching). Mirrors the countdown interval's own active-ticking guard
+  // immediately above, condition for condition - active only while the
+  // timer itself is genuinely ticking, released for every one of that
+  // effect's own pause reasons (paused, a video opened mid-exercise, the
+  // review/back-confirm dialogs, completion).
+  useWakeLock(Boolean(hasBegun && activeSequence && !isInterrupted && !isRepeatGated && !isConfirming && !isCompleted && !backConfirmOpen));
 
   // Double-tap protection: a ref (not state) so a second, near-
   // simultaneous tap can never race past this check before the first

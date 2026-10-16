@@ -14,6 +14,8 @@ import {
   logAuthDiagnostic,
   isAccountAlreadyExistsError,
   isWeakPasswordError,
+  isPasswordTooShortServerError,
+  getPasswordTooShortServerMessage,
   isEmailRateLimitError,
   NEUTRAL_NO_SESSION_MESSAGE,
   WEAK_PASSWORD_MESSAGE,
@@ -346,6 +348,22 @@ export const Auth = () => {
       // success below — never a distinct "this email is taken" message.
       if (isAccountAlreadyExistsError(signUpError)) {
         setSignupOutcome('neutral');
+        return;
+      }
+
+      // Password-rejection investigation finding — a plain server-side
+      // minimum-length rejection is a DIFFERENT problem from the
+      // breach/predictability one below and must never share its copy
+      // (see getPasswordTooShortServerMessage's own header for why this
+      // specifically matters if Supabase's own dashboard minimum is ever
+      // configured higher than this app's own 8-character minimum).
+      // Checked first; first/last name and email are left untouched either
+      // way, same as the breach case below.
+      if (isPasswordTooShortServerError(signUpError)) {
+        setPassword('');
+        setConfirmPassword('');
+        setPasswordError(getPasswordTooShortServerMessage(signUpError));
+        passwordInputRef.current?.focus();
         return;
       }
 

@@ -211,6 +211,16 @@ export const AlarmProvider = ({ children }) => {
     !mismatchSnoozedThisSession
   );
   const askTimezoneLater = () => setMismatchSnoozedThisSession(true);
+  // Tester-reported defect: Profile's "Wake time"/"Bedtime" rows showed the
+  // '07:30'/'22:00' neutral reset (above, set synchronously before
+  // fetchRhythm resolves) as if it were the user's real saved value during
+  // the brief network round-trip right after sign-in - this is a plain
+  // app-level default/loading placeholder, never device/OS alarm data (no
+  // native alarm-clock API or permission is read anywhere in this file).
+  // Same settled-identity pattern timezoneUnconfirmed above already
+  // established, exposed here so any consumer can avoid painting a
+  // placeholder as if it were confirmed.
+  const rhythmSettled = rhythmSettledUserId === userId;
   // Timezone persistence correction — real found defect: both
   // useCurrentTimezone and updateRhythm's own timezone handling used to
   // call setTimezoneState synchronously and fire saveRhythm off
@@ -920,6 +930,7 @@ export const AlarmProvider = ({ children }) => {
       isAlarmSet,
       setIsAlarmSet,
       alarmConfigured,
+      rhythmSettled,
       isRinging,
       setIsRinging,
       intentions,

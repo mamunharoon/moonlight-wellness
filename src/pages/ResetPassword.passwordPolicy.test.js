@@ -63,6 +63,20 @@ describe('ResetPassword — same approved 8-character new-password rule as Sign 
     expect(resolveIndex).toBeGreaterThan(weakIndex);
   });
 
+  it('password-rejection investigation fix: a plain server-side minimum-length rejection is checked via its own helper BEFORE isWeakPasswordError, with its own (non-WEAK_PASSWORD_MESSAGE) copy', () => {
+    const body = handleSubmitBody();
+    const tooShortServerBlock = body.match(/if \(isPasswordTooShortServerError\(updateError\)\) \{[\s\S]*?\n {6}\}/)?.[0] ?? '';
+    expect(tooShortServerBlock).not.toBe('');
+    expect(tooShortServerBlock).toMatch(/setPassword\(''\);/);
+    expect(tooShortServerBlock).toMatch(/setConfirmPassword\(''\);/);
+    expect(tooShortServerBlock).toMatch(/setPasswordError\(getPasswordTooShortServerMessage\(updateError\)\);/);
+    expect(tooShortServerBlock).not.toMatch(/WEAK_PASSWORD_MESSAGE/);
+    const tooShortIdx = body.indexOf('isPasswordTooShortServerError(updateError)');
+    const weakIdx = body.indexOf('isWeakPasswordError(updateError)');
+    expect(tooShortIdx).toBeGreaterThan(-1);
+    expect(weakIdx).toBeGreaterThan(tooShortIdx);
+  });
+
   it('a non-weak_password update failure still falls back to the original recovery-link guidance, via resolveAuthError\'s fallbackMessage override (not a raw "||" on possibly-empty text)', () => {
     const body = handleSubmitBody();
     expect(body).toMatch(

@@ -61,6 +61,18 @@ describe('ChangePassword — same approved password rule as Sign Up/Reset (no cu
     expect(weakBlock).not.toBe('');
   });
 
+  it('password-rejection investigation fix: a plain server-side minimum-length rejection is checked via its own helper BEFORE isWeakPasswordError, with its own (non-WEAK_PASSWORD_MESSAGE) copy', () => {
+    const body = handleSubmitBody();
+    const tooShortServerBlock = body.match(/if \(isPasswordTooShortServerError\(updateError\)\) \{[\s\S]*?\n {6}\}/)?.[0] ?? '';
+    expect(tooShortServerBlock).not.toBe('');
+    expect(tooShortServerBlock).toMatch(/setPasswordError\(getPasswordTooShortServerMessage\(updateError\)\);/);
+    expect(tooShortServerBlock).not.toMatch(/WEAK_PASSWORD_MESSAGE/);
+    const tooShortIdx = body.indexOf('isPasswordTooShortServerError(updateError)');
+    const weakIdx = body.indexOf('isWeakPasswordError(updateError)');
+    expect(tooShortIdx).toBeGreaterThan(-1);
+    expect(weakIdx).toBeGreaterThan(tooShortIdx);
+  });
+
   it('re-entrancy guard: a second submit while isSubmitting is true never reaches supabase.auth.updateUser', () => {
     const body = handleSubmitBody();
     const guardIndex = body.indexOf('if (isSubmitting || !supabase) return;');

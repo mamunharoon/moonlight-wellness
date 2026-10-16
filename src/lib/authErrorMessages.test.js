@@ -4,6 +4,8 @@ import {
   logAuthDiagnostic,
   isAccountAlreadyExistsError,
   isWeakPasswordError,
+  isPasswordTooShortServerError,
+  getPasswordTooShortServerMessage,
   isEmailRateLimitError,
   NEUTRAL_NO_SESSION_MESSAGE,
   WEAK_PASSWORD_MESSAGE,
@@ -141,8 +143,15 @@ describe('resolveAuthError — structured code takes priority over message text'
     it('user_already_exists-equivalent text', () => {
       expect(resolveAuthError({ message: 'User already registered' }).message).toBe(NEUTRAL_NO_SESSION_MESSAGE);
     });
-    it('weak_password-equivalent text', () => {
-      expect(resolveAuthError({ message: 'Password should be at least 8 characters.' }).message).toBe(WEAK_PASSWORD_MESSAGE);
+    it('a plain minimum-length rejection gets its own specific message, never WEAK_PASSWORD_MESSAGE - password-rejection investigation fix (conflating the two previously told a user their reasonable-length password was "too common or exposed" when it was simply too short for Supabase\'s own configured minimum)', () => {
+      expect(resolveAuthError({ message: 'Password should be at least 14 characters.' }).message).toBe(
+        'Your password must be at least 14 characters. Please choose a longer password and try again.'
+      );
+    });
+    it('weak_password-equivalent text (the real breach/predictability message, distinct from a length rejection)', () => {
+      expect(resolveAuthError({ message: 'Password is known to be weak and easy to guess, please choose a different one.' }).message).toBe(
+        WEAK_PASSWORD_MESSAGE
+      );
     });
     it('email_address_invalid-equivalent text', () => {
       expect(resolveAuthError({ message: 'Unable to validate email address: invalid format' }).message).toBe(
@@ -186,7 +195,17 @@ describe('isAccountAlreadyExistsError / isWeakPasswordError', () => {
 
   it('falls back to legacy message text when code is absent', () => {
     expect(isAccountAlreadyExistsError({ message: 'User already registered' })).toBe(true);
-    expect(isWeakPasswordError({ message: 'Password should be at least 8 characters.' })).toBe(true);
+    expect(isWeakPasswordError({ message: 'Password is known to be weak and easy to guess, please choose a different one.' })).toBe(true);
+  });
+
+  it('isWeakPasswordError is false for a plain length rejection - that is isPasswordTooShortServerError\'s own case, a different problem with a different message', () => {
+    expect(isWeakPasswordError({ message: 'Password should be at least 14 characters.' })).toBe(false);
+    expect(isPasswordTooShortServerError({ message: 'Password should be at least 14 characters.' })).toBe(true);
+    expect(getPasswordTooShortServerMessage({ message: 'Password should be at least 14 characters.' })).toBe(
+      'Your password must be at least 14 characters. Please choose a longer password and try again.'
+    );
+    expect(isPasswordTooShortServerError(apiError('Password is known to be weak and easy to guess, please choose a different one.', 422, 'weak_password'))).toBe(false);
+    expect(getPasswordTooShortServerMessage(null)).toBe(null);
   });
 
   it('is false for unrelated errors', () => {

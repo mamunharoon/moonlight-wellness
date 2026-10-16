@@ -159,7 +159,7 @@ describe('BetaVideoModal.jsx — only one <video> element ever exists, even for 
 
   it('the fallback exit control only exits fallback fullscreen, never closes the video', () => {
     const body = source.match(/\{fallbackFullscreen && \(\s*\n\s*<button[\s\S]*?<\/button>\s*\n\s*\)\}/)?.[0] ?? '';
-    expect(body).toMatch(/onClick=\{\(\) => setFallbackFullscreen\(false\)\}/);
+    expect(body).toMatch(/setFallbackFullscreen\(false\);/);
     expect(body).not.toMatch(/onClose/);
     expect(body).toMatch(/aria-label="Exit fullscreen"/);
   });
@@ -256,5 +256,66 @@ describe('BetaVideoModal.jsx — Escape never closes the whole modal while a ful
     const body = keyDownBody();
     expect(body).toMatch(/if \(e\.key !== 'Escape'\) return;/);
     expect(body).toMatch(/onClose\(\);\s*\n\s*\};/);
+  });
+});
+
+// Tester-reported defect: exiting fullscreen without a natural `ended`
+// showed the "Paused" overlay/label without actually pausing the element -
+// playback (audio/video) continued behind it. Every exit path that doesn't
+// already imply a stopped element (handleEnded already calls video.pause()
+// itself, unaffected) must now actually pause it.
+describe('BetaVideoModal.jsx — exiting fullscreen actually pauses playback (tester-reported "Paused" label while still playing)', () => {
+  it('handleEndFullscreen (iOS webkitendfullscreen) pauses before updating any state', () => {
+    const body = source.match(/const handleEndFullscreen = \(\) => \{[\s\S]*?\n {4}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    const pauseIndex = body.indexOf('video.pause();');
+    const setStateIndex = body.indexOf('setIsFullscreen(false);');
+    expect(pauseIndex).toBeGreaterThanOrEqual(0);
+    expect(setStateIndex).toBeGreaterThan(pauseIndex);
+  });
+
+  it('handleStandardFullscreenChange pauses only on the "became inactive" transition, never on entering fullscreen', () => {
+    const body = source.match(/const handleStandardFullscreenChange = \(\) => \{[\s\S]*?\n {4}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(!active\) video\.pause\(\);/);
+    const pauseIndex = body.indexOf('if (!active) video.pause();');
+    const setStateIndex = body.indexOf('setIsFullscreen(active);');
+    expect(pauseIndex).toBeGreaterThanOrEqual(0);
+    expect(setStateIndex).toBeGreaterThan(pauseIndex);
+  });
+
+  it('the in-app fallback-fullscreen exit button pauses via the ref before clearing fallbackFullscreen - it has no native event of its own to hook a pause into', () => {
+    const body = source.match(/\{fallbackFullscreen && \([\s\S]*?Exit fullscreen[\s\S]*?\)\}/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/videoRef\.current\?\.pause\(\);/);
+    const pauseIndex = body.indexOf('videoRef.current?.pause();');
+    const clearIndex = body.indexOf('setFallbackFullscreen(false);');
+    expect(pauseIndex).toBeGreaterThanOrEqual(0);
+    expect(clearIndex).toBeGreaterThan(pauseIndex);
+  });
+});
+
+// Tester-reported defect: a "Download" action did nothing useful - the
+// WebView's own native video-controls download icon (Chromium adds one by
+// default), not a WakeWise control, with no supported download target
+// behind it (a short-lived signed Storage URL, and no offline feature in
+// this release). controlsList="nodownload" is the standard way to
+// suppress it; ignored harmlessly where unsupported (e.g. Safari/iOS,
+// which never showed it).
+describe('BetaVideoModal.jsx — native download control suppressed on both media elements', () => {
+  it('the <video> element declares controlsList="nodownload"', () => {
+    // Anchored on the real element's own unique fallback children text
+    // (never matched inside this file's own many prose comments mentioning
+    // "<video>" literally - a bare `<video\b[\s\S]*?>` lazy match stops at
+    // the first comment's "<video>" instead).
+    const videoBlock = source.match(/<video\b[\s\S]*?Your browser doesn&apos;t support embedded video\./)?.[0] ?? '';
+    expect(videoBlock).not.toBe('');
+    expect(videoBlock).toMatch(/controlsList="nodownload"/);
+  });
+
+  it('the <audio> element (audio-only entries, e.g. M06) also declares controlsList="nodownload"', () => {
+    const audioBlock = source.match(/<audio\b[\s\S]*?Your browser doesn&apos;t support embedded audio\./)?.[0] ?? '';
+    expect(audioBlock).not.toBe('');
+    expect(audioBlock).toMatch(/controlsList="nodownload"/);
   });
 });

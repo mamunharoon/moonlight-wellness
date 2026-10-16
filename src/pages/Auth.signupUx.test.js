@@ -108,6 +108,22 @@ describe('Structured error mapping — signIn/signUp/forgotPassword all use reso
     expect(weakBlock).not.toMatch(/setError\(/);
   });
 
+  it('password-rejection investigation fix: a plain server-side minimum-length rejection is checked via its own helper BEFORE isWeakPasswordError, with its own (non-WEAK_PASSWORD_MESSAGE) copy, and never falls through to the generic banner', () => {
+    const body = fnBody('handleSignUp');
+    const tooShortServerBlock = body.match(/if \(isPasswordTooShortServerError\(signUpError\)\) \{[\s\S]*?\n {6}\}/)?.[0] ?? '';
+    expect(tooShortServerBlock).not.toBe('');
+    expect(tooShortServerBlock).toMatch(/setPassword\(''\);/);
+    expect(tooShortServerBlock).toMatch(/setConfirmPassword\(''\);/);
+    expect(tooShortServerBlock).toMatch(/setPasswordError\(getPasswordTooShortServerMessage\(signUpError\)\);/);
+    expect(tooShortServerBlock).not.toMatch(/WEAK_PASSWORD_MESSAGE/);
+    expect(tooShortServerBlock).toMatch(/return;/);
+    expect(tooShortServerBlock).not.toMatch(/setError\(/);
+    const tooShortIdx = body.indexOf('isPasswordTooShortServerError(signUpError)');
+    const weakIdx = body.indexOf('isWeakPasswordError(signUpError)');
+    expect(tooShortIdx).toBeGreaterThan(-1);
+    expect(weakIdx).toBeGreaterThan(tooShortIdx);
+  });
+
   it('password mismatch uses the shared PASSWORD_MISMATCH_MESSAGE constant, not an inline literal', () => {
     const body = fnBody('handleSignUp');
     expect(body).toMatch(/setConfirmPasswordError\(PASSWORD_MISMATCH_MESSAGE\);/);

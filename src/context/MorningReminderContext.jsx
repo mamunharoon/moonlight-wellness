@@ -60,7 +60,7 @@ const MorningReminderContext = createContext();
  */
 export const MorningReminderProvider = ({ children }) => {
   const { user } = useAuth();
-  const { alarmTime } = useAlarm();
+  const { alarmTime, rhythmSettled } = useAlarm();
   const supported = isSupported();
 
   const [enabled, setEnabled] = useState(() => getNotificationPreferences().nativeMorningReminder.enabled);
@@ -97,6 +97,23 @@ export const MorningReminderProvider = ({ children }) => {
   // running on web (isSupported() gates every native call it makes).
   const reconcile = useCallback(async () => {
     if (!supported || reconcilingRef.current) return;
+    // iPhone alarm-defect investigation — real, demonstrated race found:
+    // AlarmContext resets alarmTime to a neutral '07:30' placeholder
+    // synchronously the instant a signed-in user's identity sync starts,
+    // overwritten by their real saved wake time once the fetch resolves
+    // (see AlarmContext.jsx's own rhythmSettled). Both the mount effect
+    // and the alarmTime-watching effect below call reconcile()
+    // immediately, which — without this guard — could compute a
+    // fingerprint and apply a native schedule against that placeholder
+    // during the brief window before the real value loads, briefly
+    // scheduling the device's actual OS alert for the wrong time. Once
+    // alarmTime settles to its real value, rhythmSettled becomes true in
+    // the exact same render (see AlarmContext.jsx's own batching note),
+    // and the alarmTime-watching effect's own dependency on alarmTime
+    // already re-triggers reconcile() at that point — this guard never
+    // leaves a stale schedule in place, it only ever skips the single
+    // premature attempt.
+    if (!rhythmSettled) return;
     reconcilingRef.current = true;
     try {
       const prefs = getNotificationPreferences();
@@ -136,7 +153,7 @@ export const MorningReminderProvider = ({ children }) => {
     } finally {
       reconcilingRef.current = false;
     }
-  }, [supported, alarmTime, buildFingerprint]);
+  }, [supported, alarmTime, rhythmSettled, buildFingerprint]);
 
   // App start: read real state, never trust the stored flag blindly.
   useEffect(() => {

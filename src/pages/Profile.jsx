@@ -77,7 +77,7 @@ const RESTORE_MESSAGES = {
 
 export const Profile = () => {
   const navigate = useNavigate();
-  const { alarmTime, bedTime, routineDuration, setRoutineDuration, effectiveTimezone } = useAlarm();
+  const { alarmTime, bedTime, routineDuration, setRoutineDuration, effectiveTimezone, rhythmSettled } = useAlarm();
   const { user, isGuest, signOut, profile, profileLoading, profileError } = useAuth();
   // WakeWise Phase 2B — reads the unified, multi-provider entitlement
   // (legacy Stripe/manual + Apple/Google provider_subscriptions combined)
@@ -250,7 +250,14 @@ export const Profile = () => {
               Wake time
             </span>
             <span className="flex items-center gap-1 text-xs text-on-surface-variant">
-              {alarmTime}
+              {/* Tester-reported defect: this used to show alarmTime
+                  unconditionally, including the brief '07:30' neutral
+                  placeholder AlarmContext resets to while a signed-in
+                  user's real saved rhythm is still loading - indistinguishable
+                  from a genuine, confirmed setting. rhythmSettled (false
+                  only during that loading window) gates it; a guest settles
+                  synchronously and is never affected. */}
+              {rhythmSettled ? alarmTime : '…'}
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </span>
           </Link>
@@ -261,7 +268,7 @@ export const Profile = () => {
               Bedtime
             </span>
             <span className="flex items-center gap-1 text-xs text-on-surface-variant">
-              {bedTime}
+              {rhythmSettled ? bedTime : '…'}
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </span>
           </Link>
