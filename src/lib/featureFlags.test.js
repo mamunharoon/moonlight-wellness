@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, afterAll, beforeEach } from 'vitest';
 import {
   isBetaProgramVisible,
   isSubscriptionSandboxTestVisible,
@@ -19,9 +19,41 @@ globalThis.localStorage = {
   clear: () => store.clear()
 };
 
+// Codemagic CI-failure fix — both describe blocks below used to rely on
+// an ambient "the var happens to be unset" default for their very first
+// test, cleaned up only by an afterEach that only ever runs AFTER a
+// test, never before one. That's silently correct locally and in every
+// workflow that never sets these vars at all - but the
+// wakewise-ios-sandbox-test Codemagic workflow's own
+// wakewise_revenuecat_sandbox variable group sets
+// VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST=true as a REAL process env var
+// for that entire job, including its "Run the automated test suite"
+// step (codemagic.yaml) - Vite/Vitest's own env loading exposes
+// VITE_-prefixed process.env values in import.meta.env from the moment
+// the test run starts, before this file's first beforeEach/afterEach
+// ever fires. The "defaults to hidden when unset" test was therefore
+// never actually testing "unset" in that one workflow - it inherited
+// the real 'true' and failed. Each block below now captures whatever
+// value was ACTUALLY present before these tests touched anything,
+// explicitly forces the unset state in a beforeEach (so the first test
+// is genuinely isolated regardless of what the real environment
+// injected), keeps the existing afterEach for between-test cleanup, and
+// restores the original ambient value in afterAll - so this file never
+// permanently erases a real CI-configured flag for whatever runs after
+// it in the same process.
 describe('isBetaProgramVisible', () => {
+  const originalValue = import.meta.env.VITE_SHOW_BETA_PROGRAM;
+
+  beforeEach(() => {
+    delete import.meta.env.VITE_SHOW_BETA_PROGRAM;
+  });
+
   afterEach(() => {
     delete import.meta.env.VITE_SHOW_BETA_PROGRAM;
+  });
+
+  afterAll(() => {
+    if (originalValue !== undefined) import.meta.env.VITE_SHOW_BETA_PROGRAM = originalValue;
   });
 
   it('defaults to visible when the flag is unset (today\'s local dev, DEV Vercel, and every TestFlight build)', () => {
@@ -40,15 +72,25 @@ describe('isBetaProgramVisible', () => {
 });
 
 describe('isSubscriptionSandboxTestVisible', () => {
+  const originalValue = import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST;
+
+  beforeEach(() => {
+    delete import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST;
+  });
+
   afterEach(() => {
     delete import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST;
+  });
+
+  afterAll(() => {
+    if (originalValue !== undefined) import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST = originalValue;
   });
 
   it('defaults to hidden when the flag is unset - opposite default from isBetaProgramVisible, since this page can call a real purchase SDK', () => {
     expect(isSubscriptionSandboxTestVisible()).toBe(false);
   });
 
-  it('shows only when explicitly set to the literal string "true"', () => {
+  it('shows only when explicitly set to the literal string "true" - the sandbox workflow\'s own real setting, confirmed here rather than assumed', () => {
     import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST = 'true';
     expect(isSubscriptionSandboxTestVisible()).toBe(true);
   });
