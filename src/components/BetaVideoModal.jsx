@@ -940,13 +940,24 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   autoplay, muted or otherwise - the signed URL loads as
                   soon as the modal opens, but sound only ever starts from
                   handleBegin, which this button calls directly inside its
-                  own click handler (a real user gesture). */}
+                  own click handler (a real user gesture).
+                  Android/iPhone pre-play parity fix — opaque `bg-black`,
+                  never a translucent `bg-black/NN` + `backdrop-blur-*`:
+                  Android's WebView (unlike iOS's WKWebView, which paints
+                  nothing for an unplayed <video>) decodes and paints the
+                  first frame once `preload="metadata"` resolves, and a
+                  translucent/blurred overlay lets that frame - and the
+                  native control bar underneath it, since `controls` is
+                  on throughout (see controls={!hasEnded} below) - show
+                  through as the reported "blurred poster + faint native
+                  controls". A fully opaque layer hides both regardless
+                  of what's being decoded underneath, on either engine. */}
               {!hasStarted && !timerEnded && (
                 <button
                   type="button"
                   onClick={handleBegin}
                   aria-label={`Begin ${entry.title}`}
-                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/60 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
                   <span className="w-16 h-16 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg">
                     <span className="material-symbols-outlined text-3xl">play_arrow</span>
