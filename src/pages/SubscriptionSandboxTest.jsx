@@ -53,11 +53,13 @@
 // directly there.
 import { useState } from 'react';
 import { isAndroid } from '../lib/platform';
+import { isSubscriptionSandboxTestVisible } from '../lib/featureFlags';
 import {
   isRevenueCatSupported,
   isRevenueCatConfiguredThisSession,
   getPackage,
   describeDefaultAnnualSelection,
+  describeGoogleSubscriptionOptions,
   purchasePackage,
   purchaseGoogleAnnualTierExplicit,
   getAppleFounderOfferModel,
@@ -68,7 +70,11 @@ import {
   getRevenueCatEntitlementSnapshot
 } from '../lib/revenueCatAdapter';
 
-const SANDBOX_TEST_ENABLED = import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST === 'true';
+// Reads the one shared flag (featureFlags.js's own header explains why
+// it lives there, not duplicated here) — Settings.jsx's authenticated
+// nav link into this page checks the exact same function, so the two
+// can never drift into disagreeing about whether this page is "on".
+const SANDBOX_TEST_ENABLED = isSubscriptionSandboxTestVisible();
 
 const Row = ({ label, onRun, result }) => (
   <div style={{ borderBottom: '1px solid #333', padding: '12px 0' }}>
@@ -165,6 +171,11 @@ const SandboxTestPanel = () => {
         label="Get Google founder subscription option (read-only inspection — does not purchase)"
         onRun={run('googleFounderOption', () => getGoogleFounderSubscriptionOption())}
         result={results.googleFounderOption}
+      />
+      <Row
+        label="Describe Google subscription options (read-only — every returned option id, the base-plan id, and the founder match; call 'Get annual package' first)"
+        onRun={run('googleSubscriptionOptions', () => describeGoogleSubscriptionOptions(annualPackage))}
+        result={results.googleSubscriptionOptions}
       />
       <Row label="Restore purchases" onRun={run('restore', () => restoreRevenueCatPurchases())} result={results.restore} />
       <Row

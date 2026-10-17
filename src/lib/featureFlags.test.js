@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { isBetaProgramVisible, isFeatureEnabled, setFeatureFlagOverride, clearFeatureFlagOverrides } from './featureFlags';
+import {
+  isBetaProgramVisible,
+  isSubscriptionSandboxTestVisible,
+  isFeatureEnabled,
+  setFeatureFlagOverride,
+  clearFeatureFlagOverrides
+} from './featureFlags';
 
 // Plain Node environment, no real localStorage global (see
 // notificationPreferences.test.js's own note) - an in-memory mock is
@@ -30,6 +36,26 @@ describe('isBetaProgramVisible', () => {
   it('stays visible for any other value, never silently hiding on a typo', () => {
     import.meta.env.VITE_SHOW_BETA_PROGRAM = 'no';
     expect(isBetaProgramVisible()).toBe(true);
+  });
+});
+
+describe('isSubscriptionSandboxTestVisible', () => {
+  afterEach(() => {
+    delete import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST;
+  });
+
+  it('defaults to hidden when the flag is unset - opposite default from isBetaProgramVisible, since this page can call a real purchase SDK', () => {
+    expect(isSubscriptionSandboxTestVisible()).toBe(false);
+  });
+
+  it('shows only when explicitly set to the literal string "true"', () => {
+    import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST = 'true';
+    expect(isSubscriptionSandboxTestVisible()).toBe(true);
+  });
+
+  it('stays hidden for any other value, never shown on a typo', () => {
+    import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST = 'yes';
+    expect(isSubscriptionSandboxTestVisible()).toBe(false);
   });
 });
 

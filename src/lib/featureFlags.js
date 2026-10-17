@@ -93,3 +93,18 @@ export const clearFeatureFlagOverrides = () => {
 // as strings, so the comparison below is against the literal string
 // 'false', not the boolean.
 export const isBetaProgramVisible = () => import.meta.env.VITE_SHOW_BETA_PROGRAM !== 'false';
+
+// RevenueCat sandbox test surface — the ONE place VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST
+// is actually read, so SubscriptionSandboxTest.jsx's own render gate and
+// Settings.jsx's authenticated nav link into it can never drift apart
+// into two separately-typed copies of the same literal string. Opposite
+// default from isBetaProgramVisible above: this one is OFF unless
+// explicitly turned on (the literal string 'true'), never on by a typo
+// or by being merely unset — this page can call a real purchase SDK, so
+// "defaults to visible" is never acceptable here. See
+// SubscriptionSandboxTest.jsx's own header for the full two-layer "how
+// this stays out of production" explanation (unlinked route + this
+// build-time flag); this function is layer 2, now shared by both the
+// route's own stub-vs-real-panel check AND whatever in-app entry point
+// links to it.
+export const isSubscriptionSandboxTestVisible = () => import.meta.env.VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST === 'true';

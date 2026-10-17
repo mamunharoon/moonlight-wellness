@@ -173,6 +173,31 @@ describe('revenueCatAdapter — Android default-offer selection is legible AND e
     expect(body).not.toBe('');
     expect(body).toMatch(/\.find\(\(option\) => optionMatchesOfferName\(option, googleOfferId\)\)/);
   });
+
+  it('describeGoogleSubscriptionOptions reports every option id, the base-plan id, and the founder match - not a bare null for "offer missing"', () => {
+    const body = source.match(/export const describeGoogleSubscriptionOptions = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/currentPlatform\(\) !== 'android'/);
+    expect(body).toMatch(/optionIds: options\.map\(\(option\) => option\?\.id \?\? null\)/);
+    expect(body).toMatch(/basePlanId: options\.find\(\(option\) => option\?\.isBasePlan\)\?\.id \?\? null/);
+    expect(body).toMatch(/founderOptionFound: Boolean\(founderOption\)/);
+  });
+
+  it('describeGoogleSubscriptionOptions resolves the founder match via getGoogleNamedOfferOption - the same single suffix-matching path, not a second independent lookup', () => {
+    const body = source.match(/export const describeGoogleSubscriptionOptions = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/getGoogleNamedOfferOption\(annualPackage, googleOfferId\)/);
+  });
+
+  it('describeGoogleSubscriptionOptions is read-only - never calls a signing/purchase function, never touches the standard/base price', () => {
+    const body = source.match(/export const describeGoogleSubscriptionOptions = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).not.toMatch(/purchase|Purchases\./);
+  });
+
+  it('describeGoogleSubscriptionOptions returns null, never an empty/fabricated summary, when there is no Android subscription data yet', () => {
+    const body = source.match(/export const describeGoogleSubscriptionOptions = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(currentPlatform\(\) !== 'android'\) return null;/);
+    expect(body).toMatch(/if \(options\.length === 0\) return null;/);
+  });
 });
 
 describe('revenueCatAdapter — restore never conflates a receipt-ownership conflict with a generic failure', () => {

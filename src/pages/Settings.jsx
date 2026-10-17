@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
-import { isBetaProgramVisible } from '../lib/featureFlags';
+import { isBetaProgramVisible, isSubscriptionSandboxTestVisible } from '../lib/featureFlags';
 import { BackButton } from '../components/BackButton';
 
 /*
@@ -223,6 +223,35 @@ export const Settings = () => {
               <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
                 <span className="material-symbols-outlined text-on-surface-variant text-xl">history_edu</span>
                 Release Notes
+              </span>
+              <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* RevenueCat sandbox test surface — the authenticated, DEV-only
+          entry point SubscriptionSandboxTest.jsx's own route was missing
+          (it was reachable only by typing its exact URL, with no in-app
+          affordance at all). Gated on the exact same build-time flag
+          that page itself checks (isSubscriptionSandboxTestVisible,
+          featureFlags.js) — never shown for a build where that flag
+          isn't the literal string 'true', same as the page's own stub
+          fallback — AND never shown to a guest (isGuest), since the real
+          page's own purchase/restore controls act as the genuinely
+          signed-in RevenueCat identity already established elsewhere in
+          this app (App.jsx's RevenueCatIdentityHandler), not a fresh
+          anonymous one. Same gated-section pattern as Beta Program
+          above - visible by default is never the goal here, the
+          opposite of that section's own default. */}
+      {!isGuest && isSubscriptionSandboxTestVisible() && (
+        <section className="space-y-2">
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Diagnostics</h3>
+          <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+            <Link to="/dev/subscription-sandbox-test" className={rowClass}>
+              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+                <span className="material-symbols-outlined text-on-surface-variant text-xl">bug_report</span>
+                Subscription Sandbox Test
               </span>
               <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
             </Link>

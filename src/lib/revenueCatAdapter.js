@@ -331,6 +331,40 @@ export const getGoogleNamedOfferOption = (annualPackage, offerName) => {
 };
 
 /**
+ * DEV sandbox diagnostic ONLY (SubscriptionSandboxTest.jsx's own call
+ * site) — never used by any real purchase/entitlement path. The founder-
+ * offer investigation's real gap: getGoogleFounderSubscriptionOption()
+ * alone reports a bare `null` when the offer isn't resolved, which is
+ * indistinguishable from "the offer exists but something else is wrong."
+ * This summarizes the ENTIRE real subscriptionOptions array RevenueCat/
+ * Play actually returned for this exact device/account — every option
+ * id, which one (if any) is the base plan, and whether the known founder
+ * offer name is among them — so "absent from this list of N" is visibly
+ * different from "present but something else rejected it." A plain,
+ * synchronous read of an already-fetched package (same pattern as
+ * describeDefaultAnnualSelection above) — never calls the SDK itself,
+ * never purchases anything, never touches eligibility, and never
+ * substitutes a standard/base price for what it reports. Returns null
+ * (never a fabricated summary) if this package has no Android
+ * subscription data at all, e.g. called before "Get annual package", on
+ * iOS, or off-native.
+ */
+export const describeGoogleSubscriptionOptions = (annualPackage) => {
+  if (currentPlatform() !== 'android') return null;
+  const options = annualPackage?.product?.subscriptionOptions ?? [];
+  if (options.length === 0) return null;
+  const { googleOfferId } = FOUNDER_OFFER_MODEL.google;
+  const founderOption = getGoogleNamedOfferOption(annualPackage, googleOfferId);
+  return {
+    optionIds: options.map((option) => option?.id ?? null),
+    basePlanId: options.find((option) => option?.isBasePlan)?.id ?? null,
+    founderOfferName: googleOfferId,
+    founderOptionId: founderOption?.id ?? null,
+    founderOptionFound: Boolean(founderOption)
+  };
+};
+
+/**
  * The one function any purchase call site — including
  * SubscriptionSandboxTest.jsx — MUST use to buy a specific, INTENDED
  * Google annual tier ('base' | 'trial' | 'founder'). Never calls
