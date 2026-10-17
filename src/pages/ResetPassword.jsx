@@ -69,8 +69,21 @@ export const ResetPassword = () => {
     });
 
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Native password recovery fix (warm-start race) — depends on the one
+    // piece of location.state this effect actually reads, not []. A warm
+    // app (this page already mounted, e.g. from an earlier expired/
+    // reused link) receiving a FRESH recovery link re-navigates to this
+    // exact path via the same navigate('/reset-password', {replace:true,
+    // state:{recoveryVerified:true}}) call (see useNativeDeepLinks.js) -
+    // react-router matches the same route and does NOT remount this
+    // component for a pathname-only replace, so an effect that only ever
+    // ran once at the ORIGINAL mount would keep reading its first,
+    // possibly-absent location.state forever and never notice the new,
+    // genuinely-verified one. Re-running on a real change here is safe:
+    // the listener/getSession() pair is the same idempotent check either
+    // way, and the functional setStatus update above already guards
+    // against ever downgrading an already-'valid' status.
+  }, [location.state?.recoveryVerified]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

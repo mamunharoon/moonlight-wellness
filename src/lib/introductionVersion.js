@@ -63,7 +63,22 @@ export const shouldRedirectToIntroduction = ({
   if (!user || isGuest) return false;
   if (profileLoading || profileError || !profile) return false;
   if (alreadyHandled) return false;
-  if (pathname === '/introduction') return false;
+  // Native password recovery fix — '/reset-password' excluded alongside
+  // '/introduction' itself: nativeAuthRecovery.js's setSession() call
+  // (the only way a native wakewise:// recovery link establishes a
+  // session - see that module's own header) makes `user`/`profile` real
+  // for whichever account is mid-recovery, and this check has no other
+  // awareness of WHY a session just appeared. Without this exclusion, any
+  // account that hasn't completed CURRENT_INTRODUCTION_VERSION (a large,
+  // ordinary population - every pre-existing user starts at 0) was
+  // redirected straight off the new-password form to /introduction the
+  // moment its profile fetch resolved, shortly after correctly landing
+  // there - never a flaky race, a deterministic loss of the one screen
+  // this whole native recovery flow exists to reach. Reset is a short,
+  // self-contained detour exactly like Introduction itself; this account
+  // will see Introduction on its next ordinary sign-in afterward,
+  // completely unaffected by this exclusion.
+  if (pathname === '/introduction' || pathname === '/reset-password') return false;
   return shouldShowIntroduction(profile.introduction_completed_version);
 };
 

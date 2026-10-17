@@ -94,6 +94,21 @@ describe('shouldRedirectToIntroduction — OnboardingGate.jsx\'s passive, redire
     expect(shouldRedirectToIntroduction({ ...baseParams, pathname: '/introduction' })).toBe(false);
   });
 
+  it('native password recovery fix - never fires on /reset-password, for any profile shape, even when every other condition says "redirect"', () => {
+    // nativeAuthRecovery.js's setSession() call (the only way a native
+    // wakewise:// recovery link establishes a session) makes `user`/
+    // `profile` real for whichever account is mid-recovery - this
+    // exclusion is what stops that from stealing the user away from the
+    // new-password form to /introduction the moment their profile
+    // fetch resolves, for any account below CURRENT_INTRODUCTION_VERSION
+    // (belowVersionProfile/newProfile both normally return true - see
+    // tests 1/2 and 6 above - confirming this exclusion is a real
+    // override, not a case that already returned false for some other
+    // reason).
+    expect(shouldRedirectToIntroduction({ ...baseParams, pathname: '/reset-password', profile: newProfile })).toBe(false);
+    expect(shouldRedirectToIntroduction({ ...baseParams, pathname: '/reset-password', profile: belowVersionProfile })).toBe(false);
+  });
+
   it('fires from any OTHER route, not only "/" - Home and every other route must not be reachable before the Welcome decision', () => {
     for (const pathname of ['/', '/profile', '/settings', '/library']) {
       expect(shouldRedirectToIntroduction({ ...baseParams, pathname })).toBe(true);
