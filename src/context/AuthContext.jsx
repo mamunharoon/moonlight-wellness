@@ -6,6 +6,7 @@ import { clearGuestEntryChoice } from '../lib/guestEntry';
 import { clearPendingContent } from '../lib/pendingContent';
 import { broadcastSignOut, clearAppSessionStorage } from '../lib/signOutCleanup';
 import { performSupabaseSignOut } from '../lib/signOutFlow';
+import { getMyDeletionRequest } from '../lib/accountDeletionApi';
 
 const AuthContext = createContext();
 
@@ -140,7 +141,34 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // No row yet. Create one additively via a safe upsert: onConflict
+    // Immediate Account Deletion correction — a missing profile row is
+    // not ALWAYS "a brand-new signup whose profile hasn't been created
+    // yet" (the case the auto-create below exists for). It is ALSO
+    // exactly the state auth_delete_failed leaves behind (see
+    // accountDeletion.ts's own header): every user-owned row, including
+    // this one, already genuinely deleted, while the Auth user itself
+    // survived because only ITS OWN removal failed. Without this check,
+    // this effect would silently hand that account a brand-new,
+    // data-less profile the very next time it loads (app reopen,
+    // foreground resume, or simply this same tab re-running after the
+    // failed attempt) - "healing" what is actually a stuck, incomplete
+    // deletion into a different, confusing state instead of ever
+    // prompting the user to finish it. Checked first, so this exact
+    // case is detected and surfaced via profileError (rendered on
+    // Profile.jsx; OnboardingGate's own shouldRedirectToIntroduction
+    // already fails closed on any profileError, so this can never
+    // accidentally trigger Introduction instead) rather than silently
+    // falling through to the auto-create path below.
+    const { request: deletionRequest } = await getMyDeletionRequest(currentUser.id);
+    if (deletionRequest?.status === 'processing') {
+      setProfile(null);
+      setProfileError('Your account deletion did not finish. Go to Profile → Privacy and Account → Account management to complete it.');
+      setProfileLoading(false);
+      return;
+    }
+
+    // No row yet, and no stuck deletion in progress - a genuinely new
+    // signup. Create one additively via a safe upsert: onConflict
     // ignores an existing row entirely (never overwrites real data if one
     // was created by a concurrent request between the select above and
     // this call), then we re-select for the authoritative current state.

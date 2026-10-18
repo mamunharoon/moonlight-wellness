@@ -15,8 +15,8 @@ enough, the exact read-only SQL is given — never destructive SQL.
 | **Sign out** | Ends that device's session only. The account, data and subscription are untouched. | Nothing to do on your end — the user does this themselves (Profile → Sign out). |
 | **Disable / suspend account** | Blocks sign-in without deleting anything. Reversible. | Supabase Dashboard → Authentication → user → **Ban user**. |
 | **Cancel subscription** | Stops future billing. The WakeWise account and all personal data are untouched. | Stripe Dashboard (see below). |
-| **Request account deletion** | The user's own in-app request. Starts a 7-day cancellable grace period. Nothing is deleted yet. | User-initiated (Profile → Privacy and Account → Account management → Request account deletion). You can see it in `account_deletion_requests` (Supabase Dashboard → Table Editor) once the Phase 5 migration is applied. |
-| **Permanently delete / anonymise account** | The actual, irreversible removal. **Not automated in this batch** — see `docs/account-deletion-processor-spec.md`. Today this is a manual operator action after the 7-day window closes and billing is reconciled. | Supabase Dashboard, following the processor spec, by hand. |
+| **Request account deletion (current model — Immediate Account Deletion)** | The user's own in-app action. Immediate and automated: cancels any active Stripe subscription, deletes the user's data, then removes the Auth user — all server-side, in one call, with no waiting period. | User-initiated only (Profile → Privacy and Account → Account management → Request account deletion → confirm). Nothing for an operator to do — see `supabase/functions/delete-account/index.ts`. |
+| **Permanently delete / anonymise account (legacy, pre-existing 7-day requests only)** | The old model's manual completion step — see `docs/account-deletion-processor-spec.md`, now superseded for any NEW request. Still relevant only if a 'pending' row from BEFORE this change is still outstanding and its owner never completes/cancels it themselves. | Supabase Dashboard, following the processor spec, by hand — expected to be needed rarely or never going forward. |
 | **Refund payment** | Returns money for a specific charge. Independent of everything else on this list — deleting an account never triggers or implies a refund. | Stripe Dashboard, only when you've deliberately decided to authorise one. |
 
 These are all different actions. Picking the wrong one is the main risk
@@ -50,11 +50,13 @@ spec or a documented support fix — an ad-hoc edit here is exactly the
 kind of "browser-accessible superuser" shortcut this runbook exists to
 avoid.
 
-### Identify pending deletion requests
-Once the Phase 5 migration is applied: Table Editor → `account_deletion_requests`,
-filter `status = eq.pending`. Columns to check: `requested_at`,
-`scheduled_for` (the request becomes eligible for processing on this
-date, not before), `billing_status_at_request`.
+### Identify any outstanding legacy ('pending') deletion requests
+Under the current, immediate model, a NEW request never stays
+`'pending'` — it moves straight through `'processing'` to `'completed'`
+inside one call. A `'pending'` row today can only be a leftover from
+BEFORE this change, still un-cancelled and un-completed by its owner.
+Table Editor → `account_deletion_requests`, filter `status = eq.pending`.
+Columns to check: `requested_at`, `scheduled_for`, `billing_status_at_request`.
 
 Read-only SQL equivalent (SQL Editor, or `supabase db query --linked -f`):
 ```sql
@@ -63,6 +65,13 @@ from public.account_deletion_requests
 where status = 'pending'
 order by scheduled_for asc;
 ```
+
+A row stuck at `status = 'processing'` for an unexpectedly long time
+means a delete-account call started but never finished (e.g. the device
+lost connectivity) — the account still fully exists in this case; the
+user's own next visit to Account management offers to safely resume and
+finish it themselves (see DeleteAccount.jsx). This is not something an
+operator needs to intervene on unless the user reports being stuck.
 
 ### Disable / ban access temporarily
 Authentication → Users → select user → **Ban user**. This is fully

@@ -1,12 +1,28 @@
 # WakeWise — Account Deletion Processor Specification
 
-**Status: specification only. Not built. No automated worker exists.**
-Per the approved scope for this batch, final destructive processing
-stays a manual, documented operator action until its exact targets and
-rollback implications have been separately approved and an automated
-worker is explicitly requested. This document is what that worker (or a
-careful manual run) must do, in this order, against WakeWise's real,
-verified schema — not generic placeholders.
+**Status: SUPERSEDED for new requests by Immediate Account Deletion
+(`supabase/functions/delete-account/index.ts`) — kept here, unchanged,
+because it remains the correct manual procedure for any
+pre-existing `account_deletion_requests` row still in `status =
+'pending'` from BEFORE that change (one made under the old 7-day
+model, never cancelled and never completed, whose owner has not yet
+revisited Account management to either cancel it or complete it
+immediately via the new flow — see DeleteAccount.jsx's own
+'status'-phase handling of a legacy 'pending' row).** A brand-new
+deletion request never reaches `'pending'` at all anymore — it moves
+straight from `'processing'` to `'completed'` inside one call, with no
+separate worker and no manual step. This document is retained, not
+deleted, specifically so that narrow legacy case still has a correct,
+documented procedure to follow; it was never built as an automated
+worker, and still does not need to be one — see
+`docs/account-admin-runbook.md`'s own updated definitions table.
+
+The content below this point is otherwise UNCHANGED from before this
+supersession, and still accurately describes the schema, retained
+billing records, and step ordering the immediate flow itself now also
+follows (reconciliation before data deletion, data deletion before the
+Auth user) — see accountDeletion.ts's own header for how the new
+automated flow applies this exact same ordering.
 
 ## Preconditions
 

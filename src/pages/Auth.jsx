@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { consumePendingContent } from '../lib/pendingContent';
 import { consumePendingJourneyIntent, resolveJourneyResumeTarget } from '../lib/pendingJourneyIntent';
 import { getPasswordResetRedirectUrl } from '../lib/authRedirect';
+import { getMyDeletionRequest } from '../lib/accountDeletionApi';
 import { markGuestEntryChosen } from '../lib/guestEntry';
 import { shouldShowIntroduction } from '../lib/introductionVersion';
 import { markPostAuthRedirectHandled } from '../lib/postAuthRedirectGuard';
@@ -206,6 +207,32 @@ export const Auth = () => {
         .select('introduction_completed_version')
         .eq('id', authUser.id)
         .maybeSingle();
+
+      // Immediate Account Deletion correction — a profile row that
+      // genuinely does not exist is not ALWAYS "a brand-new signup"
+      // (the case shouldShowIntroduction's own "missing = not yet
+      // completed" default exists for). It is ALSO exactly what
+      // auth_delete_failed leaves behind (see accountDeletion.ts's own
+      // header): every user-owned row, including this one, already
+      // deleted, while the Auth user itself survived because only ITS
+      // OWN removal failed. Without this check, signing back in to such
+      // an account would be routed straight to Introduction as if newly
+      // signed up - silently treating a stuck, incomplete deletion as a
+      // fresh identity instead of ever prompting the user to finish it.
+      // AuthContext's own loadProfile has the identical guard (checked
+      // independently, since this synchronous redirect deliberately
+      // never waits on that separately-timed context read - see this
+      // function's own header on why).
+      let hasStuckDeletion = false;
+      if (!profileError && !profileRow) {
+        const { request: deletionRequest } = await getMyDeletionRequest(authUser.id);
+        hasStuckDeletion = deletionRequest?.status === 'processing';
+      }
+
+      if (hasStuckDeletion) {
+        navigate('/profile/delete-account', { replace: true });
+        return;
+      }
 
       if (profileError) {
         console.warn('redirectAfterAuth: introduction-version check failed, defaulting to Home', profileError.message);

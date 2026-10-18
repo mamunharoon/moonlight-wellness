@@ -9,13 +9,13 @@ import { CONTACT_INFO } from '../lib/legalContent';
 import { openBillingPortal } from '../lib/stripeApi';
 import {
   cancelAccountDeletion,
+  deleteAccountNow,
   getMyBillingSnapshot,
-  getMyDeletionRequest,
-  requestAccountDeletion
+  getMyDeletionRequest
 } from '../lib/accountDeletionApi';
 
 /*
- * Safe Account Management and Account Deletion — the deletion journey
+ * Immediate Account Deletion — the deletion journey
  *
  * Reached only via Profile -> Privacy and Account -> Account management
  * -> Request account deletion. Never a single tap from anywhere else.
@@ -23,26 +23,29 @@ import {
  * (Support.jsx, Meditate.jsx): one route, local step state, a local
  * back-arrow that moves one logical step backwards, never circular.
  *
- * Steps: status (if a request already exists) -> explain -> billing ->
- * reauth -> confirm -> submitting -> done. Guests never reach this
- * screen at all (redirected to /profile before render).
+ * Steps: status (only if an OLD-model 'pending' row, or a 'processing'
+ * row from a prior attempt that died partway, already exists) ->
+ * explain -> billing -> reauth -> confirm -> submitting -> done. Guests
+ * never reach this screen at all (redirected to /profile before
+ * render).
  *
  * Password handling: the password the user re-enters at the reauth step
  * is held only in this component's own React state, for the lifetime of
  * this one journey. It is used twice, both times via Supabase Auth's own
  * signInWithPassword — once here (client-side, fail-fast UX) and once
- * again inside the request-account-deletion Edge Function (the real,
- * authoritative check — the client-side pass is never trusted alone). It
- * is never written to localStorage/sessionStorage, never logged, and is
- * cleared from state as soon as submission finishes, succeeds or fails.
+ * again inside the delete-account Edge Function (the real, authoritative
+ * check — the client-side pass is never trusted alone). It is never
+ * written to localStorage/sessionStorage, never logged, and is cleared
+ * from state as soon as submission finishes, succeeds or fails.
  *
- * Submission does not itself delete anything. It calls
- * request-account-deletion, which only ever inserts a row into
- * account_deletion_requests with status='pending' — see that function
- * and the Phase 5 migration proposal. Final, permanent processing stays
- * a manual, documented operator step (see docs/account-deletion-*), not
- * an automated worker — the copy below states this honestly rather than
- * promising something this batch does not build.
+ * Submission is immediate and permanent. It calls delete-account, which
+ * cancels any active Stripe subscription, deletes every user-owned row,
+ * and removes the Supabase Auth user itself, in that order, before
+ * returning — see that function's own header. There is no cancellable
+ * waiting period anymore; a 200 response means the account is already
+ * gone. On success this component signs the user out (clearing local
+ * data the same way an ordinary sign-out does) and navigates away —
+ * there is nothing left here to show once the account no longer exists.
  */
 const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
 
@@ -104,7 +107,7 @@ const SecondaryButton = ({ children, onClick, disabled }) => (
 
 export const DeleteAccount = () => {
   const navigate = useNavigate();
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, signOut } = useAuth();
   const { disable: disableMorningReminder } = useMorningReminder();
 
   const [phase, setPhase] = useState('loading');
@@ -135,12 +138,21 @@ export const DeleteAccount = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
 
-  const [result, setResult] = useState(null);
-
-  // Initial load: is there already a pending request? A real read
-  // failure (not "table doesn't exist yet") is shown but does not block
-  // starting a fresh request below — this check is informational, not
-  // itself a safety gate.
+  // Initial load: is there an unresolved request already? Two real
+  // cases, both shown via the 'status' phase below:
+  //   - 'pending' — a request from the OLD 7-day model, never cancelled
+  //     and never completed. Still fully cancellable (unchanged); also
+  //     now offers "Delete my account now instead".
+  //   - 'processing' — a PRIOR immediate-deletion attempt that died
+  //     partway (e.g. the Stripe cancellation or a data delete failed
+  //     and the user closed the app) — the account still exists, still
+  //     intact, nothing was silently lost. Offers "Finish deleting my
+  //     account" to safely resume.
+  // 'cancelled'/'completed' are resolved history, not something to act
+  // on — treated the same as "no existing request". A real read failure
+  // (not "table doesn't exist yet") is shown but does not block starting
+  // a fresh request below — this check is informational, not itself a
+  // safety gate.
   useEffect(() => {
     if (!user || isGuest) return;
     let cancelled = false;
@@ -149,7 +161,7 @@ export const DeleteAccount = () => {
       const { request, error } = await getMyDeletionRequest(user.id);
       if (cancelled) return;
       if (error) setStatusError(error);
-      if (request?.status === 'pending') {
+      if (request?.status === 'pending' || request?.status === 'processing') {
         setExistingRequest(request);
         setPhase('status');
       } else {
@@ -231,23 +243,54 @@ export const DeleteAccount = () => {
     setConfirmationInput(next);
   };
 
+  // Immediate, permanent deletion. A successful resolution here means
+  // the account and its data are ALREADY gone server-side — everything
+  // after that point (disabling the local reminder, signing out) is
+  // best-effort, local-device-only cleanup that can never undo or
+  // retroactively invalidate that fact, so neither is allowed to stop
+  // the 'done' screen from showing. A thrown error means the opposite:
+  // nothing irreversible happened this call (see delete-account/index.ts's
+  // own outcome-to-message mapping, surfaced here via deleteAccountNow's
+  // own error unwrapping) — password is deliberately NOT cleared on
+  // failure, so the exact same "Request account deletion" tap on this
+  // same confirm screen safely retries with no need to re-enter it or
+  // return to the reauth step.
   const handleSubmit = async () => {
     setPhase('submitting');
     setSubmitError(null);
     try {
-      const data = await requestAccountDeletion({ password, confirmationPhrase: confirmationInput });
+      await deleteAccountNow({ password, confirmationPhrase: confirmationInput });
       setPassword('');
-      // Prefer cancelling the account-associated device reminder once
-      // deletion has been explicitly requested, rather than continuing to
-      // remind someone who has asked WakeWise to delete their account.
-      await disableMorningReminder?.();
-      setResult(data);
+      await disableMorningReminder?.().catch(() => {});
+      await signOut().catch(() => {});
       setPhase('done');
     } catch (e) {
-      setPassword('');
-      setSubmitError('Something went wrong submitting your request. Please try again.');
+      // deleteAccountNow's own error unwrapping surfaces the real,
+      // specific server message (which, per delete-account/index.ts's
+      // own outcome-to-message map, is always honest about what state
+      // deletion was actually left in - never "fully intact" once any
+      // data could already be gone). This generic fallback is reached
+      // only when no message could be read at all (e.g. the response
+      // never arrived) - deliberately NOT claiming the account is
+      // intact in that genuinely-unknown case either.
+      setSubmitError(e?.message || "Something went wrong and we couldn't confirm whether deletion finished. Please try again.");
       setPhase('confirm');
     }
+  };
+
+  // Status-screen action for an existing, unresolved request (see the
+  // loading effect above for the two real cases: an old-model 'pending'
+  // row, or a 'processing' row from a prior attempt that died partway —
+  // the account still fully exists either way, nothing was silently
+  // lost). Both route through the exact same explain -> billing ->
+  // reauth -> confirm chain as a fresh request; no client-side branching
+  // is needed for "resume vs. start fresh" because delete-account's own
+  // getExistingRequestRow (server-side) already reconciles whichever
+  // row exists by reusing it, never duplicating it — see
+  // accountDeletion.ts's own header.
+  const startOrResumeImmediateDeletion = () => {
+    setExistingRequest(null);
+    setPhase('explain');
   };
 
   const handleCancelRequest = async () => {
@@ -276,7 +319,12 @@ export const DeleteAccount = () => {
     );
   }
 
-  if (phase === 'status' && existingRequest) {
+  if (phase === 'status' && existingRequest?.status === 'pending') {
+    // Carried over from the old 7-day model — this exact row is still
+    // fully cancellable (unchanged), and now also offers the current,
+    // immediate flow as an alternative. Whichever one the user picks,
+    // this exact row is the one that resolves (see
+    // startOrResumeImmediateDeletion's own comment).
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
@@ -286,21 +334,52 @@ export const DeleteAccount = () => {
 
         <div className="glass-panel rounded-2xl p-5 space-y-3 border-white/10">
           <p className="text-sm text-on-surface leading-relaxed">
-            You've asked us to delete your WakeWise account. You can still cancel this request and keep your account.
+            You've asked us to delete your WakeWise account. You can still cancel this request and keep your account,
+            or delete it right now instead of waiting.
           </p>
           <div className="space-y-1 text-xs text-on-surface-variant">
             <p>Requested: {formatDate(existingRequest.requested_at)}</p>
-            <p>Scheduled for: {formatDate(existingRequest.scheduled_for)}</p>
           </div>
-          <p className="text-xs text-on-surface-variant">
-            You can keep using WakeWise normally until then, and cancel any time before that date.
-          </p>
         </div>
 
         {cancelError && <p role="alert" className="text-xs text-red-400 font-medium px-1">{cancelError}</p>}
 
         <PrimaryButton onClick={handleCancelRequest} loading={cancelLoading}>
           {cancelLoading ? 'Cancelling…' : 'Cancel deletion request — keep my account'}
+        </PrimaryButton>
+        <SecondaryButton onClick={startOrResumeImmediateDeletion} disabled={cancelLoading}>
+          Delete my account now instead
+        </SecondaryButton>
+        <SecondaryButton onClick={() => navigate('/profile/account-management')} disabled={cancelLoading}>
+          Back to Account management
+        </SecondaryButton>
+      </div>
+    );
+  }
+
+  if (phase === 'status' && existingRequest?.status === 'processing') {
+    // A prior immediate-deletion attempt died partway through (e.g. the
+    // Stripe cancellation or a data delete failed, or the app/network
+    // dropped) — the account still exists, fully intact; nothing was
+    // silently lost. There is no "cancel" here (unlike the pending case
+    // above): resuming simply re-confirms identity and continues the
+    // exact same, already-started deletion.
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <BackArrow onClick={() => navigate('/profile/account-management')} />
+          <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Deletion didn't finish</h2>
+        </div>
+
+        <div className="glass-panel rounded-2xl p-5 space-y-3 border-white/10">
+          <p className="text-sm text-on-surface leading-relaxed">
+            A previous attempt to delete your account didn't complete. Your account and data are still here — nothing
+            was lost. You can finish deleting your account now, or go back and keep using WakeWise.
+          </p>
+        </div>
+
+        <PrimaryButton onClick={startOrResumeImmediateDeletion}>
+          Finish deleting my account
         </PrimaryButton>
         <SecondaryButton onClick={() => navigate('/profile/account-management')}>
           Back to Account management
@@ -341,7 +420,8 @@ export const DeleteAccount = () => {
           <div className="space-y-1.5">
             <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Timing</p>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              This isn't immediate. Your request is scheduled for 7 days from now, and you can cancel it any time before then from Account management.
+              This is immediate and permanent. Once you confirm on the final screen, your account and data are deleted
+              right away — there is no waiting period and no way to undo it afterward.
             </p>
           </div>
         </div>
@@ -384,7 +464,7 @@ export const DeleteAccount = () => {
             {plusActive && billing.provider === 'stripe' && (
               <>
                 <p className="text-sm text-on-surface-variant leading-relaxed">
-                  You have an active WakeWise Plus subscription. If you continue, it will be cancelled at the end of your current billing period when your deletion request is processed — you'll keep access until then, and no refund is issued for the current period.
+                  You have an active WakeWise Plus subscription. If you continue, it will be cancelled at the end of your current billing period (no refund is issued for the current period) as part of deleting your account — but your WakeWise account itself is deleted immediately, right now, not at that later billing date.
                 </p>
                 <button
                   type="button"
@@ -518,8 +598,14 @@ export const DeleteAccount = () => {
         </div>
 
         <div className="glass-panel rounded-2xl p-5 space-y-3 border-white/10">
-          <p className="text-sm text-on-surface leading-relaxed">
-            This action affects your WakeWise account and personal data. It cannot be undone after the cancellation period ends.
+          <p role="alert" className="text-sm text-on-surface leading-relaxed font-semibold">
+            This permanently deletes your WakeWise account and all of your personal data immediately. This cannot be
+            undone.
+          </p>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Deleting WakeWise does not cancel a subscription billed through the Apple App Store or Google Play — you
+            must cancel those directly with Apple or Google, using the links on the previous screen. A subscription
+            billed through our own checkout (Stripe) is cancelled as part of this request, as already explained.
           </p>
         </div>
 
@@ -555,7 +641,7 @@ export const DeleteAccount = () => {
           {submitError && <p role="alert" className="text-xs text-red-400 font-medium px-1">{submitError}</p>}
 
           <PrimaryButton type="submit" disabled={!phraseMatches} loading={phase === 'submitting'}>
-            {phase === 'submitting' ? 'Submitting…' : 'Request account deletion'}
+            {phase === 'submitting' ? 'Deleting…' : 'Permanently delete my account'}
           </PrimaryButton>
         </form>
       </div>
@@ -563,28 +649,31 @@ export const DeleteAccount = () => {
   }
 
   if (phase === 'done') {
+    // The account is already gone (handleSubmit's own signOut() already
+    // ran) — nothing on this screen reads `user` or any other
+    // now-stale AuthContext value, and there is deliberately no "Back to
+    // Account management" action, since that destination requires a
+    // session that no longer exists.
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Request received</h2>
+          <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Account deleted</h2>
         </div>
 
         <div className="glass-panel rounded-2xl p-5 space-y-3 border-white/10">
           <p className="text-sm text-on-surface leading-relaxed">
-            Your account deletion request has been received.
+            Your WakeWise account and personal data have been permanently deleted.
           </p>
           <div className="space-y-1 text-xs text-on-surface-variant">
-            {result?.scheduledFor && <p>Scheduled for: {formatDate(result.scheduledFor)}</p>}
-            <p>You can keep using WakeWise normally until then.</p>
-            <p>You can cancel this request any time before that date from Account management.</p>
+            <p>
+              If you had a subscription billed through the Apple App Store or Google Play, it has not been cancelled
+              by this — please cancel it directly with Apple or Google if you no longer want to be charged.
+            </p>
             <p>Questions? Contact us at {CONTACT_INFO.email}.</p>
           </div>
         </div>
 
-        <PrimaryButton onClick={() => navigate('/')}>Return to Today</PrimaryButton>
-        <SecondaryButton onClick={() => navigate('/profile/account-management')}>
-          Back to Account management
-        </SecondaryButton>
+        <PrimaryButton onClick={() => navigate('/')}>Done</PrimaryButton>
       </div>
     );
   }

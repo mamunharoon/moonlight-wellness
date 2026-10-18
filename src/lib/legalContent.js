@@ -73,16 +73,22 @@ export const CONTACT_INFO = {
 // the same date; a later substantive revision would bump `version` and
 // `effectiveDate` while `lastUpdated` reflects the edit date.
 export const DOCUMENT_VERSIONS = {
-  'privacy-policy': { version: '1.1', effectiveDate: 'September 2026' },
-  'terms-of-service': { version: '1.1', effectiveDate: 'September 2026' },
+  'privacy-policy': { version: '1.2', effectiveDate: 'October 2026' },
+  'terms-of-service': { version: '1.2', effectiveDate: 'October 2026' },
   'subscription-terms': { version: '1.1', effectiveDate: 'September 2026' },
   'refund-policy': { version: '1.0', effectiveDate: 'August 2026' },
   'medical-disclaimer': { version: '1.1', effectiveDate: 'September 2026' },
-  'account-deletion-policy': { version: '2.0', effectiveDate: 'September 2026' },
-  'data-retention-policy': { version: '1.1', effectiveDate: 'September 2026' }
+  // Immediate Account Deletion — a material behavioural change (the old
+  // 7-day cancellable waiting period before a manual operator completed
+  // deletion is replaced by immediate, automated, server-side deletion
+  // on confirmation), not a wording-only edit — bumped a full major
+  // version, matching this document's own existing 1.0 -> 2.0 precedent
+  // for its last substantive change.
+  'account-deletion-policy': { version: '3.0', effectiveDate: 'October 2026' },
+  'data-retention-policy': { version: '1.2', effectiveDate: 'October 2026' }
 };
 
-const LAST_UPDATED = 'September 2026';
+const LAST_UPDATED = 'October 2026';
 
 export const LEGAL_CONTENT = {
   'privacy-policy': {
@@ -148,7 +154,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Retention and deletion',
         paragraphs: [
-          'You can request deletion of your account directly in the app (Profile → Privacy and Account → Account management → Request account deletion). This starts a 7-day period during which you can cancel the request and keep your account. If it is not cancelled, your account and personal data are permanently deleted or anonymised in a manual, documented process — deletion is not instantaneous or automated end-to-end today, and we aim to complete it within 30 days of the pending period ending.',
+          'You can request deletion of your account directly in the app (Profile → Privacy and Account → Account management → Request account deletion). Deletion is immediate: once you confirm, your account and personal data are permanently deleted right away — there is no waiting period and no way to undo it afterward.',
           'Cancelling a paid subscription is different from deleting your account: cancelling stops future billing but keeps your account and data; deleting your account affects your data as described above, independently of any subscription. Uninstalling the app from your phone does not delete your account or data — you need to request deletion in the app (or, until you can sign in, by contacting us).',
           'We may retain minimal billing or security records for as long as required by law even after account deletion — see our Data Retention Policy and Account Deletion Policy for detail.'
         ]
@@ -230,7 +236,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Account deletion',
         paragraphs: [
-          'You may request deletion of your account at any time from Profile → Privacy and Account → Account management → Request account deletion. This starts a cancellable pending period (currently 7 days) before deletion is completed — see our Account Deletion Policy for exactly what this involves. Deleting your account does not automatically refund any previous payment, and any active subscription should be addressed separately (see Subscriptions and free trial, above).'
+          'You may request deletion of your account at any time from Profile → Privacy and Account → Account management → Request account deletion. Deletion is immediate and permanent once you confirm it — see our Account Deletion Policy for exactly what this involves. Deleting your account does not automatically refund any previous payment, and any active subscription billed through the App Store or Google Play should be cancelled separately with Apple or Google (see Subscriptions and free trial, above).'
         ]
       },
       {
@@ -439,15 +445,9 @@ export const LEGAL_CONTENT = {
         ]
       },
       {
-        heading: 'A cancellable pending period, not an instant deletion',
+        heading: 'Deletion is immediate, not a waiting period',
         paragraphs: [
-          'Submitting a request does not delete anything immediately. It starts a 7-day pending period, shown in the app with the exact date your request is scheduled for. You can cancel the request at any time before that date from the same Account management screen and keep your account exactly as it was — cancelling and resubmitting later is always possible.'
-        ]
-      },
-      {
-        heading: 'What happens after the pending period',
-        paragraphs: [
-          'If you do not cancel, completing the deletion is currently a manual, documented process carried out by our team — it is not yet a fully automated system. We aim to complete it within 30 days of the pending period ending, and will address any active subscription as part of that process (see "Active subscriptions", below).'
+          "Confirming your request — after re-entering your password and typing the confirmation phrase shown in the app — deletes your account right away. There is no waiting period and nothing left to cancel once you confirm: at that point your subscription (if any) is cancelled, your data is deleted, and your account is permanently removed, in that order, before the app tells you it's done. If you change your mind, do so before this final confirmation step — once it is submitted, deletion cannot be undone."
         ]
       },
       {
@@ -465,7 +465,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Active subscriptions',
         paragraphs: [
-          'Account deletion does not automatically refund any previous payment. If you have an active subscription when your account is deleted, it will be cancelled as part of that process — we recommend reviewing Manage subscription first if you want to cancel it yourself or understand what you are giving up. Deleting your account and cancelling your subscription are different actions; see our Subscription Terms.'
+          'Account deletion does not automatically refund any previous payment. If you have an active subscription billed through our own checkout (Stripe) when you delete your account, it is cancelled as part of the same deletion request — set to stop renewing at the end of your current billing period, with no refund for that period. Deleting your WakeWise account does NOT cancel a subscription billed through the Apple App Store or Google Play — you must cancel those directly with Apple or Google yourself, or they will keep renewing and charging you after your WakeWise account is gone. We recommend reviewing Manage subscription before you delete your account if you want to cancel it yourself first or understand what you are giving up. Deleting your account and cancelling your subscription are different actions; see our Subscription Terms.'
         ]
       }
     ]
@@ -491,7 +491,7 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Deletion requests',
         paragraphs: [
-          'A pending deletion request (status, requested date, and scheduled date) is kept for as long as the request is pending or until it is cancelled, so we can process or reverse it correctly. See our Account Deletion Policy for the full 7-day pending process.'
+          'Deletion is now immediate — see our Account Deletion Policy. A non-identifying record that a deletion occurred, and when, is kept for our own operational audit trail (see "After account deletion", below). The one remaining exception is an older, pre-existing request made under a prior, now-retired 7-day cancellable model — if any such request is still outstanding, it is kept in that cancellable state (and remains cancellable) until it is either cancelled or the account owner completes deletion using the current, immediate process.'
         ]
       },
       {
