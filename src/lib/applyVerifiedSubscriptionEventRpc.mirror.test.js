@@ -1,22 +1,36 @@
-// Verifies REFUND_REVERSED's expiry handling and cancellation-preference
-// preservation through a FAITHFUL MIRROR of apply_verified_apple_
-// subscription_event/apply_verified_google_subscription_event's own SQL
+// ============================================================================
+// SIMULATED COVERAGE — NOT LIVE DATABASE EXECUTION.
+//
+// Every assertion in this file runs against a hand-transcribed JS MIRROR
+// of apply_verified_apple_subscription_event/
+// apply_verified_google_subscription_event's own SQL
 // (supabase/migrations/20261018040000_entitlements_expiry_guard.sql,
-// applied and live-verified on DEV) - not only argument forwarding
-// (already covered by revenueCatWebhookHandler.test.js's own
-// buildApplyVerifiedEventArgs tests).
+// applied and live-verified on DEV), defined below in this same file. NO
+// call in this file ever reaches Postgres, Supabase, or any network — it
+// is Vitest exercising a local re-implementation of the rule, not the
+// real RPC. This goes one level deeper than argument forwarding (already
+// covered by revenueCatWebhookHandler.test.js's own
+// buildApplyVerifiedEventArgs tests, which verify what WOULD be sent to
+// the real RPC) by also re-implementing what that RPC does WITH those
+// arguments — but it remains a simulation, and must be read as evidence
+// about the mirror's own logic, re-verified against the migration file
+// text, not as a live-database test result.
 //
 // Why a mirror, not the real function: no local Postgres/Docker is
-// available in this environment (confirmed - `supabase functions
+// available in this environment (confirmed — `supabase functions
 // download` reports "Docker is not running"), and creating disposable
 // rows against the real DEV database would require a real auth.users
 // row (provider_subscriptions.user_id has an FK to auth.users), which
 // this task does not authorise. The mirror below is transcribed
-// statement-for-statement from the applied migration file - every
-// COALESCE, every WHERE clause, every ORDER BY - re-verified against
+// statement-for-statement from the applied migration file — every
+// COALESCE, every WHERE clause, every ORDER BY — re-verified against
 // that file immediately before writing this module, not from memory
 // alone. It is not a redesign or a simplification of the rule; it is
-// the same rule, executable in Vitest.
+// the intended behaviour of that rule, executed in Vitest instead of
+// Postgres. A genuine live-database integration test, if ever wanted,
+// would require either a local Supabase stack (Docker) or a disposable
+// auth user on a real project — neither available/authorised here.
+// ============================================================================
 import { describe, it, expect } from 'vitest';
 
 // Mirrors the UPSERT's own COALESCE semantics exactly:
@@ -97,7 +111,7 @@ const applyAndRecompute = ({ existingRow, args, now, otherCandidates = [] }) => 
   return { applied: true, reason: 'applied', row, entitlements };
 };
 
-describe('REFUND_REVERSED through the actual RPC upsert + entitlements recompute logic (mirrored, not only argument forwarding)', () => {
+describe('[SIMULATED, NOT LIVE DB] REFUND_REVERSED through a mirror of the RPC upsert + entitlements recompute logic (not only argument forwarding)', () => {
   const now = new Date('2026-10-19T00:00:00Z');
 
   it('a reversal with a FUTURE expiry restores access, and the PRESERVED (not reset) cancel_at_period_end propagates all the way into entitlements', () => {

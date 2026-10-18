@@ -15,6 +15,23 @@ import { mapRevenueCatStoreToProvider, mapRevenueCatEventToStateChange } from '.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const looksLikeSupabaseUuid = (value) => typeof value === 'string' && UUID_PATTERN.test(value);
 
+// Documented clock-skew tolerance for event_timestamp_ms range
+// validation — 5 minutes, matching the common webhook-timestamp-tolerance
+// convention (e.g. Stripe's own default signature timestamp tolerance).
+// This is a RANGE CHECK ONLY: it decides whether an event_timestamp_ms
+// that is ahead of `now` is still plausible ordinary clock skew between
+// RevenueCat/Apple/Google's clocks and this server's, or is unreasonable
+// (a malformed/corrupt payload, or a bug on the sending side) and must be
+// quarantined exactly like a missing/non-numeric one — see
+// resolveEventVerifiedAt's own header for why a value failing this check
+// is NEVER replaced with a computed fallback (e.g. clamping it to `now`),
+// only ever quarantined. There is deliberately no corresponding PAST-side
+// bound: a genuinely old/delayed event (a retried delivery after an
+// outage, a backlog being drained) must still be accepted and preserved
+// — only an event claiming to be unreasonably far in the FUTURE is ever
+// rejected on range grounds.
+export const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+
 /**
  * Event-ordering fix. RevenueCat's own official guidance (Event Types and
  * Fields docs): "you should ignore stale events by using
@@ -93,29 +110,47 @@ export const looksLikeSupabaseUuid = (value) => typeof value === 'string' && UUI
  *     equivalent reconciliation path exists yet for Google — a disclosed
  *     gap, not solved by this fix.
  *
- * Future timestamps are NOT treated as invalid — ordinary clock skew
- * between RevenueCat/Apple/Google's clocks and ours can legitimately put
- * event_timestamp_ms a little ahead of our own `now`; only a genuinely
- * non-numeric/non-finite/unparseable value is a quarantine case.
+ * Future timestamps are NOT blanket-treated as invalid — ordinary clock
+ * skew between RevenueCat/Apple/Google's clocks and ours can legitimately
+ * put event_timestamp_ms a little ahead of our own `now`, and that must
+ * still be accepted (see "preserve valid delayed events" — the identical
+ * principle applied to the future side: a value being off from `now` in
+ * either direction, by a plausible amount, is normal). But an
+ * UNREASONABLY future value (CLOCK_SKEW_TOLERANCE_MS beyond `now` — see
+ * that constant's own header) is quarantined exactly like a missing/
+ * non-numeric one: it cannot be ordinary skew, and — critically — if it
+ * were ever accepted as an ordering key, it would make this transaction
+ * row's last_verified_at effectively unbeatable, since no future
+ * genuinely-real event could ever exceed it. That would PERMANENTLY
+ * poison ordering for this transaction, not merely cause one bad write —
+ * every subsequent real event would be rejected as "stale" forever. This
+ * is exactly why `now` is accepted again here as a parameter, but — same
+ * discipline as the missing/invalid case — ONLY to decide whether to
+ * reject, never to compute or hand back a substitute value.
  *
  * @param {{event_timestamp_ms?: unknown}} event
- * @returns {{verifiedAtIso: string|null, usedFallback: boolean}}
- *   `verifiedAtIso` is null when usedFallback is true — there is no safe
- *   ordering value to hand the caller; the caller must quarantine, never
- *   substitute one of its own. No `now`/clock parameter is accepted
- *   here any more (a prior revision took one): this function no longer
- *   ever computes a processing-time fallback, so there is nothing for a
- *   clock to be used for.
+ * @param {Date} [now]
+ * @returns {{verifiedAtIso: string|null, usedFallback: boolean, quarantineReason: 'missing_or_invalid'|'unreasonable_future'|null}}
+ *   `verifiedAtIso` is null whenever usedFallback is true — there is no
+ *   safe ordering value to hand the caller in either quarantine case; the
+ *   caller must quarantine, never substitute one of its own (including
+ *   never clamping an unreasonable future value down to `now`, which
+ *   would just reintroduce the exact "processing time as ordering key"
+ *   problem this module exists to avoid).
  */
-export const resolveEventVerifiedAt = (event) => {
+export const resolveEventVerifiedAt = (event, now = new Date()) => {
   const ms = event?.event_timestamp_ms;
-  if (typeof ms === 'number' && Number.isFinite(ms)) {
-    const date = new Date(ms);
-    if (!Number.isNaN(date.getTime())) {
-      return { verifiedAtIso: date.toISOString(), usedFallback: false };
-    }
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) {
+    return { verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' };
   }
-  return { verifiedAtIso: null, usedFallback: true };
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return { verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' };
+  }
+  if (date.getTime() > now.getTime() + CLOCK_SKEW_TOLERANCE_MS) {
+    return { verifiedAtIso: null, usedFallback: true, quarantineReason: 'unreasonable_future' };
+  }
+  return { verifiedAtIso: date.toISOString(), usedFallback: false, quarantineReason: null };
 };
 
 export const buildPayloadSummary = (event) => ({
@@ -213,14 +248,19 @@ export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateC
  *
  * @param {object} event - the already-JSON-parsed `body.event`.
  * @param {{
- *   onTimestampQuarantined?: (event: object) => void,
+ *   now?: Date,
+ *   onTimestampQuarantined?: (event: object, reason: 'missing_or_invalid'|'unreasonable_future') => void,
  *   insertProviderEvent: (row: object) => Promise<{error: {code?: string, message?: string}|null}>,
  *   callApplyVerifiedEvent: (provider: 'apple'|'google', args: object) => Promise<{error: {code?: string, message?: string}|null}>
  * }} deps
+ *   `now` is forwarded only to resolveEventVerifiedAt's range check
+ *   (defaults to the real wall clock in production; tests pin it) — it is
+ *   never used to construct a substitute ordering value anywhere in this
+ *   function.
  * @returns {Promise<{status: number, body: Record<string, unknown>}>}
  */
 export const processRevenueCatWebhookEvent = async (event, deps) => {
-  const { onTimestampQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
+  const { now = new Date(), onTimestampQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
 
   if (!event || typeof event.type !== 'string') {
     return { status: 400, body: { error: 'Missing event' } };
@@ -255,27 +295,28 @@ export const processRevenueCatWebhookEvent = async (event, deps) => {
     return { status: 200, body: { received: true, processed: true } };
   }
 
-  const { verifiedAtIso, usedFallback } = resolveEventVerifiedAt(event);
+  const { verifiedAtIso, usedFallback, quarantineReason } = resolveEventVerifiedAt(event, now);
 
-  // QUARANTINE — a missing/invalid event_timestamp_ms on a
-  // state-changing event is never applied with a guessed ordering key
-  // (see resolveEventVerifiedAt's own header for the full reasoning: a
-  // processing-time guess would unconditionally win the staleness race
-  // against every correctly-ordered row). Still recorded to
-  // provider_events for idempotency/audit (a redelivery of the exact
-  // same malformed event becomes a quiet no-op after the first alert,
-  // matching every other event-recording path in this function) and
-  // ALWAYS surfaced via onTimestampQuarantined — this is an
-  // alert-worthy condition, not a benign fallback, precisely because
-  // rejecting is not free of risk either (see the same header): the
-  // account's real state may now be wrong until a later valid event or
-  // (for Apple) a scheduled reconcile-apple-subscriptions pass corrects
-  // it. HTTP 200/processed:false — a malformed timestamp is a property
-  // of this event's payload; asking RevenueCat to retry would not
-  // produce a different value, so this is not retry-worthy in the same
-  // sense a transient 500 is.
+  // QUARANTINE — a missing/invalid OR unreasonably-future
+  // event_timestamp_ms on a state-changing event is never applied with a
+  // guessed ordering key (see resolveEventVerifiedAt's own header for the
+  // full reasoning, including why an unreasonable future value is just
+  // as dangerous as a missing one — it would make this transaction's
+  // ordering permanently unbeatable, not merely wrong once). Still
+  // recorded to provider_events for idempotency/audit (a redelivery of
+  // the exact same malformed/unreasonable event becomes a quiet no-op
+  // after the first alert, matching every other event-recording path in
+  // this function) and ALWAYS surfaced via onTimestampQuarantined — this
+  // is an alert-worthy condition, not a benign fallback, precisely
+  // because rejecting is not free of risk either (see the same header):
+  // the account's real state may now be wrong until a later valid event
+  // or (for Apple) a scheduled reconcile-apple-subscriptions pass
+  // corrects it. HTTP 200/processed:false — a malformed/unreasonable
+  // timestamp is a property of this event's payload; asking RevenueCat
+  // to retry would not produce a different value, so this is not
+  // retry-worthy in the same sense a transient 500 is.
   if (usedFallback) {
-    onTimestampQuarantined?.(event);
+    onTimestampQuarantined?.(event, quarantineReason);
     const { error: insertError } = await insertProviderEvent({
       provider,
       provider_event_id: eventId,
@@ -286,7 +327,14 @@ export const processRevenueCatWebhookEvent = async (event, deps) => {
     if (insertError && insertError.code !== '23505') {
       return { status: 500, body: { error: 'Failed to record event' } };
     }
-    return { status: 200, body: { received: true, processed: false, reason: 'quarantined_invalid_timestamp' } };
+    return {
+      status: 200,
+      body: {
+        received: true,
+        processed: false,
+        reason: quarantineReason === 'unreasonable_future' ? 'quarantined_future_timestamp' : 'quarantined_invalid_timestamp'
+      }
+    };
   }
 
   const { args, reason: missingIdentifierReason } = buildApplyVerifiedEventArgs({

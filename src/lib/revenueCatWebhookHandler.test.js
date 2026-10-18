@@ -7,41 +7,80 @@ import {
   resolveEventVerifiedAt,
   buildApplyVerifiedEventArgs,
   processRevenueCatWebhookEvent,
-  looksLikeSupabaseUuid
+  looksLikeSupabaseUuid,
+  CLOCK_SKEW_TOLERANCE_MS
 } from '../../supabase/functions/_shared/revenueCatWebhookHandler.js';
 
 const APP_USER_ID = '12345678-1234-1234-1234-123456789abc';
 
-describe('resolveEventVerifiedAt - fix 1 (event-time ordering, finalised: processing time is never an authoritative fallback)', () => {
-  it('uses the official event_timestamp_ms field when present and valid', () => {
+describe('resolveEventVerifiedAt - fix 1 (event-time ordering, finalised: processing time is never an authoritative fallback, and timestamp RANGE is validated)', () => {
+  it('uses the official event_timestamp_ms field when present, valid, and within range', () => {
     const result = resolveEventVerifiedAt({ event_timestamp_ms: 1697451462232 });
-    expect(result).toEqual({ verifiedAtIso: new Date(1697451462232).toISOString(), usedFallback: false });
+    expect(result).toEqual({ verifiedAtIso: new Date(1697451462232).toISOString(), usedFallback: false, quarantineReason: null });
   });
 
-  it('a genuinely future (but numeric/finite) event_timestamp_ms is accepted, never treated as invalid - ordinary clock skew between RevenueCat/Apple/Google and this server is expected, not an error', () => {
-    const farFutureMs = Date.parse('2099-01-01T00:00:00Z');
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: farFutureMs })).toEqual({
-      verifiedAtIso: new Date(farFutureMs).toISOString(),
-      usedFallback: false
+  it('a past, significantly delayed event_timestamp_ms is preserved and accepted - there is no past-side bound (a retried delivery after an outage, or a drained backlog, must still be accepted)', () => {
+    const now = new Date('2026-10-20T00:00:00Z');
+    const twoHoursAgoMs = now.getTime() - 2 * 60 * 60 * 1000;
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: twoHoursAgoMs }, now)).toEqual({
+      verifiedAtIso: new Date(twoHoursAgoMs).toISOString(),
+      usedFallback: false,
+      quarantineReason: null
     });
-    // A small, realistic clock-skew amount (a few seconds ahead of
-    // whenever this assertion itself runs) - still just a valid number.
-    const slightlyAheadMs = Date.now() + 5000;
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: slightlyAheadMs }).usedFallback).toBe(false);
+    // Arbitrarily far in the past is equally fine - no lower bound at all.
+    const yearsAgoMs = Date.parse('2020-01-01T00:00:00Z');
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: yearsAgoMs }, now).usedFallback).toBe(false);
+  });
+
+  it('a future event_timestamp_ms WITHIN the documented clock-skew tolerance is accepted - ordinary clock skew between RevenueCat/Apple/Google and this server is expected, not an error', () => {
+    const now = new Date('2026-10-20T00:00:00Z');
+    const slightlyAheadMs = now.getTime() + 5000; // 5 seconds ahead.
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: slightlyAheadMs }, now)).toEqual({
+      verifiedAtIso: new Date(slightlyAheadMs).toISOString(),
+      usedFallback: false,
+      quarantineReason: null
+    });
+    // Right at the edge of tolerance (still within it) is still accepted.
+    const atToleranceMs = now.getTime() + CLOCK_SKEW_TOLERANCE_MS - 1;
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: atToleranceMs }, now).usedFallback).toBe(false);
+  });
+
+  // THE CORE NEW REQUIREMENT: an unreasonably future timestamp must be
+  // quarantined, not accepted - accepting it would make this
+  // transaction's ordering PERMANENTLY unbeatable (no future genuinely
+  // real event could ever exceed it), poisoning it forever rather than
+  // causing one bad write.
+  it('an UNREASONABLY future event_timestamp_ms (beyond the documented tolerance) is quarantined with a distinct reason, never accepted', () => {
+    const now = new Date('2026-10-20T00:00:00Z');
+    const justBeyondToleranceMs = now.getTime() + CLOCK_SKEW_TOLERANCE_MS + 1;
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: justBeyondToleranceMs }, now)).toEqual({
+      verifiedAtIso: null,
+      usedFallback: true,
+      quarantineReason: 'unreasonable_future'
+    });
+
+    // An absurd value (year 2099) is quarantined the same way - never
+    // clamped to `now`, never accepted as-is.
+    const absurdFutureMs = Date.parse('2099-01-01T00:00:00Z');
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: absurdFutureMs }, now)).toEqual({
+      verifiedAtIso: null,
+      usedFallback: true,
+      quarantineReason: 'unreasonable_future'
+    });
   });
 
   it('missing event_timestamp_ms returns no safe ordering value at all (verifiedAtIso: null) - no processing-time guess is computed or returned', () => {
-    expect(resolveEventVerifiedAt({ type: 'RENEWAL' })).toEqual({ verifiedAtIso: null, usedFallback: true });
+    expect(resolveEventVerifiedAt({ type: 'RENEWAL' })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
   });
 
   it('a non-numeric event_timestamp_ms returns null, never throwing', () => {
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: 'not-a-number' })).toEqual({ verifiedAtIso: null, usedFallback: true });
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: null })).toEqual({ verifiedAtIso: null, usedFallback: true });
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: 'not-a-number' })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: null })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
   });
 
   it('a non-finite event_timestamp_ms (NaN/Infinity) returns null', () => {
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: NaN })).toEqual({ verifiedAtIso: null, usedFallback: true });
-    expect(resolveEventVerifiedAt({ event_timestamp_ms: Infinity })).toEqual({ verifiedAtIso: null, usedFallback: true });
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: NaN })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    expect(resolveEventVerifiedAt({ event_timestamp_ms: Infinity })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
   });
 });
 
@@ -264,7 +303,7 @@ describe('processRevenueCatWebhookEvent - duplicate events', () => {
 });
 
 describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANTINED, never applied with a processing-time guess (finalised fix 1)', () => {
-  it('a missing event_timestamp_ms is quarantined: the RPC is NEVER called, onTimestampQuarantined fires, and the response says so explicitly', async () => {
+  it('a missing event_timestamp_ms is quarantined: the RPC is NEVER called, onTimestampQuarantined fires with the distinct reason, and the response says so explicitly', async () => {
     const db = makeFakeDb();
     const onTimestampQuarantined = vi.fn();
     const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-fallback', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-fallback' };
@@ -272,7 +311,26 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
     expect(result).toEqual({ status: 200, body: { received: true, processed: false, reason: 'quarantined_invalid_timestamp' } });
     expect(db.calls).toHaveLength(0); // the RPC is never invoked for a quarantined event.
     expect(onTimestampQuarantined).toHaveBeenCalledTimes(1);
-    expect(onTimestampQuarantined).toHaveBeenCalledWith(event);
+    expect(onTimestampQuarantined).toHaveBeenCalledWith(event, 'missing_or_invalid');
+  });
+
+  it('an unreasonably future event_timestamp_ms is quarantined with its OWN distinct reason, never conflated with missing/invalid', async () => {
+    const db = makeFakeDb();
+    const onTimestampQuarantined = vi.fn();
+    const now = new Date('2026-10-20T00:00:00Z');
+    const event = {
+      type: 'RENEWAL',
+      period_type: 'NORMAL',
+      original_transaction_id: 'txn-future',
+      store: 'APP_STORE',
+      app_user_id: APP_USER_ID,
+      id: 'evt-future',
+      event_timestamp_ms: Date.parse('2099-01-01T00:00:00Z')
+    };
+    const result = await processRevenueCatWebhookEvent(event, { ...db, now, onTimestampQuarantined });
+    expect(result).toEqual({ status: 200, body: { received: true, processed: false, reason: 'quarantined_future_timestamp' } });
+    expect(db.calls).toHaveLength(0);
+    expect(onTimestampQuarantined).toHaveBeenCalledWith(event, 'unreasonable_future');
   });
 
   it('a non-numeric/non-finite event_timestamp_ms is quarantined the same way', async () => {
@@ -358,6 +416,75 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
     // landed. This is the documented, non-harmless residual risk.
     expect(stored.args.p_current_period_expires_at).toBe(new Date(Date.parse('2026-10-20T00:00:00Z')).toISOString());
   });
+
+  // THE CORE NEW REQUIREMENT, end to end: an unreasonable future
+  // timestamp must never poison ordering for a transaction - if it were
+  // ever accepted and stored as last_verified_at, NO later genuinely-real
+  // event could ever exceed it (real events don't occur in the year
+  // 2099), permanently locking that transaction out of further updates.
+  // Quarantining must prevent this entirely, not merely reduce it.
+  it('CONFIRMED: an unreasonably-future-timestamped event never poisons ordering - nothing is ever written for it, so a later genuinely valid event is still accepted normally', async () => {
+    const db = makeFakeDb();
+    const originalTransactionId = 'txn-cannot-poison';
+    const now = new Date('2026-10-20T00:00:00Z');
+
+    const poisonAttempt = {
+      type: 'RENEWAL',
+      period_type: 'NORMAL',
+      original_transaction_id: originalTransactionId,
+      store: 'APP_STORE',
+      app_user_id: APP_USER_ID,
+      id: 'evt-poison-attempt',
+      event_timestamp_ms: Date.parse('2099-01-01T00:00:00Z')
+    };
+    const poisonResult = await processRevenueCatWebhookEvent(poisonAttempt, { ...db, now });
+    expect(poisonResult.body.reason).toBe('quarantined_future_timestamp');
+    expect(db.calls).toHaveLength(0);
+    expect(db.store.has(`apple:${originalTransactionId}`)).toBe(false); // nothing was ever written - no poisoned value exists to beat.
+
+    // A perfectly ordinary, real, LATER event for the same transaction
+    // must still be accepted normally - it is not fighting a poisoned
+    // stored value, because none was ever created.
+    const laterValidEvent = {
+      type: 'RENEWAL',
+      period_type: 'NORMAL',
+      original_transaction_id: originalTransactionId,
+      store: 'APP_STORE',
+      app_user_id: APP_USER_ID,
+      id: 'evt-real-later',
+      event_timestamp_ms: Date.parse('2026-10-21T00:00:00Z')
+    };
+    const laterResult = await processRevenueCatWebhookEvent(laterValidEvent, { ...db, now: new Date('2026-10-21T00:05:00Z') });
+    expect(laterResult.body.processed).toBe(true);
+    expect(db.calls).toHaveLength(1);
+    const stored = db.store.get(`apple:${originalTransactionId}`);
+    expect(stored.args.p_event_type).toBe('RENEWAL');
+    expect(stored.lastVerifiedAt).toBe(new Date(laterValidEvent.event_timestamp_ms).toISOString());
+  });
+
+  // "Preserve valid delayed events" at the handler level: a genuinely
+  // old/delayed event (far in the past relative to `now`, e.g. a backlog
+  // being drained after an outage) must be applied normally, exactly
+  // like any other validly-timestamped event - delay alone is never a
+  // quarantine reason.
+  it('a significantly delayed but genuinely valid event (event_timestamp_ms far in the past) is applied normally, never quarantined', async () => {
+    const db = makeFakeDb();
+    const now = new Date('2026-10-20T00:00:00Z');
+    const delayedEvent = {
+      type: 'RENEWAL',
+      period_type: 'NORMAL',
+      original_transaction_id: 'txn-delayed',
+      store: 'APP_STORE',
+      app_user_id: APP_USER_ID,
+      id: 'evt-delayed',
+      event_timestamp_ms: now.getTime() - 6 * 60 * 60 * 1000 // 6 hours delayed.
+    };
+    const result = await processRevenueCatWebhookEvent(delayedEvent, { ...db, now });
+    expect(result.body.processed).toBe(true);
+    expect(db.calls).toHaveLength(1);
+    const stored = db.store.get(`apple:${delayedEvent.original_transaction_id}`);
+    expect(stored.lastVerifiedAt).toBe(new Date(delayedEvent.event_timestamp_ms).toISOString());
+  });
 });
 
 describe('processRevenueCatWebhookEvent - compatibility with existing processing-time rows and Apple-direct signedDate values', () => {
@@ -371,8 +498,13 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
       args: { p_event_type: 'RENEWAL', p_status: 'active' }
     });
 
-    const newEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-new', event_timestamp_ms: Date.parse('2027-10-18T06:40:00Z') };
-    await processRevenueCatWebhookEvent(newEvent, db);
+    // Explicit `now`, safely after this event's own timestamp, so this
+    // test is deterministic regardless of the real wall clock whenever
+    // it actually runs (and never accidentally exercises the UNRELATED
+    // future-timestamp tolerance check this same module also enforces).
+    const now = new Date('2026-10-18T07:00:00Z');
+    const newEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-new', event_timestamp_ms: Date.parse('2026-10-18T06:40:00Z') };
+    await processRevenueCatWebhookEvent(newEvent, { ...db, now });
 
     const stored = db.store.get(`apple:${originalTransactionId}`);
     expect(stored.args.p_event_type).toBe('RENEWAL');
@@ -432,8 +564,11 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
       args: { p_event_type: 'server_verify_transaction', p_status: 'active' }
     });
 
+    // Explicit `now`, same reasoning as the test above - deterministic,
+    // and safely past this event's own timestamp.
+    const now = new Date('2026-10-19T07:00:00Z');
     const laterRevenueCatEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-after-direct', event_timestamp_ms: Date.parse('2026-10-19T06:40:11Z') };
-    await processRevenueCatWebhookEvent(laterRevenueCatEvent, db);
+    await processRevenueCatWebhookEvent(laterRevenueCatEvent, { ...db, now });
 
     const stored = db.store.get(`apple:${originalTransactionId}`);
     expect(stored.args.p_event_type).toBe('RENEWAL');
@@ -443,8 +578,11 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
   it('compatible in the reverse order too - a RevenueCat event first, then a later Apple-direct signedDate-based reconciliation write', async () => {
     const db = makeFakeDb();
     const originalTransactionId = 'txn-compat-apple-direct-reverse';
+    // Explicit `now`, same reasoning as the two tests above - this test
+    // must stay deterministic and never depend on whatever the real
+    // wall clock happens to be when it runs.
     const rcEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-rc-first', event_timestamp_ms: Date.parse('2026-10-18T06:40:11Z') };
-    await processRevenueCatWebhookEvent(rcEvent, db);
+    await processRevenueCatWebhookEvent(rcEvent, { ...db, now: new Date('2026-10-18T07:00:00Z') });
 
     // A later, real reconciliation write using Apple's own signedDate,
     // genuinely after the RevenueCat event above.

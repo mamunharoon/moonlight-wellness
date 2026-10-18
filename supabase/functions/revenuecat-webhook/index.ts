@@ -133,18 +133,21 @@ Deno.serve(async (req) => {
   const result = await processRevenueCatWebhookEvent(event, {
     // ALERT, not a benign fallback — see resolveEventVerifiedAt's/
     // processRevenueCatWebhookEvent's own headers for the full
-    // reasoning: a missing/invalid event_timestamp_ms on a
-    // state-changing event is now QUARANTINED (never applied with a
-    // guessed processing-time ordering key), and that quarantine itself
-    // carries a real "this account's state may now be wrong" risk until
-    // a later valid event or (Apple only) a scheduled
-    // reconcile-apple-subscriptions pass corrects it — logged at error
-    // level, deliberately louder than this file's other console.warn
-    // cases, specifically so this is actionable (e.g. alerting/paging
-    // on this log line) rather than merely informational.
-    onTimestampQuarantined: (quarantinedEvent) => {
+    // reasoning: a missing/invalid OR unreasonably-future
+    // event_timestamp_ms on a state-changing event is now QUARANTINED
+    // (never applied with a guessed processing-time ordering key or a
+    // clamped-to-now value), and that quarantine itself carries a real
+    // "this account's state may now be wrong" risk until a later valid
+    // event or (Apple only) a scheduled reconcile-apple-subscriptions
+    // pass corrects it — logged at error level, deliberately louder
+    // than this file's other console.warn cases, specifically so this
+    // is actionable (e.g. alerting/paging on this log line) rather than
+    // merely informational. See
+    // docs/revenuecat-webhook-quarantine-recovery.md for the manual
+    // recovery procedure this log line is the trigger for.
+    onTimestampQuarantined: (quarantinedEvent, reason) => {
       console.error(
-        'revenuecat-webhook: QUARANTINED — event has no valid event_timestamp_ms, state change NOT applied (processing time is never used as an ordering fallback); account state may be stale until a later valid event or scheduled reconciliation corrects it',
+        `revenuecat-webhook: QUARANTINED (${reason}) — state change NOT applied (processing time is never used as an ordering fallback, and an unreasonably-future timestamp is never clamped to now); account state may be stale until a later valid event or manual/scheduled reconciliation corrects it — see docs/revenuecat-webhook-quarantine-recovery.md`,
         quarantinedEvent?.type,
         quarantinedEvent?.id,
         quarantinedEvent?.app_user_id
@@ -158,8 +161,9 @@ Deno.serve(async (req) => {
   // Logging that mirrors exactly what the previous inline implementation
   // logged at each of these same outcomes, now driven off the pure
   // function's own returned reason rather than duplicated inline.
-  // 'quarantined_invalid_timestamp' is NOT re-logged here — it is already
-  // logged, loudly, by onTimestampQuarantined above.
+  // Neither 'quarantined_invalid_timestamp' nor 'quarantined_future_timestamp'
+  // is re-logged here — both are already logged, loudly, by
+  // onTimestampQuarantined above.
   if (result.body?.reason === 'unresolved_store') {
     console.warn('revenuecat-webhook: event references a store this project does not act on', event?.store ?? 'unknown', event?.type);
   } else if (result.body?.reason === 'missing_transaction_id') {
