@@ -61,6 +61,15 @@ export const isRevenueCatTrialPeriod = (periodType) => periodType === 'TRIAL' ||
 // are also acknowledge-only: WakeWise's only product is an auto-renewing
 // monthly subscription, so neither currently has a meaningful status this
 // project's vocabulary can express — acknowledging rather than guessing.
+//
+// REFUND_REVERSED (App-Store-only; "a refund was reversed" — official
+// docs) IS a state change: its own official sample payload carries the
+// same expiration_at_ms/period_type shape as RENEWAL/UNCANCELLATION, so
+// whether it actually restores access can be decided the identical way
+// every other event already is — by resolveEntitlement/the RPC's own
+// expiry guard checking the real expiration_at_ms this event carries
+// against `now`, never by assuming the reversal itself means "access is
+// back" regardless of whether that expiry has since passed again.
 export const REVENUECAT_EVENT_TYPES_WITH_STATE_CHANGE = new Set([
   'INITIAL_PURCHASE',
   'RENEWAL',
@@ -68,7 +77,8 @@ export const REVENUECAT_EVENT_TYPES_WITH_STATE_CHANGE = new Set([
   'UNCANCELLATION',
   'EXPIRATION',
   'BILLING_ISSUE',
-  'PRODUCT_CHANGE'
+  'PRODUCT_CHANGE',
+  'REFUND_REVERSED'
 ]);
 
 /**
@@ -98,7 +108,43 @@ export const mapRevenueCatEventToStateChange = (event) => {
     // time" rule this project already applies to Apple's own
     // DID_CHANGE_RENEWAL_STATUS/AUTO_RENEW_DISABLED case.
     const status = isRevenueCatTrialPeriod(event.period_type) ? 'trial' : 'active';
-    return { status, cancelAtPeriodEnd: true };
+
+    // cancel_reason === 'CUSTOMER_SUPPORT' means this CANCELLATION
+    // represents a refund, not a voluntary unsubscribe — official docs:
+    // "A subscription or non-renewing purchase was canceled or
+    // refunded... In the case of refunds, a subscription's auto-renewal
+    // setting may still be active." The event itself carries no field
+    // proving auto-renew was actually turned off for this reason (the
+    // real, official sample CANCELLATION payload has no such field at
+    // all), so forcing cancelAtPeriodEnd:true here would be asserting a
+    // fact this event does not establish. `undefined` — not `false`,
+    // not `true` — preserves whatever this row already recorded,
+    // exactly like RENEWAL/INITIAL_PURCHASE/PRODUCT_CHANGE already do
+    // below when THEY have no fresh renewal-preference evidence of
+    // their own; this is the same established pattern, only now also
+    // applied to the one CANCELLATION sub-case that shares that
+    // property. Every other cancel_reason (UNSUBSCRIBE, BILLING_ERROR,
+    // DEVELOPER_INITIATED, PRICE_INCREASE, UNKNOWN) keeps the original,
+    // correct cancelAtPeriodEnd:true — those genuinely do mean auto-renew
+    // is off.
+    const cancelAtPeriodEnd = event.cancel_reason === 'CUSTOMER_SUPPORT' ? undefined : true;
+    return { status, cancelAtPeriodEnd };
+  }
+
+  if (event.type === 'REFUND_REVERSED') {
+    // Apple reversed an earlier refund. Resolved the same way RENEWAL/
+    // UNCANCELLATION already are: status from period_type, and
+    // cancelAtPeriodEnd preserved (undefined) rather than guessed —
+    // this event's own cancel/renewal preference is not independently
+    // re-established by a reversal, exactly the same reasoning as
+    // RENEWAL/PRODUCT_CHANGE above. Whether this actually restores
+    // access is decided downstream by the real expiration_at_ms this
+    // event carries (read by the caller into p_current_period_expires_at
+    // exactly like every other event) being checked against `now` by
+    // the RPC's own expiry guard — never assumed true here just because
+    // a reversal happened.
+    const status = isRevenueCatTrialPeriod(event.period_type) ? 'trial' : 'active';
+    return { status, cancelAtPeriodEnd: undefined };
   }
 
   if (event.type === 'UNCANCELLATION') {

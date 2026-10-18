@@ -88,6 +88,29 @@ describe('mapRevenueCatEventToStateChange — real state-changing events', () =>
     expect(trial).toEqual({ status: 'trial', cancelAtPeriodEnd: true });
   });
 
+  it('CANCELLATION with an ordinary (voluntary) cancel_reason still forces cancelAtPeriodEnd:true - unchanged from the default case above', () => {
+    for (const cancel_reason of ['UNSUBSCRIBE', 'BILLING_ERROR', 'DEVELOPER_INITIATED', 'PRICE_INCREASE', 'UNKNOWN']) {
+      expect(mapRevenueCatEventToStateChange({ type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason })).toEqual({
+        status: 'active',
+        cancelAtPeriodEnd: true
+      });
+    }
+  });
+
+  // Refund-cancellation fix: cancel_reason: 'CUSTOMER_SUPPORT' means this
+  // CANCELLATION represents a refund, not a voluntary unsubscribe.
+  // Official docs: "a subscription's auto-renewal setting may still be
+  // active" for this reason specifically - the event carries no field
+  // proving otherwise, so cancelAtPeriodEnd must be preserved
+  // (undefined), never forced true.
+  it('CANCELLATION with cancel_reason=CUSTOMER_SUPPORT (a refund) preserves the existing renewal preference instead of forcing cancelAtPeriodEnd:true', () => {
+    const active = mapRevenueCatEventToStateChange({ type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'CUSTOMER_SUPPORT' });
+    expect(active).toEqual({ status: 'active', cancelAtPeriodEnd: undefined });
+
+    const trial = mapRevenueCatEventToStateChange({ type: 'CANCELLATION', period_type: 'TRIAL', cancel_reason: 'CUSTOMER_SUPPORT' });
+    expect(trial).toEqual({ status: 'trial', cancelAtPeriodEnd: undefined });
+  });
+
   it('UNCANCELLATION clears cancelAtPeriodEnd', () => {
     const result = mapRevenueCatEventToStateChange({ type: 'UNCANCELLATION', period_type: 'NORMAL' });
     expect(result).toEqual({ status: 'active', cancelAtPeriodEnd: false });
@@ -106,5 +129,24 @@ describe('mapRevenueCatEventToStateChange — real state-changing events', () =>
   it('PRODUCT_CHANGE (e.g. monthly to annual, or into/out of the founder offer) resolves status from period_type alone, preserving any existing cancellation preference', () => {
     const result = mapRevenueCatEventToStateChange({ type: 'PRODUCT_CHANGE', period_type: 'NORMAL' });
     expect(result).toEqual({ status: 'active', cancelAtPeriodEnd: undefined });
+  });
+
+  // REFUND_REVERSED fix: now a real state-changing event (previously
+  // acknowledge-only), mapped the same way RENEWAL/UNCANCELLATION are -
+  // status from period_type, cancelAtPeriodEnd preserved. Whether it
+  // actually restores access is decided downstream by the real
+  // expiration_at_ms this event carries (read into
+  // p_current_period_expires_at by the caller, exactly like every other
+  // event type) being checked against `now` by the RPC's own expiry
+  // guard - this function never assumes access is restored just because
+  // a reversal happened.
+  it('REFUND_REVERSED is now a real state change, mapped like RENEWAL/UNCANCELLATION', () => {
+    expect(REVENUECAT_EVENT_TYPES_WITH_STATE_CHANGE.has('REFUND_REVERSED')).toBe(true);
+
+    const active = mapRevenueCatEventToStateChange({ type: 'REFUND_REVERSED', period_type: 'NORMAL' });
+    expect(active).toEqual({ status: 'active', cancelAtPeriodEnd: undefined });
+
+    const trial = mapRevenueCatEventToStateChange({ type: 'REFUND_REVERSED', period_type: 'TRIAL' });
+    expect(trial).toEqual({ status: 'trial', cancelAtPeriodEnd: undefined });
   });
 });

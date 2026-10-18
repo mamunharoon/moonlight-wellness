@@ -57,7 +57,9 @@
 //     documented fields, no Google-specific field exists in the official
 //     schema. A prior version of this file read a `store_transaction_id`
 //     field that does NOT appear in RevenueCat's webhook field reference
-//     (that name belongs to a different API surface) — corrected below.
+//     (that name belongs to a different API surface) — corrected in
+//     ../_shared/revenueCatWebhookHandler.js, where this field read now
+//     lives.
 //     For PLAY_STORE events this identifier is Google's own order id
 //     (`GPA.xxxx-...`), not a raw Play Billing purchase token (RevenueCat
 //     webhooks never expose the purchase token itself).
@@ -69,7 +71,7 @@
 // field reads confirmed against it.
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
-import { mapRevenueCatStoreToProvider, mapRevenueCatEventToStateChange } from '../_shared/revenueCatEventMapping.js';
+import { processRevenueCatWebhookEvent } from '../_shared/revenueCatWebhookHandler.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -89,15 +91,6 @@ const timingSafeEqual = (a, b) => {
   }
   return diff === 0;
 };
-
-// A basic (not RFC 4122 exhaustive) UUID shape check — this app's Supabase
-// user ids are always real UUIDs (auth.users.id), so a RevenueCat
-// app_user_id that isn't shaped like one can never be a genuine WakeWise
-// identity. Rejecting early avoids ever passing an obviously-wrong value
-// into a Postgres uuid-typed RPC parameter (which would itself error, but
-// this is a clearer, intentional rejection rather than an incidental one).
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const looksLikeSupabaseUuid = (value) => typeof value === 'string' && UUID_PATTERN.test(value);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -122,158 +115,64 @@ Deno.serve(async (req) => {
   }
 
   const event = body?.event;
-  if (!event || typeof event.type !== 'string') {
-    return json({ error: 'Missing event' }, 400);
-  }
 
-  const eventId = event.id;
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    console.warn('revenuecat-webhook: event missing its own id — cannot guarantee idempotency, rejecting');
-    return json({ error: 'Missing event id' }, 400);
-  }
-
-  const provider = mapRevenueCatStoreToProvider(event.store);
+  // All of the post-authentication decision-making (store/provider
+  // resolution, event-to-state mapping, event-time-based ordering,
+  // RPC-argument construction, the acknowledge-only vs. state-changing
+  // branch) lives in processRevenueCatWebhookEvent
+  // (../_shared/revenueCatWebhookHandler.js) — a pure, dependency-injected
+  // function so it can be genuinely exercised by this repo's Vitest
+  // suite, not just source-text matched. This Deno.serve handler is a
+  // thin adapter: it supplies the real service-role
+  // insertProviderEvent/callApplyVerifiedEvent implementations and does
+  // its own logging around the returned `{ status, body }`, exactly
+  // like get-beta-video-url/index.ts's identical relationship with
+  // resolveBetaVideoUrlRequest.
   const supabaseAdmin = createSupabaseAdminClient();
 
-  const payloadSummary = { type: event.type, productId: event.product_id ?? null, periodType: event.period_type ?? null, store: event.store ?? null };
-
-  if (!provider) {
-    // A store this webhook has no business acting on: 'STRIPE' would mean
-    // the RevenueCat project itself is misconfigured (Stripe must never
-    // be added as a store there — Stripe stays on its own entirely
-    // separate stripe-webhook/index.ts), and anything else is a store
-    // RevenueCat added later that this task has not reviewed.
-    // provider_events' own CHECK constraint only allows
-    // ('stripe','apple','google') — there is no honest bucket to record
-    // an unresolved store under without either violating that constraint
-    // or writing a misleading provider value, so this is logged
-    // server-side (visible in this function's own Supabase logs) and
-    // acknowledged, never written to the audit table, and never applied
-    // to entitlement state.
-    console.warn('revenuecat-webhook: event references a store this project does not act on', event.store ?? 'unknown', event.type);
-    return json({ received: true, processed: false, reason: 'unresolved_store' });
-  }
-
-  const stateChange = mapRevenueCatEventToStateChange(event);
-  const appUserId = event.app_user_id;
-
-  if (!stateChange || !looksLikeSupabaseUuid(appUserId)) {
-    // Acknowledge-only event type, OR a state-bearing type whose
-    // app_user_id isn't a genuine Supabase UUID (this app only ever logs
-    // in to RevenueCat with a real Supabase user id — see
-    // useRevenueCatIdentity.js — so a non-UUID app_user_id here means
-    // either a RevenueCat-generated anonymous id that never completed
-    // identity login, or an acknowledge-only event type with no
-    // actionable identity; neither should ever reach a write). Still
-    // recorded for idempotency/audit.
-    const { error: insertError } = await supabaseAdmin.from('provider_events').insert({
-      provider,
-      provider_event_id: eventId,
-      event_type: event.type,
-      user_id: null,
-      payload_summary: payloadSummary
-    });
-    if (insertError && insertError.code !== '23505') {
-      console.error('revenuecat-webhook: failed to record acknowledge-only event', insertError.message);
-      return json({ error: 'Failed to record event' }, 500);
-    }
-    return json({ received: true, processed: true });
-  }
-
-  const expiresAt = typeof event.expiration_at_ms === 'number' ? new Date(event.expiration_at_ms).toISOString() : null;
-  const environment = event.environment === 'PRODUCTION' ? 'production' : 'sandbox';
-
-  if (provider === 'apple') {
-    // FIELD-NAME VERIFICATION REQUIRED (see this file's own header) —
-    // RevenueCat's own field for Apple's originalTransactionId in a v2
-    // webhook event.
-    const originalTransactionId = event.original_transaction_id ?? event.transaction_id ?? null;
-    if (!originalTransactionId) {
-      console.warn('revenuecat-webhook: Apple event missing a usable transaction identifier');
-      return json({ received: true, processed: false, reason: 'missing_transaction_id' });
-    }
-
-    const { error: rpcError } = await supabaseAdmin.rpc('apply_verified_apple_subscription_event', {
-      p_user_id: appUserId,
-      p_apple_original_transaction_id: originalTransactionId,
-      p_product_id: event.product_id ?? null,
-      p_status: stateChange.status,
-      p_current_period_expires_at: expiresAt,
-      p_cancel_at_period_end: stateChange.cancelAtPeriodEnd ?? null,
-      p_environment: environment,
-      p_apple_app_account_token: appUserId,
-      p_last_verified_at: new Date().toISOString(),
-      p_raw_event_summary: payloadSummary,
-      p_provider_event_id: eventId,
-      p_event_type: event.type,
-      p_verification_source: 'revenuecat'
-    });
-
-    if (rpcError) {
-      if (rpcError.code === '23505' || /already linked to a different/i.test(rpcError.message ?? '')) {
-        console.error('revenuecat-webhook: Apple ownership conflict', event.type);
-        return json({ received: true, processed: false, reason: 'ownership_conflict' });
-      }
-      console.error('revenuecat-webhook: failed to apply verified Apple state', rpcError.message);
-      return json({ error: 'Failed to process event' }, 500);
-    }
-
-    return json({ received: true, processed: true });
-  }
-
-  // provider === 'google'
-  // FIELD NAME CORRECTED (readiness-gap review): RevenueCat's official
-  // webhook field reference (event-types-and-fields) lists only
-  // `transaction_id` / `original_transaction_id` as webhook payload
-  // fields — `store_transaction_id` is NOT among them; that name belongs
-  // to a different RevenueCat API surface (CustomerInfo / REST v1), not
-  // the webhook event schema, and reading it here was an unverified
-  // guess this correction removes. For a PLAY_STORE event,
-  // `original_transaction_id`/`transaction_id` carries Google's own
-  // ORDER ID (format `GPA.xxxx-xxxx-xxxx-xxxxx`), never the raw Play
-  // Billing purchase token — RevenueCat's webhooks do not expose the
-  // purchase token at all (it is only obtainable client-side from the
-  // native Android SDK's purchase-completion callback, a different data
-  // path this project does not currently use). This value is still a
-  // genuine, unique, per-purchase Google identifier — safe to use as the
-  // DB's ownership/idempotency key exactly like Apple's
-  // original_transaction_id — but the RPC parameter name
-  // (p_google_purchase_token, and the underlying
-  // provider_subscriptions.google_purchase_token column, already applied
-  // in the foundation migration) is a pre-existing misnomer this task
-  // does not rename. STILL REQUIRES CONFIRMATION against a real
-  // RevenueCat sandbox event before this is purchase-ready — this
-  // correction is grounded in RevenueCat's official docs, not yet in a
-  // captured real payload.
-  const googlePurchaseToken = event.original_transaction_id ?? event.transaction_id ?? null;
-  if (!googlePurchaseToken) {
-    console.warn('revenuecat-webhook: Google event missing a usable purchase token');
-    return json({ received: true, processed: false, reason: 'missing_purchase_token' });
-  }
-
-  const { error: rpcError } = await supabaseAdmin.rpc('apply_verified_google_subscription_event', {
-    p_user_id: appUserId,
-    p_google_purchase_token: googlePurchaseToken,
-    p_product_id: event.product_id ?? null,
-    p_status: stateChange.status,
-    p_current_period_expires_at: expiresAt,
-    p_cancel_at_period_end: stateChange.cancelAtPeriodEnd ?? null,
-    p_environment: environment,
-    p_last_verified_at: new Date().toISOString(),
-    p_raw_event_summary: payloadSummary,
-    p_provider_event_id: eventId,
-    p_event_type: event.type,
-    p_verification_source: 'revenuecat'
+  const result = await processRevenueCatWebhookEvent(event, {
+    // ALERT, not a benign fallback — see resolveEventVerifiedAt's/
+    // processRevenueCatWebhookEvent's own headers for the full
+    // reasoning: a missing/invalid event_timestamp_ms on a
+    // state-changing event is now QUARANTINED (never applied with a
+    // guessed processing-time ordering key), and that quarantine itself
+    // carries a real "this account's state may now be wrong" risk until
+    // a later valid event or (Apple only) a scheduled
+    // reconcile-apple-subscriptions pass corrects it — logged at error
+    // level, deliberately louder than this file's other console.warn
+    // cases, specifically so this is actionable (e.g. alerting/paging
+    // on this log line) rather than merely informational.
+    onTimestampQuarantined: (quarantinedEvent) => {
+      console.error(
+        'revenuecat-webhook: QUARANTINED — event has no valid event_timestamp_ms, state change NOT applied (processing time is never used as an ordering fallback); account state may be stale until a later valid event or scheduled reconciliation corrects it',
+        quarantinedEvent?.type,
+        quarantinedEvent?.id,
+        quarantinedEvent?.app_user_id
+      );
+    },
+    insertProviderEvent: (row) => supabaseAdmin.from('provider_events').insert(row),
+    callApplyVerifiedEvent: (provider, args) =>
+      supabaseAdmin.rpc(provider === 'apple' ? 'apply_verified_apple_subscription_event' : 'apply_verified_google_subscription_event', args)
   });
 
-  if (rpcError) {
-    if (rpcError.code === '23505' || /already linked to a different/i.test(rpcError.message ?? '')) {
-      console.error('revenuecat-webhook: Google ownership conflict', event.type);
-      return json({ received: true, processed: false, reason: 'ownership_conflict' });
-    }
-    console.error('revenuecat-webhook: failed to apply verified Google state', rpcError.message);
-    return json({ error: 'Failed to process event' }, 500);
+  // Logging that mirrors exactly what the previous inline implementation
+  // logged at each of these same outcomes, now driven off the pure
+  // function's own returned reason rather than duplicated inline.
+  // 'quarantined_invalid_timestamp' is NOT re-logged here — it is already
+  // logged, loudly, by onTimestampQuarantined above.
+  if (result.body?.reason === 'unresolved_store') {
+    console.warn('revenuecat-webhook: event references a store this project does not act on', event?.store ?? 'unknown', event?.type);
+  } else if (result.body?.reason === 'missing_transaction_id') {
+    console.warn('revenuecat-webhook: Apple event missing a usable transaction identifier');
+  } else if (result.body?.reason === 'missing_purchase_token') {
+    console.warn('revenuecat-webhook: Google event missing a usable purchase token');
+  } else if (result.body?.reason === 'ownership_conflict') {
+    console.error('revenuecat-webhook: ownership conflict', event?.type);
+  } else if (result.status === 500) {
+    console.error('revenuecat-webhook: failed to process event', result.body?.error);
+  } else if (result.status === 400 && result.body?.error === 'Missing event id') {
+    console.warn("revenuecat-webhook: event missing its own id — cannot guarantee idempotency, rejecting");
   }
 
-  return json({ received: true, processed: true });
+  return json(result.body, result.status);
 });
