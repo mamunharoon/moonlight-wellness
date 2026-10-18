@@ -1,11 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 import { getEntitlements } from '../lib/entitlements';
 import { applySubscriptionOverride } from '../lib/subscriptionOverride';
 import { fetchEntitlementRecords } from '../lib/entitlementSnapshot';
 import { resolveUnifiedEntitlement, ENTITLEMENT_STATES } from '../lib/entitlementResolver';
+import { isNativePlatform } from '../lib/platform';
+import { scheduleAtTime } from '../lib/scheduleAtTime';
 
 const SubscriptionContext = createContext();
 
@@ -133,6 +136,14 @@ export const SubscriptionProvider = ({ children }) => {
   // status row).
   const [entitlement, setEntitlement] = useState(() => resolveUnifiedEntitlement({ loading: true }, []));
 
+  // The raw, already-fetched provider records behind the current
+  // `entitlement` — kept so the expiry-crossing effect below can
+  // RE-RESOLVE against a fresh `now` without a network round-trip. A ref,
+  // not state: this backs a derived recompute, never rendered directly,
+  // so it must never itself trigger a re-render on write (that would just
+  // be loadEntitlement's own setEntitlement doing the same job twice).
+  const lastRecordsRef = useRef([]);
+
   // Returns the exact value it just set as state — same correction as
   // setResolvedSubscription's own header above, and for the identical
   // reason: native purchase integration's useNativeRestore.js needs the
@@ -143,12 +154,14 @@ export const SubscriptionProvider = ({ children }) => {
   // value, so this is purely additive.
   const loadEntitlement = async (currentUser) => {
     if (!currentUser || currentUser.is_anonymous) {
+      lastRecordsRef.current = [];
       const resolved = resolveUnifiedEntitlement({ loading: false }, []);
       setEntitlement(resolved);
       return resolved;
     }
     setEntitlement((current) => (current.state === ENTITLEMENT_STATES.LOADING ? current : resolveUnifiedEntitlement({ loading: true }, [])));
     const { records, error: fetchError } = await fetchEntitlementRecords(supabase, currentUser.id);
+    lastRecordsRef.current = fetchError ? [] : records;
     const resolved = resolveUnifiedEntitlement({ loading: false, error: fetchError }, records);
     setEntitlement(resolved);
     return resolved;
@@ -175,6 +188,75 @@ export const SubscriptionProvider = ({ children }) => {
   }, [user, authLoading, subscription]);
 
   const refreshEntitlement = () => loadEntitlement(user);
+
+  // Re-evaluate as time passes, without waiting for a new webhook.
+  //
+  // Every write path (RPCs, this client's own resolver) only ever
+  // recomputes on an EVENT — a webhook, a sign-in, a checkout return.
+  // Nothing re-checks a stored record's own expiry purely because time
+  // passed; a status-only read would keep showing "Plus — Active" forever
+  // once a subscription's real period has elapsed, until the next
+  // unrelated event happens to trigger a refetch. This effect closes that
+  // gap client-side: whenever the CURRENTLY-displayed entitlement has a
+  // known expiry, it schedules exactly one wake-up for that instant
+  // (scheduleAtTime handles a far-future — e.g. annual — expiry safely;
+  // see that module's own header) and, when it fires, re-resolves against
+  // the SAME already-fetched records with a fresh `now` — no network
+  // call needed, since nothing about the underlying data changed, only
+  // whether `now` has passed the expiry. If the winning record is still
+  // within a provider's cancel_at_period_end grace or another provider is
+  // still genuinely valid, this correctly changes nothing; if nothing
+  // else backs it, access (and any purchase-screen suppression keyed off
+  // `isEntitled`) drops the instant the clock actually crosses the real
+  // expiry, not whenever the app happens to next refetch.
+  useEffect(() => {
+    if (!entitlement.isEntitled || !entitlement.currentPeriodEnd) return undefined;
+    const expiresAtMs = new Date(entitlement.currentPeriodEnd).getTime();
+    if (Number.isNaN(expiresAtMs)) return undefined;
+
+    const cancel = scheduleAtTime(expiresAtMs, () => {
+      setEntitlement(resolveUnifiedEntitlement({ loading: false }, lastRecordsRef.current, new Date()));
+    });
+    return cancel;
+  }, [entitlement.isEntitled, entitlement.currentPeriodEnd]);
+
+  // Re-evaluate on app resume/refetch — not only when a webhook arrives.
+  //
+  // A webhook (or the sandbox confirmation poll) is how a NEW purchase or
+  // cancellation becomes known, but a user who simply backgrounds the app
+  // and returns later should also see up-to-date state immediately,
+  // rather than whatever was last resolved before backgrounding — e.g. a
+  // provider that lapsed while the app was in the background, or a
+  // renewal that completed while it was. Layers two mechanisms, matching
+  // this codebase's own established per-platform convention
+  // (MorningReminderContext.jsx's identical appStateChange gate for the
+  // identical reason): `appStateChange` for native (its web shim is
+  // inert — see that file's own comment), `visibilitychange` for web/PWA
+  // (useWakeLock.js's own established pattern), covering app resume on
+  // every platform this app ships to without double-registering on
+  // native. A full refreshEntitlement() (network read), not just a local
+  // recompute — resuming is exactly when a provider's real state may have
+  // changed underneath this client, not merely when time passed on an
+  // already-known value (the effect above handles that narrower case).
+  useEffect(() => {
+    let appStateListenerPromise;
+    if (isNativePlatform()) {
+      appStateListenerPromise = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) refreshEntitlement();
+      });
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshEntitlement();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      appStateListenerPromise?.then((listener) => listener.remove());
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
     <SubscriptionContext.Provider value={{ subscription, loading, error, refreshSubscription, entitlement, refreshEntitlement }}>

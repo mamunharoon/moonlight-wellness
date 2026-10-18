@@ -151,23 +151,34 @@ const inferVerifiedSource = (provider) => {
  *   what makes "losing one provider must not revoke access if another
  *   verified provider is active" true: resolveEntitlement() below simply
  *   never sees fewer candidates than genuinely exist.
+ * @param {Date} [now] Explicit "current instant" this entitlement is being
+ *   resolved against, forwarded straight to resolveEntitlement()'s own
+ *   expiry guard. Defaults to the real wall clock; callers that need to
+ *   re-evaluate as time passes without a new read (see
+ *   SubscriptionContext.jsx's own expiry-timer effect) pass the real
+ *   current Date explicitly at the moment they re-resolve, so a record
+ *   whose expiry has since elapsed stops granting access on the very next
+ *   recompute, not only on the next webhook-triggered refetch.
  */
-export const resolveUnifiedEntitlement = (readState, records) => {
+export const resolveUnifiedEntitlement = (readState, records, now = new Date()) => {
   if (readState?.loading) return LOADING_RESULT;
   if (readState?.error) return UNAVAILABLE_RESULT;
 
   const candidates = Array.isArray(records) ? records : [];
-  const resolved = resolveEntitlement(candidates);
+  // resolveEntitlement already returns the winning record's own
+  // cancelAtPeriodEnd/productId directly (see its own header) — reading
+  // them straight off `resolved` here, rather than searching `candidates`
+  // again for "whichever record matches this provider+status", is what
+  // guarantees this is actually the SAME record resolveEntitlement
+  // selected, even when two candidates share a provider+status (e.g. two
+  // expired Google rows and one active one — a provider+status re-lookup
+  // could silently match the wrong one of several).
+  const resolved = resolveEntitlement(candidates, now);
   const isEntitled = resolved.plan === 'plus';
 
-  const winner = isEntitled
-    ? candidates.find((record) => record.provider === resolved.activeProvider && record.status === resolved.status) ?? null
-    : null;
-
-  const cancelAtPeriodEnd = Boolean(winner?.cancelAtPeriodEnd);
   const state = stateForWinningRecord(
     isEntitled ? { status: resolved.status, currentPeriodExpiresAt: resolved.expiresAt } : null,
-    cancelAtPeriodEnd,
+    resolved.cancelAtPeriodEnd,
     candidates.length > 0
   );
 
@@ -175,10 +186,10 @@ export const resolveUnifiedEntitlement = (readState, records) => {
     state,
     isEntitled,
     provider: resolved.activeProvider,
-    product: winner?.productId ?? null,
+    product: isEntitled ? resolved.productId : null,
     status: isEntitled ? resolved.status : null,
     currentPeriodEnd: resolved.expiresAt,
-    cancelAtPeriodEnd,
+    cancelAtPeriodEnd: resolved.cancelAtPeriodEnd,
     managementDestination: isEntitled ? getManagementDestination(resolved.activeProvider) : null,
     lastVerifiedSource: isEntitled ? inferVerifiedSource(resolved.activeProvider) : null
   };
