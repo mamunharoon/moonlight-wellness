@@ -19,7 +19,7 @@ import { setPendingJourneyIntent, isAllowedJourneyAction } from '../lib/pendingJ
 import { completeIntroductionVersion } from '../lib/introductionCompletion';
 import { now as devNow } from '../lib/devClock';
 import { getZonedParts } from '../lib/timezone';
-import { getMorningCompletionKey } from '../lib/dailyCompletion';
+import { getMorningCompletionKey, getEveningCompletionKey } from '../lib/dailyCompletion';
 
 /*
  * First-use WakeWise welcome screen (Build 16 redesign).
@@ -403,6 +403,39 @@ export const Introduction = () => {
   // the session (see Home.jsx's handleBeginEveningWindDown, which this
   // matches exactly). Gentle Reset is simpler still: a plain, stateless
   // navigate, matching RoutineDetail.jsx's own gentle-reset handling.
+  //
+  // Welcome-back defect fix (Evening half - see beginRiseAndReset's own
+  // comment above for the Morning half, fixed first): this card's plain
+  // navigate('/evening-wind-down') landed on EveningWindDown.jsx's Begin
+  // screen regardless of today's state. That screen's own handleBegin
+  // correctly resumes a playing/interrupted session for this exact
+  // routine, but has no completed-today check at all - if today's
+  // Evening already reached a genuine completion, it fell straight
+  // through to the reset-before-start guard and started a FRESH session.
+  // Sharper than Morning's gap was: for a registered user, Home.jsx's own
+  // Evening-completed card never even exposes a plain "start again"
+  // button - only "Review or Edit" and a "Redo" that goes through its own
+  // confirmation and the dedicated redoEveningWindDown() call (which
+  // explicitly handles today's EXISTING response data) before it, only
+  // then, navigates here. This card bypassed all of that. Fixed the same
+  // way as Morning: check the same isEveningDone flag Home.jsx itself
+  // reads, and when today's Evening is already done, redirect to Home
+  // with Evening explicitly selected instead - Home's own existing
+  // completed card (Review/Edit, and Redo with its real confirmation and
+  // redoEveningWindDown() data handling) takes over entirely. This
+  // redirect itself never resets any response, never starts a session,
+  // and never records a completion - it is a plain navigate with no
+  // Session Engine call, exactly like the unchanged not-done branch
+  // below.
+  const isEveningDoneToday = localStorage.getItem(getEveningCompletionKey(userId)) === getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const beginEveningWindDown = () => {
+    if (isEveningDoneToday) {
+      navigate('/', { state: { selectedPeriod: 'evening' } });
+      return;
+    }
+    navigate('/evening-wind-down');
+  };
+
   const CARD_DESTINATIONS = {
     morning: beginRiseAndReset,
     // WakeWise DEV — "Repair Take a calming pause": routes to this app's
@@ -412,7 +445,7 @@ export const Introduction = () => {
     // entry (need -> time -> recommendation) instead of jumping straight
     // into one fixed exercise - see this file's own top doc comment.
     calm: () => navigate('/anytime-reset'),
-    sleep: () => navigate('/evening-wind-down')
+    sleep: beginEveningWindDown
   };
 
   const continueTo = (destination) => {
