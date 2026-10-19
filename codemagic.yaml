@@ -555,3 +555,294 @@ workflows:
         # discipline above.
         submit_to_testflight: true
         submit_to_app_store: false
+
+  # ==========================================================================
+  # PRODUCTION — iOS release workflow. PREPARED FOR REVIEW, NOT YET RUNNABLE.
+  #
+  # Isolated from both workflows above — a completely separate workflow key,
+  # its own environment variable groups. Neither wakewise-ios-testflight nor
+  # wakewise-ios-sandbox-test is touched by this block.
+  #
+  # BLOCKER, stated plainly: this workflow cannot actually run yet. Nothing
+  # below invents or guesses a secret value — every credential is a *name*
+  # of a Codemagic group/integration that does not exist yet. Before this
+  # can run, the owner must create, in Codemagic's own UI:
+  #   1. A NEW Application-level environment variable group,
+  #      wakewise_vite_production, containing exactly:
+  #        VITE_SUPABASE_URL          (marked Secret) — expected value
+  #                                    https://wqpszprbuqdjcfmdqdlv.supabase.co
+  #                                    (the production Supabase project ref,
+  #                                    confirmed via `supabase projects list`
+  #                                    as "WakeWise Prod" — not a guess. The
+  #                                    exact URL string is still the owner's
+  #                                    to set; this task does not have write
+  #                                    access to create the group itself.)
+  #        VITE_SUPABASE_ANON_KEY     (marked Secret) — the production
+  #                                    project's own public anon key. UNKNOWN
+  #                                    to this task: fetching it would mean
+  #                                    reading from the production project,
+  #                                    which this task was explicitly told
+  #                                    never to touch. The owner must supply
+  #                                    it from the production Supabase
+  #                                    dashboard (Project Settings -> API).
+  #   2. A SECOND new group, wakewise_revenuecat_production, containing
+  #      exactly:
+  #        VITE_REVENUECAT_IOS_API_KEY (marked Secret) — CORRECTED: this is
+  #                                    NOT a different "production" key.
+  #                                    RevenueCat's own convention, already
+  #                                    documented in this repo
+  #                                    (src/lib/revenueCatConfig.js: "one
+  #                                    per platform... unlike Stripe/Apple,
+  #                                    a single cross-platform key is never
+  #                                    correct here") is one public SDK key
+  #                                    PER PLATFORM, not per environment -
+  #                                    sandbox and production purchases
+  #                                    share the same RevenueCat project and
+  #                                    the same iOS key, and are
+  #                                    distinguished per-event by
+  #                                    RevenueCat's own event.environment
+  #                                    field ('SANDBOX'|'PRODUCTION', see
+  #                                    _shared/revenueCatEventMapping.js's
+  #                                    own header), never by which key was
+  #                                    used to initialise the SDK. The
+  #                                    owner should copy the EXACT SAME
+  #                                    value already set (or to be set) as
+  #                                    wakewise_revenuecat_sandbox's
+  #                                    VITE_REVENUECAT_IOS_API_KEY into this
+  #                                    group too - not obtain or request a
+  #                                    second, different key. (Same for
+  #                                    VITE_REVENUECAT_ANDROID_API_KEY if
+  #                                    an Android production workflow is
+  #                                    ever added.)
+  #      This group still exists SEPARATELY from wakewise_vite_production
+  #      and from wakewise_revenuecat_sandbox for one real reason that
+  #      remains valid even with an identical key value:
+  #      wakewise_revenuecat_sandbox also carries
+  #      VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST=true bundled alongside the
+  #      key - reusing that group here would silently ship the sandbox
+  #      test panel to production (and would in fact fail this workflow's
+  #      own guard below, which aborts if that flag is "true"). Keeping a
+  #      separate group guarantees that flag can never reach this
+  #      workflow, even though the key inside it is the same value.
+  #   3. Reuses the SAME wakewise_app_store_connect integration and
+  #      wakewise_distribution/wakewise_app_store_profile signing identities
+  #      as both workflows above — one app record, one bundle ID, one set of
+  #      signing credentials regardless of which backend config a given
+  #      build points at. No new Apple credential is needed.
+  #   4. Still outstanding from the Apple-launch-prep review (reports/
+  #      block4-apple-launch-preparation-2026-10-19.md): confirm in
+  #      Codemagic's dashboard what wakewise_vite_public (used by
+  #      wakewise-ios-testflight above) actually resolves to today. This
+  #      workflow does not change, read, or depend on that group.
+  #
+  # VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST is deliberately absent from both
+  # groups above - not merely left at a default. The verification step
+  # below aborts if it is ever present and "true" for this workflow, and a
+  # later step confirms the sandbox panel's own marker string did not
+  # compile into this build's output - the same check the sandbox workflow
+  # runs in reverse (it asserts the marker IS present; this asserts it is
+  # NOT).
+  # ==========================================================================
+  wakewise-ios-production:
+    name: WakeWise iOS Production
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: 26.6
+      cocoapods: default
+      node: 22.23.3
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: *bundle_id
+      groups:
+        - wakewise_vite_production
+        - wakewise_revenuecat_production
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: *bundle_id
+    integrations:
+      app_store_connect: wakewise_app_store_connect
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Verify required build-time env vars are set AND target the approved production project (values never printed, fails BEFORE any build step)
+        script: |
+          set -uo pipefail
+          # Same enforcement discipline as the sandbox workflow's own first
+          # step - inspects the REAL resolved environment variable values
+          # (never printed) and aborts before npm ci/vite build ever runs.
+          missing=0
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_REVENUECAT_IOS_API_KEY; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "Missing required environment variable: $var_name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "One or more required environment variables are unset. Confirm wakewise_vite_production and wakewise_revenuecat_production are both attached to THIS workflow (environment.groups, above) and re-run."
+            exit 1
+          fi
+
+          # PRODUCTION-only enforcement: this workflow must build against the
+          # approved production Supabase project (wqpszprbuqdjcfmdqdlv) and
+          # NEVER DEV (kvdxuhyndevrfvsalgnx) - the exact inverse of the
+          # sandbox workflow's own guard. The project ref is not a secret
+          # (it's part of the public Supabase endpoint), so it is safe to
+          # print for a clear failure message.
+          case "$VITE_SUPABASE_URL" in
+            *kvdxuhyndevrfvsalgnx*)
+              echo "VITE_SUPABASE_URL ('$VITE_SUPABASE_URL') targets the DEV Supabase project. This production workflow must never build against DEV. Aborting."
+              exit 1
+              ;;
+            *wqpszprbuqdjcfmdqdlv*) ;;
+            *)
+              echo "VITE_SUPABASE_URL ('$VITE_SUPABASE_URL') does not target the approved production Supabase project (wqpszprbuqdjcfmdqdlv). Refusing to guess that this is correct - aborting."
+              exit 1
+              ;;
+          esac
+          echo "Confirmed: VITE_SUPABASE_URL targets the approved production project (wqpszprbuqdjcfmdqdlv)."
+
+          # Sandbox diagnostics/banner must be disabled for a production
+          # build - checked explicitly, not merely assumed from the
+          # variable's absence from this workflow's own groups.
+          if [ "${VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST:-}" = "true" ]; then
+            echo "VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST is 'true' for this workflow - the sandbox test panel and sandbox paywall banner must never ship in a production build. Aborting."
+            exit 1
+          fi
+          echo "Confirmed: VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST is not 'true'."
+
+      - name: Install npm dependencies (npm ci)
+        script: |
+          set -euo pipefail
+          npm ci
+
+      - name: Build the web app (vite build)
+        script: |
+          set -euo pipefail
+          npm run build
+
+      - name: Run the automated test suite
+        script: |
+          set -euo pipefail
+          npm test
+
+      - name: Lint
+        script: |
+          set -euo pipefail
+          npm run lint
+
+      - name: Confirm the sandbox test panel did NOT compile into this build's output
+        script: |
+          set -euo pipefail
+          # The exact inverse of the sandbox workflow's own check - this
+          # build must never ship the sandbox test panel or its marker
+          # string, even if a future edit to this file accidentally wires
+          # the flag in.
+          if grep -rq "RevenueCat sandbox test surface" dist/assets/*.js; then
+            echo "The sandbox test panel's own marker string WAS found in this production build's output - VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST compiled to true somewhere. Aborting."
+            exit 1
+          fi
+          echo "Confirmed: the sandbox test panel is absent from this build's output."
+
+      - name: Capacitor sync (copy web build + native deps into ios/)
+        script: |
+          set -euo pipefail
+          npx cap sync ios
+
+      - name: Verify WebView debugging is disabled in the generated native config
+        script: |
+          set -euo pipefail
+          generated_config="ios/App/App/capacitor.config.json"
+          if [ ! -f "$generated_config" ]; then
+            echo "$generated_config was not generated by 'Capacitor sync' -- cannot verify WebView debugging is disabled. Aborting."
+            exit 1
+          fi
+          if grep -q '"webContentsDebuggingEnabled"[[:space:]]*:[[:space:]]*true' "$generated_config"; then
+            echo "webContentsDebuggingEnabled is true in $generated_config -- this must never ship in a production build. Aborting."
+            exit 1
+          fi
+          echo "Confirmed: webContentsDebuggingEnabled is not true in the generated native config."
+
+      - name: Install CocoaPods dependencies
+        script: |
+          set -euo pipefail
+          cd ios/App
+          pod install
+
+      - name: Determine and set the next available production build number
+        script: |
+          set -euo pipefail
+          # Same App-Store-Connect-queried approach as the sandbox workflow
+          # (not Codemagic's own per-workflow counter) - correct regardless
+          # of which of the three workflows landed the most recent build,
+          # since all three share one App Store Connect app record.
+          APP_LOOKUP_JSON="$(app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" --strict-match-identifier --json)"
+          APP_ID="$(echo "$APP_LOOKUP_JSON" | jq -r 'if type == "array" then . else .data end | map(.id) | if length == 1 then .[0] else "" end')"
+          if [ -z "$APP_ID" ] || ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
+            echo "Could not resolve exactly one numeric App Store Connect app ID for bundle ID $BUNDLE_ID (lookup returned: $APP_LOOKUP_JSON). Refusing to guess -- aborting rather than hardcoding or falling back to a cached value."
+            exit 1
+          fi
+          echo "Resolved App Store Connect app ID $APP_ID for bundle ID $BUNDLE_ID."
+
+          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$APP_ID")"
+          if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Could not obtain a valid highest-build-number response from App Store Connect for app ID $APP_ID / bundle ID $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
+            exit 1
+          fi
+
+          BUILD_NUMBER=$((QUERIED_BUILD_NUMBER + 1))
+          echo "Highest existing build in App Store Connect for $BUNDLE_ID: $QUERIED_BUILD_NUMBER. Using next available: $BUILD_NUMBER."
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER"
+
+      - name: Apply the stored signing certificate and profile to the Xcode project
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles
+
+      - name: Verify export_options.plist was generated
+        script: |
+          set -euo pipefail
+          export_options_plist="$HOME/export_options.plist"
+          if [ ! -f "$export_options_plist" ]; then
+            echo "export_options.plist was not found at $export_options_plist after 'xcode-project use-profiles' ran."
+            exit 1
+          fi
+          echo "export_options.plist present at $export_options_plist"
+
+      - name: Build and archive the signed .ipa
+        script: |
+          set -euo pipefail
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist "$HOME/export_options.plist"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/xcarchive
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      # Same discipline as both workflows above: a red build never reaches
+      # signing/upload, and App Store review submission stays an explicit,
+      # separate, manual step (SUBM-01/SUBM-02) - this workflow never
+      # submits to App Store review by itself.
+      #
+      # No beta_groups entry here either - Codemagic itself issues no
+      # distribution instruction without one, same as both workflows above.
+      # Re-reviewed and still true, same unresolved question the sandbox
+      # workflow already flags: this cannot verify from here whether the
+      # existing "WakeWise Internal Testers" App Store Connect group has
+      # its own "automatically distribute new builds" toggle turned on -
+      # that is an Apple-side setting, independent of this file, and would
+      # apply to ANY new build landing for this app (this production
+      # workflow's builds included) if it is on. Do not assume a build from
+      # THIS workflow is safe from auto-distribution just because this file
+      # names no group - confirm that toggle's state in App Store Connect
+      # before relying on it.
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

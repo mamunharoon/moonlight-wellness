@@ -380,3 +380,16 @@ describe('Subscription.jsx — Current Plan reads the unified, provider-aware en
     expect(source).toMatch(/entitlement\.managementDestination === 'google_play'/);
   });
 });
+
+describe('Subscription.jsx — paywall links Privacy Policy and Terms of Service at the point of purchase (Apple 3.1.2), not just Subscription Terms/Refund Policy', () => {
+  it('both paywall sections (Stripe/web and native) link all four legal pages', () => {
+    const matches = source.match(/By subscribing, you agree to our[\s\S]*?Refund Policy<\/Link>\./g) ?? [];
+    expect(matches.length).toBe(2);
+    for (const block of matches) {
+      expect(block).toMatch(/to="\/settings\/terms-of-service"/);
+      expect(block).toMatch(/to="\/settings\/privacy-policy"/);
+      expect(block).toMatch(/to="\/settings\/subscription-terms"/);
+      expect(block).toMatch(/to="\/settings\/refund-policy"/);
+    }
+  });
+});

@@ -844,10 +844,21 @@ export const Subscription = () => {
             <p className="text-xs text-on-surface-variant pt-1">{trialDisclosureText()}</p>
           </div>
 
+          {/* Apple App Review Guideline 3.1.2 expects the Privacy Policy and
+              Terms of Use (EULA) reachable at the point of purchase.
+              Subscription Terms only covers billing specifics (trial,
+              renewal, cancellation) - it does not carry the licence,
+              eligibility, or liability terms that stand in for an EULA
+              here, so it cannot substitute for Terms of Service. Both are
+              added alongside the existing links, not instead of them. */}
           <p className="text-[11px] text-on-surface-variant text-center leading-relaxed px-2">
             By subscribing, you agree to our{' '}
+            <Link to="/settings/terms-of-service" className="text-primary font-semibold">Terms of Service</Link>
+            {', '}
+            <Link to="/settings/privacy-policy" className="text-primary font-semibold">Privacy Policy</Link>
+            {', '}
             <Link to="/settings/subscription-terms" className="text-primary font-semibold">Subscription Terms</Link>
-            {' '}and{' '}
+            {', and '}
             <Link to="/settings/refund-policy" className="text-primary font-semibold">Refund Policy</Link>.
           </p>
 
@@ -957,10 +968,21 @@ export const Subscription = () => {
             </p>
           )}
 
+          {/* Apple App Review Guideline 3.1.2 expects the Privacy Policy and
+              Terms of Use (EULA) reachable at the point of purchase.
+              Subscription Terms only covers billing specifics (trial,
+              renewal, cancellation) - it does not carry the licence,
+              eligibility, or liability terms that stand in for an EULA
+              here, so it cannot substitute for Terms of Service. Both are
+              added alongside the existing links, not instead of them. */}
           <p className="text-[11px] text-on-surface-variant text-center leading-relaxed px-2">
             By subscribing, you agree to our{' '}
+            <Link to="/settings/terms-of-service" className="text-primary font-semibold">Terms of Service</Link>
+            {', '}
+            <Link to="/settings/privacy-policy" className="text-primary font-semibold">Privacy Policy</Link>
+            {', '}
             <Link to="/settings/subscription-terms" className="text-primary font-semibold">Subscription Terms</Link>
-            {' '}and{' '}
+            {', and '}
             <Link to="/settings/refund-policy" className="text-primary font-semibold">Refund Policy</Link>.
           </p>
 
