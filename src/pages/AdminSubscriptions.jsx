@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useState } from 'react';
 import { fetchAdminSubscriptions, setSubscriptionStatus } from '../lib/adminApi';
+import { summarizeAdminSubscriptions, isStatusEditable } from '../lib/adminSubscriptionsSummary';
 import { BackButton } from '../components/BackButton';
 
 /*
@@ -13,11 +14,27 @@ import { BackButton } from '../components/BackButton';
  * status manually"); plan and provider are read-only here, matching the
  * migration's admin_set_subscription_status(), which only ever writes
  * `status`.
+ *
+ * N-04 fix (reports/p2c-prg-dash-verification-2026-10-19.md /
+ * supabase/migrations/20261019160000_admin_list_subscriptions_multi_provider.sql):
+ * admin_list_subscriptions() now resolves Stripe/Apple/Google with the
+ * same expiry-aware rules the real entitlement system already uses,
+ * instead of only ever reading the legacy Stripe table. Still exactly one
+ * row per registered user (never double-counted for holding more than
+ * one provider record) — provider_record_count and the summary line below
+ * surface that distinction without changing that one-row-per-user shape.
+ * environment (sandbox/production) and cancel_at_period_end are shown so
+ * "cancelled-but-still-entitled until expiry" is never confused with a
+ * genuinely cancelled/expired subscription. The status dropdown is
+ * disabled for an apple/google winner (isStatusEditable) — see that
+ * function's own header for why editing it there would be misleading,
+ * not merely redundant.
  */
 const PLAN_LABELS = { free: 'Free', plus: 'WakeWise Plus' };
 const STATUS_OPTIONS = ['trial', 'active', 'cancelled', 'expired'];
 const STATUS_LABELS = { trial: 'Trial', active: 'Active', cancelled: 'Cancelled', expired: 'Expired' };
 const PROVIDER_LABELS = { manual: 'Manual', stripe: 'Stripe', apple: 'Apple', google: 'Google' };
+const ENVIRONMENT_LABELS = { sandbox: 'Sandbox', production: 'Production' };
 
 const formatRenewalDate = (row) => {
   if (!row.expires_at) return 'No renewal date';
@@ -57,6 +74,7 @@ export const AdminSubscriptions = () => {
 
   const handleStatusChange = async (row, nextStatus) => {
     if (nextStatus === row.status) return;
+    if (!isStatusEditable(row.provider)) return;
     setPendingId(row.user_id);
     try {
       await setSubscriptionStatus(row.user_id, nextStatus);
@@ -88,31 +106,54 @@ export const AdminSubscriptions = () => {
         <p className="text-sm text-on-surface-variant px-1">No subscriptions found.</p>
       ) : (
         <section className="space-y-2">
+          {(() => {
+            const summary = summarizeAdminSubscriptions(rows);
+            return (
+              <p className="text-xs text-on-surface-variant px-1">
+                {summary.uniquePlusSubscribers} unique Plus subscriber{summary.uniquePlusSubscribers === 1 ? '' : 's'} of {summary.totalUsers} registered user{summary.totalUsers === 1 ? '' : 's'}
+                {summary.sandboxPlusSubscribers > 0 && ` · ${summary.sandboxPlusSubscribers} sandbox (never revenue)`}
+                {summary.totalProviderRecords > summary.totalUsers && ` · ${summary.totalProviderRecords} underlying subscription records`}
+              </p>
+            );
+          })()}
           <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-            {rows.map((row) => (
-              <div key={row.user_id} className={`${rowClass} flex-wrap`}>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-xs text-on-surface-variant truncate">{row.email}</span>
-                  <span className="block text-sm font-bold text-on-surface">
-                    {PLAN_LABELS[row.plan] ?? row.plan} · {PROVIDER_LABELS[row.provider] ?? row.provider}
+            {rows.map((row) => {
+              const editable = isStatusEditable(row.provider);
+              return (
+                <div key={row.user_id} className={`${rowClass} flex-wrap`}>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs text-on-surface-variant truncate">{row.email}</span>
+                    <span className="block text-sm font-bold text-on-surface">
+                      {PLAN_LABELS[row.plan] ?? row.plan} · {row.provider ? (PROVIDER_LABELS[row.provider] ?? row.provider) : '—'}
+                      {row.environment && ` (${ENVIRONMENT_LABELS[row.environment] ?? row.environment})`}
+                      {row.provider_record_count > 1 && ` · ${row.provider_record_count} records`}
+                    </span>
+                    <span className="block text-xs text-on-surface-variant">
+                      {formatRenewalDate(row)}
+                      {row.plan === 'plus' && row.cancel_at_period_end && ' · auto-renew off'}
+                    </span>
+                    {!editable && (
+                      <span className="block text-[10px] text-on-surface-variant italic">
+                        Managed by {PROVIDER_LABELS[row.provider]} — status here won&apos;t change it
+                      </span>
+                    )}
                   </span>
-                  <span className="block text-xs text-on-surface-variant">{formatRenewalDate(row)}</span>
-                </span>
-                <select
-                  aria-label={`Status for ${row.email}`}
-                  value={row.status}
-                  disabled={pendingId === row.user_id}
-                  onChange={(e) => handleStatusChange(row, e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-full text-xs font-bold text-on-surface px-3 py-1.5 shrink-0 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option} value={option} className="bg-surface text-on-surface">
-                      {STATUS_LABELS[option]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                  <select
+                    aria-label={`Status for ${row.email}`}
+                    value={row.status}
+                    disabled={pendingId === row.user_id || !editable}
+                    onChange={(e) => handleStatusChange(row, e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-full text-xs font-bold text-on-surface px-3 py-1.5 shrink-0 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option} value={option} className="bg-surface text-on-surface">
+                        {STATUS_LABELS[option]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
