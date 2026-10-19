@@ -17,6 +17,9 @@ import { getStepIndex } from '../session/sessionRegistry';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { setPendingJourneyIntent, isAllowedJourneyAction } from '../lib/pendingJourneyIntent';
 import { completeIntroductionVersion } from '../lib/introductionCompletion';
+import { now as devNow } from '../lib/devClock';
+import { getZonedParts } from '../lib/timezone';
+import { getMorningCompletionKey } from '../lib/dailyCompletion';
 
 /*
  * First-use WakeWise welcome screen (Build 16 redesign).
@@ -263,7 +266,7 @@ export const Introduction = () => {
   // model. Works for guests too (AlarmContext's own guest-device-local
   // storage path already gives every guest a genuinely working local
   // alarm).
-  const { alarmTime, isAlarmSet, alarmSoundId, alarmConfigured } = useAlarm();
+  const { alarmTime, isAlarmSet, alarmSoundId, alarmConfigured, userId, effectiveTimezone } = useAlarm();
   const [saving, setSaving] = useState(false);
 
   // Morning/Evening authentication continuity — captured ONCE, at the
@@ -356,7 +359,38 @@ export const Introduction = () => {
   // 1 (Set Intention), then land on its real screen. Nothing here is
   // invented - every call is the same real function those two existing
   // handlers already use.
+  //
+  // Welcome-back defect fix: unlike Home.jsx (which only ever reaches
+  // handleBeginRiseAndReset after morningCardState === 'completed' shows
+  // its own card and the user explicitly confirms "Repeat Morning
+  // Routine" via activeDialog), this screen's Morning card previously
+  // called the identical reset-and-start unconditionally — bypassing
+  // that check entirely. A user who had already fully completed today's
+  // Morning Reset, then logged out/in, landed back on this "Welcome
+  // back" card and tapping Morning silently started a brand-new session
+  // (a new sessionId/idempotency_key) with no confirmation — completing
+  // it would write a genuine second practice_completion_events row for
+  // the same day, not deduplicated (the unique constraint is keyed by
+  // sessionId, which a fresh startSession() always mints anew). Fixed by
+  // checking the SAME isMorningDone flag Home.jsx itself reads
+  // (dailyCompletion.js's own localStorage key) before deciding: already
+  // done today routes to Home, where the existing, approved repeat-
+  // confirmation flow takes over — never a second, divergent
+  // confirmation UI built here.
+  const isMorningDoneToday = localStorage.getItem(getMorningCompletionKey(userId)) === getZonedParts(effectiveTimezone, devNow()).dateKey;
   const beginRiseAndReset = () => {
+    if (isMorningDoneToday) {
+      // Lands on Home with Morning explicitly selected (Home.jsx's own
+      // selectedPeriod initializer reads this navigation state) so the
+      // user sees the real "Morning Reset finished" / "Repeat Morning
+      // Routine" card immediately - never Home's own clock-based default,
+      // which would otherwise fall through to Anytime once Morning is
+      // done for the day. Starting a new session is then only ever a
+      // result of that button's own explicit confirm dialog - never
+      // automatic, and never from this redirect alone.
+      navigate('/', { state: { selectedPeriod: 'morning' } });
+      return;
+    }
     if (state.status === 'playing' || state.status === 'interrupted') {
       resetSession();
     }

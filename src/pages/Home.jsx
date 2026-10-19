@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAlarm } from '../context/AlarmContext';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
@@ -62,6 +62,7 @@ import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 
 export const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { alarmTime, bedTime, intentions, intentionsConfirmed, effectiveTimezone, userId } = useAlarm();
   const { profile, user, isGuest } = useAuth();
   const { state, startSession, resetSession, resumeRoutine, resetRoutine, resumeStaleRoutine, discardStaleRoutine } = useSession();
@@ -472,7 +473,21 @@ export const Home = () => {
   // per the fallback below) - Morning's own copy already varies by
   // daypart via morningDaypart above; Evening's copy is intentionally
   // constant regardless of clock time, per the approved design.
-  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  // Welcome-back defect fix (Introduction.jsx's own beginRiseAndReset
+  // guard): a caller that already knows which period the user explicitly
+  // meant to land on - e.g. the Welcome-back Morning card redirecting
+  // here instead of silently restarting an already-completed-today
+  // routine - can pass { state: { selectedPeriod: 'morning'|'evening' } }
+  // on navigate(). Read ONCE as this state's lazy initializer, so it
+  // only ever wins on the mount that actually carried it, never on a
+  // later in-app navigation back to this same route without that state.
+  // Absent (the ordinary case - tapping a bottom-nav Home icon, or any
+  // other plain navigate('/')), this is exactly the same `useState(null)`
+  // behaviour as before, falling through to defaultPeriod below.
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const requested = location.state?.selectedPeriod;
+    return requested === 'morning' || requested === 'evening' ? requested : null;
+  });
   // Build 15 — Today's Rhythm default selection. An active routine
   // (genuinely in-progress right now) always takes priority over the
   // clock. Otherwise: evening/night hours lean Evening (the existing

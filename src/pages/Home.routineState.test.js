@@ -82,3 +82,21 @@ describe('Sign-out routine-progress isolation', () => {
     expect(authContextSource).toMatch(/clearAllRoutineProgress\(\);/);
   });
 });
+
+describe('Home.jsx — selectedPeriod can be pre-selected via navigation state (Welcome-back Morning-card defect fix)', () => {
+  it('imports useLocation alongside useNavigate, and reads it', () => {
+    expect(homeSource).toMatch(/import \{ Link, useNavigate, useLocation \} from 'react-router-dom';/);
+    expect(homeSource).toMatch(/const location = useLocation\(\);/);
+  });
+
+  it('selectedPeriod\'s lazy initializer honours a real location.state.selectedPeriod (morning|evening only, never a guessed/arbitrary value) on first mount, falling back to null exactly as before when absent', () => {
+    const initBody = homeSource.match(/const \[selectedPeriod, setSelectedPeriod\] = useState\(\(\) => \{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(initBody).not.toBe('');
+    expect(initBody).toMatch(/const requested = location\.state\?\.selectedPeriod;/);
+    expect(initBody).toMatch(/return requested === 'morning' \|\| requested === 'evening' \? requested : null;/);
+  });
+
+  it('is a lazy initializer (function form), never re-read on every render - a later in-app navigation back to \'/\' without that state must not keep re-forcing the earlier selection', () => {
+    expect(homeSource).toMatch(/useState\(\(\) => \{\s*\n\s*const requested = location\.state\?\.selectedPeriod;/);
+  });
+});
