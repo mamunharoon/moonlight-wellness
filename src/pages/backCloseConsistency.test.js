@@ -34,7 +34,6 @@ const REPLACED_BACK_BUTTONS = [
   { file: './AdminUsers.jsx', fallback: '/admin', label: 'Back to Administration' },
   { file: './FastStartPilot.jsx', fallback: '/admin', label: 'Back to Admin' },
   { file: './AudioLibrary.jsx', fallback: '/settings', label: 'Back to Settings' },
-  { file: './Beta.jsx', fallback: '/settings', label: 'Back to Settings' },
   { file: './Settings.jsx', fallback: '/profile', label: 'Back to Profile' },
   { file: './Subscription.jsx', fallback: '/settings', label: 'Back to Settings' },
   { file: './NotificationSettings.jsx', fallback: '/settings', label: 'Back to Settings' },
@@ -78,15 +77,15 @@ describe('Multi-instance bespoke Back buttons — every occurrence replaced, not
     expect(source).not.toMatch(/w-10 h-10 rounded-full/);
   });
 
-  it('Feedback.jsx - both the post-submit confirmation header and the main form header use the real BackButton (fallback "/beta") - the unrelated full-width "Back to Beta Program" CTA inside the confirmation body is untouched (not a header Back control)', () => {
+  it('Feedback.jsx - both the post-submit confirmation header and the main form header use the real BackButton (fallback "/settings", updated when the Beta Program hub was retired - see Settings.jsx/Beta.jsx) - the unrelated full-width "Back to Settings" CTA inside the confirmation body is untouched (not a header Back control)', () => {
     const source = read('./Feedback.jsx');
-    const headerUsages = source.match(/<BackButton fallback="\/beta" label="Back to Beta Program" \/>/g) ?? [];
+    const headerUsages = source.match(/<BackButton fallback="\/settings" label="Back to Settings" \/>/g) ?? [];
     expect(headerUsages.length).toBe(2);
     expect(source).not.toMatch(/w-10 h-10 rounded-full/);
     // the in-content CTA (a full-width text pill, not a header icon button) is
     // deliberately left as its own navigate() call - it is a "Continue"-style
     // action after a completed task, not a Back/Close control.
-    expect(source).toMatch(/onClick=\{\(\) => navigate\('\/beta'\)\}\s*\n\s*className="w-full glass-panel border-white\/10/);
+    expect(source).toMatch(/onClick=\{\(\) => navigate\('\/settings'\)\}\s*\n\s*className="w-full glass-panel border-white\/10/);
   });
 });
 

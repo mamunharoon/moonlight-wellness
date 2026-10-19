@@ -22,7 +22,7 @@ export const ReleaseNotes = () => {
       lastUpdated={RELEASE_NOTES[0]?.date}
       isLegal={false}
       sections={sections}
-      backTo="/beta"
+      backTo="/settings"
     />
   );
 };

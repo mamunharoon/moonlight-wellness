@@ -194,24 +194,20 @@ export const Settings = () => {
         </div>
       </section>
 
-      {/* Closed Beta Preparation, Phase A: entry points into the beta
-          hub, feedback flow, and release notes — same placement pattern
-          as the Subscription section above. Gated behind
-          isBetaProgramVisible() (see featureFlags.js) so it can be hidden
-          for the eventual public production build via a build-time env
-          var alone — visible by default today (local dev, DEV Vercel,
-          and every TestFlight build), matching what testers need. */}
+      {/* Closed Beta Preparation, Phase A, later retired: the "Beta
+          Program" heading and its /beta entry point are deliberately
+          removed from this list — the hub page itself (Beta.jsx) no
+          longer renders any real content either (see that file's own
+          header), so there is no in-app affordance left pointing at it
+          at all. Feedback and Release Notes are unrelated to that
+          specific program and stay reachable here, still gated behind
+          isBetaProgramVisible() exactly as before — this task only
+          removed the Beta Program row/heading, not that gate's own
+          meaning for these two. */}
       {isBetaProgramVisible() && (
         <section className="space-y-2">
-          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Beta Program</h3>
+          <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Feedback &amp; Updates</h3>
           <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-            <Link to="/beta" className={rowClass}>
-              <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
-                <span className="material-symbols-outlined text-on-surface-variant text-xl">science</span>
-                Beta Program
-              </span>
-              <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
-            </Link>
             <Link to="/feedback" className={rowClass}>
               <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
                 <span className="material-symbols-outlined text-on-surface-variant text-xl">feedback</span>
@@ -241,9 +237,9 @@ export const Settings = () => {
           page's own purchase/restore controls act as the genuinely
           signed-in RevenueCat identity already established elsewhere in
           this app (App.jsx's RevenueCatIdentityHandler), not a fresh
-          anonymous one. Same gated-section pattern as Beta Program
-          above - visible by default is never the goal here, the
-          opposite of that section's own default. */}
+          anonymous one. Same gated-section pattern as the Feedback &
+          Updates section above - visible by default is never the goal
+          here, the opposite of that section's own default. */}
       {!isGuest && isSubscriptionSandboxTestVisible() && (
         <section className="space-y-2">
           <h3 className="text-xs text-on-surface-variant uppercase tracking-wider font-bold px-1">Diagnostics</h3>

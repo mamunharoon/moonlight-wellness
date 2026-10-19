@@ -80,7 +80,7 @@ export const Feedback = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <BackButton fallback="/beta" label="Back to Beta Program" />
+          <BackButton fallback="/settings" label="Back to Settings" />
           <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Send Feedback</h2>
         </div>
 
@@ -113,10 +113,10 @@ export const Feedback = () => {
               Send another
             </button>
             <button
-              onClick={() => navigate('/beta')}
+              onClick={() => navigate('/settings')}
               className="w-full glass-panel border-white/10 text-on-surface-variant py-3 rounded-full font-bold hover:bg-white/5 active:scale-95 transition-all"
             >
-              Back to Beta Program
+              Back to Settings
             </button>
           </div>
         </div>
@@ -148,7 +148,7 @@ export const Feedback = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <BackButton fallback="/beta" label="Back to Beta Program" />
+        <BackButton fallback="/settings" label="Back to Settings" />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">Send Feedback</h2>
       </div>
 
