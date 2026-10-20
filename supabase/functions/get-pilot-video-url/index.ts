@@ -21,9 +21,8 @@
 // here rather than inventing a second authorization boundary). This is
 // intentionally tighter than get-beta-video-url's "any authenticated user"
 // policy: this tool is an internal diagnostic, not beta content.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 
 const PILOT_PATHS: Map<string, string> = new Map([
   ['I01-original', 'exercises/WW_I01_WelcomeToWakeWise_v1.mp4'],
@@ -57,11 +56,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Sign in required' }, 401);
   }
 
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: `Bearer ${jwt}` } } }
-  );
+  const authClient = createSupabaseAuthClient({ global: { headers: { Authorization: `Bearer ${jwt}` } } });
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);

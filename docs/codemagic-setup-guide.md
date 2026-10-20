@@ -148,11 +148,13 @@ below before ever pinning back below Xcode 26.
       already used by the Vercel `dev` deployment (not secret in the
       sense of needing to stay confidential; find it in your local
       `.env.local` or the Supabase dashboard's API settings).
-    - `VITE_SUPABASE_ANON_KEY` — the same public anon key already used
-      by the Vercel `dev` deployment (safe to bundle client-side and
-      protected by Postgres RLS server-side; it is *not* the
-      service-role key, which must never go here or anywhere in this
-      pipeline).
+    - `VITE_SUPABASE_PUBLISHABLE_KEY` — the project's publishable key
+      (Settings → API Keys → "Publishable and secret API keys" tab;
+      replaces the legacy anon key used by the Vercel `dev` deployment
+      before the DEV service-role credential exposure remediation, see
+      tracker SEC-07/E-37 — safe to bundle client-side and still
+      protected by Postgres RLS server-side; it is *not* the secret
+      key, which must never go here or anywhere in this pipeline).
 
     Enabling **Secret** masks both values in the build log regardless
     of the fact that they're already meant to be client-visible —
@@ -248,7 +250,7 @@ lose repo access if permissions were changed there).
 **Missing environment variables** — the pipeline's own "Verify required
 build-time env vars are set" step fails, printing `Missing required
 environment variable: VITE_SUPABASE_URL` and/or
-`VITE_SUPABASE_ANON_KEY`: confirm the `wakewise_vite_public`
+`VITE_SUPABASE_PUBLISHABLE_KEY`: confirm the `wakewise_vite_public`
 application-level group (step 13) both exists under this app's
 Environment variables page in Codemagic *and* is referenced in
 `codemagic.yaml`'s `environment.groups` (already done) *and* actually

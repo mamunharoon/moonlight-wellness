@@ -5,9 +5,8 @@
 // viewing/cancelling/managing an existing Stripe subscription. Same
 // identity verification as create-checkout-session — never trusts a
 // client-supplied user id, only ever looks up the caller's own row.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
 
 const json = (body, status = 200) =>
@@ -29,10 +28,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Sign in required' }, 401);
   }
 
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
+  const authClient = createSupabaseAuthClient();
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);

@@ -58,9 +58,8 @@
 // faststart-v2/ from the new bytes — v1/v2 is purely which remux batch
 // produced the file, not a quality tier. Every `exercises/` original
 // remains in Storage, byte-for-byte, for rollback.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 import { resolveBetaVideoUrlRequest } from '../_shared/betaVideoUrlAccess.ts';
 import { fetchEntitlementRecords } from '../_shared/entitlementRecords.ts';
 
@@ -253,10 +252,7 @@ Deno.serve(async (req) => {
     body,
     resolvePath: (id) => EXERCISE_PATHS.get(id),
     verifyUser: async (jwt) => {
-      const authClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-      );
+      const authClient = createSupabaseAuthClient();
       const { data, error } = await authClient.auth.getUser(jwt);
       return { user: data?.user ?? null, error };
     },

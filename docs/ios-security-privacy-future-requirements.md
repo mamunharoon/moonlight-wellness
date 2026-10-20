@@ -23,10 +23,11 @@ later.
   `X-Frame-Options` header; there is no framing risk inside the native
   app itself.
 - **Only public credentials bundled**: `VITE_SUPABASE_URL` and
-  `VITE_SUPABASE_ANON_KEY` are the only Supabase values compiled into
-  the JS bundle (confirmed by grep of `dist/` and
-  `ios/App/App/public/`). No service-role key, Stripe secret key, or
-  webhook secret exists anywhere in the built output.
+  `VITE_SUPABASE_PUBLISHABLE_KEY` (replaces the legacy anon key — DEV
+  service-role credential exposure remediation, see tracker SEC-07/E-37)
+  are the only Supabase values compiled into the JS bundle (confirmed
+  by grep of `dist/` and `ios/App/App/public/`). No secret key, Stripe
+  secret key, or webhook secret exists anywhere in the built output.
 - **`webContentsDebuggingEnabled`** — **Update: fixed, no longer a flat
   `true`.** `capacitor.config.json` was replaced with
   `capacitor.config.ts`, which now defaults this to `false` and enables

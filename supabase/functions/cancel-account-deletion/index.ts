@@ -5,9 +5,8 @@
 // identity verification as request-account-deletion — never trusts a
 // client-supplied user id or request id, only ever acts on "the caller's
 // own current pending request," found server-side.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -28,10 +27,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Sign in required' }, 401);
   }
 
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
+  const authClient = createSupabaseAuthClient();
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);

@@ -18,9 +18,8 @@
 // own signInWithPassword to re-verify the caller's identity "right now"
 // (recent authentication) — and is never written to a log, a table, or
 // anywhere else. It falls out of scope when this function returns.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 
 const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
 const GRACE_PERIOD_DAYS = 7;
@@ -54,10 +53,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Sign in required' }, 401);
   }
 
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
+  const authClient = createSupabaseAuthClient();
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);

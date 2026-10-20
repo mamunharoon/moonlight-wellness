@@ -18,9 +18,8 @@
 // attempt per user" (via the claim_checkout_attempt RPC and the
 // checkout_attempts table's own partial unique index — see
 // 20260918100000_checkout_attempts_concurrency_guard.sql).
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 import { getStripeClient } from '../_shared/stripeClient.ts';
 import { priceIdForInterval, isTrialEligible, isBlockingStripeStatus } from '../_shared/planMapping.ts';
 import { buildStripeLedgerFields, upsertStripeLedgerRow } from '../_shared/providerLedger.ts';
@@ -226,10 +225,7 @@ Deno.serve(async (req) => {
   // p_user_id with no in-body ownership check (see its own migration
   // comment), so p_user_id must only ever come from this verified user,
   // never from the request body.
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
+  const authClient = createSupabaseAuthClient();
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);

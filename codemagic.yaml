@@ -83,12 +83,14 @@ workflows:
         # deprecated Teams/Personal-account-wide global variable area,
         # which no longer supports creating named groups on a personal
         # account). Holds only VITE_SUPABASE_URL and
-        # VITE_SUPABASE_ANON_KEY, both marked Secret -- the same public,
-        # RLS-protected anon-key pair already compiled into every
-        # WakeWise web/preview build; safe to bundle client-side, never
-        # a genuine secret. Do NOT add a service-role key, Stripe
-        # secret, or anything else to this group. See
-        # docs/codemagic-setup-guide.md for exactly how it was created.
+        # VITE_SUPABASE_PUBLISHABLE_KEY, both marked Secret -- the same
+        # public, RLS-respecting publishable key (replaces the legacy
+        # anon key -- DEV service-role credential exposure remediation,
+        # see tracker SEC-07/E-37) already compiled into every WakeWise
+        # web/preview build; safe to bundle client-side, never a genuine
+        # secret. Do NOT add a secret key, Stripe secret, or anything
+        # else to this group. See docs/codemagic-setup-guide.md for
+        # exactly how it was created.
         - wakewise_vite_public
       ios_signing:
         # Automatic signing: Codemagic provisions/renews the Apple
@@ -115,14 +117,14 @@ workflows:
       - name: Verify required build-time env vars are set
         script: |
           set -uo pipefail
-          # Confirms VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY were
-          # actually supplied via the wakewise_vite_public
+          # Confirms VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+          # were actually supplied via the wakewise_vite_public
           # application-level group (environment.groups, above) before
           # npm ci/build/signing ever run. Values are never printed --
           # only the name of a missing variable, so nothing sensitive
           # reaches the build log even on failure.
           missing=0
-          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
             if [ -z "${!var_name:-}" ]; then
               echo "Missing required environment variable: $var_name"
               missing=1
@@ -322,7 +324,7 @@ workflows:
   #                                            build flag)
   #      Deliberately NOT added to wakewise_vite_public — that group's own
   #      header comment above restricts it to
-  #      VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY, and it feeds the
+  #      VITE_SUPABASE_URL/VITE_SUPABASE_PUBLISHABLE_KEY, and it feeds the
   #      production-bound workflow above; this workflow still references it
   #      (below) ONLY for those same two Supabase values, reused because
   #      both this repo's own docs and this task's own .env.local
@@ -371,7 +373,7 @@ workflows:
           # environment variable value (never printed) and aborts before
           # `npm ci`/`vite build` ever runs if anything is wrong.
           missing=0
-          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_REVENUECAT_IOS_API_KEY VITE_REVENUECAT_ANDROID_API_KEY VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST; do
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_REVENUECAT_IOS_API_KEY VITE_REVENUECAT_ANDROID_API_KEY VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST; do
             if [ -z "${!var_name:-}" ]; then
               echo "Missing required environment variable: $var_name"
               missing=1
@@ -577,14 +579,17 @@ workflows:
   #                                    exact URL string is still the owner's
   #                                    to set; this task does not have write
   #                                    access to create the group itself.)
-  #        VITE_SUPABASE_ANON_KEY     (marked Secret) — the production
-  #                                    project's own public anon key. UNKNOWN
-  #                                    to this task: fetching it would mean
-  #                                    reading from the production project,
-  #                                    which this task was explicitly told
-  #                                    never to touch. The owner must supply
-  #                                    it from the production Supabase
-  #                                    dashboard (Project Settings -> API).
+  #        VITE_SUPABASE_PUBLISHABLE_KEY (marked Secret) — the production
+  #                                    project's own publishable key (replaces
+  #                                    the legacy anon key — DEV service-role
+  #                                    credential exposure remediation, see
+  #                                    tracker SEC-07/E-37). UNKNOWN to this
+  #                                    task: fetching it would mean reading
+  #                                    from the production project, which
+  #                                    this task was explicitly told never to
+  #                                    touch. The owner must supply it from
+  #                                    the production Supabase dashboard
+  #                                    (Project Settings -> API Keys).
   #   2. A SECOND new group, wakewise_revenuecat_production, containing
   #      exactly:
   #        VITE_REVENUECAT_IOS_API_KEY (marked Secret) — CORRECTED: this is
@@ -674,7 +679,7 @@ workflows:
           # step - inspects the REAL resolved environment variable values
           # (never printed) and aborts before npm ci/vite build ever runs.
           missing=0
-          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_REVENUECAT_IOS_API_KEY; do
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_REVENUECAT_IOS_API_KEY; do
             if [ -z "${!var_name:-}" ]; then
               echo "Missing required environment variable: $var_name"
               missing=1

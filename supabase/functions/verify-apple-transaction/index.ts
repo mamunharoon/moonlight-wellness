@@ -20,9 +20,8 @@
 //     never duplicated between the two callers.
 //   - Returns a minimal response: verified true/false, status, expiry.
 //     Never the signed payload, never any other sensitive Apple field.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
+import { createSupabaseAdminClient, createSupabaseAuthClient } from '../_shared/supabaseAdmin.ts';
 import { appleServerCredentialsConfigured } from '../_shared/appleServerApi.ts';
 import { verifyAndApplyAppleTransaction } from '../_shared/applyVerifiedAppleTransaction.ts';
 
@@ -66,10 +65,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Sign in required' }, 401);
   }
 
-  const authClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  );
+  const authClient = createSupabaseAuthClient();
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
   if (userError || !userData?.user) {
     return json({ error: 'Sign in required' }, 401);
