@@ -296,30 +296,32 @@ export const MEDITATION_DURATION_GROUPS = [
 // duration window ("fits your short 3-5 minute window") the user didn't
 // choose, e.g. when they picked "Any duration" instead.
 //
-// 2026-10-05 meditation content refresh: M01-M05's underlying Storage
-// objects were replaced with new exports (same filenames, genuinely
-// different runtimes - verified via ffprobe against the live objects,
-// not assumed) - every durationSeconds below for M01-M05 is updated to
-// match. Two (M01, M03) no longer cleanly fit the 'short' 180-300s
-// window the way they used to - flagged via exactGroupFit: false, same
-// precedent as E27's own pre-existing shortfall below, rather than
-// silently presenting an inexact match as exact:
-//   M01: 316s (was 215s) - 16s OVER short's 300s ceiling.
-//   M03: 164s (was 204s) - 16s UNDER short's 180s floor, and also
-//        doesn't fit 'quick' (60-120s cap) - genuinely between groups;
-//        'short' is the closer of the two and what's tagged here.
-// M02/M04/M05 still land cleanly inside 'short' with their new runtimes.
+// 2026-10-20 meditation content refresh (second replacement - supersedes
+// the 2026-10-05 figures this comment used to document): M01-M05's
+// underlying Storage objects were replaced again with new exports (same
+// filenames and ids, genuinely different runtimes - verified via direct
+// ffprobe measurement of the actual served bytes, correlated against the
+// live objects' own created_at/updated_at timestamps so the measurement
+// is known to be against the replacement, not assumed or reused from any
+// earlier scan - see reports/m01-m05-replacement-verification-2026-10-20.md
+// and reports/m01-m05-metadata-update-2026-10-20.md). Every durationSeconds
+// below for M01-M05 is updated to match the new measurement. All five now
+// land cleanly inside the 'short' 180-300s window - including M01 and M03,
+// which did NOT fit cleanly under the PREVIOUS (2026-10-05) runtimes and
+// were flagged exactGroupFit: false at the time; that flag is removed for
+// both here since it no longer applies to the current bytes. E27's own,
+// unrelated, still-current shortfall below is untouched.
 const MEDITATION_METADATA = {
   E03: { meditationEligible: true, needs: ['calm'], durationSeconds: 100, durationGroup: 'quick' },
   E04: { meditationEligible: true, needs: ['stress-relief'], durationSeconds: 110, durationGroup: 'quick' },
   E08: { meditationEligible: true, needs: ['calm', 'body-awareness'], durationSeconds: 120, durationGroup: 'quick' },
   B02: { meditationEligible: true, needs: ['focus', 'calm'], durationSeconds: 180, durationGroup: 'short' },
-  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 316, durationGroup: 'short', exactGroupFit: false },
-  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 205, durationGroup: 'short' },
+  M01: { meditationEligible: true, needs: ['mindfulness'], durationSeconds: 252, durationGroup: 'short' },
+  M02: { meditationEligible: true, needs: ['body-awareness', 'deep-relaxation'], durationSeconds: 254, durationGroup: 'short' },
   E27: { meditationEligible: true, needs: ['deep-relaxation', 'calm'], durationSeconds: 155, durationGroup: 'short', exactGroupFit: false },
-  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 164, durationGroup: 'short', exactGroupFit: false },
-  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 242, durationGroup: 'short' },
-  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 245, durationGroup: 'short' }
+  M03: { meditationEligible: true, needs: ['self-compassion'], durationSeconds: 260, durationGroup: 'short' },
+  M04: { meditationEligible: true, needs: ['gratitude'], durationSeconds: 281, durationGroup: 'short' },
+  M05: { meditationEligible: true, needs: ['mindfulness', 'calm'], durationSeconds: 275, durationGroup: 'short' }
 };
 
 // IB01/IS01 are audio-only interactive-ambient-music loops (see their own
@@ -461,15 +463,17 @@ const ANYTIME_RESET_METADATA = {
   S01: { needs: ['body-reset'], durationSeconds: 117.0 },
   S02: { needs: ['body-reset'], durationSeconds: 212.9 },
   S03: { needs: ['body-reset'], durationSeconds: 208.3 },
-  // M01/M03/M05 updated 2026-10-05 - the meditation content refresh
-  // replaced their underlying Storage objects with new exports of
-  // genuinely different runtimes (ffprobe-verified against the live
-  // objects); all three still comfortably clear this feature's own
-  // 'short' 330s cap either way, so no need/tier reclassification here,
-  // only the numbers themselves.
-  M01: { needs: ['quiet-time'], durationSeconds: 316.3 },
-  M03: { needs: ['quiet-time'], durationSeconds: 164.4 },
-  M05: { needs: ['quiet-time'], durationSeconds: 245.0 },
+  // M01/M03/M05 updated again 2026-10-20 - a second meditation content
+  // refresh replaced their underlying Storage objects once more, with
+  // genuinely different runtimes measured directly against the new
+  // bytes (timestamp-correlated, not reused from any earlier scan - see
+  // reports/m01-m05-replacement-verification-2026-10-20.md). All three
+  // still comfortably clear this feature's own 'short' 330s cap either
+  // way, so no need/tier reclassification here, only the numbers
+  // themselves.
+  M01: { needs: ['quiet-time'], durationSeconds: 252.4 },
+  M03: { needs: ['quiet-time'], durationSeconds: 260.0 },
+  M05: { needs: ['quiet-time'], durationSeconds: 275.5 },
   E23: { needs: ['better-mood'], durationSeconds: 116.4 },
   A05: { needs: ['better-mood'], durationSeconds: 163.5 },
   A01: { needs: ['better-mood'], durationSeconds: 147.8 }
