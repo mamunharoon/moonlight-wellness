@@ -70,5 +70,25 @@
 	     422 on automatic beta-review submission). -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Sleep Soundscape background/locked-screen playback (investigated
+	     2026-10-20, implemented 2026-10-20) - the smallest supported iOS
+	     correction, verified against Apple's own documented requirement
+	     before adding: this capability must be declared for audio to
+	     persist once the device locks (confirmed via Apple Developer
+	     Forums guidance: "this category must be applied in order to
+	     persist audio when the device locks" - paired with
+	     AVAudioSession.Category.playback, set once at launch in
+	     AppDelegate.swift, never here). Legitimate for this app - real
+	     sleep-sound content actually depends on it, not a generic
+	     keep-alive misuse. Does NOT change ordinary exercise videos'
+	     already-shipped, already-tested pause-on-background behaviour
+	     (BetaVideoModal.jsx's appStateChange handler explicitly calls
+	     video.pause() whenever a video is in fullscreen, regardless of
+	     what this capability newly permits at the OS level) - this is a
+	     native capability declaration only, no JavaScript changed. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

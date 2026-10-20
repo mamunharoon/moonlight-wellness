@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,6 +9,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+
+        // Sleep Soundscape background/locked-screen playback (investigated
+        // and implemented 2026-10-20) - the companion step Apple's own
+        // documented guidance pairs with Info.plist's UIBackgroundModes
+        // "audio" entry (set once, here, never re-set elsewhere): without
+        // an explicitly-categorised .playback audio session, the
+        // UIBackgroundModes capability alone is not reliably sufficient
+        // for audio to persist once the device locks. Category only -
+        // deliberately NOT calling setActive(true) here: WebKit's own
+        // internal AVAudioSession management already activates/
+        // deactivates the session around actual media play/pause, and
+        // calling setActive ourselves on top of that is a documented way
+        // to introduce a separate, unrelated activation-timing failure
+        // (CoreMediaErrorDomain -16042-style) - the smallest correction
+        // only ever claims the category, never session lifecycle.
+        // Failure here is logged, never fatal - a missing category falls
+        // back to the exact pre-existing behaviour (no background audio),
+        // not a crash.
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+        } catch {
+            NSLog("AppDelegate: failed to set AVAudioSession category to .playback - background audio for Sleep Soundscapes will not be available this launch: %@", error.localizedDescription)
+        }
+
         return true
     }
 
