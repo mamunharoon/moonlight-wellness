@@ -319,3 +319,41 @@ describe('BetaVideoModal.jsx — native download control suppressed on both medi
     expect(audioBlock).toMatch(/controlsList="nodownload"/);
   });
 });
+
+describe('BetaVideoModal.jsx — automatic Picture-in-Picture / background defect fix', () => {
+  it('the <video> element declares disablePictureInPicture - a defense-in-depth opt-out, not relied on alone', () => {
+    const videoBlock = source.match(/<video\b[\s\S]*?Your browser doesn&apos;t support embedded video\./)?.[0] ?? '';
+    expect(videoBlock).not.toBe('');
+    expect(videoBlock).toMatch(/disablePictureInPicture/);
+  });
+
+  it('imports the real Capacitor App plugin and isNativePlatform - matching this codebase\'s own established appStateChange convention (SubscriptionContext.jsx/MorningReminderContext.jsx), not a bespoke mechanism', () => {
+    expect(source).toMatch(/import \{ App as CapacitorApp \} from '@capacitor\/app';/);
+    expect(source).toMatch(/import \{ isNativePlatform \} from '\.\.\/lib\/platform';/);
+  });
+
+  it('registers appStateChange natively only, and does nothing on the web shim (which has no automatic-PiP behaviour to prevent)', () => {
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isNativePlatform\(\)\) return undefined;[\s\S]*?\n {2}\}, \[isFullscreen, fallbackFullscreen\]\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(!isNativePlatform\(\)\) return undefined;/);
+    expect(body).toMatch(/CapacitorApp\.addListener\('appStateChange', \(\{ isActive \}\) => \{/);
+  });
+
+  it('acts only when the app is going to background (isActive === false), and only when a native or fallback fullscreen video is actually active - never when nothing is in fullscreen', () => {
+    const body = source.match(/CapacitorApp\.addListener\('appStateChange', \(\{ isActive \}\) => \{[\s\S]*?\n {4}\}\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/if \(isActive\) return;/);
+    expect(body).toMatch(/if \(!isFullscreen && !fallbackFullscreen\) return;/);
+  });
+
+  it('pauses the video and exits fullscreen via the SAME exitVideoFullscreen helper every other exit path uses - no new, second exit mechanism, no reset of currentTime (position is preserved deterministically by a plain pause, not by whatever PiP happened to do)', () => {
+    const body = source.match(/CapacitorApp\.addListener\('appStateChange', \(\{ isActive \}\) => \{[\s\S]*?\n {4}\}\);/)?.[0] ?? '';
+    expect(body).toMatch(/video\.pause\(\);\s*\n\s*exitVideoFullscreen\(video\);/);
+    expect(body).not.toMatch(/currentTime\s*=/);
+  });
+
+  it('cleans up the listener on unmount - no leaked appStateChange subscription across modal open/close cycles', () => {
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isNativePlatform\(\)\) return undefined;[\s\S]*?\n {2}\}, \[isFullscreen, fallbackFullscreen\]\);/)?.[0] ?? '';
+    expect(body).toMatch(/return \(\) => \{\s*\n\s*listenerPromise\?\.then\(\(listener\) => listener\.remove\(\)\);\s*\n\s*\};/);
+  });
+});

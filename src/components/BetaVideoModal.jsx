@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { isNativePlatform } from '../lib/platform';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
@@ -476,6 +478,49 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     };
   }, [videoUrl, onEnded, completionContext, fallbackFullscreen]);
 
+  // Automatic Picture-in-Picture / background defect fix. disablePictureInPicture
+  // above is the spec-compliant opt-out, but it is not relied on alone here
+  // — it is not independently confirmed to reliably suppress WebKit's own
+  // automatic fullscreen-to-PiP transition (the one specifically tied to a
+  // NATIVE-fullscreen video backgrounding, distinct from a manual PiP
+  // button) on every iOS/WebKit version this app supports, and this
+  // session has no way to verify that directly. The robust, structural
+  // fix instead removes the PRECONDITION that feature acts on: the video
+  // being in native fullscreen at the moment the app actually backgrounds.
+  // On appStateChange -> isActive === false (native only — matches this
+  // codebase's own established SubscriptionContext.jsx/
+  // MorningReminderContext.jsx convention; the web shim never fires this
+  // for a backgrounded browser tab, which has no automatic-PiP behaviour
+  // to prevent in the first place), explicitly pause() then exit
+  // fullscreen (exitVideoFullscreen, the same helper every other exit path
+  // already uses) BEFORE the OS has a chance to engage PiP. This reuses
+  // the EXISTING webkitendfullscreen listener above unchanged — it fires
+  // exactly as it would for a genuine, intentional fullscreen exit,
+  // correctly flipping isFullscreen and surfacing the already-correct
+  // Paused/Resume overlay — no new UI state, no second code path. Because
+  // this pauses rather than reloading or resetting the element,
+  // video.currentTime is left untouched: Resume (handleResumeOrReplay,
+  // unchanged) continues from the exact position playback was at,
+  // deterministically, not merely "preserved by PiP" as before. Guarded on
+  // isFullscreen || fallbackFullscreen so Sleep Soundscapes/audio-only
+  // (which never call requestVideoFullscreen at all) and the ordinary
+  // small-preview state are both completely unaffected — this never pauses
+  // a video that wasn't in fullscreen to begin with.
+  useEffect(() => {
+    if (!isNativePlatform()) return undefined;
+    const listenerPromise = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) return;
+      const video = videoRef.current;
+      if (!video) return;
+      if (!isFullscreen && !fallbackFullscreen) return;
+      video.pause();
+      exitVideoFullscreen(video);
+    });
+    return () => {
+      listenerPromise?.then((listener) => listener.remove());
+    };
+  }, [isFullscreen, fallbackFullscreen]);
+
   // Escape only closes the whole modal from the small preview state.
   // While the standards-track Fullscreen API is active (isFullscreen),
   // the browser exits fullscreen on its own and that already flows
@@ -890,6 +935,14 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   // Safari/iOS, which never showed this icon to begin with).
                   controlsList="nodownload"
                   playsInline
+                  // Automatic-PiP/background defect fix (see
+                  // exitVideoFullscreen's own new appStateChange effect
+                  // below for the primary, structural fix — this attribute
+                  // is the spec-compliant, standard opt-out for both manual
+                  // and automatic Picture-in-Picture eligibility on this
+                  // element, kept as defense-in-depth alongside it, never
+                  // relied on alone).
+                  disablePictureInPicture
                   loop={isSleepSound}
                   preload="metadata"
                   onError={handleVideoError}
