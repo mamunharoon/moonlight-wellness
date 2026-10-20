@@ -16,17 +16,15 @@
 // caller identity (JWT verification for the two authenticated functions,
 // Stripe-Signature verification for the webhook) before using it — this
 // client itself enforces nothing.
+//
+// resolveNamedKey's own JSON-parsing/fail-closed logic is extracted into
+// apiKeyResolution.ts specifically so it has real, executable Vitest
+// coverage (src/lib/apiKeyResolution.test.js) rather than being covered
+// only by this file's own review and eventual live DEV testing - see
+// that test file's own header for why the cross-boundary import is safe
+// here (no Deno-specific code in the imported file).
 import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const resolveNamedKey = (rawJson: string | undefined, name = 'default'): string => {
-  if (!rawJson) return '';
-  try {
-    const parsed = JSON.parse(rawJson);
-    return typeof parsed?.[name] === 'string' ? parsed[name] : '';
-  } catch {
-    return '';
-  }
-};
+import { resolveNamedKey } from './apiKeyResolution.ts';
 
 export const createSupabaseAdminClient = () =>
   createClient(
