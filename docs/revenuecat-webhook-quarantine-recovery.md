@@ -13,13 +13,20 @@ event (`INITIAL_PURCHASE`, `RENEWAL`, `CANCELLATION`, `UNCANCELLATION`,
 `EXPIRATION`, `BILLING_ISSUE`, `PRODUCT_CHANGE`, `REFUND_REVERSED`) whose
 `event_timestamp_ms` is missing, non-numeric, unparseable, or
 unreasonably far in the future (beyond `CLOCK_SKEW_TOLERANCE_MS`, 5
-minutes). The event is still recorded in `public.provider_events` for
-audit/idempotency, but `apply_verified_apple_subscription_event`/
+minutes), **or whose `expiration_at_ms` is missing, non-numeric, or
+numerically out of the range a `Date` can represent** (SUB-21/ST-29 fix —
+the same unsafe-to-proceed reasoning as a bad `event_timestamp_ms`:
+writing the event anyway would risk silently overwriting a genuinely
+correct stored expiry with null/guessed data). Either case: the event is
+still recorded in `public.provider_events` for audit/idempotency, but
+`apply_verified_apple_subscription_event`/
 `apply_verified_google_subscription_event` is never called for it. The
 function logs this at `console.error` with the literal prefix
-`revenuecat-webhook: QUARANTINED (<reason>)` and reason
-`missing_or_invalid` or `unreasonable_future` — this is the signal to act
-on.
+`revenuecat-webhook: QUARANTINED (<reason>)` for the timestamp case
+(reason `missing_or_invalid` or `unreasonable_future`) or `revenuecat-
+webhook: QUARANTINED (invalid expiration_at_ms)` for the expiry case —
+either line is the signal to act on; the recovery procedure below is
+identical regardless of which field caused the quarantine.
 
 **Why this needs a manual (or scheduled) follow-up, not just a dashboard
 glance**: quarantining prevents the ordering key itself from being

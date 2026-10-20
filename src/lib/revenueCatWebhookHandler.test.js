@@ -5,6 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   resolveEventVerifiedAt,
+  resolveEventExpiresAt,
   buildApplyVerifiedEventArgs,
   processRevenueCatWebhookEvent,
   looksLikeSupabaseUuid,
@@ -12,6 +13,13 @@ import {
 } from '../../supabase/functions/_shared/revenueCatWebhookHandler.js';
 
 const APP_USER_ID = '12345678-1234-1234-1234-123456789abc';
+// SUB-21/ST-29 fix: every state-changing event now requires a valid
+// expiration_at_ms to reach the RPC (see the new expiration-quarantine
+// describe block below) - this shared constant is added to pre-existing
+// event fixtures below that test OTHER behaviour (ordering, dedup,
+// provider routing, cancellation preference) and were never deliberately
+// testing a missing expiry themselves.
+const FUTURE_EXPIRY_MS = Date.parse('2099-01-01T00:00:00Z');
 
 describe('resolveEventVerifiedAt - fix 1 (event-time ordering, finalised: processing time is never an authoritative fallback, and timestamp RANGE is validated)', () => {
   it('uses the official event_timestamp_ms field when present, valid, and within range', () => {
@@ -81,6 +89,74 @@ describe('resolveEventVerifiedAt - fix 1 (event-time ordering, finalised: proces
   it('a non-finite event_timestamp_ms (NaN/Infinity) returns null', () => {
     expect(resolveEventVerifiedAt({ event_timestamp_ms: NaN })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
     expect(resolveEventVerifiedAt({ event_timestamp_ms: Infinity })).toEqual({ verifiedAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+  });
+});
+
+describe('resolveEventExpiresAt - SUB-21/ST-29 fix (expiration_at_ms validated BEFORE date conversion, never thrown)', () => {
+  it('uses expiration_at_ms when present, valid, and in range', () => {
+    const ms = 1697451462232;
+    expect(resolveEventExpiresAt({ expiration_at_ms: ms })).toEqual({
+      expiresAtIso: new Date(ms).toISOString(),
+      usedFallback: false,
+      quarantineReason: null
+    });
+  });
+
+  it('a valid PAST expiration_at_ms is accepted unmodified - there is no "already expired, so reject" rule here, that decision belongs to the RPC/entitlement guard, not this mapping step', () => {
+    const pastMs = Date.parse('2020-01-01T00:00:00Z');
+    expect(resolveEventExpiresAt({ expiration_at_ms: pastMs })).toEqual({
+      expiresAtIso: new Date(pastMs).toISOString(),
+      usedFallback: false,
+      quarantineReason: null
+    });
+  });
+
+  it('a valid FUTURE expiration_at_ms is accepted unmodified - unlike event_timestamp_ms, an expiry has no "unreasonably future" rejection; a genuine multi-year subscription period is expected', () => {
+    const futureMs = Date.parse('2099-01-01T00:00:00Z');
+    expect(resolveEventExpiresAt({ expiration_at_ms: futureMs })).toEqual({
+      expiresAtIso: new Date(futureMs).toISOString(),
+      usedFallback: false,
+      quarantineReason: null
+    });
+  });
+
+  it('a missing expiration_at_ms is quarantined, never defaulted to null-and-proceed', () => {
+    expect(resolveEventExpiresAt({ type: 'RENEWAL' })).toEqual({ expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    expect(resolveEventExpiresAt({})).toEqual({ expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+  });
+
+  it('a wrong-type expiration_at_ms (string, boolean, object, array) is quarantined - these ARE reachable from a real webhook JSON body', () => {
+    for (const wrongType of ['not-a-number', '1697451462232', true, false, { ms: 1 }, [1697451462232], null]) {
+      expect(resolveEventExpiresAt({ expiration_at_ms: wrongType })).toEqual({ expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    }
+  });
+
+  // THE DEMONSTRATED DEFECT THIS FIX CLOSES: the previous implementation
+  // (`new Date(event.expiration_at_ms).toISOString()`, guarded only by
+  // `typeof === 'number'`) threw an uncaught RangeError for exactly this
+  // shape - reproduced directly before this fix, not assumed. This is a
+  // syntactically ordinary JSON number (no NaN/Infinity involved) -
+  // genuinely reachable from a real, malformed webhook payload, not a
+  // synthetic unit-test-only value.
+  it('an out-of-range NUMERIC expiration_at_ms (e.g. a corrupted/inflated value) is quarantined, never thrown - genuinely reachable via real JSON, unlike NaN/Infinity below', () => {
+    for (const outOfRange of [1e20, -1e20, Number.MAX_VALUE]) {
+      expect(() => resolveEventExpiresAt({ expiration_at_ms: outOfRange })).not.toThrow();
+      expect(resolveEventExpiresAt({ expiration_at_ms: outOfRange })).toEqual({ expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    }
+  });
+
+  // Distinguished explicitly from the case above: NaN/Infinity have no
+  // JSON representation at all (a real webhook body could never carry
+  // either - req.json() would fail to parse a payload containing a bare
+  // `NaN` or `Infinity` token long before this function ever saw it).
+  // Exercised anyway because this is a plain, reusable JS function
+  // callable from more than one context, and it must stay safe even for
+  // an input shape only a direct test (or a future caller) could produce.
+  it('a non-finite expiration_at_ms (NaN/Infinity - NOT JSON-representable, a direct unit-test value only) is quarantined the same way, as defense in depth', () => {
+    for (const nonFinite of [NaN, Infinity, -Infinity]) {
+      expect(() => resolveEventExpiresAt({ expiration_at_ms: nonFinite })).not.toThrow();
+      expect(resolveEventExpiresAt({ expiration_at_ms: nonFinite })).toEqual({ expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' });
+    }
   });
 });
 
@@ -180,16 +256,18 @@ describe('buildApplyVerifiedEventArgs - fix 2 chain (undefined/null must never b
   });
 
   it('REFUND_REVERSED with a past expiration_at_ms carries that real (past) timestamp through unmodified - never fabricated as "still valid"', () => {
+    const pastMs = Date.parse('2020-01-01T00:00:00Z');
     const { args } = buildApplyVerifiedEventArgs({
       provider: 'apple',
-      event: { type: 'REFUND_REVERSED', period_type: 'NORMAL', original_transaction_id: 'txn-2', expiration_at_ms: Date.parse('2020-01-01T00:00:00Z') },
+      event: { type: 'REFUND_REVERSED', period_type: 'NORMAL', original_transaction_id: 'txn-2', expiration_at_ms: pastMs },
       appUserId: APP_USER_ID,
       stateChange: { status: 'active', cancelAtPeriodEnd: undefined },
       verifiedAtIso: '2026-10-19T00:00:00.000Z',
+      expiresAtIso: new Date(pastMs).toISOString(),
       payloadSummary: {},
       eventId: 'evt-8'
     });
-    expect(args.p_current_period_expires_at).toBe(new Date(Date.parse('2020-01-01T00:00:00Z')).toISOString());
+    expect(args.p_current_period_expires_at).toBe(new Date(pastMs).toISOString());
   });
 
   it('REFUND_REVERSED with a future expiration_at_ms carries that real (future) timestamp through unmodified', () => {
@@ -200,10 +278,24 @@ describe('buildApplyVerifiedEventArgs - fix 2 chain (undefined/null must never b
       appUserId: APP_USER_ID,
       stateChange: { status: 'active', cancelAtPeriodEnd: undefined },
       verifiedAtIso: '2026-10-19T00:00:00.000Z',
+      expiresAtIso: new Date(futureMs).toISOString(),
       payloadSummary: {},
       eventId: 'evt-9'
     });
     expect(args.p_current_period_expires_at).toBe(new Date(futureMs).toISOString());
+  });
+
+  it('expiresAtIso not supplied (e.g. the caller never resolved one) produces p_current_period_expires_at === null, never re-deriving from the raw event', () => {
+    const { args } = buildApplyVerifiedEventArgs({
+      provider: 'apple',
+      event: { type: 'REFUND_REVERSED', period_type: 'NORMAL', original_transaction_id: 'txn-10', expiration_at_ms: Date.parse('2099-01-01T00:00:00Z') },
+      appUserId: APP_USER_ID,
+      stateChange: { status: 'active', cancelAtPeriodEnd: undefined },
+      verifiedAtIso: '2026-10-19T00:00:00.000Z',
+      payloadSummary: {},
+      eventId: 'evt-10'
+    });
+    expect(args.p_current_period_expires_at).toBeNull();
   });
 });
 
@@ -238,8 +330,8 @@ describe('processRevenueCatWebhookEvent - out-of-order delivery (fix 1, end to e
     const db = makeFakeDb();
     const originalTransactionId = 'txn-order-1';
 
-    const renewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-renewal', event_timestamp_ms: 1697451462232 };
-    const oldCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'UNSUBSCRIBE', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-cancel', event_timestamp_ms: 1697365062232 /* ~1 day earlier */ };
+    const renewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-renewal', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
+    const oldCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'UNSUBSCRIBE', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-cancel', event_timestamp_ms: 1697365062232 /* ~1 day earlier */, expiration_at_ms: FUTURE_EXPIRY_MS };
 
     // Processed in reverse-of-real-time order: renewal first, then the
     // chronologically OLDER cancellation (simulating a late redelivery).
@@ -258,8 +350,8 @@ describe('processRevenueCatWebhookEvent - out-of-order delivery (fix 1, end to e
   it('genuinely in-order delivery (old event first, new event second) is unaffected', async () => {
     const db = makeFakeDb();
     const originalTransactionId = 'txn-order-2';
-    const oldCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-a', event_timestamp_ms: 1697365062232 };
-    const renewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-b', event_timestamp_ms: 1697451462232 };
+    const oldCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-a', event_timestamp_ms: 1697365062232, expiration_at_ms: FUTURE_EXPIRY_MS };
+    const renewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-b', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
 
     await processRevenueCatWebhookEvent(oldCancellation, db);
     await processRevenueCatWebhookEvent(renewal, db);
@@ -293,7 +385,7 @@ describe('processRevenueCatWebhookEvent - duplicate events', () => {
 
   it('a redelivered state-changing event that the RPC itself recognises as a duplicate (no SQL error, simply not re-applied) still reports success', async () => {
     const db = makeFakeDb();
-    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-dup', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-redelivered', event_timestamp_ms: 1697451462232 };
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-dup', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-redelivered', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
     const first = await processRevenueCatWebhookEvent(event, db);
     const second = await processRevenueCatWebhookEvent(event, db); // identical redelivery
     expect(first.body.processed).toBe(true);
@@ -346,7 +438,7 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
   it('a valid event_timestamp_ms never triggers quarantine or the hook', async () => {
     const db = makeFakeDb();
     const onTimestampQuarantined = vi.fn();
-    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-valid-ts', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-valid-ts', event_timestamp_ms: 1697451462232 };
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-valid-ts', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-valid-ts', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
     const result = await processRevenueCatWebhookEvent(event, { ...db, onTimestampQuarantined });
     expect(result.body.processed).toBe(true);
     expect(onTimestampQuarantined).not.toHaveBeenCalled();
@@ -374,8 +466,8 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
   it('CONFIRMED: a malformed-timestamp event can never overwrite an already-applied newer valid record, because it is never even sent to the RPC', async () => {
     const db = makeFakeDb();
     const originalTransactionId = 'txn-malformed-cannot-overwrite';
-    const validRenewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-valid', event_timestamp_ms: 1697451462232 };
-    const malformedCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-malformed', event_timestamp_ms: 'not-a-number' };
+    const validRenewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-valid', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
+    const malformedCancellation = { type: 'CANCELLATION', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-malformed', event_timestamp_ms: 'not-a-number', expiration_at_ms: FUTURE_EXPIRY_MS };
 
     await processRevenueCatWebhookEvent(validRenewal, db);
     const result = await processRevenueCatWebhookEvent(malformedCancellation, db);
@@ -452,7 +544,8 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
       store: 'APP_STORE',
       app_user_id: APP_USER_ID,
       id: 'evt-real-later',
-      event_timestamp_ms: Date.parse('2026-10-21T00:00:00Z')
+      event_timestamp_ms: Date.parse('2026-10-21T00:00:00Z'),
+      expiration_at_ms: FUTURE_EXPIRY_MS
     };
     const laterResult = await processRevenueCatWebhookEvent(laterValidEvent, { ...db, now: new Date('2026-10-21T00:05:00Z') });
     expect(laterResult.body.processed).toBe(true);
@@ -477,13 +570,109 @@ describe('processRevenueCatWebhookEvent - invalid/missing timestamps are QUARANT
       store: 'APP_STORE',
       app_user_id: APP_USER_ID,
       id: 'evt-delayed',
-      event_timestamp_ms: now.getTime() - 6 * 60 * 60 * 1000 // 6 hours delayed.
+      event_timestamp_ms: now.getTime() - 6 * 60 * 60 * 1000, // 6 hours delayed.
+      expiration_at_ms: FUTURE_EXPIRY_MS
     };
     const result = await processRevenueCatWebhookEvent(delayedEvent, { ...db, now });
     expect(result.body.processed).toBe(true);
     expect(db.calls).toHaveLength(1);
     const stored = db.store.get(`apple:${delayedEvent.original_transaction_id}`);
     expect(stored.lastVerifiedAt).toBe(new Date(delayedEvent.event_timestamp_ms).toISOString());
+  });
+});
+
+describe('processRevenueCatWebhookEvent - invalid/missing expiration_at_ms is QUARANTINED, never applied with null/guessed data (SUB-21/ST-29 fix)', () => {
+  it('a missing expiration_at_ms is quarantined: the RPC is NEVER called, onExpirationQuarantined fires, and the response says so explicitly', async () => {
+    const db = makeFakeDb();
+    const onExpirationQuarantined = vi.fn();
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-no-expiry', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-no-expiry', event_timestamp_ms: 1697451462232 };
+    const result = await processRevenueCatWebhookEvent(event, { ...db, onExpirationQuarantined });
+    expect(result).toEqual({ status: 200, body: { received: true, processed: false, reason: 'quarantined_invalid_expiration' } });
+    expect(db.calls).toHaveLength(0); // the RPC is never invoked for a quarantined event.
+    expect(onExpirationQuarantined).toHaveBeenCalledTimes(1);
+    expect(onExpirationQuarantined).toHaveBeenCalledWith(event);
+  });
+
+  // THE DEMONSTRATED DEFECT THIS FIX CLOSES, exercised through the FULL
+  // real handler (not just the isolated resolveEventExpiresAt unit above):
+  // before this fix, this exact event shape threw an uncaught RangeError
+  // inside buildApplyVerifiedEventArgs, reproduced directly beforehand -
+  // not assumed. A genuinely reachable malformed-JSON-payload shape (an
+  // ordinary number, just wildly out of range), not a synthetic NaN/
+  // Infinity value.
+  it('an out-of-range numeric expiration_at_ms never throws through the real handler - quarantined the same way as missing', async () => {
+    const db = makeFakeDb();
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-bad-expiry', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-bad-expiry', event_timestamp_ms: 1697451462232, expiration_at_ms: 1e20 };
+    await expect(processRevenueCatWebhookEvent(event, db)).resolves.not.toThrow();
+    const result = await processRevenueCatWebhookEvent({ ...event, id: 'evt-bad-expiry-2' }, db);
+    expect(result.body.reason).toBe('quarantined_invalid_expiration');
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('a non-numeric/non-finite expiration_at_ms is quarantined the same way', async () => {
+    for (const malformedMs of ['not-a-number', NaN, Infinity, null, -1e20]) {
+      const db = makeFakeDb();
+      const event = { type: 'CANCELLATION', period_type: 'NORMAL', original_transaction_id: 'txn-expiry-malformed', store: 'APP_STORE', app_user_id: APP_USER_ID, id: `evt-expiry-malformed-${String(malformedMs)}`, event_timestamp_ms: 1697451462232, expiration_at_ms: malformedMs };
+      const result = await processRevenueCatWebhookEvent(event, db);
+      expect(result.body.reason).toBe('quarantined_invalid_expiration');
+      expect(db.calls).toHaveLength(0);
+    }
+  });
+
+  it('a valid expiration_at_ms (past or future) never triggers expiration quarantine or the hook', async () => {
+    const db = makeFakeDb();
+    const onExpirationQuarantined = vi.fn();
+    for (const [label, ms] of [['past', Date.parse('2020-01-01T00:00:00Z')], ['future', Date.parse('2099-01-01T00:00:00Z')]]) {
+      const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: `txn-valid-expiry-${label}`, store: 'APP_STORE', app_user_id: APP_USER_ID, id: `evt-valid-expiry-${label}`, event_timestamp_ms: 1697451462232, expiration_at_ms: ms };
+      const result = await processRevenueCatWebhookEvent(event, { ...db, onExpirationQuarantined });
+      expect(result.body.processed).toBe(true);
+    }
+    expect(onExpirationQuarantined).not.toHaveBeenCalled();
+  });
+
+  it('an expiration-quarantined event is still recorded to provider_events for idempotency, and a genuine insert failure (not a duplicate) still surfaces as a 500', async () => {
+    const db = makeFakeDb();
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-expiry-quarantine-insert-fail', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-expiry-q-fail', event_timestamp_ms: 1697451462232 };
+    const ok = await processRevenueCatWebhookEvent(event, db);
+    expect(ok.body.reason).toBe('quarantined_invalid_expiration');
+    expect(db.insertProviderEvent).toHaveBeenCalledTimes(1);
+
+    const dbFailing = makeFakeDb();
+    dbFailing.insertProviderEvent = vi.fn(async () => ({ error: { code: '08006', message: 'connection failure' } }));
+    const failed = await processRevenueCatWebhookEvent({ ...event, id: 'evt-expiry-q-fail-2' }, dbFailing);
+    expect(failed.status).toBe(500);
+  });
+
+  // THE EXACT RISK NAMED IN THIS FIX'S OWN INSTRUCTION: an event with an
+  // invalid expiry must never overwrite an already-stored, genuinely
+  // correct subscription using guessed/null data. Mirrors the equivalent
+  // timestamp-quarantine overwrite-prevention test above.
+  it('CONFIRMED: an event with an invalid expiry can never overwrite an already-applied valid subscription record, because it is never even sent to the RPC', async () => {
+    const db = makeFakeDb();
+    const originalTransactionId = 'txn-expiry-cannot-overwrite';
+    const validRenewal = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-expiry-valid', event_timestamp_ms: 1697451462232, expiration_at_ms: Date.parse('2027-01-01T00:00:00Z') };
+    const laterBadExpiry = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-expiry-bad', event_timestamp_ms: 1697451462232 + 1000, expiration_at_ms: 1e20 };
+
+    await processRevenueCatWebhookEvent(validRenewal, db);
+    const result = await processRevenueCatWebhookEvent(laterBadExpiry, db);
+
+    expect(result.body.reason).toBe('quarantined_invalid_expiration');
+    expect(db.calls).toHaveLength(1); // only the valid renewal ever reached the RPC.
+    const stored = db.store.get(`apple:${originalTransactionId}`);
+    expect(stored.args.p_current_period_expires_at).toBe(new Date(Date.parse('2027-01-01T00:00:00Z')).toISOString()); // untouched by the quarantined event - never overwritten with null or a guessed value.
+  });
+
+  it('does not affect the RPC-level provider=manual NULL-expiry exception - this path only ever builds apple/google RPC calls, confirmed by which RPC function gets invoked', async () => {
+    const db = makeFakeDb();
+    const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-manual-unrelated', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-manual-unrelated', event_timestamp_ms: 1697451462232, expiration_at_ms: Date.parse('2027-01-01T00:00:00Z') };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body.processed).toBe(true);
+    // This fix only ever reaches buildApplyVerifiedEventArgs's existing
+    // apple/google branches (see that function's own header) - there is
+    // no third branch, so the RPC-level provider='manual' NULL-expiry
+    // exception (a separate, admin-only grant mechanism) is structurally
+    // unreachable from this webhook regardless of this fix.
+    expect(db.calls[0].provider).toBe('apple');
   });
 });
 
@@ -503,7 +692,7 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
     // it actually runs (and never accidentally exercises the UNRELATED
     // future-timestamp tolerance check this same module also enforces).
     const now = new Date('2026-10-18T07:00:00Z');
-    const newEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-new', event_timestamp_ms: Date.parse('2026-10-18T06:40:00Z') };
+    const newEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-new', event_timestamp_ms: Date.parse('2026-10-18T06:40:00Z'), expiration_at_ms: FUTURE_EXPIRY_MS };
     await processRevenueCatWebhookEvent(newEvent, { ...db, now });
 
     const stored = db.store.get(`apple:${originalTransactionId}`);
@@ -538,7 +727,8 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
       store: 'APP_STORE',
       app_user_id: APP_USER_ID,
       id: 'evt-edge',
-      event_timestamp_ms: Date.parse(processingTimeStoredAt) - 2000
+      event_timestamp_ms: Date.parse(processingTimeStoredAt) - 2000,
+      expiration_at_ms: FUTURE_EXPIRY_MS
     };
     await processRevenueCatWebhookEvent(newEvent, db);
 
@@ -567,7 +757,7 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
     // Explicit `now`, same reasoning as the test above - deterministic,
     // and safely past this event's own timestamp.
     const now = new Date('2026-10-19T07:00:00Z');
-    const laterRevenueCatEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-after-direct', event_timestamp_ms: Date.parse('2026-10-19T06:40:11Z') };
+    const laterRevenueCatEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-after-direct', event_timestamp_ms: Date.parse('2026-10-19T06:40:11Z'), expiration_at_ms: FUTURE_EXPIRY_MS };
     await processRevenueCatWebhookEvent(laterRevenueCatEvent, { ...db, now });
 
     const stored = db.store.get(`apple:${originalTransactionId}`);
@@ -581,7 +771,7 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
     // Explicit `now`, same reasoning as the two tests above - this test
     // must stay deterministic and never depend on whatever the real
     // wall clock happens to be when it runs.
-    const rcEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-rc-first', event_timestamp_ms: Date.parse('2026-10-18T06:40:11Z') };
+    const rcEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: originalTransactionId, store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-rc-first', event_timestamp_ms: Date.parse('2026-10-18T06:40:11Z'), expiration_at_ms: FUTURE_EXPIRY_MS };
     await processRevenueCatWebhookEvent(rcEvent, { ...db, now: new Date('2026-10-18T07:00:00Z') });
 
     // A later, real reconciliation write using Apple's own signedDate,
@@ -604,7 +794,7 @@ describe('processRevenueCatWebhookEvent - compatibility with existing processing
 describe('processRevenueCatWebhookEvent - refund cancellation (fix 2, end to end)', () => {
   it('a CUSTOMER_SUPPORT-reason CANCELLATION calls the RPC with p_cancel_at_period_end: null, never true', async () => {
     const db = makeFakeDb();
-    const event = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'CUSTOMER_SUPPORT', original_transaction_id: 'txn-refund', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-refund', event_timestamp_ms: 1697451462232 };
+    const event = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'CUSTOMER_SUPPORT', original_transaction_id: 'txn-refund', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-refund', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
     await processRevenueCatWebhookEvent(event, db);
     expect(db.calls).toHaveLength(1);
     expect(db.calls[0].args.p_cancel_at_period_end).toBeNull();
@@ -612,7 +802,7 @@ describe('processRevenueCatWebhookEvent - refund cancellation (fix 2, end to end
 
   it('an ordinary UNSUBSCRIBE-reason CANCELLATION still calls the RPC with p_cancel_at_period_end: true, unchanged', async () => {
     const db = makeFakeDb();
-    const event = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'UNSUBSCRIBE', original_transaction_id: 'txn-voluntary', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-voluntary', event_timestamp_ms: 1697451462232 };
+    const event = { type: 'CANCELLATION', period_type: 'NORMAL', cancel_reason: 'UNSUBSCRIBE', original_transaction_id: 'txn-voluntary', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-voluntary', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
     await processRevenueCatWebhookEvent(event, db);
     expect(db.calls[0].args.p_cancel_at_period_end).toBe(true);
   });
@@ -653,8 +843,8 @@ describe('processRevenueCatWebhookEvent - REFUND_REVERSED (fix 3, before/after e
 describe('processRevenueCatWebhookEvent - cross-provider independence', () => {
   it('an Apple event and a Google event are routed to their own RPCs with their own shaped args, never cross-contaminated', async () => {
     const db = makeFakeDb();
-    const appleEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'apple-txn-1', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-apple', event_timestamp_ms: 1697451462232 };
-    const googleEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'GPA.order-1', store: 'PLAY_STORE', app_user_id: APP_USER_ID, id: 'evt-google', event_timestamp_ms: 1697451462232 };
+    const appleEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'apple-txn-1', store: 'APP_STORE', app_user_id: APP_USER_ID, id: 'evt-apple', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
+    const googleEvent = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'GPA.order-1', store: 'PLAY_STORE', app_user_id: APP_USER_ID, id: 'evt-google', event_timestamp_ms: 1697451462232, expiration_at_ms: FUTURE_EXPIRY_MS };
 
     await processRevenueCatWebhookEvent(appleEvent, db);
     await processRevenueCatWebhookEvent(googleEvent, db);

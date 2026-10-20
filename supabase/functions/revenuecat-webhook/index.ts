@@ -153,6 +153,18 @@ Deno.serve(async (req) => {
         quarantinedEvent?.app_user_id
       );
     },
+    // SUB-21/ST-29 fix — same alert-level treatment as the timestamp
+    // quarantine above and for the same reason: rejecting a missing/
+    // invalid expiration_at_ms is not free of risk either (the account's
+    // real state may now be stale until a later valid event corrects it).
+    onExpirationQuarantined: (quarantinedEvent) => {
+      console.error(
+        'revenuecat-webhook: QUARANTINED (invalid expiration_at_ms) — state change NOT applied (a missing/invalid expiry is never written as null or guessed); account state may be stale until a later valid event or manual/scheduled reconciliation corrects it',
+        quarantinedEvent?.type,
+        quarantinedEvent?.id,
+        quarantinedEvent?.app_user_id
+      );
+    },
     insertProviderEvent: (row) => supabaseAdmin.from('provider_events').insert(row),
     callApplyVerifiedEvent: (provider, args) =>
       supabaseAdmin.rpc(provider === 'apple' ? 'apply_verified_apple_subscription_event' : 'apply_verified_google_subscription_event', args)
@@ -163,7 +175,8 @@ Deno.serve(async (req) => {
   // function's own returned reason rather than duplicated inline.
   // Neither 'quarantined_invalid_timestamp' nor 'quarantined_future_timestamp'
   // is re-logged here — both are already logged, loudly, by
-  // onTimestampQuarantined above.
+  // onTimestampQuarantined above. 'quarantined_invalid_expiration'
+  // likewise already logged, loudly, by onExpirationQuarantined above.
   if (result.body?.reason === 'unresolved_store') {
     console.warn('revenuecat-webhook: event references a store this project does not act on', event?.store ?? 'unknown', event?.type);
   } else if (result.body?.reason === 'missing_transaction_id') {

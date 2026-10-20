@@ -153,6 +153,59 @@ export const resolveEventVerifiedAt = (event, now = new Date()) => {
   return { verifiedAtIso: date.toISOString(), usedFallback: false, quarantineReason: null };
 };
 
+/**
+ * Expiry-field safety fix (SUB-21/ST-29). Mirrors resolveEventVerifiedAt's
+ * own established pattern exactly, including why: the previous inline
+ * conversion (`typeof event.expiration_at_ms === 'number' ? new
+ * Date(event.expiration_at_ms).toISOString() : null`) only guarded
+ * against the wrong TYPE, never against a numeric value outside the
+ * range a Date can actually represent — `new Date(outOfRangeMs)` does
+ * NOT throw (it silently produces an Invalid Date), but calling
+ * `.toISOString()` on that Invalid Date DOES throw a RangeError,
+ * uncaught by anything in this module or by revenuecat-webhook/index.ts's
+ * own Deno.serve handler — reproduced directly (`new Date(1e20).
+ * toISOString()` throws), not assumed. A missing/invalid expiration_at_ms
+ * on a state-changing event is exactly as dangerous as a missing/invalid
+ * event_timestamp_ms (see resolveEventVerifiedAt's own header): applying
+ * the write anyway with a null or guessed expiry would either silently
+ * overwrite a previously-stored, genuinely-correct expiry with wrong data,
+ * or write a fresh row with no real expiry at all — neither is a safe
+ * "proceed" outcome, so this quarantines exactly like the timestamp case
+ * (processRevenueCatWebhookEvent's own expiration-quarantine branch),
+ * never substituting a computed fallback of any kind.
+ *
+ * Does NOT affect the RPC's own separate `provider = 'manual' AND
+ * expires_at IS NULL` exception (an indefinite admin grant, documented in
+ * the entitlements-expiry-guard migration) — that rule lives entirely in
+ * the RPC and is never reached via this RevenueCat-sourced path, which
+ * only ever writes provider='apple'/'google' rows.
+ *
+ * Only `typeof ms !== 'number' || !Number.isFinite(ms)` is reachable from
+ * a REAL webhook body (JSON has no NaN/Infinity literal — req.json()
+ * would itself fail to parse a payload containing one): a real malformed
+ * payload reaches this guard as a wrong type, or as a syntactically valid
+ * but wildly out-of-range JSON number (e.g. 1e20), caught by the
+ * `Number.isNaN(date.getTime())` check below. Direct unit tests also
+ * exercise NaN/Infinity themselves — not reachable through real JSON, but
+ * exercising this function's own defensive robustness directly, since
+ * it is a plain, reusable JS function callable from more than one
+ * context.
+ *
+ * @param {{expiration_at_ms?: unknown}} event
+ * @returns {{expiresAtIso: string|null, usedFallback: boolean, quarantineReason: 'missing_or_invalid'|null}}
+ */
+export const resolveEventExpiresAt = (event) => {
+  const ms = event?.expiration_at_ms;
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) {
+    return { expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' };
+  }
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return { expiresAtIso: null, usedFallback: true, quarantineReason: 'missing_or_invalid' };
+  }
+  return { expiresAtIso: date.toISOString(), usedFallback: false, quarantineReason: null };
+};
+
 export const buildPayloadSummary = (event) => ({
   type: event.type,
   productId: event.product_id ?? null,
@@ -174,10 +227,16 @@ export const buildPayloadSummary = (event) => ({
  * `true` by anything in this function. See this module's own test file
  * for an explicit assertion of this exact chain.
  *
+ * `expiresAtIso` is the CALLER's already-validated value (see
+ * resolveEventExpiresAt/processRevenueCatWebhookEvent's own expiration-
+ * quarantine branch) — this function no longer derives it from the raw
+ * event itself, so it can never again reach an unvalidated `new
+ * Date(...).toISOString()` call.
+ *
  * @returns {{args: object, reason: null} | {args: null, reason: string}}
  */
-export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateChange, verifiedAtIso, payloadSummary, eventId }) => {
-  const expiresAt = typeof event.expiration_at_ms === 'number' ? new Date(event.expiration_at_ms).toISOString() : null;
+export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateChange, verifiedAtIso, expiresAtIso, payloadSummary, eventId }) => {
+  const expiresAt = expiresAtIso ?? null;
   const environment = event.environment === 'PRODUCTION' ? 'production' : 'sandbox';
   const cancelAtPeriodEnd = stateChange.cancelAtPeriodEnd ?? null;
 
@@ -250,17 +309,20 @@ export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateC
  * @param {{
  *   now?: Date,
  *   onTimestampQuarantined?: (event: object, reason: 'missing_or_invalid'|'unreasonable_future') => void,
+ *   onExpirationQuarantined?: (event: object) => void,
  *   insertProviderEvent: (row: object) => Promise<{error: {code?: string, message?: string}|null}>,
  *   callApplyVerifiedEvent: (provider: 'apple'|'google', args: object) => Promise<{error: {code?: string, message?: string}|null}>
  * }} deps
  *   `now` is forwarded only to resolveEventVerifiedAt's range check
  *   (defaults to the real wall clock in production; tests pin it) — it is
  *   never used to construct a substitute ordering value anywhere in this
- *   function.
+ *   function. `onExpirationQuarantined` has no reason parameter (unlike
+ *   onTimestampQuarantined) — resolveEventExpiresAt has only the one
+ *   quarantine reason, 'missing_or_invalid'.
  * @returns {Promise<{status: number, body: Record<string, unknown>}>}
  */
 export const processRevenueCatWebhookEvent = async (event, deps) => {
-  const { now = new Date(), onTimestampQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
+  const { now = new Date(), onTimestampQuarantined, onExpirationQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
 
   if (!event || typeof event.type !== 'string') {
     return { status: 400, body: { error: 'Missing event' } };
@@ -337,12 +399,43 @@ export const processRevenueCatWebhookEvent = async (event, deps) => {
     };
   }
 
+  const { expiresAtIso, usedFallback: expirationQuarantined } = resolveEventExpiresAt(event);
+
+  // QUARANTINE — SUB-21/ST-29 fix. A missing/invalid expiration_at_ms on
+  // a state-changing event is exactly as unsafe to proceed with as a
+  // missing/invalid event_timestamp_ms above (see resolveEventExpiresAt's
+  // own header for the full reasoning): writing the event anyway with a
+  // null/guessed expiry risks silently overwriting a previously-stored,
+  // genuinely-correct expiry with wrong data. Same audit/idempotency
+  // handling as the timestamp quarantine above (still recorded to
+  // provider_events, a redelivery of the same malformed event is a quiet
+  // no-op after the first alert) and the same HTTP 200/processed:false
+  // convention (a malformed payload is not retry-worthy).
+  if (expirationQuarantined) {
+    onExpirationQuarantined?.(event);
+    const { error: insertError } = await insertProviderEvent({
+      provider,
+      provider_event_id: eventId,
+      event_type: event.type,
+      user_id: appUserId,
+      payload_summary: payloadSummary
+    });
+    if (insertError && insertError.code !== '23505') {
+      return { status: 500, body: { error: 'Failed to record event' } };
+    }
+    return {
+      status: 200,
+      body: { received: true, processed: false, reason: 'quarantined_invalid_expiration' }
+    };
+  }
+
   const { args, reason: missingIdentifierReason } = buildApplyVerifiedEventArgs({
     provider,
     event,
     appUserId,
     stateChange,
     verifiedAtIso,
+    expiresAtIso,
     payloadSummary,
     eventId
   });
