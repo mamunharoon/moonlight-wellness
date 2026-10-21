@@ -117,7 +117,18 @@ describe('Subscription.jsx — founder offer is never reachable from the ordinar
   });
 
   it('the founder action button only renders for the annual interval - the founder mechanism does not exist on the monthly product', () => {
-    expect(source).toMatch(/\{interval === 'yearly' && \(\s*\n\s*<button\s*\n\s*onClick=\{handleFounderOfferAction\}/);
+    expect(source).toMatch(/\{interval === 'yearly' && !IS_NATIVE_IOS && \(\s*\n\s*<button\s*\n\s*onClick=\{handleFounderOfferAction\}/);
+  });
+
+  it('the Apple founder-offer entry point is hidden for the Apple launch (D-04, owner decision) on every iOS build, including production - not a sandbox/test-build-only flag', () => {
+    expect(source).toMatch(/\{interval === 'yearly' && !IS_NATIVE_IOS && \(/);
+    expect(source).not.toMatch(/IS_SANDBOX_TEST_BUILD[\s\S]{0,80}Have a founder offer code/);
+  });
+
+  it('Android\'s own founder-offer entry point is left untouched by the Apple-launch hide - the condition only ever removes the iOS branch', () => {
+    const body = source.match(/\{interval === 'yearly' && !IS_NATIVE_IOS && \([\s\S]*?\n {10}\)\}/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/onClick=\{handleFounderOfferAction\}/);
   });
 });
 

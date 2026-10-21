@@ -1004,8 +1004,16 @@ export const Subscription = () => {
           {/* Founder offer — its own explicit action, never reachable from
               the ordinary Subscribe button above (readiness-gap item 5).
               Annual only: the founder mechanism only exists on the annual
-              product on either platform. */}
-          {interval === 'yearly' && (
+              product on either platform.
+              HIDDEN FOR APPLE LAUNCH (D-04, owner decision): the Apple
+              entry point is withdrawn from every iOS build, including
+              production — not a sandbox-only or test-build-only change,
+              and not a build-time flag, so it cannot be accidentally
+              re-exposed by a workflow that omits one. Android's own,
+              separately-tracked founder-offer path (PRC-05, Deferred) is
+              deliberately untouched — this condition only ever removes
+              the iOS branch. */}
+          {interval === 'yearly' && !IS_NATIVE_IOS && (
             <button
               onClick={handleFounderOfferAction}
               disabled={nativeProductsState !== 'ready' || nativePurchaseState === 'purchasing'}
