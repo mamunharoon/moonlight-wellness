@@ -53,6 +53,7 @@ const DeleteAccount = lazy(() => import('./pages/DeleteAccount').then((m) => ({ 
 // / `withFallback(<RoutineDetail />)`.
 const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
 const Journey = lazy(() => import('./pages/Journey').then((m) => ({ default: m.Journey })));
+const Progress = lazy(() => import('./pages/Progress').then((m) => ({ default: m.Progress })));
 const SessionComplete = lazy(() => import('./pages/SessionComplete').then((m) => ({ default: m.SessionComplete })));
 const IntentionSetup = lazy(() => import('./pages/IntentionSetup').then((m) => ({ default: m.IntentionSetup })));
 const ChangeIntention = lazy(() => import('./pages/ChangeIntention').then((m) => ({ default: m.ChangeIntention })));
@@ -470,6 +471,7 @@ function App() {
                       to a Profile row instead — see Profile.jsx). */}
                   <Route path="library" element={withFallback(<Library />)} />
                   <Route path="journey" element={withFallback(<Journey />)} />
+                  <Route path="progress" element={withFallback(<Progress />)} />
                   <Route path="profile" element={withFallback(<Profile />)} />
                   <Route path="profile/privacy-account" element={withFallback(<PrivacyAndAccount />)} />
                   {/* Safe Account Management and Account Deletion: reached only

@@ -414,6 +414,17 @@ export const Profile = () => {
             <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
           </Link>
 
+          {/* PRG-05: a separate, new row - the existing Journey link above
+              is untouched and still goes to the journal/intentions page.
+              Distinct icon (bar_chart) so it's never confused with it. */}
+          <Link to="/progress" className={rowClass}>
+            <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">bar_chart</span>
+              My Progress
+            </span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant">chevron_right</span>
+          </Link>
+
           <Link to="/introduction" className={rowClass}>
             <span className="flex items-center gap-3 text-sm font-semibold text-on-surface">
               <span className="material-symbols-outlined text-on-surface-variant text-xl">info</span>
