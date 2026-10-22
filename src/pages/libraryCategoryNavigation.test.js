@@ -130,9 +130,9 @@ describe('no category text is permanently clipped or unreachable, and search/fil
     expect((source.match(/shrink-0 snap-start/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 
-  it('the search input and its query-filtering logic are completely untouched', () => {
+  it('the search input is completely untouched, and its query-filtering behaviour is preserved (the primary-list matching moved into libraryGrouping.js - see libraryExploreJourneyFiltering.test.js/libraryGrouping.test.js - the Meditation filter\'s own copy stays here)', () => {
     expect(source).toMatch(/placeholder="Search exercises and sounds\.\.\."/);
-    expect(source).toMatch(/const matchesQuery = \(entry\) => \{/);
+    expect(source).toMatch(/const matchesQuery = \(entry\) => !trimmedQuery \|\| /);
   });
 
   it('long category labels (e.g. "POSITIVE ENERGY & CONFIDENCE") still render as one real category string, never abbreviated to fit', () => {

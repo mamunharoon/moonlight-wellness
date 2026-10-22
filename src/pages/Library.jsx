@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUnifiedEntitlement } from '../context/SubscriptionContext';
 import { CATALOG_CATEGORIES, MEDIA_CATALOG, ANYTIME_RESET_NEEDS, ANYTIME_RESET_DURATIONS, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
+import { groupLibraryItems } from '../lib/libraryGrouping';
 import { isValidExploreJourney, getExploreCatalogForJourney, getCuratedExploreCatalog } from '../lib/exploreFiltering';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
@@ -270,21 +271,16 @@ export const Library = () => {
   );
 
   const itemsByCategory = useMemo(() => {
-    const grouped = {};
-    for (const category of CATALOG_CATEGORIES) grouped[category] = [];
-    const trimmedQuery = query.trim().toLowerCase();
-    const matchesQuery = (entry) => {
-      if (!trimmedQuery) return true;
-      return `${entry.title} ${entry.description}`.toLowerCase().includes(trimmedQuery);
-    };
-    const matchesJourneyPool = (entry) => !journeyPool || journeyPool.has(entry.id);
-    for (const entry of MEDIA_CATALOG) {
-      if (!matchesJourneyPool(entry) || !matchesQuery(entry)) continue;
-      grouped[entry.category].push(entry);
-    }
+    const grouped = groupLibraryItems(MEDIA_CATALOG, CATALOG_CATEGORIES, { query, journeyPool });
     // Meditation is a second, independent view of the same catalogue —
     // filtered by meditation eligibility, not by primary category, so it
-    // never removes an item from the group loop above.
+    // never removes an item from the group loop above. Re-derives the same
+    // matchesQuery/matchesJourneyPool rules groupLibraryItems just applied,
+    // since this filter runs over a different source list
+    // (getMeditationCatalog(), not MEDIA_CATALOG).
+    const trimmedQuery = query.trim().toLowerCase();
+    const matchesQuery = (entry) => !trimmedQuery || `${entry.title} ${entry.description}`.toLowerCase().includes(trimmedQuery);
+    const matchesJourneyPool = (entry) => !journeyPool || journeyPool.has(entry.id);
     grouped[MEDITATION_FILTER] = getMeditationCatalog().filter((entry) => matchesJourneyPool(entry) && matchesQuery(entry));
     return grouped;
   }, [query, journeyPool]);

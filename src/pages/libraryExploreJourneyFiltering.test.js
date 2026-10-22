@@ -8,6 +8,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const librarySource = readFileSync(fileURLToPath(new URL('./Library.jsx', import.meta.url)), 'utf-8');
+// 2026-10-22 GR01-GR03 Library-visibility regression fix — the primary
+// category loop's matchesJourneyPool/matchesQuery filtering was extracted
+// into groupLibraryItems (lib/libraryGrouping.js) so a real executable
+// test (libraryGrouping.test.js) can exercise the exact function
+// Library.jsx calls, not just this file's own source text. The Meditation
+// filter below stays inline in Library.jsx itself (it runs over a
+// different source list, getMeditationCatalog(), not MEDIA_CATALOG).
+const groupingSource = readFileSync(fileURLToPath(new URL('../lib/libraryGrouping.js', import.meta.url)), 'utf-8');
 
 describe('Library.jsx — journey is captured once, from an allowlist, never a guessed value', () => {
   it('imports isValidExploreJourney/getExploreCatalogForJourney/getCuratedExploreCatalog from the one shared exploreFiltering.js - never a second, duplicated filtering definition', () => {
@@ -55,10 +63,10 @@ describe('Library.jsx — journeyPool restricts every grouping (categories and t
     expect(librarySource).toMatch(/journeyScopeActive && journey \? new Set\(getExploreCatalogForJourney\(journey\)\.map\(\(entry\) => entry\.id\)\) : null/);
   });
 
-  it('itemsByCategory\'s own grouping loop checks matchesJourneyPool before matchesQuery, for both the primary category loop and the independent Meditation filter view', () => {
+  it('itemsByCategory\'s own grouping loop checks matchesJourneyPool before matchesQuery, for both the primary category loop (groupLibraryItems) and the independent Meditation filter view', () => {
+    expect(groupingSource).toMatch(/if \(!matchesJourneyPool\(entry\) \|\| !matchesQuery\(entry\)\) continue;/);
     const body = librarySource.match(/const itemsByCategory = useMemo\(\(\) => \{[\s\S]*?\n {2}\}, \[query, journeyPool\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
-    expect(body).toMatch(/if \(!matchesJourneyPool\(entry\) \|\| !matchesQuery\(entry\)\) continue;/);
     expect(body).toMatch(/getMeditationCatalog\(\)\.filter\(\(entry\) => matchesJourneyPool\(entry\) && matchesQuery\(entry\)\)/);
   });
 });
