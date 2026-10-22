@@ -196,6 +196,20 @@ export const getPackage = async (tier) => {
   }
 };
 
+// DEV subscription diagnostics panel (2026-10-23, ST-38 trial investigation)
+// — checkIntroEligibility's own existing contract (always resolves, never
+// throws, returns {} on any failure) is unchanged by this addition; this is
+// purely an out-of-band side channel so a DEV-only UI can show WHY a call
+// returned {} without Safari Web Inspector (the owner is on Windows). Never
+// read by any purchase/entitlement logic — diagnostics only.
+let lastIntroEligibilityError = null;
+
+/** The message from the most recent checkIntroEligibility() failure, or
+ *  null if the most recent call didn't fail (or none has run yet). Never a
+ *  key/token/receipt — safeErrorMessage() already strips everything but a
+ *  plain message string. */
+export const getLastIntroEligibilityError = () => lastIntroEligibilityError;
+
 /**
  * iOS only (RevenueCat/Apple-documented: Android always reports
  * INTRO_ELIGIBILITY_STATUS_UNKNOWN for every product). Computes whether
@@ -210,6 +224,7 @@ export const getPackage = async (tier) => {
 export const checkIntroEligibility = async (productIdentifiers) => {
   const ids = (productIdentifiers ?? []).filter(Boolean);
   if (!configured || !isRevenueCatSupported() || ids.length === 0) return {};
+  lastIntroEligibilityError = null;
   try {
     const result = await Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids });
     // Reverse-lookup against the SDK's own real enum (never a
@@ -225,6 +240,7 @@ export const checkIntroEligibility = async (productIdentifiers) => {
     );
   } catch (error) {
     console.warn('[revenueCatAdapter] checkTrialOrIntroductoryPriceEligibility failed, continuing without it', safeErrorMessage(error));
+    lastIntroEligibilityError = safeErrorMessage(error);
     return {};
   }
 };

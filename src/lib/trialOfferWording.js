@@ -101,3 +101,23 @@ export const describeIntroOfferWording = (introOffer, eligibilityStatus, storeLa
   // wording only — never asserts this specific user gets it.
   return `New subscribers may be eligible for a ${lengthPhrase}${offerNoun} — ${confirmationClause}.`;
 };
+
+/**
+ * DEV subscription diagnostics panel (2026-10-23, ST-38 trial investigation)
+ * — a small, pure summary of a single product's own introOffer catalogue
+ * data (never eligibility, never price formatting — just "does this
+ * product have an offer configured, and for how long"). Deliberately
+ * separate from describeIntroOfferWording() above, which mixes in
+ * eligibility and sandbox-specific copy; this exists purely so a
+ * diagnostic UI can show the catalogue fact on its own.
+ * @param {Parameters<typeof describeIntroOfferWording>[0]} introOffer
+ * @returns {{hasOffer: boolean, durationLabel: string|null, isFreeTrial: boolean|null}}
+ */
+export const summarizeIntroOffer = (introOffer) => {
+  if (!introOffer) return { hasOffer: false, durationLabel: null, isFreeTrial: null };
+  return {
+    hasOffer: true,
+    durationLabel: humanizePeriodLength(introOffer.periodUnit, introOffer.periodNumberOfUnits),
+    isFreeTrial: introOffer.price === 0
+  };
+};

@@ -2,7 +2,7 @@
 // Real-execution tests for pure functions, same convention as
 // entitlementResolution.test.js.
 import { describe, it, expect } from 'vitest';
-import { humanizePeriodLength, describeIntroOfferWording, INTRO_ELIGIBILITY } from './trialOfferWording';
+import { humanizePeriodLength, describeIntroOfferWording, summarizeIntroOffer, INTRO_ELIGIBILITY } from './trialOfferWording';
 
 describe('humanizePeriodLength', () => {
   it('describes a real period length, matching the observed 7-day Apple intro offer', () => {
@@ -92,5 +92,33 @@ describe('describeIntroOfferWording — never promises every user a trial', () =
     );
     expect(wording).not.toMatch(/before you're charged/);
     expect(wording).toMatch(/this sandbox build's own platform-accurate clause\.$/);
+  });
+});
+
+describe('summarizeIntroOffer — DEV subscription diagnostics panel (2026-10-23, ST-38 trial investigation)', () => {
+  it('reports no offer at all when the product genuinely has none (never guesses a duration)', () => {
+    expect(summarizeIntroOffer(null)).toEqual({ hasOffer: false, durationLabel: null, isFreeTrial: null });
+  });
+
+  it('reports a real free trial with its real duration', () => {
+    expect(summarizeIntroOffer({ price: 0, periodUnit: 'DAY', periodNumberOfUnits: 7 })).toEqual({
+      hasOffer: true,
+      durationLabel: '7-day',
+      isFreeTrial: true
+    });
+  });
+
+  it('reports a real paid introductory price distinctly from a free trial', () => {
+    expect(summarizeIntroOffer({ price: 2.99, periodUnit: 'MONTH', periodNumberOfUnits: 1 })).toEqual({
+      hasOffer: true,
+      durationLabel: '1-month',
+      isFreeTrial: false
+    });
+  });
+
+  it('never mixes eligibility into this summary — the same offer summarizes identically regardless of who is eligible', () => {
+    const offer = { price: 0, periodUnit: 'DAY', periodNumberOfUnits: 7 };
+    expect(summarizeIntroOffer(offer)).toEqual(summarizeIntroOffer(offer));
+    expect('eligibility' in summarizeIntroOffer(offer)).toBe(false);
   });
 });

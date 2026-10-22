@@ -57,6 +57,7 @@ import { formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrency
 // why (a real sandbox purchase recorded a TRIAL period on the MONTHLY
 // iOS product).
 import { describeIntroOfferWording } from '../lib/trialOfferWording';
+import { SubscriptionDiagnosticsPanel } from '../components/SubscriptionDiagnosticsPanel';
 // Native purchase integration — restore is now consolidated onto the same
 // shared hook Profile.jsx uses (readiness-gap item 1), rather than this
 // page's own separate inline implementation.
@@ -946,6 +947,17 @@ export const Subscription = () => {
               </>
             )}
           </div>
+
+          {/* DEV subscription diagnostics (2026-10-23, ST-38 trial
+              investigation) — see SubscriptionDiagnosticsPanel.jsx's own
+              header. Renders nothing at all outside a DEV-backend build;
+              reads only state this effect already fetched above, makes no
+              new call, changes no purchase/entitlement logic. */}
+          <SubscriptionDiagnosticsPanel
+            monthlyPackage={monthlyPackage}
+            annualPackage={annualPackage}
+            introEligibility={introEligibility}
+          />
 
           {/* Sandbox-test clarity banner (task 3): a prominent, separate
               notice — not just folded into the renewal sentence above —

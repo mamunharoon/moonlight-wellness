@@ -269,6 +269,17 @@ describe('revenueCatAdapter — trial/intro-offer reconciliation (readiness-gap 
     expect(body).toMatch(/\} catch \(error\) \{[\s\S]*?return \{\};\s*\n\s*\}/);
   });
 
+  it('DEV diagnostics (2026-10-23, ST-38): getLastIntroEligibilityError captures the real failure message as a side channel, never changing the existing {} return contract', () => {
+    const body = source.match(/export const checkIntroEligibility = async \(productIdentifiers\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
+    // Cleared at the start of every real attempt - a stale error from a
+    // previous call must never linger after a later call succeeds.
+    expect(body).toMatch(/lastIntroEligibilityError = null;/);
+    // Set only inside the catch block, still followed by the same
+    // unchanged `return {};`.
+    expect(body).toMatch(/\} catch \(error\) \{[\s\S]*?lastIntroEligibilityError = safeErrorMessage\(error\);\s*\n\s*return \{\};\s*\n\s*\}/);
+    expect(source).toMatch(/export const getLastIntroEligibilityError = \(\) => lastIntroEligibilityError;/);
+  });
+
   it('describeGoogleTrialOffer resolves the REAL annual-trial-7-days SubscriptionOption via the existing suffix-matched getGoogleNamedOfferOption, never a guessed id', () => {
     const body = source.match(/export const describeGoogleTrialOffer = \(annualPackage\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
     expect(body).not.toBe('');
