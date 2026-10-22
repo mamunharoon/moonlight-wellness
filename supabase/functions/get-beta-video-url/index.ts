@@ -132,6 +132,12 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['G02', 'faststart-v1/WW_G02_MuscleRelaxation_v1.mp4_faststart.mp4'],
   ['G03', 'faststart-v1/WW_G03_BodyAwareness_v1.mp4_faststart.mp4'],
   ['G04', 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4'],
+  // GR01-GR03 - new Gratitude content (2026-10-22), mirrors
+  // src/lib/betaVideoManifest.js's matching entries exactly, per this
+  // map's own "single source of truth, mirrored byte-for-byte" contract.
+  ['GR01', 'faststart-v1/WW_GR01_FindingStrengthInWhatWeHave_v1.mp4'],
+  ['GR02', 'faststart-v1/WW_GR02_GratitudeThroughUncertainty_v1.mp4'],
+  ['GR03', 'faststart-v1/WW_GR03_BeginningTodayWithEnough_v1.mp4'],
   ['M01', 'faststart-v1/WW_M01_MindfulnessMeditation_v1.mp4_faststart.mp4'],
   ['M02', 'faststart-v1/WW_M02_BodyScan_v1.mp4_faststart.mp4'],
   ['M03', 'faststart-v1/WW_M03_LovingKindness_v1.mp4_faststart.mp4'],

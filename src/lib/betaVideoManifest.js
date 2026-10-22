@@ -3,9 +3,9 @@
 // TEMPORARY LOCAL MANIFEST — not a database table. The app has no
 // content model for video yet (audioLibrary.js is audio-only, gated by
 // Plus subscription, and still fully comingSoon). This file exists only
-// because sixty-eight narrated exercise videos (E02-E30, A01-A06, B01-B05,
-// F01-F03, G01-G04, M01-M06, S01-S09, SL01-SL10) are live in Storage
-// today and need a minimal, typed, isolated place to map an id -> title ->
+// because seventy-one narrated exercise videos (E02-E30, A01-A06, B01-B05,
+// F01-F03, G01-G04, GR01-GR03, M01-M06, S01-S09, SL01-SL10) are live in
+// Storage today and need a minimal, typed, isolated place to map an id -> title ->
 // object path, plus four audio-only interactive-ambient-music loops
 // (IB01, IS01, IM01, IM02 - see their own entries below) that share this
 // exact same id/storagePath/signed-URL mechanism but are never narrated
@@ -421,6 +421,32 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Sensory Reset',
     storagePath: 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4',
     description: 'A guided video for a quick sensory reset.'
+  },
+  // GR01-GR03 - new Gratitude content (2026-10-22 gratitude content
+  // addition). Three new narrated videos, uploaded and verified this
+  // batch (H.264/AAC, Fast Start confirmed by direct moov/mdat atom
+  // inspection, under 20MB, full decode clean). storagePath is the
+  // object's real, already-uploaded name in Storage - not renamed to
+  // match the "_faststart.mp4" suffix convention every other entry uses,
+  // since it was uploaded without that suffix; flagged, not silently
+  // reproduced as if it matched.
+  {
+    id: 'GR01',
+    title: 'Finding Strength in What We Have',
+    storagePath: 'faststart-v1/WW_GR01_FindingStrengthInWhatWeHave_v1.mp4',
+    description: 'A guided gratitude video for finding strength in what you already have.'
+  },
+  {
+    id: 'GR02',
+    title: 'Gratitude Through Uncertainty',
+    storagePath: 'faststart-v1/WW_GR02_GratitudeThroughUncertainty_v1.mp4',
+    description: 'A guided gratitude video for staying grounded through uncertainty.'
+  },
+  {
+    id: 'GR03',
+    title: 'Beginning Today with Enough',
+    storagePath: 'faststart-v1/WW_GR03_BeginningTodayWithEnough_v1.mp4',
+    description: 'A guided gratitude video for beginning today with what is already enough.'
   },
   {
     id: 'M01',

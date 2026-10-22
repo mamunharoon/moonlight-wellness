@@ -153,6 +153,13 @@ const METADATA = {
   A03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
   A05: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
   A06: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  // GR01-GR03 - new Gratitude content (2026-10-22). Same category/
+  // timeOfDay/page shape as their closest existing siblings above
+  // (A02/A03/A05/A06) - not added to Morning or Evening journeys, per
+  // instruction; browsable via Library only, same as those siblings.
+  GR01: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  GR02: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  GR03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
 
   // Evening Wind-Down (video content — distinct from Sleep Soundscapes)
   E05: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/prepare-for-rest' },
@@ -225,10 +232,24 @@ const DEFAULT_METADATA = { category: 'Calm & Support', timeOfDay: 'any', page: n
 // of this spec's 73-entry baseline — both were added to the live
 // catalogue after the spec's baseline commit (ecef8bf..., see the spec
 // doc's header) and were never classified in §3b/§3c's original tables.
-// MEDIA_CATALOG therefore actually holds 72 entries today (73 - the 5
-// covers + the 5 still-real M06/S06-S09 parents = 72), not 73 - see the
-// spec doc's own §11a-i (owner-approved Plus) and premiumExerciseIds.ts's
+// MEDIA_CATALOG therefore actually held 72 entries (73 - the 5 covers +
+// the 5 still-real M06/S06-S09 parents = 72), not 73 - see the spec
+// doc's own §11a-i (owner-approved Plus) and premiumExerciseIds.ts's
 // matching comment.
+//
+// GR01-GR03 (3 new ids, 2026-10-22 gratitude content addition) are, for
+// the identical reason as M06/S06-S09 above, also NOT part of this
+// spec's 73-entry baseline and were never classified in §3b/§3c's
+// original tables - they default to Plus via isPremiumExerciseId's own
+// "every id not in the Free set is Plus" rule, exactly like M06/S06-S09
+// did before their own explicit approval was recorded. Deliberately NOT
+// added to APPROVED_PLUS_IDS below (unlike M06/S06-S09) - no explicit
+// owner pricing-tier approval was given for these three specifically,
+// only an instruction to add them via the established content model;
+// recorded here so the Plus default is traceable, not an invisible side
+// effect, same spirit as APPROVED_PLUS_IDS's own comment, without
+// overstating this as an approval that wasn't actually given.
+// MEDIA_CATALOG now holds 75 entries (72 + these 3).
 const FREE_EXERCISE_IDS = new Set([
   'S04', 'S05', 'S01', 'E03', 'E04', 'E11', 'E23', 'E30', 'B02',
   'M01', 'M02', 'M03', 'M04', 'F01', 'SL01', 'SL04', 'SL06', 'G01', 'A02'
@@ -450,7 +471,12 @@ const ANYTIME_RESET_METADATA = {
   F03: { needs: ['focus'], durationSeconds: 174.3 },
   E11: { needs: ['energy'], durationSeconds: 109.5 },
   E14: { needs: ['energy'], durationSeconds: 102.4 },
-  A04: { needs: ['energy'], durationSeconds: 146.1 },
+  // A04 duration updated 2026-10-22 - its underlying Storage object was
+  // replaced with a new export of a genuinely different runtime,
+  // ffprobe-verified against the new bytes (see the gratitude/affirmation
+  // content refresh verification report), same convention already
+  // established for M01-M05's own two prior replacement rounds.
+  A04: { needs: ['energy'], durationSeconds: 182.357333 },
   E04: { needs: ['stress-relief'], durationSeconds: 110.9 },
   E17: { needs: ['stress-relief'], durationSeconds: 116.6 },
   B02: { needs: ['stress-relief'], durationSeconds: 168.9 },
@@ -475,8 +501,11 @@ const ANYTIME_RESET_METADATA = {
   M03: { needs: ['quiet-time'], durationSeconds: 260.0 },
   M05: { needs: ['quiet-time'], durationSeconds: 275.5 },
   E23: { needs: ['better-mood'], durationSeconds: 116.4 },
-  A05: { needs: ['better-mood'], durationSeconds: 163.5 },
-  A01: { needs: ['better-mood'], durationSeconds: 147.8 }
+  // A05/A01 durations updated 2026-10-22 - same reason/convention as
+  // A04's own update above: Storage objects replaced, new runtimes
+  // ffprobe-verified against the new bytes.
+  A05: { needs: ['better-mood'], durationSeconds: 245.8 },
+  A01: { needs: ['better-mood'], durationSeconds: 198.933333 }
 };
 
 // Every Anytime-Reset-eligible entry, each carrying its own `anytimeReset`

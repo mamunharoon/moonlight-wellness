@@ -112,7 +112,18 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
   // WW_SL10_RustlingLeaves_v1.mp4), which never carried a "_faststart"
   // marker. This test checks a NAMING convention, not the actual box
   // order - never renamed these to manufacture a passing name.
-  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10'];
+  //
+  // GR01-GR03 (2026-10-22 gratitude content addition) join for the exact
+  // same reason as SL09/SL10 immediately above: genuinely fast-start,
+  // directly verified this batch via real moov/mdat atom-offset
+  // inspection of the actual uploaded bytes (moov well before mdat in
+  // all three) - exempted here only because their object names
+  // (WW_GR01_FindingStrengthInWhatWeHave_v1.mp4,
+  // WW_GR02_GratitudeThroughUncertainty_v1.mp4,
+  // WW_GR03_BeginningTodayWithEnough_v1.mp4) preserve the uploaded
+  // filenames as-is, which never carried a "_faststart" marker. Not
+  // renamed to manufacture a passing name, same discipline as SL09/SL10.
+  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10', 'GR01', 'GR02', 'GR03'];
 
   it('every remuxed path carries the _faststart marker before its extension (the remux naming convention)', () => {
     for (const [id, path] of Object.entries(edgeFnPaths)) {
@@ -121,8 +132,8 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     }
   });
 
-  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER/SL09/SL10 are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
-    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10']);
+  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER/SL09/SL10/GR01-GR03 are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
+    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'SL09', 'SL10', 'GR01', 'GR02', 'GR03']);
     expect(edgeFnPaths.IM01).toBe('faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a');
     expect(edgeFnPaths.IM02).toBe('faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a');
     // S06 renamed on the 2026-10-05 stretching refresh reupload (gained
@@ -135,6 +146,9 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     expect(edgeFnPaths.S09COVER).toBe('faststart-v1/ST04_Gentle_Side_Stretch.png');
     expect(edgeFnPaths.SL09).toBe('faststart-v1/WW_SL09_SoothingBirds_v1.mp4');
     expect(edgeFnPaths.SL10).toBe('faststart-v1/WW_SL10_RustlingLeaves_v1.mp4');
+    expect(edgeFnPaths.GR01).toBe('faststart-v1/WW_GR01_FindingStrengthInWhatWeHave_v1.mp4');
+    expect(edgeFnPaths.GR02).toBe('faststart-v1/WW_GR02_GratitudeThroughUncertainty_v1.mp4');
+    expect(edgeFnPaths.GR03).toBe('faststart-v1/WW_GR03_BeginningTodayWithEnough_v1.mp4');
   });
 });
 
