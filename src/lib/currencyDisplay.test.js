@@ -2,7 +2,7 @@
 // Real-execution tests (framework-free, no SDK/DOM dependency), exactly
 // like entitlementResolution.test.js's own established pattern.
 import { describe, it, expect } from 'vitest';
-import { formatExplicitCurrencyAmount, formatNativeStorePrice, formatGoogleMicrosPrice } from './currencyDisplay';
+import { formatExplicitCurrencyAmount, formatNativeStorePrice, formatGoogleMicrosPrice, describeBillingPeriod } from './currencyDisplay';
 
 describe('formatExplicitCurrencyAmount — explicit ISO currency code, never a bare ambiguous symbol', () => {
   it('renders the ISO code and amount for the examples the task itself specified', () => {
@@ -66,5 +66,28 @@ describe('formatGoogleMicrosPrice — Google Play\'s amountMicros Price shape (f
     expect(formatGoogleMicrosPrice(null)).toBeNull();
     expect(formatGoogleMicrosPrice({ currencyCode: 'AUD' })).toBeNull();
     expect(formatGoogleMicrosPrice({ amountMicros: 'not-a-number', currencyCode: 'AUD' })).toBeNull();
+  });
+});
+
+describe('describeBillingPeriod — real ISO 8601 store period, never a hardcoded "month"/"year" string (subscription disclosure, 2026-10-23)', () => {
+  it('describes the two real WakeWise plans exactly as the task specified', () => {
+    expect(describeBillingPeriod('P1M')).toBe('month');
+    expect(describeBillingPeriod('P1Y')).toBe('year');
+  });
+
+  it('describes every ISO 8601 unit StoreKit/RevenueCat document (week, day) and a multi-unit period, pluralised', () => {
+    expect(describeBillingPeriod('P1W')).toBe('week');
+    expect(describeBillingPeriod('P1D')).toBe('day');
+    expect(describeBillingPeriod('P3M')).toBe('3 months');
+    expect(describeBillingPeriod('P6M')).toBe('6 months');
+  });
+
+  it('returns null (never a guessed period) for missing, non-string, malformed, or non-positive input', () => {
+    expect(describeBillingPeriod(null)).toBeNull();
+    expect(describeBillingPeriod(undefined)).toBeNull();
+    expect(describeBillingPeriod('')).toBeNull();
+    expect(describeBillingPeriod('not-a-period')).toBeNull();
+    expect(describeBillingPeriod('P0M')).toBeNull();
+    expect(describeBillingPeriod(12)).toBeNull();
   });
 });

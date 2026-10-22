@@ -51,7 +51,7 @@ import { GOOGLE_OFFER_NAMES } from '../lib/revenueCatConfig';
 // currencyDisplay.js's own header for the full root-cause writeup.
 // Always built from the package/option's own real price + ISO currency
 // code, never a hardcoded/converted figure.
-import { formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount } from '../lib/currencyDisplay';
+import { formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount, describeBillingPeriod } from '../lib/currencyDisplay';
 // Trial/intro-offer wording, reconciled per-product instead of a single
 // "annual only" assumption — see trialOfferWording.js's own header for
 // why (a real sandbox purchase recorded a TRIAL period on the MONTHLY
@@ -644,6 +644,20 @@ export const Subscription = () => {
         : null
       : formatNativeStorePrice(selectedNativePackage?.product);
 
+  // Subscription disclosure (2026-10-23) — "USD 6.99 per month" needs a
+  // real billing period alongside the real price. Mirrors
+  // selectedNativePriceText's own Android-base-plan-vs-defaultOption
+  // branch exactly (same ambiguity, same fix: the explicitly-resolved
+  // annual base plan's own period, never product.subscriptionPeriod,
+  // which reflects Google's defaultOption and could silently describe a
+  // different offer's period). Never a hardcoded "month"/"year" string —
+  // always the real ISO 8601 period the store reported for the plan this
+  // price text actually describes.
+  const selectedNativeBillingPeriod =
+    IS_NATIVE_ANDROID && interval === 'yearly'
+      ? describeBillingPeriod(googleBasePlanAnnualOption?.fullPricePhase?.billingPeriod?.iso8601)
+      : describeBillingPeriod(selectedNativePackage?.product?.subscriptionPeriod);
+
   const handleUpgradeClick = () => {
     if (isGuest) {
       setActiveDialog('sign-in');
@@ -921,7 +935,19 @@ export const Subscription = () => {
                     back at all, an honest unavailable message is shown
                     instead — never a different number. */}
                 {selectedNativePackage?.product ? (
-                  <p className="text-lg font-bold text-on-surface">{selectedNativePriceText ?? 'Price unavailable'}</p>
+                  <p className="text-lg font-bold text-on-surface">
+                    {/* Subscription disclosure (2026-10-23) — the billing
+                        period is appended only when the store actually
+                        reported one for this plan (selectedNativeBillingPeriod,
+                        above); never a hardcoded "/month" suffix, and the
+                        bare price still shows on its own rather than
+                        hiding behind a missing period. */}
+                    {selectedNativePriceText
+                      ? selectedNativeBillingPeriod
+                        ? `${selectedNativePriceText} per ${selectedNativeBillingPeriod}`
+                        : selectedNativePriceText
+                      : 'Price unavailable'}
+                  </p>
                 ) : (
                   <p className="text-sm text-on-surface-variant">
                     We couldn't load pricing for this plan right now. Please try again shortly.

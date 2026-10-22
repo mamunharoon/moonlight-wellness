@@ -254,9 +254,9 @@ describe('Subscription.jsx — explicit-currency native pricing (readiness-gap f
   });
 
   it('uses formatNativeStorePrice (ISO currency code + real price) as the default headline price, with an explicit unavailable fallback instead of a different price', () => {
-    expect(source).toMatch(/import \{ formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount \} from '\.\.\/lib\/currencyDisplay';/);
+    expect(source).toMatch(/import \{ formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount, describeBillingPeriod \} from '\.\.\/lib\/currencyDisplay';/);
     expect(source).toMatch(/: formatNativeStorePrice\(selectedNativePackage\?\.product\);/);
-    expect(source).toMatch(/\{selectedNativePriceText \?\? 'Price unavailable'\}/);
+    expect(source).toMatch(/selectedNativePriceText\s*\n\s*\? selectedNativeBillingPeriod\s*\n\s*\? `\$\{selectedNativePriceText\} per \$\{selectedNativeBillingPeriod\}`\s*\n\s*: selectedNativePriceText\s*\n\s*: 'Price unavailable'/);
   });
 
   it('shows an explicit "couldn\'t load pricing for this plan" message when the selected plan\'s own package is missing, even if the other plan loaded fine', () => {
@@ -266,6 +266,19 @@ describe('Subscription.jsx — explicit-currency native pricing (readiness-gap f
   it('the web/Stripe approximate-monthly-price line also uses the explicit-currency formatter, never a hardcoded "AUD $" literal', () => {
     expect(source).not.toMatch(/`AUD \$\$\{annualEffectiveMonthly/);
     expect(source).toMatch(/formatExplicitCurrencyAmount\(annualEffectiveMonthly\(\), CURRENCY\)/);
+  });
+});
+
+describe('Subscription.jsx — billing-period disclosure (2026-10-23): "USD 6.99 per month", never a hardcoded period', () => {
+  it('selectedNativeBillingPeriod mirrors selectedNativePriceText\'s own Android-base-plan branch exactly - same real source for both price and period', () => {
+    const body = source.match(/const selectedNativeBillingPeriod =\s*\n[\s\S]*?: describeBillingPeriod\(selectedNativePackage\?\.product\?\.subscriptionPeriod\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    expect(body).toMatch(/IS_NATIVE_ANDROID && interval === 'yearly'/);
+    expect(body).toMatch(/describeBillingPeriod\(googleBasePlanAnnualOption\?\.fullPricePhase\?\.billingPeriod\?\.iso8601\)/);
+  });
+
+  it('the period suffix is appended only when the store actually reported one - a missing period still shows the bare price, never a guessed suffix', () => {
+    expect(source).toMatch(/\? `\$\{selectedNativePriceText\} per \$\{selectedNativeBillingPeriod\}`\s*\n\s*: selectedNativePriceText/);
   });
 });
 

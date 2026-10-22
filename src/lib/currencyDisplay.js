@@ -79,3 +79,24 @@ export const formatGoogleMicrosPrice = (price) => {
   if (typeof amountMicros !== 'number' || !Number.isFinite(amountMicros)) return null;
   return formatExplicitCurrencyAmount(amountMicros / 1_000_000, price?.currencyCode);
 };
+
+// Subscription disclosure (2026-10-23) — "USD 6.99 per month" / "USD 59.99
+// per year" needs a real billing-period label alongside the real price,
+// never a hardcoded "month"/"year" guessed from which UI toggle happens to
+// be selected. Both platforms' RevenueCat SDK shapes report the real
+// period as the SAME ISO 8601 duration string (PurchasesStoreProduct's own
+// `subscriptionPeriod`, and a Google PricingPhase's `billingPeriod.iso8601`
+// — see offerings.d.ts) — e.g. P1W/P1M/P3M/P6M/P1Y — so one parser serves
+// both call sites. Returns null (never a guessed period) for anything
+// unrecognised, missing, or non-positive.
+const ISO_PERIOD_UNIT_LABELS = Object.freeze({ D: 'day', W: 'week', M: 'month', Y: 'year' });
+
+export const describeBillingPeriod = (iso8601Period) => {
+  if (typeof iso8601Period !== 'string') return null;
+  const match = /^P(\d+)([DWMY])$/.exec(iso8601Period.trim());
+  if (!match) return null;
+  const count = Number(match[1]);
+  const unitLabel = ISO_PERIOD_UNIT_LABELS[match[2]];
+  if (!unitLabel || !Number.isFinite(count) || count <= 0) return null;
+  return count === 1 ? unitLabel : `${count} ${unitLabel}s`;
+};
