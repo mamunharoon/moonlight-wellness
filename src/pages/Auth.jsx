@@ -10,6 +10,7 @@ import { markGuestEntryChosen } from '../lib/guestEntry';
 import { shouldShowIntroduction } from '../lib/introductionVersion';
 import { markPostAuthRedirectHandled } from '../lib/postAuthRedirectGuard';
 import { BackButton } from '../components/BackButton';
+import { DevBuildIndicator } from '../components/DevBuildIndicator';
 import {
   resolveAuthError,
   logAuthDiagnostic,
@@ -489,6 +490,7 @@ export const Auth = () => {
     // owns its own single scroll container instead of depending on
     // document scroll.
     <div className="h-dvh overflow-hidden">
+    <DevBuildIndicator />
     <div className="h-full w-full overflow-y-auto overflow-x-hidden scroll-hide" style={{ overscrollBehaviorY: 'contain' }}>
     <div
       // justify-[safe_center], not justify-center: keeps the existing

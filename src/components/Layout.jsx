@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
+import { DevBuildIndicator } from './DevBuildIndicator';
 
 export const Layout = () => {
   const { currentTrack, isPlaying, togglePlay, progress } = useAudio();
@@ -50,6 +51,7 @@ export const Layout = () => {
       className="h-dvh bg-background text-on-surface flex flex-col transition-colors duration-300"
       style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
     >
+      <DevBuildIndicator />
 
       {/* Immersive background layer */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">

@@ -20,8 +20,26 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        // DEV build-freshness indicator (2026-10-22) — literal string
+        // replacements injected by vite.config.js's own `define` (see its
+        // comment), never real runtime globals; declared here only so
+        // ESLint's no-undef doesn't flag the identifiers src/lib/buildInfo.js
+        // reads.
+        __WAKEWISE_BUILD_COMMIT__: 'readonly',
+        __WAKEWISE_BUILD_TIME__: 'readonly',
+      },
       parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+  {
+    // vite.config.js runs under Node at build time (not in the browser) —
+    // its own resolveCommitSha() (2026-10-22, DEV build-freshness
+    // indicator) reads `process.env`, which only globals.node declares.
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])
