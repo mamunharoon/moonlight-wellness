@@ -188,27 +188,69 @@ workflows:
           cd ios/App
           pod install
 
-      - name: Set a unique, monotonically increasing build number
+      - name: Determine and set the next available TestFlight build number
         script: |
           set -euo pipefail
-          # $BUILD_NUMBER is Codemagic's own auto-incrementing counter for
-          # this workflow -- strictly increasing across builds without this
-          # repo ever tracking or committing a build number itself. (There
-          # is no $CM_BUILD_NUMBER variable -- referencing it under `set -u`
-          # is what previously failed the build with "unbound variable".)
+          # ROOT CAUSE of the 2026-10-23 TestFlight 409 ("bundle version
+          # must be higher than the previously uploaded version...
+          # previousBundleVersion = 49"): this step used to trust
+          # Codemagic's own $BUILD_NUMBER -- a LOCAL counter scoped to this
+          # one workflow (starts at 1, +1 each time THIS workflow runs),
+          # with a silent `date -u +%s` fallback if even that was unset.
+          # Neither has any idea what App Store Connect's actual highest
+          # uploaded CFBundleVersion is. Worse: this app's bundle ID
+          # (com.zavaraai.wakewise) is shared by FOUR Codemagic workflows
+          # in this same file (this one, wakewise-ios-sandbox-test,
+          # wakewise-ios-disclosure-test, wakewise-ios-production) that all
+          # upload to the SAME App Store Connect app record -- Apple
+          # requires CFBundleVersion to increase monotonically PER APP, not
+          # per workflow, so this workflow's own low local counter could
+          # (and did) undercut a number a DIFFERENT workflow had already
+          # uploaded.
+          #
+          # Fix, matching the pattern the other three workflows already
+          # use (see e.g. wakewise-ios-sandbox-test's own "Determine and
+          # set the next available sandbox build number" step) and
+          # bringing this workflow to parity with them: always query App
+          # Store Connect itself for the real current highest build number
+          # via the already-authenticated wakewise_app_store_connect
+          # integration, and use highest+1. All four workflows now share
+          # the exact same source of truth, so two of them run back-to-back
+          # can never collide again. Never falls back silently -- if any
+          # lookup fails, this aborts rather than guessing a number that
+          # might repeat the exact same 409.
+          #
+          # `app-store-connect get-latest-build-number` takes the app's
+          # numeric Apple ID, not the bundle identifier -- resolve it first
+          # (same already-working lookup the other three workflows use).
+          APP_LOOKUP_JSON="$(app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" --strict-match-identifier --json)"
+          APP_ID="$(echo "$APP_LOOKUP_JSON" | jq -r 'if type == "array" then . else .data end | map(.id) | if length == 1 then .[0] else "" end')"
+          if [ -z "$APP_ID" ] || ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
+            echo "Could not resolve exactly one numeric App Store Connect app ID for bundle ID $BUNDLE_ID (lookup returned: $APP_LOOKUP_JSON). Refusing to guess -- aborting rather than hardcoding or falling back to a cached value."
+            exit 1
+          fi
+          echo "Resolved App Store Connect app ID $APP_ID for bundle ID $BUNDLE_ID."
+
+          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$APP_ID")"
+          if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Could not obtain a valid highest-build-number response from App Store Connect for app ID $APP_ID / bundle ID $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp -- this exact silent fallback is what produced the 2026-10-23 409."
+            exit 1
+          fi
+
+          BUILD_NUMBER=$((QUERIED_BUILD_NUMBER + 1))
+          echo "Highest existing build in App Store Connect for $BUNDLE_ID: $QUERIED_BUILD_NUMBER. Using next available: $BUILD_NUMBER."
           # CFBundleShortVersionString (MARKETING_VERSION, currently 1.0)
           # is deliberately left untouched here -- that's a product
           # decision, not something the pipeline should bump on its own.
-          if [ -z "${BUILD_NUMBER:-}" ]; then
-            echo "BUILD_NUMBER was not provided by Codemagic for this build; falling back to the current UTC epoch-seconds timestamp so CFBundleVersion still increases monotonically."
-            BUILD_NUMBER="$(date -u +%s)"
-          fi
-          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "BUILD_NUMBER ('$BUILD_NUMBER') is not a plain non-negative integer -- App Store Connect requires CFBundleVersion to be numeric. Aborting."
-            exit 1
-          fi
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
+          cd - >/dev/null
+          # Persisted to disk, not just left in this step's own shell env --
+          # $HOME survives for the rest of this build (same established
+          # pattern as $HOME/export_options.plist below), and the later
+          # "Verify CFBundleVersion" step needs this exact value to confirm
+          # against, after signing/archiving has run in between.
+          echo "$BUILD_NUMBER" > "$HOME/wakewise_build_number.txt"
 
       - name: Apply the stored signing certificate and profile to the Xcode project
         script: |
@@ -265,6 +307,51 @@ workflows:
             --workspace "$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME" \
             --export-options-plist "$HOME/export_options.plist"
+
+      - name: Verify CFBundleVersion in the generated archive and .ipa before publishing
+        script: |
+          set -euo pipefail
+          # New safeguard added alongside the 2026-10-23 build-number fix
+          # above: confirms the ACTUAL produced artifacts carry the build
+          # number this workflow just set and verified against App Store
+          # Connect -- not just that agvtool ran without error. Catches a
+          # case this workflow has never otherwise checked for: the Xcode
+          # project not actually using agvtool-compatible versioning (or
+          # any other reason the bump silently didn't reach the built
+          # product), which would only otherwise surface as a second,
+          # equally confusing TestFlight rejection. This step runs last,
+          # before Codemagic's own publishing stage -- any failure here
+          # aborts the build and nothing is uploaded.
+          EXPECTED_BUILD_NUMBER="$(cat "$HOME/wakewise_build_number.txt")"
+
+          ARCHIVE_PLIST="$(find build/ios/xcarchive -path '*/Products/Applications/*.app/Info.plist' 2>/dev/null | head -1)"
+          if [ -z "$ARCHIVE_PLIST" ]; then
+            echo "Could not find the generated .xcarchive's own app Info.plist under build/ios/xcarchive -- cannot verify CFBundleVersion before publishing. Aborting rather than uploading unverified."
+            exit 1
+          fi
+          ARCHIVE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_PLIST")"
+
+          IPA_PATH="$(find build/ios/ipa -maxdepth 1 -name '*.ipa' 2>/dev/null | head -1)"
+          if [ -z "$IPA_PATH" ]; then
+            echo "Could not find the generated .ipa under build/ios/ipa -- cannot verify CFBundleVersion before publishing. Aborting rather than uploading unverified."
+            exit 1
+          fi
+          IPA_CHECK_DIR="$(mktemp -d)"
+          unzip -q "$IPA_PATH" -d "$IPA_CHECK_DIR"
+          IPA_PLIST="$(find "$IPA_CHECK_DIR/Payload" -maxdepth 2 -name 'Info.plist' 2>/dev/null | head -1)"
+          if [ -z "$IPA_PLIST" ]; then
+            echo "Could not find Info.plist inside the generated .ipa ($IPA_PATH) -- cannot verify CFBundleVersion before publishing. Aborting."
+            exit 1
+          fi
+          IPA_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$IPA_PLIST")"
+
+          echo "Expected build number (set earlier, verified against App Store Connect): $EXPECTED_BUILD_NUMBER"
+          echo "Archive CFBundleVersion: $ARCHIVE_VERSION | IPA CFBundleVersion: $IPA_VERSION"
+          if [ "$ARCHIVE_VERSION" != "$EXPECTED_BUILD_NUMBER" ] || [ "$IPA_VERSION" != "$EXPECTED_BUILD_NUMBER" ]; then
+            echo "CFBundleVersion mismatch -- the generated archive and/or .ipa does not carry the build number this workflow intended ($EXPECTED_BUILD_NUMBER). Aborting -- never publish a build whose actual CFBundleVersion wasn't verified."
+            exit 1
+          fi
+          echo "Confirmed: both the generated .xcarchive and .ipa carry CFBundleVersion $EXPECTED_BUILD_NUMBER."
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/xcarchive
