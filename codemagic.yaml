@@ -92,6 +92,41 @@ workflows:
         # else to this group. See docs/codemagic-setup-guide.md for
         # exactly how it was created.
         - wakewise_vite_public
+        # ADDED 2026-10-23 — ROOT CAUSE of a confirmed ST-38 defect: this
+        # workflow previously carried NO RevenueCat key at all (already
+        # independently diagnosed by an earlier session — see
+        # wakewise-ios-disclosure-test's own header comment below, "...
+        # has the opposite problem: no RevenueCat key at all, so
+        # Purchases.configure() fails, nativeProductsState never reaches
+        # 'ready', and NEITHER the price nor the disclosure paragraph
+        # renders"). Confirmed live on TestFlight build 50 (owner
+        # screenshot, mamun.haroon@zavaraai.com): the paywall showed
+        # "We couldn't load App Store pricing right now" with a disabled
+        # Subscribe button and no trial/renewal/price text, for a
+        # genuinely Free account with no manual grant — a deterministic
+        # consequence of this missing group, not a transient failure, an
+        # account issue, or an Apple-side problem (traced directly through
+        # revenueCatAdapter.js's getPackage()/configured guard and
+        # revenueCatConfig.js's isRevenueCatConfigured()).
+        #
+        # wakewise_revenuecat_testflight is a NEW Application-level
+        # environment variable group (same place as wakewise_vite_public
+        # above), containing exactly:
+        #   VITE_REVENUECAT_IOS_API_KEY (marked Secret) — the SAME value
+        #     already used in wakewise_revenuecat_sandbox's own
+        #     VITE_REVENUECAT_IOS_API_KEY (copy it, never a different/new
+        #     key — same reasoning wakewise-ios-disclosure-test's own
+        #     group already documents).
+        # Deliberately does NOT contain VITE_ENABLE_SUBSCRIPTION_SANDBOX_TEST
+        # — that flag makes Subscription.jsx substitute a generic
+        # "sandbox test build" sentence for the REAL renewal/cancellation
+        # disclosure text, which would make this workflow unable to verify
+        # ST-38's actual required wording (the same reasoning
+        # wakewise-ios-disclosure-test's own group already documents, for
+        # the identical reason). Not yet created as of this commit — this
+        # workflow cannot successfully build until it is (the verification
+        # step below fails clearly, not silently, if it's missing).
+        - wakewise_revenuecat_testflight
       ios_signing:
         # Automatic signing: Codemagic provisions/renews the Apple
         # Distribution certificate and App Store provisioning profile
@@ -114,26 +149,42 @@ workflows:
         # possibly-stale native dependency can never silently ship.
         - $HOME/Library/Caches/CocoaPods
     scripts:
-      - name: Verify required build-time env vars are set
+      - name: Verify required build-time env vars are set, and target the DEV backend (values never printed, fails BEFORE any build step)
         script: |
           set -uo pipefail
-          # Confirms VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
-          # were actually supplied via the wakewise_vite_public
-          # application-level group (environment.groups, above) before
-          # npm ci/build/signing ever run. Values are never printed --
-          # only the name of a missing variable, so nothing sensitive
-          # reaches the build log even on failure.
+          # Confirms VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (from
+          # wakewise_vite_public) and VITE_REVENUECAT_IOS_API_KEY (from
+          # wakewise_revenuecat_testflight, added 2026-10-23 — see that
+          # group's own comment under environment.groups above for the
+          # confirmed ST-38 defect this closes) were actually supplied
+          # before npm ci/build/signing ever run. Values are never printed
+          # -- only the name of a missing variable, so nothing sensitive
+          # reaches the build log even on failure. A missing RevenueCat key
+          # must fail the build here, loudly -- not silently reach
+          # TestFlight as a broken "couldn't load pricing" paywall, which
+          # is exactly what happened before this check existed.
           missing=0
-          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+          for var_name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_REVENUECAT_IOS_API_KEY; do
             if [ -z "${!var_name:-}" ]; then
               echo "Missing required environment variable: $var_name"
               missing=1
             fi
           done
           if [ "$missing" -eq 1 ]; then
-            echo "One or more required environment variables are unset. Confirm they're present in the wakewise_vite_public group under this app's Environment variables in Codemagic (see docs/codemagic-setup-guide.md) and re-run the build."
+            echo "One or more required environment variables are unset. Confirm wakewise_vite_public and wakewise_revenuecat_testflight are both attached to THIS workflow (environment.groups, above) and re-run the build."
             exit 1
           fi
+
+          # DEV-only enforcement -- same guard wakewise-ios-sandbox-test and
+          # wakewise-ios-disclosure-test already use. The URL itself is not
+          # a secret, so it is safe to print for a clear failure message.
+          case "$VITE_SUPABASE_URL" in
+            *kvdxuhyndevrfvsalgnx*) ;;
+            *)
+              echo "VITE_SUPABASE_URL ('$VITE_SUPABASE_URL') does not target the DEV Supabase project (kvdxuhyndevrfvsalgnx). This workflow must never build against any other project. Aborting."
+              exit 1
+              ;;
+          esac
 
       - name: Install npm dependencies (npm ci)
         script: |
@@ -660,13 +711,17 @@ workflows:
   # build never charges real money...") for the real renewal/cancellation
   # disclosure sentence — so that workflow's own builds can never be used to
   # verify PRC-02/ST-38's actual required wording. wakewise-ios-testflight
-  # (above) has the opposite problem: no RevenueCat key at all, so
-  # Purchases.configure() fails, nativeProductsState never reaches 'ready',
-  # and NEITHER the price nor the disclosure paragraph renders — confirmed
-  # by tracing revenueCatAdapter.js's own `configured` guard, not assumed.
-  # Neither existing workflow can answer this question. This one is built
-  # specifically to combine real RevenueCat sandbox DATA with the real
-  # disclosure TEXT, on the DEV backend (no production dependency at all).
+  # had the opposite problem until 2026-10-23: no RevenueCat key at all, so
+  # Purchases.configure() failed, nativeProductsState never reached 'ready',
+  # and NEITHER the price nor the disclosure paragraph rendered — confirmed
+  # live on TestFlight build 50 (owner screenshot, a genuinely Free new
+  # account), not just traced from source. FIXED 2026-10-23 in that
+  # workflow's own environment.groups (see its own comment there) by adding
+  # a dedicated wakewise_revenuecat_testflight group — deliberately built
+  # the same way this workflow already is (real key, no sandbox flag), so
+  # this workflow and the fixed wakewise-ios-testflight now answer the same
+  # question; this one remains as a second, isolated path to it and is left
+  # otherwise untouched by that fix.
   #
   # DELIBERATELY NOT solved by reusing wakewise_revenuecat_sandbox with an
   # overriding workflow-level var: Codemagic's own documented precedence
