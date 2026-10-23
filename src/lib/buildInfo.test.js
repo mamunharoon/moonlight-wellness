@@ -4,10 +4,14 @@
 // gating and mounting (this repo's Vitest has no DOM rendering
 // capability; see libraryCategoryNavigation.test.js's own header comment
 // for the established precedent).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { BUILD_COMMIT, BUILD_COMMIT_FULL, BUILD_TIME_ISO, BUILD_TIME_LABEL, IS_DEV_BACKEND, isDevBackendUrl } from './buildInfo';
+import { BUILD_COMMIT, BUILD_COMMIT_FULL, BUILD_TIME_ISO, BUILD_TIME_LABEL, isDevBackendUrl } from './buildInfo';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('isDevBackendUrl — the real function IS_DEV_BACKEND is built from', () => {
   it('recognises the real DEV Supabase project URL', () => {
@@ -25,11 +29,59 @@ describe('isDevBackendUrl — the real function IS_DEV_BACKEND is built from', (
   });
 });
 
-describe('IS_DEV_BACKEND reflects this test run\'s own real VITE_SUPABASE_URL (.env.local)', () => {
-  it('is true here, since this repo\'s own .env.local points at the DEV project', () => {
-    // If this ever fails, .env.local no longer points at the DEV project —
-    // a real, meaningful signal, not a test that should be "fixed" to pass.
-    expect(IS_DEV_BACKEND).toBe(true);
+// IS_DEV_BACKEND is a module-level const, computed once at import time from
+// import.meta.env.VITE_SUPABASE_URL (buildInfo.js line 48) - the exact
+// value this *process's* own .env.local happened to resolve to at the
+// moment Vitest first loaded the module. Asserting on the already-imported
+// IS_DEV_BACKEND above (as this block used to) makes the test's result
+// depend entirely on whichever machine/CI job runs it and what its
+// .env.local (or CI env) happens to contain - true under a DEV-pointed
+// local checkout, false under this same repo built with production
+// environment selection (e.g. the wakewise-ios-production Codemagic
+// workflow, which hard-requires VITE_SUPABASE_URL to target
+// wqpszprbuqdjcfmdqdlv, never DEV). That is backwards for a test: it
+// should prove the DEV/production decision logic itself is correct for
+// every real input, not assert today's ambient machine state and call
+// a legitimate, expected difference a failure.
+//
+// Fixed by controlling the input directly: vi.stubEnv sets
+// import.meta.env.VITE_SUPABASE_URL for this test only (auto-reverted by
+// the afterEach above), and vi.resetModules() + a fresh dynamic import
+// forces buildInfo.js's module-level const to be re-evaluated against
+// that stubbed value - the same technique revenueCatConfig.test.js
+// already established for its own import.meta.env-dependent exports. This
+// never touches the real .env.local, never changes buildInfo.js's own
+// logic, and never forces a DEV value into a production-targeted run -
+// it only makes the test assert the real decision rule against inputs it
+// chooses, independent of whatever environment happens to be running it.
+describe('IS_DEV_BACKEND — the real module export, re-evaluated under controlled VITE_SUPABASE_URL values', () => {
+  const loadFreshBuildInfo = async () => {
+    vi.resetModules();
+    return import('./buildInfo');
+  };
+
+  it('is true when VITE_SUPABASE_URL is the real DEV project URL', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://kvdxuhyndevrfvsalgnx.supabase.co');
+    const fresh = await loadFreshBuildInfo();
+    expect(fresh.IS_DEV_BACKEND).toBe(true);
+  });
+
+  it('is false when VITE_SUPABASE_URL is the real production project URL (wqpszprbuqdjcfmdqdlv)', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://wqpszprbuqdjcfmdqdlv.supabase.co');
+    const fresh = await loadFreshBuildInfo();
+    expect(fresh.IS_DEV_BACKEND).toBe(false);
+  });
+
+  it('is false when VITE_SUPABASE_URL is missing (unset/empty)', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    const fresh = await loadFreshBuildInfo();
+    expect(fresh.IS_DEV_BACKEND).toBe(false);
+  });
+
+  it('is false for an unknown/unrelated Supabase project URL', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://some-other-project-ref.supabase.co');
+    const fresh = await loadFreshBuildInfo();
+    expect(fresh.IS_DEV_BACKEND).toBe(false);
   });
 });
 
