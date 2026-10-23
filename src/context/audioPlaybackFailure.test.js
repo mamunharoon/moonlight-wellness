@@ -96,12 +96,18 @@ describe('the CSP media-src directive stays first-party-only (no external audio 
 
   const extract = (src) => src.match(/media-src ([^;]+);/)?.[1];
 
-  it('vercel.json\'s media-src allows only \'self\', blob:, and the app\'s own Supabase project - no third-party host', () => {
-    expect(extract(vercelJsonSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co");
+  // Production TestFlight signup-failure fix (2026-10-23): media-src now
+  // also allows the app's own production Supabase project
+  // (wqpszprbuqdjcfmdqdlv) alongside DEV - both are this app's own first-
+  // party backends, never a third party, so this does not weaken the
+  // guard below; soundhelix.com or any other external host must still
+  // never appear.
+  it('vercel.json\'s media-src allows only \'self\', blob:, and the app\'s own two Supabase projects - no third-party host', () => {
+    expect(extract(vercelJsonSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co https://wqpszprbuqdjcfmdqdlv.supabase.co");
   });
 
   it('index.html\'s <meta> CSP (the policy that also governs the native Capacitor build) matches exactly - no soundhelix.com or any other external host', () => {
-    expect(extract(indexHtmlSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co");
+    expect(extract(indexHtmlSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co https://wqpszprbuqdjcfmdqdlv.supabase.co");
   });
 
   it('both CSP declarations stay in sync with each other', () => {
