@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
@@ -7,6 +7,10 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { isBetaProgramVisible, isSubscriptionSandboxTestVisible } from '../lib/featureFlags';
 import { BackButton } from '../components/BackButton';
+import { App as CapacitorApp } from '@capacitor/app';
+import { isNativePlatform } from '../lib/platform';
+import { IS_DEV_BACKEND, BUILD_COMMIT } from '../lib/buildInfo';
+import { formatEnvironmentBuildLabel } from '../lib/environmentBuildInfo';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -41,6 +45,20 @@ export const Settings = () => {
   const { subscription } = useSubscription();
   const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | null
   const [reducedMotion, setReducedMotionState] = useState(getReducedMotionPreference);
+
+  // Environment row (Settings -> Application) - native build number is
+  // read at runtime from the installed binary's own Info.plist via
+  // @capacitor/app, never hardcoded; null on web, where this plugin has
+  // nothing meaningful to report. See environmentBuildInfo.js's own
+  // header for why this is a separate row from the existing Version/
+  // Build number constants above, not a replacement for them.
+  const [nativeBuild, setNativeBuild] = useState(null);
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    CapacitorApp.getInfo()
+      .then((info) => setNativeBuild(info?.build ?? null))
+      .catch(() => setNativeBuild(null));
+  }, []);
 
   if (ConfirmDialog && Link) { /* no-op to satisfy blind linter */ }
 
@@ -336,6 +354,12 @@ export const Settings = () => {
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Build number</span>
             <span className="text-sm text-on-surface-variant">{BUILD_NUMBER}</span>
+          </div>
+          <div className={`${rowClass} cursor-default`}>
+            <span className="text-sm font-semibold text-on-surface-variant">Environment</span>
+            <span className="text-sm text-on-surface-variant">
+              {formatEnvironmentBuildLabel({ isDevBackend: IS_DEV_BACKEND, nativeBuild, commit: BUILD_COMMIT })}
+            </span>
           </div>
         </div>
       </section>
