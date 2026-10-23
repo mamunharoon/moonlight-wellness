@@ -34,11 +34,33 @@ describe('revenueCatAdapter — identity discipline', () => {
   it('logInRevenueCat requires a real supabaseUserId argument - never called with nothing', () => {
     const body = source.match(/export const logInRevenueCat = async \(supabaseUserId\) => \{[\s\S]*?\n\};/)?.[0] ?? '';
     expect(body).toMatch(/!supabaseUserId\) return \{ outcome: 'unavailable' \};/);
-    expect(body).toMatch(/Purchases\.logIn\(\{ appUserID: supabaseUserId \}\);/);
+    // The App User ID passed to the SDK is now the backend-scoped value
+    // (buildScopedAppUserId), not supabaseUserId directly — see the
+    // dedicated describe block below for what that function actually
+    // does; this assertion just confirms logIn is never called with the
+    // raw argument unscoped, and never with a literal/guessed value.
+    expect(body).toMatch(/const scopedAppUserId = buildScopedAppUserId\(OWN_PROJECT_REF, supabaseUserId\);/);
+    expect(body).toMatch(/Purchases\.logIn\(\{ appUserID: scopedAppUserId \}\);/);
   });
 
   it('never passes an email, display name, or device id anywhere as an appUserID', () => {
     expect(codeOnly).not.toMatch(/appUserID:\s*(email|displayName|deviceId)/i);
+  });
+});
+
+describe('revenueCatAdapter — backend-scoped App User ID (real execution, not source-matching)', () => {
+  it('real buildScopedAppUserId: production ref scopes, every other ref/null passes the bare id through unchanged', async () => {
+    const { buildScopedAppUserId, PRODUCTION_PROJECT_REF } = await import('../../supabase/functions/_shared/revenueCatBackendScope.js');
+    const uuid = '12345678-1234-1234-1234-123456789abc';
+    expect(buildScopedAppUserId(PRODUCTION_PROJECT_REF, uuid)).toBe(`${PRODUCTION_PROJECT_REF}:${uuid}`);
+    expect(buildScopedAppUserId('kvdxuhyndevrfvsalgnx', uuid)).toBe(uuid);
+    expect(buildScopedAppUserId(null, uuid)).toBe(uuid);
+  });
+
+  it('source wires configureRevenueCat/logInRevenueCat through buildScopedAppUserId, not the bare argument, and gates isRevenueCatSupported on a recognised backend', () => {
+    expect(codeOnly).toMatch(/const scopedAppUserId = initialAppUserId \? buildScopedAppUserId\(OWN_PROJECT_REF, initialAppUserId\) : null;/);
+    expect(codeOnly).toMatch(/await Purchases\.configure\(\{ apiKey, appUserID: scopedAppUserId \}\);/);
+    expect(codeOnly).toMatch(/isRevenueCatConfigured\(platform\) && IS_RECOGNIZED_BACKEND;/);
   });
 });
 

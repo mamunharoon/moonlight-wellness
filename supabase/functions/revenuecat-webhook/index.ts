@@ -72,6 +72,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseAdminClient } from '../_shared/supabaseAdmin.ts';
 import { processRevenueCatWebhookEvent } from '../_shared/revenueCatWebhookHandler.js';
+import { extractProjectRef } from '../_shared/revenueCatBackendScope.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -130,7 +131,15 @@ Deno.serve(async (req) => {
   // resolveBetaVideoUrlRequest.
   const supabaseAdmin = createSupabaseAdminClient();
 
+  // Own backend identity, derived ONLY from this deployment's own
+  // environment (SUPABASE_URL — platform-auto-injected per project,
+  // same value supabaseAdmin.ts already depends on) — never from the
+  // event itself. See revenueCatBackendScope.js's own header for why
+  // this is the server-enforced check, not the event's own claim.
+  const ownProjectRef = extractProjectRef(Deno.env.get('SUPABASE_URL'));
+
   const result = await processRevenueCatWebhookEvent(event, {
+    ownProjectRef,
     // ALERT, not a benign fallback — see resolveEventVerifiedAt's/
     // processRevenueCatWebhookEvent's own headers for the full
     // reasoning: a missing/invalid OR unreasonably-future
@@ -185,6 +194,17 @@ Deno.serve(async (req) => {
     console.warn('revenuecat-webhook: Google event missing a usable purchase token');
   } else if (result.body?.reason === 'ownership_conflict') {
     console.error('revenuecat-webhook: ownership conflict', event?.type);
+  } else if (result.body?.reason === 'backend_ref_unresolved') {
+    // Loud, not a benign skip — this deployment's own SUPABASE_URL did
+    // not resolve to a known project ref, so it could not safely decide
+    // whether ANY event belongs to it. Platform-auto-injected and
+    // expected to always be present (see supabaseAdmin.ts) — this
+    // should never actually fire; if it does, that is itself the alert.
+    console.error('revenuecat-webhook: own backend ref could not be resolved from SUPABASE_URL — failing closed, no event applied', ownProjectRef);
+  } else if (result.body?.reason === 'wrong_backend' || result.body?.reason === 'unscoped_on_production') {
+    console.warn('revenuecat-webhook: event scoped to a different backend than this deployment — rejected, zero entitlement write', result.body?.reason, event?.type, ownProjectRef);
+  } else if (result.body?.reason === 'invalid_app_user_id') {
+    console.warn('revenuecat-webhook: event app_user_id is not a genuine Supabase UUID once unscoped — rejected', event?.type);
   } else if (result.status === 500) {
     console.error('revenuecat-webhook: failed to process event', result.body?.error);
   } else if (result.status === 400 && result.body?.error === 'Missing event id') {

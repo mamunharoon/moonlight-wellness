@@ -11,6 +11,7 @@
 // except the explicit, injectable `onTimestampQuarantined` hook (see
 // resolveEventVerifiedAt's own header for why that one is deliberate).
 import { mapRevenueCatStoreToProvider, mapRevenueCatEventToStateChange } from './revenueCatEventMapping.js';
+import { resolveEventBackendScope } from './revenueCatBackendScope.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const looksLikeSupabaseUuid = (value) => typeof value === 'string' && UUID_PATTERN.test(value);
@@ -308,6 +309,7 @@ export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateC
  * @param {object} event - the already-JSON-parsed `body.event`.
  * @param {{
  *   now?: Date,
+ *   ownProjectRef: string|null,
  *   onTimestampQuarantined?: (event: object, reason: 'missing_or_invalid'|'unreasonable_future') => void,
  *   onExpirationQuarantined?: (event: object) => void,
  *   insertProviderEvent: (row: object) => Promise<{error: {code?: string, message?: string}|null}>,
@@ -318,11 +320,15 @@ export const buildApplyVerifiedEventArgs = ({ provider, event, appUserId, stateC
  *   never used to construct a substitute ordering value anywhere in this
  *   function. `onExpirationQuarantined` has no reason parameter (unlike
  *   onTimestampQuarantined) — resolveEventExpiresAt has only the one
- *   quarantine reason, 'missing_or_invalid'.
+ *   quarantine reason, 'missing_or_invalid'. `ownProjectRef` is this
+ *   deployment's OWN Supabase project ref (see
+ *   revenueCatBackendScope.js's own header) — the caller derives it from
+ *   its own SUPABASE_URL, never from anything in `event`; this function
+ *   never computes or guesses it itself.
  * @returns {Promise<{status: number, body: Record<string, unknown>}>}
  */
 export const processRevenueCatWebhookEvent = async (event, deps) => {
-  const { now = new Date(), onTimestampQuarantined, onExpirationQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
+  const { now = new Date(), ownProjectRef = null, onTimestampQuarantined, onExpirationQuarantined, insertProviderEvent, callApplyVerifiedEvent } = deps;
 
   if (!event || typeof event.type !== 'string') {
     return { status: 400, body: { error: 'Missing event' } };
@@ -341,9 +347,13 @@ export const processRevenueCatWebhookEvent = async (event, deps) => {
   }
 
   const stateChange = mapRevenueCatEventToStateChange(event);
-  const appUserId = event.app_user_id;
 
-  if (!stateChange || !looksLikeSupabaseUuid(appUserId)) {
+  if (!stateChange) {
+    // Unhandled/acknowledge-only event type (e.g. TEST, TRANSFER — see
+    // revenueCatEventMapping.js's own header for why TRANSFER is
+    // deliberately excluded). Unrelated to identity/backend scope —
+    // still recorded for audit, user_id null, unchanged from before this
+    // fix.
     const { error: insertError } = await insertProviderEvent({
       provider,
       provider_event_id: eventId,
@@ -355,6 +365,34 @@ export const processRevenueCatWebhookEvent = async (event, deps) => {
       return { status: 500, body: { error: 'Failed to record event' } };
     }
     return { status: 200, body: { received: true, processed: true } };
+  }
+
+  // Backend-scoped identity resolution (see revenueCatBackendScope.js's
+  // own header for the full design/rationale). This is the one place a
+  // state-changing event's app_user_id is trusted — a rejection here
+  // means ZERO entitlement write happens for this event, on this
+  // backend, full stop: the RPC below is never reached. `appUserId`
+  // below is the bare, ref-stripped UUID when accepted — every line
+  // after this block is otherwise unchanged from before this fix.
+  const { userId: appUserId, rejectReason: identityRejectReason } = resolveEventBackendScope(event.app_user_id, ownProjectRef);
+
+  if (!appUserId) {
+    // State-bearing event type, but the claimed identity could not be
+    // safely resolved to THIS backend. Still recorded for audit —
+    // user_id is deliberately null, never the rejected claimed value, so
+    // a wrong-backend/malformed id is never laundered into the audit
+    // table as if it were a real user_id.
+    const { error: insertError } = await insertProviderEvent({
+      provider,
+      provider_event_id: eventId,
+      event_type: event.type,
+      user_id: null,
+      payload_summary: payloadSummary
+    });
+    if (insertError && insertError.code !== '23505') {
+      return { status: 500, body: { error: 'Failed to record event' } };
+    }
+    return { status: 200, body: { received: true, processed: false, reason: identityRejectReason } };
   }
 
   const { verifiedAtIso, usedFallback, quarantineReason } = resolveEventVerifiedAt(event, now);

@@ -11,6 +11,7 @@ import {
   looksLikeSupabaseUuid,
   CLOCK_SKEW_TOLERANCE_MS
 } from '../../supabase/functions/_shared/revenueCatWebhookHandler.js';
+import { PRODUCTION_PROJECT_REF } from '../../supabase/functions/_shared/revenueCatBackendScope.js';
 
 const APP_USER_ID = '12345678-1234-1234-1234-123456789abc';
 // SUB-21/ST-29 fix: every state-changing event now requires a valid
@@ -304,11 +305,23 @@ describe('buildApplyVerifiedEventArgs - fix 2 chain (undefined/null must never b
 // the full pipeline (event -> verifiedAtIso -> RPC args -> accepted or
 // rejected) can be exercised deterministically without a live database.
 // `store` simulates the already-persisted row for one transaction key.
+// Every pre-existing test in this file predates backend-scoped identity
+// resolution and uses a bare (unscoped) APP_USER_ID, testing OTHER
+// behaviour entirely (ordering, dedup, provider routing, cancellation
+// preference). makeFakeDb() defaults ownProjectRef to the real DEV ref
+// so every one of those tests keeps passing unchanged - a bare id is
+// exactly DEV's own legacy-accepted shape. The dedicated
+// "backend-scoped identity resolution" describe block below overrides
+// this per test to exercise production/wrong-backend/unresolved-ref
+// behaviour specifically.
+const DEV_PROJECT_REF = 'kvdxuhyndevrfvsalgnx';
+
 const makeFakeDb = () => {
   const store = new Map(); // key -> { lastVerifiedAt, args }
   const calls = [];
   return {
     calls,
+    ownProjectRef: DEV_PROJECT_REF,
     insertProviderEvent: vi.fn(async () => ({ error: null })),
     callApplyVerifiedEvent: vi.fn(async (provider, args) => {
       calls.push({ provider, args });
@@ -860,13 +873,109 @@ describe('processRevenueCatWebhookEvent - cross-provider independence', () => {
     expect(googleCall.args).not.toHaveProperty('p_apple_original_transaction_id');
   });
 
-  it('an event for a non-UUID / anonymous app_user_id is acknowledge-only and never reaches either RPC, regardless of provider', async () => {
+  it('an event for a non-UUID / anonymous app_user_id is rejected and never reaches either RPC, regardless of provider', async () => {
+    // UPDATED for backend-scoped identity resolution: previously this
+    // fell into the same generic "not a real identity" bucket as an
+    // unhandled event TYPE and was reported as processed:true (silently
+    // misleading - nothing was actually done with it). It now gets its
+    // own explicit, honest reason. The important invariant - zero RPC
+    // calls, still recorded for audit - is unchanged.
     const db = makeFakeDb();
     const event = { type: 'RENEWAL', period_type: 'NORMAL', original_transaction_id: 'txn-anon', store: 'APP_STORE', app_user_id: '$RCAnonymousID:abc123', id: 'evt-anon' };
     const result = await processRevenueCatWebhookEvent(event, db);
-    expect(result.body.processed).toBe(true);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'invalid_app_user_id' });
     expect(db.calls).toHaveLength(0);
     expect(db.insertProviderEvent).toHaveBeenCalledTimes(1);
+    expect(db.insertProviderEvent).toHaveBeenCalledWith(expect.objectContaining({ user_id: null }));
+  });
+});
+
+describe('processRevenueCatWebhookEvent - backend-scoped identity resolution (RevenueCat DEV/production routing gap)', () => {
+  const RENEWAL_FIXTURE = {
+    type: 'RENEWAL',
+    period_type: 'NORMAL',
+    original_transaction_id: 'txn-scope-1',
+    store: 'APP_STORE',
+    environment: 'PRODUCTION',
+    event_timestamp_ms: Date.now(),
+    expiration_at_ms: Date.parse('2099-01-01T00:00:00Z'),
+    id: 'evt-scope-1'
+  };
+
+  it('production backend accepts an id scoped to its own ref, and the RPC receives the bare uuid (not the scoped string)', async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = PRODUCTION_PROJECT_REF;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: `${PRODUCTION_PROJECT_REF}:${APP_USER_ID}` };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: true });
+    expect(db.calls).toHaveLength(1);
+    expect(db.calls[0].args.p_user_id).toBe(APP_USER_ID);
+    expect(db.calls[0].args.p_apple_app_account_token).toBe(APP_USER_ID);
+  });
+
+  it('production backend rejects a bare/unscoped id outright - zero entitlement write', async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = PRODUCTION_PROJECT_REF;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: APP_USER_ID, id: 'evt-scope-2' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'unscoped_on_production' });
+    expect(db.calls).toHaveLength(0);
+    expect(db.insertProviderEvent).toHaveBeenCalledWith(expect.objectContaining({ user_id: null }));
+  });
+
+  it('production backend rejects an id scoped to a different (e.g. DEV) backend - zero entitlement write', async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = PRODUCTION_PROJECT_REF;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: `${DEV_PROJECT_REF}:${APP_USER_ID}`, id: 'evt-scope-3' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'wrong_backend' });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('a malformed id reaching production is rejected, never applied with a guessed uuid', async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = PRODUCTION_PROJECT_REF;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: `${PRODUCTION_PROJECT_REF}:not-a-uuid`, id: 'evt-scope-4' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'invalid_app_user_id' });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('DEV backend still accepts the legacy bare uuid exactly as before - existing DEV evidence path unaffected', async () => {
+    const db = makeFakeDb(); // ownProjectRef defaults to DEV_PROJECT_REF
+    const event = { ...RENEWAL_FIXTURE, app_user_id: APP_USER_ID, id: 'evt-scope-5' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: true });
+    expect(db.calls[0].args.p_user_id).toBe(APP_USER_ID);
+  });
+
+  it('DEV backend rejects an id scoped to production (or any other backend) - zero entitlement write', async () => {
+    const db = makeFakeDb();
+    const event = { ...RENEWAL_FIXTURE, app_user_id: `${PRODUCTION_PROJECT_REF}:${APP_USER_ID}`, id: 'evt-scope-6' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'wrong_backend' });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('fails closed when this deployment cannot determine its own backend ref at all, regardless of event content', async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = null;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: `${PRODUCTION_PROJECT_REF}:${APP_USER_ID}`, id: 'evt-scope-7' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    expect(result.body).toEqual({ received: true, processed: false, reason: 'backend_ref_unresolved' });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it("RevenueCat's own anonymous-id format is never mistaken for a backend prefix on any deployment", async () => {
+    const db = makeFakeDb();
+    db.ownProjectRef = PRODUCTION_PROJECT_REF;
+    const event = { ...RENEWAL_FIXTURE, app_user_id: '$RCAnonymousID:abc123', id: 'evt-scope-8' };
+    const result = await processRevenueCatWebhookEvent(event, db);
+    // Correctly 'unscoped_on_production' (not a real ref prefix at all),
+    // never a false-positive 'wrong_backend' misreading '$RCAnonymousID'
+    // as a project ref.
+    expect(result.body.reason).toBe('unscoped_on_production');
+    expect(db.calls).toHaveLength(0);
   });
 });
 

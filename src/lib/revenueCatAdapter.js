@@ -73,6 +73,33 @@ import {
   getRevenueCatAndroidApiKey,
   isRevenueCatConfigured
 } from './revenueCatConfig';
+import { isDevBackendUrl } from './buildInfo';
+// Cross-boundary import — same pattern revenueCatWebhookHandler.test.js
+// already established (the real module lives under
+// supabase/functions/_shared/ and is not itself Deno-specific; see that
+// module's own header for the full design). This is the first PRODUCTION
+// (non-test) consumer of that cross-boundary pattern — both this client
+// bundle and the revenuecat-webhook Edge Function must agree on the
+// exact same App User ID scoping byte-for-byte, so one shared file is
+// used rather than two independently-drifting copies.
+import { extractProjectRef, buildScopedAppUserId, PRODUCTION_PROJECT_REF } from '../../supabase/functions/_shared/revenueCatBackendScope';
+
+// This build's own Supabase project ref, resolved once at module load —
+// mirrors buildInfo.js's own IS_DEV_BACKEND (same source value,
+// VITE_SUPABASE_URL, same "ground truth already present in every build"
+// reasoning). Used only to decide the App User ID scoping below — never
+// to decide whether a purchase is allowed at all, which remains gated by
+// isRevenueCatConfigured() exactly as before.
+const OWN_PROJECT_REF = extractProjectRef(import.meta.env.VITE_SUPABASE_URL);
+
+// Fails closed on a backend this build's own URL doesn't resolve to a
+// recognised project at all (missing/malformed VITE_SUPABASE_URL, or a
+// future third project not yet accounted for here): RevenueCat is never
+// configured/logged in to at all in that case, rather than guessing
+// whether a bare or scoped App User ID would be correct. See
+// isRevenueCatSupported() below, where this is the one additional gate
+// added by this change.
+const IS_RECOGNIZED_BACKEND = OWN_PROJECT_REF === PRODUCTION_PROJECT_REF || isDevBackendUrl(import.meta.env.VITE_SUPABASE_URL);
 
 // SubscriptionOption.id is `basePlanId` for the base plan itself, or
 // `basePlanId:offerId` for an offer (installed SDK's own offerings.d.ts,
@@ -88,10 +115,16 @@ const optionMatchesOfferName = (option, offerName) =>
 
 const currentPlatform = () => (isIOS() ? 'ios' : isAndroid() ? 'android' : null);
 
-/** True only on a native iOS/Android build with a real public key for this platform. */
+/**
+ * True only on a native iOS/Android build with a real public key for
+ * this platform, AND a recognised backend (DEV or production — see
+ * IS_RECOGNIZED_BACKEND above). The backend check fails closed: an
+ * unrecognised VITE_SUPABASE_URL means every function below stays
+ * 'unavailable', never guessing which App User ID shape to send.
+ */
 export const isRevenueCatSupported = () => {
   const platform = currentPlatform();
-  return Boolean(platform) && isNativePlatform() && isRevenueCatConfigured(platform);
+  return Boolean(platform) && isNativePlatform() && isRevenueCatConfigured(platform) && IS_RECOGNIZED_BACKEND;
 };
 
 const safeErrorMessage = (error) => (error && typeof error.message === 'string' ? error.message : 'Unknown error');
@@ -113,8 +146,12 @@ export const configureRevenueCat = async (initialAppUserId) => {
   if (configured || !isRevenueCatSupported()) return { outcome: 'unavailable' };
   const platform = currentPlatform();
   const apiKey = platform === 'ios' ? getRevenueCatIosApiKey() : getRevenueCatAndroidApiKey();
+  // Backend-scoped only on production (see revenueCatBackendScope.js) —
+  // bare on DEV, unchanged, preserving every existing DEV identity and
+  // its purchase/trial history exactly as before this change.
+  const scopedAppUserId = initialAppUserId ? buildScopedAppUserId(OWN_PROJECT_REF, initialAppUserId) : null;
   try {
-    await Purchases.configure({ apiKey, appUserID: initialAppUserId ?? null });
+    await Purchases.configure({ apiKey, appUserID: scopedAppUserId });
     configured = true;
     return { outcome: 'configured' };
   } catch (error) {
@@ -132,12 +169,17 @@ export const isRevenueCatConfiguredThisSession = () => configured;
  * display name, device id, or locally generated id (see
  * useRevenueCatIdentity.js, the only caller). Returns whether this was
  * the user's very first RevenueCat login (useful for analytics only,
- * never used to decide entitlement).
+ * never used to decide entitlement). Backend-scoped only on production
+ * (see buildScopedAppUserId/revenueCatBackendScope.js) — this is a
+ * routing label, not an ownership proof; the actual authenticated-user
+ * guarantee is entirely in the caller already having a real Supabase
+ * session (useRevenueCatIdentity.js), unchanged by this.
  */
 export const logInRevenueCat = async (supabaseUserId) => {
   if (!configured || !isRevenueCatSupported() || !supabaseUserId) return { outcome: 'unavailable' };
+  const scopedAppUserId = buildScopedAppUserId(OWN_PROJECT_REF, supabaseUserId);
   try {
-    const result = await Purchases.logIn({ appUserID: supabaseUserId });
+    const result = await Purchases.logIn({ appUserID: scopedAppUserId });
     return { outcome: 'logged-in', created: Boolean(result?.created) };
   } catch (error) {
     console.warn('[revenueCatAdapter] logIn failed', safeErrorMessage(error));
