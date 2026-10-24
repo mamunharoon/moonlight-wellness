@@ -1132,6 +1132,25 @@ workflows:
           set -euo pipefail
           npm run lint
 
+      - name: Write this build's TestFlight "What to Test" notes
+        script: |
+          set -euo pipefail
+          # Generated fresh in this workflow's own checkout, never committed
+          # to the repo — Codemagic's release-notes publishing step reads
+          # release_notes.json from the working directory at publish time
+          # (docs.codemagic.io/yaml-notification/publish-release-notes),
+          # and that file is repo-global (every workflow that builds from
+          # the same commit would otherwise pick up the same text). Writing
+          # it here, in this workflow only, keeps the production label from
+          # ever leaking into a DEV or sandbox build's TestFlight notes.
+          cat > release_notes.json << 'EOF'
+          [
+            { "language": "en-US", "text": "PROD — release candidate" }
+          ]
+          EOF
+          echo "release_notes.json written for this production build:"
+          cat release_notes.json
+
       - name: Confirm the sandbox test panel did NOT compile into this build's output
         script: |
           set -euo pipefail
