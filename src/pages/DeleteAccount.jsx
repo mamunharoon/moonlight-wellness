@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useAuth } from '../context/AuthContext';
@@ -134,6 +134,27 @@ export const DeleteAccount = () => {
   // time is not an autofill target at all, which is what actually stops
   // it, per Chrome's own documented autofill behaviour.
   const [confirmFieldReady, setConfirmFieldReady] = useState(false);
+  // iOS WebKit keyboard fix (found live on PROD, owner report + screenshots:
+  // the field accepted focus — visible focus ring — but the on-screen
+  // keyboard never appeared, so it looked permanently disabled). iOS
+  // decides whether to show the keyboard based on the input's readOnly
+  // state AT THE MOMENT of that first touch/focus event — flipping
+  // confirmFieldReady true a React render later never retroactively
+  // summons it for that same gesture, unlike Android/desktop browsers,
+  // which re-evaluate on every keystroke and are unaffected. Re-focusing
+  // the element once confirmFieldReady has actually committed (readOnly
+  // is really gone from the DOM by then) makes iOS re-show the keyboard
+  // against the now-writable field. Guarded by document.activeElement
+  // so this never steals focus if the user has already tabbed/tapped
+  // away by the time this effect runs.
+  const confirmFieldRef = useRef(null);
+  useEffect(() => {
+    if (!confirmFieldReady) return;
+    const el = confirmFieldRef.current;
+    if (el && document.activeElement === el) {
+      el.focus();
+    }
+  }, [confirmFieldReady]);
   const [submitError, setSubmitError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
@@ -619,6 +640,7 @@ export const DeleteAccount = () => {
             </label>
             <input
               id="confirmPhrase"
+              ref={confirmFieldRef}
               name="account-deletion-confirmation-phrase"
               type="text"
               placeholder={CONFIRMATION_PHRASE}
