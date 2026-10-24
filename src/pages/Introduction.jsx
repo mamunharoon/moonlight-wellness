@@ -320,8 +320,15 @@ export const Introduction = () => {
   // (sessionConstants.js: Intention -> Stretch -> Breathe -> Meditate
   // (optional) -> Affirm -> Complete); "other steps" covers the rest
   // without listing all five and crowding this short explanation.
+  // WakeWise DEV — Welcome-screen copy update (owner-approved). Returning-
+  // user copy is now a short tagline plus one supporting sentence, rather
+  // than the single question it used to be. welcomeSubcopyTagline is null
+  // for the non-returning (first-visit) variant, which keeps its own,
+  // completely untouched single-sentence copy below — see the render
+  // below, which only shows the tagline line when this is non-null.
+  const welcomeSubcopyTagline = isReturningSignedInUser ? 'A little time. A fresh start.' : null;
   const welcomeSubcopy = isReturningSignedInUser
-    ? 'What would you like to do today?'
+    ? 'Take a moment to reset—with time to breathe, move or reflect.'
     : 'Morning routines, anytime resets and evening wind-downs — at your own pace.';
   const [saveError, setSaveError] = useState('');
 
@@ -633,9 +640,21 @@ export const Introduction = () => {
           <h1 className="text-2xl font-morning-display text-on-surface tracking-tight">
             {welcomeHeading}
           </h1>
-          <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
-            {welcomeSubcopy}
-          </p>
+          {/* Tight gap between these two lines (not the outer space-y-1.5)
+              so the returning-user variant's extra line adds minimal
+              height to this already space-constrained hero block - see
+              this block's own "Welcome spacing correction" comment above
+              for why that matters on a 390x844 viewport. */}
+          <div className={welcomeSubcopyTagline ? 'space-y-0.5' : undefined}>
+            {welcomeSubcopyTagline && (
+              <p className="text-sm font-semibold text-on-surface leading-snug max-w-sm mx-auto">
+                {welcomeSubcopyTagline}
+              </p>
+            )}
+            <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
+              {welcomeSubcopy}
+            </p>
+          </div>
         </div>
 
         {introVideoAvailable && (
@@ -692,7 +711,7 @@ export const Introduction = () => {
           hidden. */}
       <section aria-labelledby="welcome-cards-heading" className="space-y-3 !mt-[30px]">
         <h2 id="welcome-cards-heading" className="text-xl font-bold text-on-surface">
-          Start where you are
+          Find a reset that fits your day
         </h2>
         {/* WakeWise DEV — Welcome vertical-space fix: space-y-3 -> space-y-2
             between cards, p-4 -> p-3 -> p-1.5 and the icon chip

@@ -29,7 +29,7 @@ describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-s
 
   it('existing signed-in version-1 user variant has the exact required Welcome Back heading and supporting copy', () => {
     expect(introductionSource).toMatch(/\? `Welcome back, \$\{firstName\}`/);
-    expect(introductionSource).toMatch(/\? 'What would you like to do today\?'/);
+    expect(introductionSource).toMatch(/\? 'Take a moment to reset—with time to breathe, move or reflect\.'/);
   });
 
   it('an existing user without a valid first name gets the plain "Welcome back" fallback, never a dangling comma/placeholder', () => {

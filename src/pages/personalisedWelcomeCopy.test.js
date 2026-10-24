@@ -61,10 +61,15 @@ describe('4 & 5. Existing version-1 user: "Welcome back, {firstName}" when a val
     expect(introductionSource).toMatch(/: 'Welcome back'\)/);
   });
 
-  it('the returning-user supporting copy is the exact required sentence (WakeWise DEV welcome-screen redesign)', () => {
+  it('the returning-user supporting copy is the exact required tagline + sentence (24-Oct-2026 welcome-screen copy update)', () => {
+    expect(introductionSource).toMatch(/welcomeSubcopyTagline = isReturningSignedInUser \? 'A little time\. A fresh start\.' : null;/);
     expect(introductionSource).toMatch(
-      /\? 'What would you like to do today\?'/
+      /\? 'Take a moment to reset—with time to breathe, move or reflect\.'/
     );
+  });
+
+  it('the first-visit (non-returning) subcopy is completely untouched by this change', () => {
+    expect(introductionSource).toMatch(/: 'Morning routines, anytime resets and evening wind-downs — at your own pace\.';/);
   });
 });
 
