@@ -67,11 +67,36 @@ describe('Terms of Service — no longer implies a planned/pending legal review 
     expect(text).not.toMatch(/legally approved|compliant|lawyer-approved|legal(ly)? compliant/i);
   });
 
-  it('the one accurate, honest draft disclaimer (LegalLayout\'s own global banner) is untouched - it states review has NOT happened, which is true, and contact details stay intact', () => {
-    const layoutSource = readFileSync(fileURLToPath(new URL('../components/LegalLayout.jsx', import.meta.url)), 'utf-8');
-    expect(layoutSource).toMatch(/Draft — not yet reviewed by a lawyer/);
+});
+
+describe('LegalLayout — the global "Draft — not yet reviewed by a lawyer" banner is removed (24-Oct-2026, owner-approved), everywhere it used to render', () => {
+  const layoutSource = readFileSync(fileURLToPath(new URL('../components/LegalLayout.jsx', import.meta.url)), 'utf-8');
+  // Only the actual rendered JSX (the return statement), never the
+  // surrounding comments - this file's own header comment legitimately
+  // quotes the removed banner's old text as history, which must not
+  // make this check about the real markup false-positive.
+  const renderBody = layoutSource.slice(layoutSource.indexOf('return ('), layoutSource.lastIndexOf('};'));
+
+  it('the banner JSX itself is gone from the one shared render point every isLegal page uses', () => {
+    expect(renderBody).not.toMatch(/Draft — not yet reviewed by a lawyer/);
+    expect(renderBody).not.toMatch(/text-amber-400/);
+  });
+
+  it('nothing was put in its place implying legal approval, review, or compliance', () => {
+    expect(renderBody).not.toMatch(/legally approved|reviewed by (our|a) lawyer|legal(ly)? compliant|approved by (our )?legal/i);
+  });
+
+  it('the contact footer (every other user-facing legal detail) is still rendered for isLegal pages', () => {
+    expect(layoutSource).toMatch(/Questions about this page\? Contact \{CONTACT_INFO\.company\} at/);
+    expect(layoutSource).toMatch(/\{isLegal && \(/);
+  });
+
+  it('every one of the seven isLegal pages still has its contact email available (contact details preserved)', () => {
     const contactText = flattenText(LEGAL_CONTENT['contact-us']);
     expect(contactText).toMatch(/info@zavaraai\.com/);
+    for (const slug of ['privacy-policy', 'terms-of-service', 'subscription-terms', 'refund-policy', 'medical-disclaimer', 'account-deletion-policy', 'data-retention-policy']) {
+      expect(LEGAL_CONTENT[slug].isLegal).toBe(true);
+    }
   });
 });
 

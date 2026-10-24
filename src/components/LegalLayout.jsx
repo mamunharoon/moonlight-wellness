@@ -15,9 +15,12 @@ import { BackButton } from './BackButton';
  * rather than new CSS — this project's styling system (Tailwind
  * utilities + the glass-panel utility class) is left untouched.
  *
- * isLegal pages get a visible "draft, not yet reviewed by a lawyer"
- * notice and a contact footer — see legalContent.js's own header
- * comment for why that notice exists and must not be quietly removed.
+ * isLegal pages get a contact footer. They used to also render a
+ * visible "Draft — not yet reviewed by a lawyer" banner above the
+ * content - removed 24-Oct-2026, owner-approved, across every legal
+ * page at once (this is their one shared render point) - see
+ * legalContent.js's own header comment for the full reasoning. Nothing
+ * was put in its place implying legal approval or compliance.
  */
 const sectionHeadingClass = 'text-sm font-bold text-on-surface';
 const bodyTextClass = 'text-sm text-on-surface-variant leading-relaxed';
@@ -30,12 +33,6 @@ export const LegalLayout = ({ title, lastUpdated, effectiveDate, version, isLega
         <BackButton fallback={backTo} />
         <h2 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight">{title}</h2>
       </div>
-
-      {isLegal && (
-        <p className="text-[10px] uppercase tracking-wider font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1.5 inline-block">
-          Draft — not yet reviewed by a lawyer
-        </p>
-      )}
 
       <div className="glass-panel p-6 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.02)] space-y-5">
         {(lastUpdated || effectiveDate) && (

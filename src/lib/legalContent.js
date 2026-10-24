@@ -6,12 +6,19 @@
 // JSX) so the content can be reviewed, edited, or handed to a lawyer
 // without touching any component code.
 //
-// DRAFT STATUS: this content was authored by an AI assistant to
-// establish a real, substantive starting point, verified against what
-// the app actually does today — not asserted from a template. It has
-// NOT been reviewed by a lawyer. LegalLayout renders a visible draft
-// notice on every page sourced from here; do not remove that notice by
-// publishing this content without an actual legal review first.
+// PROVENANCE: this content was authored by an AI assistant to establish
+// a real, substantive starting point, verified against what the app
+// actually does today — not asserted from a template. It has NOT been
+// reviewed by a lawyer. LegalLayout previously rendered a visible
+// "Draft — not yet reviewed by a lawyer" banner on every page sourced
+// from here; removed 24-Oct-2026, owner-approved (an explicit, repeated
+// instruction - not an oversight), across every legal/support page in
+// one change (LegalLayout.jsx's own shared render point, not a per-page
+// edit). The substantive policy text and every contact detail are
+// unchanged; nothing was added in the banner's place implying legal
+// approval, review, or compliance that hasn't actually happened — the
+// lack-of-review fact above remains true, it's simply no longer
+// surfaced to end users as a page banner.
 //
 // VERIFIED FACTS this content is built from (see the Legal, Subscription
 // and Free-Trial Readiness report for full sourcing/access dates):
@@ -530,8 +537,9 @@ export const LEGAL_CONTENT = {
 
   // Preserved from the WakeWise branding phase — same title/body,
   // slug intentionally left as 'about-solas' (route slugs are not
-  // renamed per that phase's own rule). Not a legal document: no
-  // draft notice, no contact footer.
+  // renamed per that phase's own rule). Not a legal document: isLegal
+  // is false here, so it never gets the contact footer every isLegal
+  // page renders.
   'about-solas': {
     title: 'About WakeWise',
     lastUpdated: null,
