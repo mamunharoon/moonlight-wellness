@@ -198,15 +198,27 @@ export const DeleteAccount = () => {
   // keyboard visibility, that round's one success could not be ruled out
   // as a side effect of its own instrumentation rather than evidence of
   // anything about the field itself (see ba77c9d's own discussion). Every
-  // signal here instead comes from OUTSIDE that call stack, sampled after
-  // the browser has already finished dispatching the event and made its
-  // own keyboard decision:
+  // signal here is designed to minimise that specific risk, NOT to
+  // guarantee zero effect on timing or to prove anything about the
+  // keyboard - treat each as an indicator, read alongside whatever the
+  // device actually shows, not as proof on its own:
   //   - keyboard shown/hidden: window.visualViewport's own 'resize' event
-  //     - a signal the OS fires on its own schedule, never triggered by or
-  //     wired to this field in any way.
+  //     - fires on the OS's own schedule, never triggered by or wired to
+  //     this field. An INDICATOR the keyboard opened/closed, not proof -
+  //     Safari's dynamic toolbar and an orientation change can also move
+  //     this by a similar amount, and this build has no way to tell those
+  //     apart from an actual keyboard transition.
   //   - focus landed/left: a 100ms polling loop reading
   //     document.activeElement - a macrotask on its own timer, never
-  //     inside the original touch/focus event's synchronous call stack.
+  //     inside the original touch/focus event's synchronous call stack,
+  //     so it cannot be the thing that decides keyboard visibility for
+  //     that gesture. It still calls setState on every observed
+  //     transition, adding scheduled work (timers, re-renders) to the JS
+  //     event loop that a truly diagnostics-free build would not have -
+  //     minimised, not proven inert. Do not treat a pass or fail here as
+  //     isolating the diagnostics-free code's own real-world behaviour;
+  //     see the verification plan this investigation records separately
+  //     for that.
   //   - entry: logged from the field's EXISTING onChange handler
   //     (handleConfirmationChange below), which can only ever fire after
   //     a keystroke has already landed - it cannot influence whether the
@@ -215,7 +227,8 @@ export const DeleteAccount = () => {
   // This cannot prove what causes the underlying defect, and is not
   // treated as one - it only gives the next on-device attempt a readable,
   // on-screen (no Mac/Xcode needed) record of which of the three stages
-  // the flow actually reached.
+  // the flow actually reached. The cause stays unresolved regardless of
+  // what any single attempt shows.
   const [diagLog, setDiagLog] = useState([]);
   const diagStartRef = useRef(null);
   const pushDiagEvent = (kind, detail) => {
