@@ -118,7 +118,24 @@ Deno.serve(async (req) => {
     { user, password, confirmationPhrase },
     {
       reauthenticate: async (email, pwd) => {
-        const { error } = await authClient.auth.signInWithPassword({ email, password: pwd });
+        // Own, fresh client — deliberately NOT authClient (the one that
+        // already ran .auth.getUser(jwt) above, to verify the caller's
+        // session). Found live on DEV B61 (owner report, 24-Oct-2026):
+        // the exact same password that had just signed the user into the
+        // app moments earlier was rejected here with "Invalid login
+        // credentials", even though the server-side email passed in is
+        // the JWT-verified, authoritative one (not client-supplied -
+        // ruled out as the cause). Reusing one GoTrue client instance for
+        // a token-verification call (getUser) and then a password-grant
+        // call (signInWithPassword) is not Supabase's documented pattern
+        // for either method, and the two calls populate/depend on
+        // different parts of that client's own internal auth state - a
+        // same-client sequence is not something the SDK's own docs show
+        // or guarantee works in either order. A brand-new client per
+        // reauthenticate call removes any possibility of that
+        // interference entirely, at zero cost to the success path.
+        const reauthClient = createSupabaseAuthClient();
+        const { error } = await reauthClient.auth.signInWithPassword({ email, password: pwd });
         return { error };
       },
 
