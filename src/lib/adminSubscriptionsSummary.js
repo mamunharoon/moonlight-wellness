@@ -31,6 +31,17 @@ export const summarizeAdminSubscriptions = (rows) => {
     uniquePlusSubscribers,
     sandboxPlusSubscribers,
     productionPlusSubscribers,
+    // D-12 (sandbox purchases on production, excluded from revenue): the
+    // one number that should read as "real, revenue-bearing Plus
+    // subscribers" — total minus sandbox ONLY. Deliberately not
+    // productionPlusSubscribers: that figure excludes environment !==
+    // 'production', which also excludes every Stripe/manual-provider
+    // winner (their environment is always NULL, never 'production' —
+    // see admin_list_subscriptions()'s own SQL) and would silently
+    // undercount real, paying subscribers who happen not to be on
+    // Apple/Google. Same unit as uniquePlusSubscribers (one row per
+    // user), so the two numbers are directly comparable.
+    revenueSubscribers: uniquePlusSubscribers - sandboxPlusSubscribers,
     totalProviderRecords
   };
 };

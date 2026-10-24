@@ -39,10 +39,10 @@ describe('summarizeAdminSubscriptions - N-04 fix: distinguish unique subscribed 
 
   it('tolerates malformed/missing input defensively, never throwing', () => {
     expect(summarizeAdminSubscriptions(null)).toEqual({
-      totalUsers: 0, uniquePlusSubscribers: 0, sandboxPlusSubscribers: 0, productionPlusSubscribers: 0, totalProviderRecords: 0
+      totalUsers: 0, uniquePlusSubscribers: 0, sandboxPlusSubscribers: 0, productionPlusSubscribers: 0, revenueSubscribers: 0, totalProviderRecords: 0
     });
     expect(summarizeAdminSubscriptions([null, undefined, {}])).toEqual({
-      totalUsers: 3, uniquePlusSubscribers: 0, sandboxPlusSubscribers: 0, productionPlusSubscribers: 0, totalProviderRecords: 0
+      totalUsers: 3, uniquePlusSubscribers: 0, sandboxPlusSubscribers: 0, productionPlusSubscribers: 0, revenueSubscribers: 0, totalProviderRecords: 0
     });
   });
 
@@ -51,6 +51,42 @@ describe('summarizeAdminSubscriptions - N-04 fix: distinguish unique subscribed 
       { user_id: 'u1', plan: 'free' }, { user_id: 'u2', plan: 'plus', provider: 'stripe' }, { user_id: 'u3', plan: 'free' }
     ];
     expect(summarizeAdminSubscriptions(rows).totalUsers).toBe(3);
+  });
+});
+
+describe('summarizeAdminSubscriptions - D-12: revenueSubscribers excludes sandbox, keeps Stripe/manual', () => {
+  it('excludes only sandbox rows - a Stripe winner (environment=NULL) still counts as revenue', () => {
+    const rows = [
+      { user_id: 'u1', plan: 'plus', provider: 'apple', environment: 'sandbox', provider_record_count: 1 },
+      { user_id: 'u2', plan: 'plus', provider: 'google', environment: 'production', provider_record_count: 1 },
+      { user_id: 'u3', plan: 'plus', provider: 'stripe', environment: null, provider_record_count: 1 },
+      { user_id: 'u4', plan: 'plus', provider: 'manual', environment: null, provider_record_count: 1 }
+    ];
+    const result = summarizeAdminSubscriptions(rows);
+    expect(result.uniquePlusSubscribers).toBe(4);
+    expect(result.sandboxPlusSubscribers).toBe(1);
+    // The exact bug this field exists to avoid: productionPlusSubscribers
+    // (environment === 'production' only) would wrongly be 1, dropping
+    // the real Stripe and manual subscribers entirely.
+    expect(result.productionPlusSubscribers).toBe(1);
+    expect(result.revenueSubscribers).toBe(3);
+  });
+
+  it('is zero when every Plus subscriber is sandbox', () => {
+    const rows = [
+      { user_id: 'u1', plan: 'plus', provider: 'apple', environment: 'sandbox', provider_record_count: 1 }
+    ];
+    expect(summarizeAdminSubscriptions(rows).revenueSubscribers).toBe(0);
+  });
+
+  it('equals uniquePlusSubscribers when there is no sandbox at all', () => {
+    const rows = [
+      { user_id: 'u1', plan: 'plus', provider: 'stripe', environment: null, provider_record_count: 1 },
+      { user_id: 'u2', plan: 'plus', provider: 'apple', environment: 'production', provider_record_count: 1 }
+    ];
+    const result = summarizeAdminSubscriptions(rows);
+    expect(result.revenueSubscribers).toBe(result.uniquePlusSubscribers);
+    expect(result.revenueSubscribers).toBe(2);
   });
 });
 

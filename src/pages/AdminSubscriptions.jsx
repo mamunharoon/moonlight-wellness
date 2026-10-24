@@ -110,7 +110,7 @@ export const AdminSubscriptions = () => {
             const summary = summarizeAdminSubscriptions(rows);
             return (
               <p className="text-xs text-on-surface-variant px-1">
-                {summary.uniquePlusSubscribers} unique Plus subscriber{summary.uniquePlusSubscribers === 1 ? '' : 's'} of {summary.totalUsers} registered user{summary.totalUsers === 1 ? '' : 's'}
+                {summary.revenueSubscribers} unique Plus subscriber{summary.revenueSubscribers === 1 ? '' : 's'} of {summary.totalUsers} registered user{summary.totalUsers === 1 ? '' : 's'}
                 {summary.sandboxPlusSubscribers > 0 && ` · ${summary.sandboxPlusSubscribers} sandbox (never revenue)`}
                 {summary.totalProviderRecords > summary.totalUsers && ` · ${summary.totalProviderRecords} underlying subscription records`}
               </p>
