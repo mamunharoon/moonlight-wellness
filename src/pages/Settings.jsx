@@ -9,8 +9,8 @@ import { isBetaProgramVisible, isSubscriptionSandboxTestVisible } from '../lib/f
 import { BackButton } from '../components/BackButton';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isNativePlatform } from '../lib/platform';
-import { IS_DEV_BACKEND, BUILD_COMMIT } from '../lib/buildInfo';
-import { formatEnvironmentBuildLabel } from '../lib/environmentBuildInfo';
+import { BUILD_COMMIT } from '../lib/buildInfo';
+import { ENVIRONMENT_LABEL, formatBuildCommitLabel } from '../lib/environmentBuildInfo';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -59,6 +59,7 @@ export const Settings = () => {
       .then((info) => setNativeBuild(info?.build ?? null))
       .catch(() => setNativeBuild(null));
   }, []);
+  const buildCommitLabel = formatBuildCommitLabel({ nativeBuild, commit: BUILD_COMMIT });
 
   if (ConfirmDialog && Link) { /* no-op to satisfy blind linter */ }
 
@@ -357,8 +358,11 @@ export const Settings = () => {
           </div>
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Environment</span>
-            <span className="text-sm text-on-surface-variant">
-              {formatEnvironmentBuildLabel({ isDevBackend: IS_DEV_BACKEND, nativeBuild, commit: BUILD_COMMIT })}
+            <span className="flex flex-col items-end gap-0.5">
+              <span className="text-sm font-semibold text-on-surface">{ENVIRONMENT_LABEL}</span>
+              {buildCommitLabel && (
+                <span className="text-xs text-on-surface-variant">{buildCommitLabel}</span>
+              )}
             </span>
           </div>
         </div>
