@@ -663,14 +663,53 @@ export const restoreRevenueCatPurchases = async () => {
   } catch (error) {
     const code = typeof error?.code === 'string' ? error.code : '';
     const message = safeErrorMessage(error);
+    // `code` is the SDK's own short error-code enum (e.g.
+    // 'RECEIPT_ALREADY_IN_USE', 'NETWORK_ERROR') - never a credential,
+    // receipt, or token. Surfaced alongside `outcome` (not replacing it)
+    // so a DEV-only diagnostic caller can log/display which specific SDK
+    // error occurred without needing the full `message`, which is not
+    // itself guaranteed credential-free.
     if (code === 'RECEIPT_ALREADY_IN_USE' || /receipt_already_in_use|already in use/i.test(message)) {
       console.warn('[revenueCatAdapter] restorePurchases: receipt already linked to a different account');
-      return { outcome: 'receipt_already_in_use' };
+      return { outcome: 'receipt_already_in_use', code: code || 'RECEIPT_ALREADY_IN_USE' };
     }
     console.warn('[revenueCatAdapter] restorePurchases failed', message);
-    return { outcome: 'failed', message };
+    return { outcome: 'failed', message, code };
   }
 };
+
+/**
+ * DEV-ONLY DIAGNOSTIC, never used by any real purchase/restore/entitlement
+ * logic (ASC-16/E-113 investigation). Reads the SDK's own CURRENT
+ * appUserID directly from the native layer - distinct from, and a check
+ * on, what useRevenueCatIdentity.js's own ref/status store BELIEVES is
+ * logged in. A mismatch between this and getExpectedScopedAppUserIdFor
+ * Diagnostics() below, observed at the exact moment a restore fails, is
+ * the one piece of evidence that would actually confirm (not just
+ * theorise) an identity-reconciliation gap. Returns null (never guessed)
+ * if RevenueCat is unavailable or the call fails - never throws.
+ */
+export const getRevenueCatAppUserIdForDiagnostics = async () => {
+  if (!configured || !isRevenueCatSupported()) return null;
+  try {
+    const { appUserID } = await Purchases.getAppUserID();
+    return appUserID ?? null;
+  } catch (error) {
+    console.warn('[revenueCatAdapter] getAppUserID failed (diagnostics only)', safeErrorMessage(error));
+    return null;
+  }
+};
+
+/**
+ * DEV-ONLY DIAGNOSTIC companion to getRevenueCatAppUserIdForDiagnostics
+ * above - a pure, synchronous computation of what the scoped App User ID
+ * SHOULD be for the given Supabase user id, using the exact same
+ * buildScopedAppUserId() call every real logIn()/configureRevenueCat()
+ * call already uses. Never calls the SDK itself. Returns null (never
+ * guessed) if no Supabase user id is given.
+ */
+export const getExpectedScopedAppUserIdForDiagnostics = (supabaseUserId) =>
+  supabaseUserId ? buildScopedAppUserId(OWN_PROJECT_REF, supabaseUserId) : null;
 
 /**
  * Reads RevenueCat's own locally-cached CustomerInfo and reports whether

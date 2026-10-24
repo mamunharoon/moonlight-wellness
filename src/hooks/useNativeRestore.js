@@ -43,8 +43,37 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { isNativePlatform, isIOS, isAndroid } from '../lib/platform';
-import { restoreRevenueCatPurchases, addRevenueCatCustomerInfoListener } from '../lib/revenueCatAdapter';
-import { useRevenueCatIdentityStatus, isRevenueCatIdentityReadyFor } from '../lib/revenueCatIdentityStatus';
+import {
+  restoreRevenueCatPurchases,
+  addRevenueCatCustomerInfoListener,
+  getRevenueCatAppUserIdForDiagnostics,
+  getExpectedScopedAppUserIdForDiagnostics
+} from '../lib/revenueCatAdapter';
+import { useRevenueCatIdentityStatus, isRevenueCatIdentityReadyFor, getRevenueCatIdentityStatus } from '../lib/revenueCatIdentityStatus';
+import { IS_DEV_BACKEND } from '../lib/buildInfo';
+
+// DEV-ONLY diagnostic (ASC-16/E-113 investigation) - never affects which
+// branch restore() takes or what it reports to real logic, only what is
+// APPENDED to the on-screen error message a failed restore already shows.
+// Captures exactly four things, on-screen (no Mac/Xcode needed), the next
+// time this is reproduced: the SDK's own current App User ID, the App
+// User ID this signed-in user SHOULD resolve to, the app's own login-
+// readiness snapshot (status/forUserId from revenueCatIdentityStatus.js),
+// and the restore result's own sanitised error code - never a
+// credential, receipt, or token (see revenueCatAdapter.js's own comment
+// on why `code` is safe to surface). Absent entirely on PROD.
+const describeDevRestoreFailure = async (forUserId, code) => {
+  if (!IS_DEV_BACKEND) return '';
+  const actualAppUserId = await getRevenueCatAppUserIdForDiagnostics();
+  const expectedAppUserId = getExpectedScopedAppUserIdForDiagnostics(forUserId);
+  const snapshot = getRevenueCatIdentityStatus();
+  return (
+    ` [DEV diag: sdkAppUserId=${actualAppUserId ?? 'unknown'}` +
+    ` expectedScopedId=${expectedAppUserId ?? 'unknown'}` +
+    ` identityStatus=${snapshot.status}/${snapshot.forUserId ?? 'null'}` +
+    ` code=${code || 'none'}]`
+  );
+};
 
 export const NEUTRAL_RESTORE_COMPLETION_MESSAGE =
   'Restore request completed. If you have an eligible purchase, your membership will update shortly.';
@@ -130,12 +159,14 @@ export const useNativeRestore = () => {
 
     if (result.outcome === 'receipt_already_in_use') {
       setState('failed');
-      setError('That purchase is already linked to a different account.');
+      const diag = await describeDevRestoreFailure(forUserId, result.code);
+      setError(`That purchase is already linked to a different account.${diag}`);
       return;
     }
     if (result.outcome !== 'restored') {
       setState('failed');
-      setError(result.message || "We couldn't restore purchases. Please try again.");
+      const diag = await describeDevRestoreFailure(forUserId, result.code);
+      setError(`${result.message || "We couldn't restore purchases. Please try again."}${diag}`);
       return;
     }
 
