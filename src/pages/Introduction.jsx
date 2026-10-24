@@ -320,16 +320,14 @@ export const Introduction = () => {
   // (sessionConstants.js: Intention -> Stretch -> Breathe -> Meditate
   // (optional) -> Affirm -> Complete); "other steps" covers the rest
   // without listing all five and crowding this short explanation.
-  // WakeWise DEV — Welcome-screen copy update (owner-approved). Returning-
-  // user copy is now a short tagline plus one supporting sentence, rather
-  // than the single question it used to be. welcomeSubcopyTagline is null
-  // for the non-returning (first-visit) variant, which keeps its own,
-  // completely untouched single-sentence copy below — see the render
-  // below, which only shows the tagline line when this is non-null.
-  const welcomeSubcopyTagline = isReturningSignedInUser ? 'A little time. A fresh start.' : null;
-  const welcomeSubcopy = isReturningSignedInUser
-    ? 'Take a moment to reset—with time to breathe, move or reflect.'
-    : 'Morning routines, anytime resets and evening wind-downs — at your own pace.';
+  // WakeWise DEV — Welcome-screen copy update (owner-approved), extended
+  // to the first-visit variant: both variants now show the same tagline
+  // plus supporting sentence - only `welcomeHeading` above still tells
+  // first-visit and returning-user apart ("Welcome to WakeWise" vs
+  // "Welcome back, {firstName}"), exactly as approved. The tagline/
+  // subcopy pair is no longer conditional on isReturningSignedInUser.
+  const welcomeSubcopyTagline = 'A little time. A fresh start.';
+  const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect.';
   const [saveError, setSaveError] = useState('');
 
   // Reuses the exact same shared signed-URL/guest-gating mechanism every

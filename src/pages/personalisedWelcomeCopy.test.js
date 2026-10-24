@@ -33,9 +33,10 @@ describe('2. New guest never sees a stored signed-in user\'s name', () => {
     expect(introductionSource).toMatch(/const isReturningSignedInUser =\s*\n\s*!isGuest && \(/);
   });
 
-  it('the welcomeHeading/welcomeSubcopy computation has no separate "guest" branch that could accidentally read a name - it is entirely gated through isReturningSignedInUser, which is already proven false for a guest above', () => {
+  it('welcomeHeading (the only one of the two that can carry a name) has no separate "guest" branch - it is entirely gated through isReturningSignedInUser, already proven false for a guest above. welcomeSubcopy/welcomeSubcopyTagline (24-Oct-2026 copy fix: now shared by both variants) are plain constants and never read any name at all, so they cannot leak one regardless of isReturningSignedInUser', () => {
     expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser/);
-    expect(introductionSource).toMatch(/const welcomeSubcopy = isReturningSignedInUser/);
+    expect(introductionSource).toMatch(/const welcomeSubcopyTagline = 'A little time\. A fresh start\.';/);
+    expect(introductionSource).toMatch(/const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/);
   });
 });
 
@@ -61,15 +62,20 @@ describe('4 & 5. Existing version-1 user: "Welcome back, {firstName}" when a val
     expect(introductionSource).toMatch(/: 'Welcome back'\)/);
   });
 
-  it('the returning-user supporting copy is the exact required tagline + sentence (24-Oct-2026 welcome-screen copy update)', () => {
-    expect(introductionSource).toMatch(/welcomeSubcopyTagline = isReturningSignedInUser \? 'A little time\. A fresh start\.' : null;/);
+  it('the supporting copy is the exact required tagline + sentence (24-Oct-2026 welcome-screen copy update, extended 24-Oct-2026 to the first-visit variant too)', () => {
+    expect(introductionSource).toMatch(/const welcomeSubcopyTagline = 'A little time\. A fresh start\.';/);
     expect(introductionSource).toMatch(
-      /\? 'Take a moment to reset—with time to breathe, move or reflect\.'/
+      /const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/
     );
   });
 
-  it('the first-visit (non-returning) subcopy is completely untouched by this change', () => {
-    expect(introductionSource).toMatch(/: 'Morning routines, anytime resets and evening wind-downs — at your own pace\.';/);
+  it('the first-visit (non-returning) variant now shows the SAME tagline/subcopy as returning users - the old, un-approved "Morning routines, anytime resets..." first-visit-only line is gone from the rendered markup entirely', () => {
+    expect(introductionSource).not.toMatch(/Morning routines, anytime resets and evening wind-downs/);
+    // Only the heading still differs by variant - confirmed directly: the
+    // tagline/subcopy consts above are plain strings, not ternaries keyed
+    // on isReturningSignedInUser.
+    expect(introductionSource).not.toMatch(/welcomeSubcopyTagline = isReturningSignedInUser/);
+    expect(introductionSource).not.toMatch(/welcomeSubcopy = isReturningSignedInUser/);
   });
 });
 

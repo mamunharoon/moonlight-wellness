@@ -16,20 +16,28 @@ const appSource = read('../App.jsx');
 const profileSource = read('./Profile.jsx');
 
 describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-screen redesign)', () => {
-  it('new-guest / new-signed-in-user variant has the exact required First Visit heading and supporting copy', () => {
+  it('new-guest / new-signed-in-user variant has the exact required First Visit heading, and now shares the same approved tagline/supporting copy as the returning-user variant', () => {
     expect(introductionSource).toMatch(/: 'Welcome to WakeWise';/);
-    // Welcome-screen uplift: shares the exact same short value-prop
-    // sentence as Welcome.jsx's own supporting text, instead of the
-    // earlier alarm/routine-focused paragraph - the alarm itself is still
-    // shown via the separate AlarmStatusCard below, unchanged.
+    // Welcome-screen copy fix: the approved tagline + supporting sentence
+    // now applies to BOTH variants - the old, un-approved "Morning
+    // routines, anytime resets..." first-visit-only line is gone from the
+    // real rendered markup entirely (not merely from one branch of it).
+    expect(introductionSource).not.toMatch(/Morning routines, anytime resets and evening wind-downs/);
+    expect(introductionSource).toMatch(/const welcomeSubcopyTagline = 'A little time\. A fresh start\.';/);
     expect(introductionSource).toMatch(
-      /: 'Morning routines, anytime resets and evening wind-downs — at your own pace\.';/
+      /const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/
     );
   });
 
-  it('existing signed-in version-1 user variant has the exact required Welcome Back heading and supporting copy', () => {
+  it('existing signed-in version-1 user variant has the exact required Welcome Back heading, sharing the same tagline/supporting copy as the first-visit variant', () => {
     expect(introductionSource).toMatch(/\? `Welcome back, \$\{firstName\}`/);
-    expect(introductionSource).toMatch(/\? 'Take a moment to reset—with time to breathe, move or reflect\.'/);
+    expect(introductionSource).toMatch(/const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/);
+  });
+
+  it('only the heading (not the tagline/subcopy) still distinguishes first-visit from returning-user - welcomeHeading stays conditional on isReturningSignedInUser, welcomeSubcopyTagline/welcomeSubcopy do not', () => {
+    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser/);
+    expect(introductionSource).not.toMatch(/const welcomeSubcopyTagline = isReturningSignedInUser/);
+    expect(introductionSource).not.toMatch(/const welcomeSubcopy = isReturningSignedInUser/);
   });
 
   it('an existing user without a valid first name gets the plain "Welcome back" fallback, never a dangling comma/placeholder', () => {
