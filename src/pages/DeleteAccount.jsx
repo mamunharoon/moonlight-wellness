@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useAuth } from '../context/AuthContext';
@@ -127,34 +127,19 @@ export const DeleteAccount = () => {
   const [reauthError, setReauthError] = useState(null);
 
   const [confirmationInput, setConfirmationInput] = useState('');
-  // Starts read-only and flips writable on the field's own first focus.
-  // Chrome will still offer to autofill a just-used password into this
-  // field despite its own <form>, autoComplete="off" and a
-  // non-credential name (confirmed live) — a read-only field at render
-  // time is not an autofill target at all, which is what actually stops
-  // it, per Chrome's own documented autofill behaviour.
-  const [confirmFieldReady, setConfirmFieldReady] = useState(false);
-  // iOS WebKit keyboard fix (found live on PROD, owner report + screenshots:
-  // the field accepted focus — visible focus ring — but the on-screen
-  // keyboard never appeared, so it looked permanently disabled). iOS
-  // decides whether to show the keyboard based on the input's readOnly
-  // state AT THE MOMENT of that first touch/focus event — flipping
-  // confirmFieldReady true a React render later never retroactively
-  // summons it for that same gesture, unlike Android/desktop browsers,
-  // which re-evaluate on every keystroke and are unaffected. Re-focusing
-  // the element once confirmFieldReady has actually committed (readOnly
-  // is really gone from the DOM by then) makes iOS re-show the keyboard
-  // against the now-writable field. Guarded by document.activeElement
-  // so this never steals focus if the user has already tabbed/tapped
-  // away by the time this effect runs.
-  const confirmFieldRef = useRef(null);
-  useEffect(() => {
-    if (!confirmFieldReady) return;
-    const el = confirmFieldRef.current;
-    if (el && document.activeElement === el) {
-      el.focus();
-    }
-  }, [confirmFieldReady]);
+  // This field is a perfectly normal, always-editable input from first
+  // render — see the decoy fields at the 'confirm' phase below for how
+  // Chrome autofill is kept off it. A PRIOR version of this field
+  // started read-only and flipped writable on its own first focus (plus
+  // a re-focus-on-ready useEffect, to work around iOS WebKit deciding
+  // keyboard visibility from the input's readOnly state AT THE MOMENT of
+  // the original touch, not after a later re-render). That re-focus call
+  // ran from inside a useEffect — after React's commit, outside the
+  // original touch event's own call stack — and did not reliably count
+  // as a trusted user gesture to iOS WebKit either: confirmed live on
+  // real iOS hardware (DEV B61) that the field still never opened the
+  // keyboard. Removing the readOnly toggle entirely removes the whole
+  // class of bug, since nothing iOS-specific happens to this field now.
   const [submitError, setSubmitError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
@@ -240,10 +225,8 @@ export const DeleteAccount = () => {
     }
     // Fresh every time this step is (re-)entered — including a second
     // pass after Back -> Continue — so the confirmation field is never
-    // left holding a stale value or already flipped writable from a
-    // prior visit.
+    // left holding a stale value from a prior visit.
     setConfirmationInput('');
-    setConfirmFieldReady(false);
     setPhase('confirm');
   };
 
@@ -634,13 +617,31 @@ export const DeleteAccount = () => {
             non-credential-looking name) — its own scope, so this plain
             text field is never a target for password-manager autofill. */}
         <form onSubmit={(e) => { e.preventDefault(); if (phraseMatches) handleSubmit(); }} autoComplete="off" className="space-y-6">
+          {/* Autofill decoy. Chrome offers to autofill the just-used
+              password into the real field below regardless of its own
+              <form>, autoComplete="off" and non-credential name
+              (confirmed live) — Chrome fills the first matching
+              username/password pair it finds anywhere in the form, so
+              these two real, interactive fields placed ahead of the
+              real one absorb that offer instead. Positioned off-screen
+              via layout (not display:none/visibility:hidden, which
+              Chrome's autofill heuristic ignores as targets), unreachable
+              by keyboard (tabIndex={-1}) and hidden from screen readers
+              (aria-hidden) — no sighted, keyboard, or AT user ever
+              encounters them. This replaces the previous
+              readOnly-until-focus mechanism entirely; the real field
+              below is now a normal, always-editable input with nothing
+              iOS-specific happening to it. */}
+          <div aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+            <input type="text" name="username" autoComplete="username" tabIndex={-1} defaultValue="" />
+            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} defaultValue="" />
+          </div>
           <div className="space-y-1.5">
             <label htmlFor="confirmPhrase" className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">
               Type {CONFIRMATION_PHRASE} to confirm
             </label>
             <input
               id="confirmPhrase"
-              ref={confirmFieldRef}
               name="account-deletion-confirmation-phrase"
               type="text"
               placeholder={CONFIRMATION_PHRASE}
@@ -648,8 +649,6 @@ export const DeleteAccount = () => {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              readOnly={!confirmFieldReady}
-              onFocus={() => setConfirmFieldReady(true)}
               onPaste={(e) => e.preventDefault()}
               value={confirmationInput}
               onChange={handleConfirmationChange}
