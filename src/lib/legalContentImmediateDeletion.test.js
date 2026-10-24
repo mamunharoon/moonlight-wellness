@@ -70,9 +70,13 @@ describe('Document versions — every materially-changed document was bumped, ev
     expect(DOCUMENT_VERSIONS['data-retention-policy'].version).toBe('1.2');
   });
 
-  it('documents this change never touched (subscription-terms, refund-policy, medical-disclaimer) kept their exact prior version', () => {
+  it('documents this change never touched (subscription-terms, medical-disclaimer) kept their exact prior version', () => {
     expect(DOCUMENT_VERSIONS['subscription-terms'].version).toBe('1.1');
-    expect(DOCUMENT_VERSIONS['refund-policy'].version).toBe('1.0');
     expect(DOCUMENT_VERSIONS['medical-disclaimer'].version).toBe('1.1');
+    // refund-policy was 1.0 at the time of THIS change (untouched by it) -
+    // separately bumped to 1.1 later for the Apple/Google IAP refund
+    // clause (legalContentAccuracy.test.js's own "document version was
+    // bumped" case covers that change directly); removed from this list
+    // rather than left pinned to a now-superseded value.
   });
 });

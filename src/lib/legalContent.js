@@ -76,7 +76,14 @@ export const DOCUMENT_VERSIONS = {
   'privacy-policy': { version: '1.2', effectiveDate: 'October 2026' },
   'terms-of-service': { version: '1.2', effectiveDate: 'October 2026' },
   'subscription-terms': { version: '1.1', effectiveDate: 'September 2026' },
-  'refund-policy': { version: '1.0', effectiveDate: 'August 2026' },
+  // 24-Oct-2026 — added a dedicated Apple/Google IAP refund-channel
+  // clause (previously missing, confirmed by direct read against the
+  // other five pages, which already drew this same Stripe-vs-Apple/
+  // Google distinction). Additive, informational only - no existing
+  // right or process changed - so a minor version bump, not a major
+  // one (contrast account-deletion-policy's 3.0, a genuine behavioural
+  // change).
+  'refund-policy': { version: '1.1', effectiveDate: 'October 2026' },
   'medical-disclaimer': { version: '1.1', effectiveDate: 'September 2026' },
   // Immediate Account Deletion — a material behavioural change (the old
   // 7-day cancellable waiting period before a manual operator completed
@@ -362,6 +369,12 @@ export const LEGAL_CONTENT = {
         heading: 'How refunds are processed',
         paragraphs: [
           'Approved refunds are issued back to your original payment method via Stripe, and may take several business days to appear on your statement.'
+        ]
+      },
+      {
+        heading: 'Refunds for subscriptions billed through Apple or Google',
+        paragraphs: [
+          "If your WakeWise Plus subscription was purchased through the Apple App Store or Google Play, we cannot process or issue a refund directly — Apple and Google control billing for those purchases. Request a refund directly from Apple (reportaproblem.apple.com) or Google Play, following their own refund process."
         ]
       },
       {

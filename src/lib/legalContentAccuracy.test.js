@@ -3,7 +3,7 @@
 // content is data, not component logic, so asserting on its real,
 // resolved strings is both possible and more meaningful than a regex.
 import { describe, it, expect } from 'vitest';
-import { LEGAL_CONTENT } from './legalContent';
+import { LEGAL_CONTENT, DOCUMENT_VERSIONS } from './legalContent';
 
 const flattenText = (entry) =>
   entry.sections
@@ -42,5 +42,23 @@ describe('Account Deletion Policy — "what gets deleted" now includes completio
     const text = flattenText(LEGAL_CONTENT['account-deletion-policy']);
     expect(text).toMatch(/practice-completion history/);
     expect(text).toMatch(/Momentum totals/);
+  });
+});
+
+describe('Refund Policy — Apple/Google IAP refunds now addressed, not just the Stripe path', () => {
+  const text = flattenText(LEGAL_CONTENT['refund-policy']);
+
+  it('still describes the Stripe refund path (unchanged)', () => {
+    expect(text).toMatch(/issued back to your original payment method via Stripe/);
+  });
+
+  it('now also directs an Apple/Google-billed subscriber to Apple/Google directly, not to WakeWise', () => {
+    expect(text).toMatch(/cannot process or issue a refund directly/i);
+    expect(text).toMatch(/Apple App Store or Google Play/);
+  });
+
+  it('document version was bumped (additive change, matching this project\'s own versioning convention)', () => {
+    expect(DOCUMENT_VERSIONS['refund-policy'].version).toBe('1.1');
+    expect(DOCUMENT_VERSIONS['refund-policy'].effectiveDate).toBe('October 2026');
   });
 });
