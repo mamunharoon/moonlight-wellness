@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,6 @@ import { useMorningReminder } from '../context/MorningReminderContext';
 import { supabase } from '../lib/supabaseClient';
 import { CONTACT_INFO } from '../lib/legalContent';
 import { openBillingPortal } from '../lib/stripeApi';
-import { IS_DEV_BACKEND } from '../lib/buildInfo';
 import {
   cancelAccountDeletion,
   deleteAccountNow,
@@ -182,99 +181,6 @@ export const DeleteAccount = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // DEV-only, read-only deletion-flow diagnostics (physical-iOS keyboard
-  // investigation, B61-B63). Decomposes the one outstanding question into
-  // three independently observable signals: did focus actually land on
-  // the confirmation field, did the on-screen keyboard appear, and was
-  // text actually entered. Absent entirely on PROD (IS_DEV_BACKEND false
-  // there, same gate as DevBuildIndicator) and never logs a field value,
-  // password, or session data.
-  //
-  // Deliberately NOT wired as an event handler on the confirmation field
-  // or any ancestor of it — the prior round (8fe0c2a) did exactly that
-  // (capture-phase pointerdown/touchstart on a wrapper, onFocus/onBlur on
-  // the real input), and because those handlers fire setState synchronously
-  // inside the same touch-to-focus call stack iOS WebKit uses to decide
-  // keyboard visibility, that round's one success could not be ruled out
-  // as a side effect of its own instrumentation rather than evidence of
-  // anything about the field itself (see ba77c9d's own discussion). Every
-  // signal here is designed to minimise that specific risk, NOT to
-  // guarantee zero effect on timing or to prove anything about the
-  // keyboard - treat each as an indicator, read alongside whatever the
-  // device actually shows, not as proof on its own:
-  //   - keyboard shown/hidden: window.visualViewport's own 'resize' event
-  //     - fires on the OS's own schedule, never triggered by or wired to
-  //     this field. An INDICATOR the keyboard opened/closed, not proof -
-  //     Safari's dynamic toolbar and an orientation change can also move
-  //     this by a similar amount, and this build has no way to tell those
-  //     apart from an actual keyboard transition.
-  //   - focus landed/left: a 100ms polling loop reading
-  //     document.activeElement - a macrotask on its own timer, never
-  //     inside the original touch/focus event's synchronous call stack,
-  //     so it cannot be the thing that decides keyboard visibility for
-  //     that gesture. It still calls setState on every observed
-  //     transition, adding scheduled work (timers, re-renders) to the JS
-  //     event loop that a truly diagnostics-free build would not have -
-  //     minimised, not proven inert. Do not treat a pass or fail here as
-  //     isolating the diagnostics-free code's own real-world behaviour;
-  //     see the verification plan this investigation records separately
-  //     for that.
-  //   - entry: logged from the field's EXISTING onChange handler
-  //     (handleConfirmationChange below), which can only ever fire after
-  //     a keystroke has already landed - it cannot influence whether the
-  //     keyboard appeared, only confirm, after the fact, that typing
-  //     worked.
-  // This cannot prove what causes the underlying defect, and is not
-  // treated as one - it only gives the next on-device attempt a readable,
-  // on-screen (no Mac/Xcode needed) record of which of the three stages
-  // the flow actually reached. The cause stays unresolved regardless of
-  // what any single attempt shows.
-  const [diagLog, setDiagLog] = useState([]);
-  const diagStartRef = useRef(null);
-  const pushDiagEvent = (kind, detail) => {
-    if (diagStartRef.current == null) diagStartRef.current = performance.now();
-    const t = Math.round(performance.now() - diagStartRef.current);
-    setDiagLog((prev) => [...prev.slice(-14), { t, kind, detail }]);
-  };
-
-  useEffect(() => {
-    if (!IS_DEV_BACKEND || phase !== 'confirm') return undefined;
-    diagStartRef.current = performance.now();
-    // Deferred (not a direct setState call in the effect body) - purely
-    // to satisfy the same lint rule every other state-setting effect in
-    // this file already respects; timing-wise this still runs before the
-    // next paint, well before the user can have tapped anything yet.
-    queueMicrotask(() => setDiagLog([{ t: 0, kind: 'mount', detail: 'confirm step mounted - tap the field now' }]));
-
-    const vv = window.visualViewport;
-    let lastHeight = vv ? vv.height : null;
-    const onViewportResize = () => {
-      if (!vv) return;
-      const delta = Math.round(vv.height - lastHeight);
-      lastHeight = vv.height;
-      // Ignore sub-40px noise (status bar/rotation jitter) - a real
-      // keyboard opening/closing moves the visual viewport far more than
-      // that on every iOS device size this app targets.
-      if (Math.abs(delta) < 40) return;
-      pushDiagEvent(delta < 0 ? 'keyboard-likely-shown' : 'keyboard-likely-hidden', `viewport ${Math.round(vv.height)}px (delta ${delta}px)`);
-    };
-    vv?.addEventListener('resize', onViewportResize);
-
-    let lastActiveWasConfirmField = false;
-    const pollId = window.setInterval(() => {
-      const isActive = document.activeElement?.id === 'confirmPhrase';
-      if (isActive !== lastActiveWasConfirmField) {
-        lastActiveWasConfirmField = isActive;
-        pushDiagEvent(isActive ? 'focus-landed' : 'focus-left', 'confirmPhrase');
-      }
-    }, 100);
-
-    return () => {
-      vv?.removeEventListener('resize', onViewportResize);
-      window.clearInterval(pollId);
-    };
-  }, [phase]);
-
   if (isGuest) {
     return <Navigate to="/profile" replace />;
   }
@@ -338,13 +244,6 @@ export const DeleteAccount = () => {
   const handleConfirmationChange = (e) => {
     const next = e.target.value;
     if (password && next === password) return;
-    // Logged (length only, never the value) only after this keystroke has
-    // already reached the field - onChange cannot fire before that, so
-    // this can only ever confirm entry worked, never influence whether
-    // the keyboard appeared for it. See the diagnostics effect above.
-    if (IS_DEV_BACKEND && next.length !== confirmationInput.length) {
-      pushDiagEvent('entry', `length ${next.length}`);
-    }
     setConfirmationInput(next);
   };
 
@@ -756,8 +655,12 @@ export const DeleteAccount = () => {
               className="w-full glass-panel border border-white/10 rounded-xl px-3 py-3 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary min-h-[44px] placeholder:text-on-surface-variant/40"
             />
             {/* This field is plain text on purpose, so you can verify the
-                phrase before submitting — it is never your password. */}
-            <p className="text-[11px] text-on-surface-variant/70">This is not your password — type the exact phrase above, nothing else.</p>
+                phrase before submitting — it is never your password.
+                Replaced the earlier "This is not your password..." wording
+                (owner feedback: confusing — it answered a question nobody
+                asked instead of just saying what to type) with a direct
+                instruction matching the label above it. */}
+            <p className="text-[11px] text-on-surface-variant/70">Enter {CONFIRMATION_PHRASE} exactly as shown above.</p>
           </div>
 
           {submitError && <p role="alert" className="text-xs text-red-400 font-medium px-1">{submitError}</p>}
@@ -766,24 +669,6 @@ export const DeleteAccount = () => {
             {phase === 'submitting' ? 'Deleting…' : 'Permanently delete my account'}
           </PrimaryButton>
         </form>
-
-        {/* DEV-only diagnostic readout - see the diagnostics effect above
-            for exactly what each line means and why none of this wiring
-            touches the field or its wrapper. Fixed to the bottom of the
-            viewport, pointer-events-none so it can never itself become a
-            tap target, gated on IS_DEV_BACKEND the same way
-            DevBuildIndicator is - absent entirely from PROD. */}
-        {IS_DEV_BACKEND && (
-          <div
-            className="fixed bottom-0 left-0 right-0 z-[998] max-h-32 overflow-y-auto bg-black/85 text-[9px] font-mono text-lime-300 px-2 py-1 pointer-events-none"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-          >
-            <div>DEV diag - focus / keyboard / entry (no values logged)</div>
-            {diagLog.map((d, i) => (
-              <div key={i}>+{d.t}ms {d.kind} - {d.detail}</div>
-            ))}
-          </div>
-        )}
       </div>
     );
   }
