@@ -255,13 +255,13 @@ export const LEGAL_CONTENT = {
       {
         heading: 'Disclaimer and limitation of liability',
         paragraphs: [
-          `${CONTACT_INFO.product} is provided "as is" without warranties of any kind. To the extent permitted by law, ${CONTACT_INFO.company} is not liable for any indirect or consequential loss arising from your use of the app. Nothing in these terms excludes any guarantee, right, or remedy you have under the Australian Consumer Law, or equivalent consumer protection law in your country, that cannot lawfully be excluded. (This clause requires qualified legal review before this is treated as final.)`
+          `${CONTACT_INFO.product} is provided "as is" without warranties of any kind. To the extent permitted by law, ${CONTACT_INFO.company} is not liable for any indirect or consequential loss arising from your use of the app. Nothing in these terms excludes any guarantee, right, or remedy you have under the Australian Consumer Law, or equivalent consumer protection law in your country, that cannot lawfully be excluded.`
         ]
       },
       {
         heading: 'Governing law',
         paragraphs: [
-          `These terms are governed by the laws of ${CONTACT_INFO.country}, without prejudice to any mandatory consumer-protection law of your own country that applies to you regardless of choice of law. (Requires legal confirmation before this is treated as final.)`
+          `These terms are governed by the laws of ${CONTACT_INFO.country}, without prejudice to any mandatory consumer-protection law of your own country that applies to you regardless of choice of law.`
         ]
       },
       {

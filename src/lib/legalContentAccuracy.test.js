@@ -3,6 +3,8 @@
 // content is data, not component logic, so asserting on its real,
 // resolved strings is both possible and more meaningful than a regex.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { LEGAL_CONTENT, DOCUMENT_VERSIONS } from './legalContent';
 
 const flattenText = (entry) =>
@@ -42,6 +44,34 @@ describe('Account Deletion Policy — "what gets deleted" now includes completio
     const text = flattenText(LEGAL_CONTENT['account-deletion-policy']);
     expect(text).toMatch(/practice-completion history/);
     expect(text).toMatch(/Momentum totals/);
+  });
+});
+
+describe('Terms of Service — no longer implies a planned/pending legal review specific to individual clauses', () => {
+  const text = flattenText(LEGAL_CONTENT['terms-of-service']);
+
+  it('removed the two inaccurate "requires legal review/confirmation before this is treated as final" annotations', () => {
+    expect(text).not.toMatch(/requires qualified legal review/i);
+    expect(text).not.toMatch(/requires legal confirmation/i);
+    expect(text).not.toMatch(/treated as final/i);
+  });
+
+  it('the substantive liability and governing-law clauses themselves are preserved, not removed', () => {
+    expect(text).toMatch(/provided "as is" without warranties of any kind/);
+    expect(text).toMatch(/not liable for any indirect or consequential loss/);
+    expect(text).toMatch(/Nothing in these terms excludes any guarantee, right, or remedy you have under the Australian Consumer Law/);
+    expect(text).toMatch(/These terms are governed by the laws of/);
+  });
+
+  it('does not replace the removed annotations with any claim of legal approval or compliance', () => {
+    expect(text).not.toMatch(/legally approved|compliant|lawyer-approved|legal(ly)? compliant/i);
+  });
+
+  it('the one accurate, honest draft disclaimer (LegalLayout\'s own global banner) is untouched - it states review has NOT happened, which is true, and contact details stay intact', () => {
+    const layoutSource = readFileSync(fileURLToPath(new URL('../components/LegalLayout.jsx', import.meta.url)), 'utf-8');
+    expect(layoutSource).toMatch(/Draft — not yet reviewed by a lawyer/);
+    const contactText = flattenText(LEGAL_CONTENT['contact-us']);
+    expect(contactText).toMatch(/info@zavaraai\.com/);
   });
 });
 
