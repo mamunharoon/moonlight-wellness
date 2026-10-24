@@ -24,10 +24,13 @@ const confirmInputBlock = () => {
 };
 
 describe('DeleteAccount.jsx — confirmation-phrase field is always editable (no readOnly toggle)', () => {
-  it('the real confirmation input is never readOnly and has no onFocus-driven readiness gate', () => {
+  it('the real confirmation input is never readOnly, and any onFocus present is DEV-diagnostic-only, never a readiness gate', () => {
     const block = confirmInputBlock();
     expect(block).not.toMatch(/readOnly/);
-    expect(block).not.toMatch(/onFocus/);
+    // onFocus/onBlur may exist for the DEV-only tap diagnostics (see the
+    // dedicated diagnostics test file) but must never toggle a
+    // readiness/readOnly state the way the old mechanism did.
+    expect(block).not.toMatch(/setConfirmFieldReady/);
   });
 
   it('the old readOnly-until-focus state, ref, and re-focus effect are entirely gone', () => {

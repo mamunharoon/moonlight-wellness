@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { useMorningReminder } from '../context/MorningReminderContext';
 import { supabase } from '../lib/supabaseClient';
 import { CONTACT_INFO } from '../lib/legalContent';
 import { openBillingPortal } from '../lib/stripeApi';
+import { IS_DEV_BACKEND } from '../lib/buildInfo';
 import {
   cancelAccountDeletion,
   deleteAccountNow,
@@ -143,6 +144,36 @@ export const DeleteAccount = () => {
   const [submitError, setSubmitError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
+
+  // DEV-only tap/focus diagnostics for the confirmation-phrase field
+  // (physical-iOS keyboard investigation, B61/B62) — never rendered or
+  // wired on PROD (IS_DEV_BACKEND false there, same gate as
+  // DevBuildIndicator). Records ONLY: event type, a short tag/id/first-
+  // class description of the element involved, and the field's own live
+  // disabled/readOnly booleans read directly off the real DOM node at
+  // that moment — never a field's value, never password/session state.
+  // Exists to answer three concrete questions a real device can show but
+  // static code reading can't: does a tap on this field actually reach
+  // it (vs. some other element intercepting it), does it gain focus, and
+  // does it immediately lose focus again.
+  const [tapDiagnostics, setTapDiagnostics] = useState([]);
+  const diagStartRef = useRef(null);
+  const describeDiagTarget = (node) => {
+    if (!node || node.nodeType !== 1) return 'unknown';
+    const id = node.id ? `#${node.id}` : '';
+    const firstClass = typeof node.className === 'string' && node.className ? `.${node.className.split(' ')[0]}` : '';
+    return `${node.tagName.toLowerCase()}${id}${firstClass}`;
+  };
+  const logTapDiagnostic = (type, node) => {
+    if (diagStartRef.current == null) diagStartRef.current = performance.now();
+    const t = Math.round(performance.now() - diagStartRef.current);
+    const entry = { t, type, target: describeDiagTarget(node) };
+    if (node && node.id === 'confirmPhrase') {
+      entry.disabled = node.disabled;
+      entry.readOnly = node.readOnly;
+    }
+    setTapDiagnostics((prev) => [...prev.slice(-11), entry]);
+  };
 
   // Initial load: is there an unresolved request already? Two real
   // cases, both shown via the 'status' phase below:
@@ -632,31 +663,38 @@ export const DeleteAccount = () => {
               readOnly-until-focus mechanism entirely; the real field
               below is now a normal, always-editable input with nothing
               iOS-specific happening to it. */}
-          <div aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
-            <input type="text" name="username" autoComplete="username" tabIndex={-1} defaultValue="" />
-            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} defaultValue="" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="confirmPhrase" className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">
-              Type {CONFIRMATION_PHRASE} to confirm
-            </label>
-            <input
-              id="confirmPhrase"
-              name="account-deletion-confirmation-phrase"
-              type="text"
-              placeholder={CONFIRMATION_PHRASE}
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              onPaste={(e) => e.preventDefault()}
-              value={confirmationInput}
-              onChange={handleConfirmationChange}
-              className="w-full glass-panel border border-white/10 rounded-xl px-3 py-3 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary min-h-[44px] placeholder:text-on-surface-variant/40"
-            />
-            {/* This field is plain text on purpose, so you can verify the
-                phrase before submitting — it is never your password. */}
-            <p className="text-[11px] text-on-surface-variant/70">This is not your password — type the exact phrase above, nothing else.</p>
+          <div
+            onPointerDownCapture={IS_DEV_BACKEND ? (e) => logTapDiagnostic('pointerdown', e.target) : undefined}
+            onTouchStartCapture={IS_DEV_BACKEND ? (e) => logTapDiagnostic('touchstart', e.target) : undefined}
+          >
+            <div aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+              <input type="text" name="username" autoComplete="username" tabIndex={-1} defaultValue="" />
+              <input type="password" name="password" autoComplete="current-password" tabIndex={-1} defaultValue="" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="confirmPhrase" className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">
+                Type {CONFIRMATION_PHRASE} to confirm
+              </label>
+              <input
+                id="confirmPhrase"
+                name="account-deletion-confirmation-phrase"
+                type="text"
+                placeholder={CONFIRMATION_PHRASE}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                onPaste={(e) => e.preventDefault()}
+                onFocus={IS_DEV_BACKEND ? (e) => logTapDiagnostic('focus', e.target) : undefined}
+                onBlur={IS_DEV_BACKEND ? (e) => logTapDiagnostic('blur', e.target) : undefined}
+                value={confirmationInput}
+                onChange={handleConfirmationChange}
+                className="w-full glass-panel border border-white/10 rounded-xl px-3 py-3 text-sm text-on-surface bg-transparent outline-none focus:ring-1 focus:ring-primary min-h-[44px] placeholder:text-on-surface-variant/40"
+              />
+              {/* This field is plain text on purpose, so you can verify the
+                  phrase before submitting — it is never your password. */}
+              <p className="text-[11px] text-on-surface-variant/70">This is not your password — type the exact phrase above, nothing else.</p>
+            </div>
           </div>
 
           {submitError && <p role="alert" className="text-xs text-red-400 font-medium px-1">{submitError}</p>}
@@ -665,6 +703,29 @@ export const DeleteAccount = () => {
             {phase === 'submitting' ? 'Deleting…' : 'Permanently delete my account'}
           </PrimaryButton>
         </form>
+
+        {/* DEV-only tap/focus diagnostic readout — see the
+            tapDiagnostics state/logTapDiagnostic helper above for what
+            it does and doesn't record (never a value, never
+            password/session data). Fixed to the bottom of the viewport,
+            pointer-events-none so it can never itself become a tap
+            target, gated on IS_DEV_BACKEND the same way
+            DevBuildIndicator is — absent entirely from PROD. */}
+        {IS_DEV_BACKEND && (
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[998] max-h-32 overflow-y-auto bg-black/85 text-[9px] font-mono text-lime-300 px-2 py-1 pointer-events-none"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            <div>DEV diag — confirmPhrase tap/focus log (no values logged)</div>
+            {tapDiagnostics.length === 0 && <div>(no events yet — tap the confirmation field)</div>}
+            {tapDiagnostics.map((d, i) => (
+              <div key={i}>
+                +{d.t}ms {d.type} → {d.target}
+                {d.disabled !== undefined ? ` disabled=${String(d.disabled)} readOnly=${String(d.readOnly)}` : ''}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
