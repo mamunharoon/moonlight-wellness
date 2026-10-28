@@ -80,6 +80,15 @@ export const createMeditationAudioController = ({
   let fading = false;
   let fadeIntervalId = null;
   let fadeGeneration = 0;
+  // Coordinated audio/visual handoff — fadeOutAndStop() now returns a
+  // Promise so a caller (via useAudioFadeHandoff.js,
+  // meditationSessionController.js's tick()) can await actual silence
+  // before revealing/navigating. Holds that Promise's own `resolve` for as
+  // long as a fade is in flight, so ANY path that ends it early - the
+  // interval's own superseded-by-fadeGeneration check, or cancelFade()
+  // below - still resolves it rather than leaving an awaiting caller to
+  // fall back on the bounded timeout unnecessarily.
+  let fadeResolve = null;
 
   // Restores DEFAULT_VOLUME whenever an in-flight fade is actually
   // cancelled (a no-op when nothing was fading) - a ramp stopped partway
@@ -147,6 +156,11 @@ export const createMeditationAudioController = ({
       fadeIntervalId = null;
     }
     if (wasFading) setLevel(DEFAULT_VOLUME);
+    if (fadeResolve) {
+      const resolveFade = fadeResolve;
+      fadeResolve = null;
+      resolveFade();
+    }
   };
 
   // Build 16 physical-iPhone correction (F4) — resolves the signed URL and
@@ -303,8 +317,15 @@ export const createMeditationAudioController = ({
   // preloaded fast-path (see start() above), so this is what actually
   // guarantees "replay starts at normal volume" for whichever instance
   // plays next.
+  //
+  // Returns a Promise, resolved once the fade genuinely reaches silence
+  // and release - or immediately, already resolved, if there was nothing
+  // to fade (no track started, or already paused) - so a caller
+  // (meditationSessionController.js's tick(), via useAudioFadeHandoff.js)
+  // can await real silence before revealing/navigating, with no added
+  // delay at all when there was no music to begin with.
   const fadeOutAndStop = ({ durationMs = FADE_OUT_DURATION_MS } = {}) => {
-    if (!audio || !started || audio.paused) return;
+    if (!audio || !started || audio.paused) return Promise.resolve();
     // startVolume read via getLevel() - NOT audio.volume directly - so
     // this correctly reads the GainNode's current value when the Web
     // Audio graph is active (audio.volume is pinned to 1 from that point
@@ -314,28 +335,33 @@ export const createMeditationAudioController = ({
     const startTime = Date.now();
     fading = true;
     const generation = fadeGeneration;
-    fadeIntervalId = setInterval(() => {
-      if (generation !== fadeGeneration || !audio) return; // superseded by a real stop/pause/resume/destroy
-      const elapsed = Date.now() - startTime;
-      const ratio = Math.max(1 - elapsed / durationMs, 0);
-      setLevel(startVolume * ratio);
-      if (elapsed >= durationMs) {
-        clearInterval(fadeIntervalId);
-        fadeIntervalId = null;
-        fading = false;
-        audio.pause();
-        setLevel(DEFAULT_VOLUME); // restored before release - see this function's own doc comment
-        audio.removeAttribute('src');
-        if (typeof audio.load === 'function') audio.load();
-        audioContext?.close().catch(() => {});
-        audioContext = null;
-        gainNode = null;
-        audio = null;
-        started = false;
-        preloadPromise = null;
-        startInFlight = false;
-      }
-    }, FADE_STEP_MS);
+    return new Promise((resolve) => {
+      fadeResolve = resolve;
+      fadeIntervalId = setInterval(() => {
+        if (generation !== fadeGeneration || !audio) return; // superseded by a real stop/pause/resume/destroy - already resolved by cancelFade() itself
+        const elapsed = Date.now() - startTime;
+        const ratio = Math.max(1 - elapsed / durationMs, 0);
+        setLevel(startVolume * ratio);
+        if (elapsed >= durationMs) {
+          clearInterval(fadeIntervalId);
+          fadeIntervalId = null;
+          fading = false;
+          fadeResolve = null;
+          audio.pause();
+          setLevel(DEFAULT_VOLUME); // restored before release - see this function's own doc comment
+          audio.removeAttribute('src');
+          if (typeof audio.load === 'function') audio.load();
+          audioContext?.close().catch(() => {});
+          audioContext = null;
+          gainNode = null;
+          audio = null;
+          started = false;
+          preloadPromise = null;
+          startInFlight = false;
+          resolve();
+        }
+      }, FADE_STEP_MS);
+    });
   };
 
   // Full teardown - mirrors InteractiveAmbientMusic.jsx's own unmount

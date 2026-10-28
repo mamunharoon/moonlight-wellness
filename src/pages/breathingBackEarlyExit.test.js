@@ -173,7 +173,7 @@ describe('Natural completion remains unchanged by this fix', () => {
     expect(callbackBody).toMatch(/if \(completed\) \{/);
     const completedBranch = callbackBody.match(/if \(completed\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
-    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
+    expect(completedBranch).toMatch(/beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);/);
     expect(completedBranch).toMatch(/setCompletionGreeting\(getBreathingCompletionGreeting\('morning'\)\);/);
     expect(completedBranch).toMatch(/setIsCompleted\(true\);/);
   });

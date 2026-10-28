@@ -171,3 +171,39 @@ describe('useMeditationSession — this feature never touches Morning/Evening/Me
     expect(source).not.toMatch(/useSession/);
   });
 });
+
+// Coordinated audio/visual handoff — music must genuinely reach silence
+// before a caller reveals a completion panel or navigates, not merely
+// survive the unmount that follows (that only proves the fade doesn't get
+// cut off, not that it finished first). Verified via meditationSessionController.
+// test.js/meditationAudioController's own real-execution coverage that
+// fadeOutAndStop() now returns a Promise; this file checks the React-side
+// wiring that awaits it.
+describe('useMeditationSession — coordinated audio/visual handoff: audioReady genuinely gates on the fade, not merely on completion', () => {
+  it('uses the shared useAudioFadeHandoff hook rather than its own ad hoc Promise/timeout logic', () => {
+    expect(source).toMatch(/import \{ useAudioFadeHandoff \} from '\.\/useAudioFadeHandoff';/);
+    expect(source).toMatch(/const \{ audioReady, beginHandoff \} = useAudioFadeHandoff\(\);/);
+  });
+
+  it('exposes audioReady in its public return shape, so every caller (Morning/EveningMeditate via useCompletionHandoff, SelfGuidedMeditation via its own gated navigate) can read it', () => {
+    const returnBody = source.match(/return \{[\s\S]*?\n {2}\};\n\};/)?.[0] ?? '';
+    expect(returnBody).toMatch(/\baudioReady\b/);
+  });
+
+  it('begin()\'s tick callback reads audioSettled off tick()\'s own return value and calls beginHandoff with it BEFORE cleanupSession() destroys the controller - audioSettled is already a standalone Promise, independent of the controller\'s own lifetime afterwards', () => {
+    const beginBody = source.match(/const begin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(beginBody).toMatch(/const \{ completed, audioSettled \} = current\.tick\(\);/);
+    const handoffIdx = beginBody.indexOf('beginHandoff(audioSettled);');
+    const cleanupIdx = beginBody.indexOf('cleanupSession();');
+    expect(handoffIdx).toBeGreaterThan(-1);
+    expect(cleanupIdx).toBeGreaterThan(handoffIdx);
+  });
+
+  it('onComplete still fires synchronously, at the exact original moment - audioReady is an independent, additional signal the caller reads, never a precondition for onComplete itself (the caller freezes its own view on completion exactly as before; only the reveal/navigate waits on audioReady)', () => {
+    const beginBody = source.match(/const begin = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const handoffIdx = beginBody.indexOf('beginHandoff(audioSettled);');
+    const onCompleteIdx = beginBody.indexOf('onComplete?.(finished);');
+    expect(handoffIdx).toBeGreaterThan(-1);
+    expect(onCompleteIdx).toBeGreaterThan(handoffIdx);
+  });
+});

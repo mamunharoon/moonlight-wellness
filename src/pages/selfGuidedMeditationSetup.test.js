@@ -87,16 +87,37 @@ describe('SelfGuidedMeditation.jsx — standalone defaults are unchanged: no con
   });
 });
 
-describe('SelfGuidedMeditation.jsx — completion reproduces the exact original navigate target', () => {
-  it('onComplete navigates to /self-guided-meditation-complete with the finished session state, including `from` and (WakeWise DEV Anytime completion correction) the anytimeNeed/anytimeDuration this practice was itself entered with, if any', () => {
+describe('SelfGuidedMeditation.jsx — completion reproduces the exact original navigate target, but only once audio has genuinely reached silence', () => {
+  // Coordinated audio/visual handoff — unlike Morning/EveningMeditate
+  // (an in-place completion panel on the same mounted screen), this page
+  // genuinely navigates to a separate route on completion. Calling
+  // navigate() directly from onComplete (the original shape) meant the
+  // user could already be on the next screen while the 2s music fade was
+  // still audibly running - surviving the unmount a navigate() causes is
+  // not the same as the fade having finished FIRST. onComplete now only
+  // stashes the result; a separate effect, gated on session.audioReady
+  // (bounded by useAudioFadeHandoff.js's fallback, so this can never
+  // stall), performs the actual navigate() - reproducing the exact same
+  // target/state shape as before.
+  it('onComplete no longer navigates directly - it only stashes the finished session state and flips isCompleted', () => {
     const body = source.match(/const handleComplete = \(finished\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/navigate\('\/self-guided-meditation-complete', \{\s*\n\s*state: \{\s*\n\s*\.\.\.finished,\s*\n\s*from: searchParams\.get\('from'\) \|\| null,\s*\n\s*anytimeNeed: preset\?\.anytimeNeed \|\| null,\s*\n\s*anytimeDuration: preset\?\.anytimeDuration \|\| null\s*\n\s*\}\s*\n\s*\}\);/);
+    expect(body).not.toBe('');
+    expect(body).toMatch(/setPendingCompletion\(finished\);/);
+    expect(body).toMatch(/setIsCompleted\(true\);/);
+    expect(body).not.toMatch(/navigate\(/);
   });
 
-  it('never opens any other route on completion', () => {
-    const body = source.match(/const handleComplete = \(finished\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    const navigateCalls = body.match(/navigate\(/g) ?? [];
+  it('a dedicated effect performs the real navigate() to /self-guided-meditation-complete with the exact same state shape as before (finished fields, `from`, anytimeNeed/anytimeDuration), gated on isCompleted && session.audioReady && pendingCompletion', () => {
+    const effectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| !session\.audioReady \|\| !pendingCompletion\) return;[\s\S]*?\n {2}\}, \[isCompleted, session\.audioReady, pendingCompletion, navigate, searchParams, preset\]\);/)?.[0] ?? '';
+    expect(effectBody).not.toBe('');
+    expect(effectBody).toMatch(/navigate\('\/self-guided-meditation-complete', \{\s*\n\s*state: \{\s*\n\s*\.\.\.pendingCompletion,\s*\n\s*from: searchParams\.get\('from'\) \|\| null,\s*\n\s*anytimeNeed: preset\?\.anytimeNeed \|\| null,\s*\n\s*anytimeDuration: preset\?\.anytimeDuration \|\| null\s*\n\s*\}\s*\n\s*\}\);/);
+    const navigateCalls = effectBody.match(/navigate\(/g) ?? [];
     expect(navigateCalls.length).toBe(1);
+  });
+
+  it('the active-view branch keeps rendering (frozen, pointer-events none) once isCompleted, instead of falling through to a stale setup screen while the navigate effect is still waiting on audioReady', () => {
+    expect(source).toMatch(/if \(\(session\.phase === 'active' \|\| isCompleted\) && session\.snapshot\) \{/);
+    expect(source).toMatch(/<div style=\{isCompleted \? \{ pointerEvents: 'none' \} : undefined\}>/);
   });
 });
 

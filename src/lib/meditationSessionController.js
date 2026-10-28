@@ -161,12 +161,22 @@ export const createMeditationSessionController = ({
   // module - see meditationAudioController.js's own fadeOutAndStop doc
   // comment for how this survives the unmount that happens the instant
   // the caller navigates to the completion screen.
+  //
+  // Coordinated audio/visual handoff — `audioSettled` is the Promise
+  // fadeOutAndStop() itself returns (already resolved, via Promise.resolve(),
+  // when there was nothing to fade - no track selected, or it never
+  // started/was already paused): the caller (useMeditationSession.js, via
+  // useAudioFadeHandoff.js) awaits this - bounded by a fallback timeout -
+  // before actually revealing a completion panel or navigating, so music
+  // genuinely reaches silence first rather than merely surviving the
+  // unmount that follows.
   const tick = () => {
     const completed = session.tick();
+    let audioSettled = Promise.resolve();
     if (completed && currentSoundId && audioControllers.has(currentSoundId)) {
-      audioControllers.get(currentSoundId).fadeOutAndStop();
+      audioSettled = audioControllers.get(currentSoundId).fadeOutAndStop();
     }
-    return { completed };
+    return { completed, audioSettled };
   };
 
   // Full teardown (unmount/route-change) - releases every track ever

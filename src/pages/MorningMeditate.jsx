@@ -171,7 +171,13 @@ export const MorningMeditate = () => {
   // same render pass with nothing to soften the cut). Purely additive,
   // same as everywhere else this hook is used - never touches isCompleted
   // itself or any existing side effect's timing.
-  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
+  //
+  // Coordinated audio/visual handoff — session.audioReady (useMeditation
+  // Session.js, via useAudioFadeHandoff.js) holds the reveal at 'active'
+  // until the natural-completion music fade has genuinely reached silence
+  // (or the bounded fallback elapsed), not merely until it survives this
+  // screen's own state transitions.
+  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted, session.audioReady);
 
   // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
   // into a shared 5-second preparation countdown instead of starting the

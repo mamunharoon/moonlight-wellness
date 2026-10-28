@@ -33,6 +33,7 @@ import { createStretchSession } from '../lib/stretchSession';
 import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { useAudioFadeHandoff } from '../hooks/useAudioFadeHandoff';
 import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 import { useWakeLock } from '../hooks/useWakeLock';
 
@@ -329,12 +330,18 @@ export const MorningFlow = () => {
   const sessionRef = useRef(null);
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  // Coordinated audio/visual handoff — see useAudioFadeHandoff.js. Fed into
+  // useCompletionHandoff below so the completion panel never reveals until
+  // the natural-completion music fade has genuinely reached silence (or
+  // the bounded fallback elapsed) - shared by both the timer-driven tick
+  // and handleNextStep's manual-tap completion below.
+  const { audioReady, beginHandoff } = useAudioFadeHandoff();
   // Completion-transition-tuning pass — purely additive/visual; isCompleted
   // itself (above) keeps its exact original timing for every other
   // consumer (suspension, toggles, the "Continue to Breathe" CTA below).
   // Only the render ternary below swaps from isCompleted to
   // showCompletionPanel - see useCompletionHandoff.js's own doc comment.
-  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted, audioReady);
   const [completionGreeting, setCompletionGreeting] = useState(null);
   // Back/early-exit correction (reusing Breathe.jsx's proven pattern) -
   // gates the same interval-management effect and InteractiveAmbientMusic's
@@ -379,14 +386,14 @@ export const MorningFlow = () => {
         // music, and enter the completed state, all in one step, exactly
         // once per real completion.
         stopStretchInterval();
-        musicPlayerRef.current?.fadeOutAndStop();
+        beginHandoff(musicPlayerRef.current?.fadeOutAndStop() ?? Promise.resolve());
         setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
         setIsCompleted(true);
       }
     }, 1000);
 
     return () => stopStretchInterval();
-  }, [hasBegun, activeSequence, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
+  }, [hasBegun, activeSequence, isInterrupted, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]); // eslint-disable-line react-hooks/exhaustive-deps -- beginHandoff (useAudioFadeHandoff.js) is a plain function recreated every render, never itself a dependency's worth of state; including it would re-arm this interval every render for no reason
 
   // Tester-reported defect: screen sleeps mid-Morning-routine (timed
   // stretching). Mirrors the countdown interval's own active-ticking guard
@@ -479,7 +486,7 @@ export const MorningFlow = () => {
     setActiveStep(activeIndex);
     if (completed) {
       stopStretchInterval();
-      musicPlayerRef.current?.fadeOutAndStop();
+      beginHandoff(musicPlayerRef.current?.fadeOutAndStop() ?? Promise.resolve());
       setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
       setIsCompleted(true);
     }

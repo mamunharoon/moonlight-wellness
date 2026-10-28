@@ -45,6 +45,7 @@ import { getCompletionGreeting } from '../lib/outcomeMessages';
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { useAudioFadeHandoff } from '../hooks/useAudioFadeHandoff';
 
 // Background Music — reserved id for the shared interactive-breathing
 // ambient loop (see docs/background-music-asset-manifest.md).
@@ -258,11 +259,16 @@ export const EveningBreathing = () => {
   const sessionRef = useRef(null);
   const intervalRef = useRef(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  // Coordinated audio/visual handoff — see useAudioFadeHandoff.js. Fed into
+  // useCompletionHandoff below so the completion panel never reveals until
+  // the natural-completion music fade has genuinely reached silence (or
+  // the bounded fallback elapsed).
+  const { audioReady, beginHandoff } = useAudioFadeHandoff();
   // Completion-transition-tuning pass — purely additive/visual; isCompleted
   // itself (above) keeps its exact original timing for every other
   // consumer. Only the render ternary below swaps from isCompleted to
   // showCompletionPanel - see useCompletionHandoff.js's own doc comment.
-  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted, audioReady);
   const [completionGreeting, setCompletionGreeting] = useState(null);
   // Evening Breathing Back/early-exit correction (reusing Breathe.jsx's
   // proven pattern) — gates the same interval-management effect and
@@ -304,14 +310,14 @@ export const EveningBreathing = () => {
         // music, and enter the completed state, all in one step, exactly
         // once per real completion.
         stopBreathingInterval();
-        musicPlayerRef.current?.fadeOutAndStop();
+        beginHandoff(musicPlayerRef.current?.fadeOutAndStop() ?? Promise.resolve());
         setCompletionGreeting(getCompletionGreeting({ journey: 'evening', practice: 'breathing' }));
         setIsCompleted(true);
       }
     }, 1000);
 
     return () => stopBreathingInterval();
-  }, [hasBegun, manuallyPaused, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]);
+  }, [hasBegun, manuallyPaused, isRepeatGated, isConfirming, isCompleted, backConfirmOpen]); // eslint-disable-line react-hooks/exhaustive-deps -- beginHandoff (useAudioFadeHandoff.js) is a plain function recreated every render, never itself a dependency's worth of state; including it would re-arm this interval every render for no reason
 
   // Double-tap protection - see Breathe.jsx's identical rationale. Also
   // where the selected pattern is effectively "locked" for the active

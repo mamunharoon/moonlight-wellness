@@ -3,6 +3,7 @@ import { MEDITATION_STYLES, DEFAULT_MEDITATION_STYLE_ID, getMeditationStyleById 
 import { MEDITATION_DURATIONS, DEFAULT_MEDITATION_DURATION_ID, getMeditationDurationById } from '../lib/meditationDurations';
 import { isValidMeditationSoundId, getSuggestedSoundIdForStyle, toControllerSoundId } from '../lib/meditationSounds';
 import { createMeditationSessionController } from '../lib/meditationSessionController';
+import { useAudioFadeHandoff } from './useAudioFadeHandoff';
 
 /*
  * WakeWise — Journey Embedding (Self-Guided Meditation) — shared React
@@ -50,6 +51,13 @@ export const useMeditationSession = ({
   const [soundUnavailable, setSoundUnavailable] = useState(false);
   const [phase, setPhase] = useState('setup');
   const [snapshot, setSnapshot] = useState(null);
+  // Coordinated audio/visual handoff — see useAudioFadeHandoff.js. Every
+  // caller of this hook (MorningMeditate.jsx/EveningMeditate.jsx via
+  // useCompletionHandoff; SelfGuidedMeditation.jsx via its own gated
+  // navigate effect) reads `audioReady` to know when the natural-
+  // completion fade has genuinely reached silence (or the bounded
+  // fallback elapsed) - not merely when onComplete fired.
+  const { audioReady, beginHandoff } = useAudioFadeHandoff();
 
   const controllerRef = useRef(null);
   const intervalRef = useRef(null);
@@ -136,7 +144,7 @@ export const useMeditationSession = ({
     intervalRef.current = setInterval(() => {
       const current = controllerRef.current;
       if (!current) return;
-      const { completed } = current.tick();
+      const { completed, audioSettled } = current.tick();
       let latestSnapshot = current.getSnapshot();
       // Truthful-state guarantee - see meditationAudioController.js's own
       // doc comment: a genuinely failed start()/resume() must never keep
@@ -155,6 +163,11 @@ export const useMeditationSession = ({
           durationId: duration.id,
           soundId: latestSnapshot.soundId || 'none'
         };
+        // Coordinated audio/visual handoff - begun BEFORE cleanupSession()
+        // (which destroys the controller) since `audioSettled` is already
+        // a standalone Promise tied to this tick's own fadeOutAndStop()
+        // call, independent of what happens to the controller afterwards.
+        beginHandoff(audioSettled);
         cleanupSession();
         setPhase('setup');
         onComplete?.(finished);
@@ -208,6 +221,7 @@ export const useMeditationSession = ({
     soundId,
     soundUnavailable,
     snapshot,
+    audioReady,
     setDurationId,
     selectStyle,
     selectSound,

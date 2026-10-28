@@ -25,8 +25,8 @@ describe('MorningFlow.jsx — showCompletionPanel drives the shared CompletionRe
     expect(source).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
   });
 
-  it('useCompletionHandoff is fed the raw, unchanged isCompleted state - every other isCompleted consumer (suspension, toggles, the CTA) keeps its exact original immediate timing', () => {
-    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted\);/);
+  it('useCompletionHandoff is fed the raw, unchanged isCompleted state, plus the coordinated audio/visual handoff\'s audioReady - every other isCompleted consumer (suspension, toggles, the CTA) keeps its exact original immediate timing', () => {
+    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted, audioReady\);/);
   });
 
   it('the completed branch renders <CompletionReveal active={showCompletionPanel} journeyTone="morning" ...> - auto-freshness detection applies (no explicit isFresh), since showCompletionPanel itself starts false and flips true exactly once', () => {
@@ -51,8 +51,8 @@ describe('Breathe.jsx — showCompletionPanel drives the shared CompletionReveal
     expect(source).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
   });
 
-  it('useCompletionHandoff is fed the raw, unchanged isCompleted state', () => {
-    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted\);/);
+  it('useCompletionHandoff is fed the raw, unchanged isCompleted state, plus the coordinated audio/visual handoff\'s audioReady', () => {
+    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted, audioReady\);/);
   });
 
   it('the completed branch renders <CompletionReveal active={showCompletionPanel} journeyTone="morning" ...> - auto-freshness detection applies', () => {
@@ -78,8 +78,8 @@ describe('EveningBreathing.jsx — showCompletionPanel drives the shared Complet
     expect(source).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
   });
 
-  it('useCompletionHandoff is fed the raw, unchanged isCompleted state', () => {
-    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted\);/);
+  it('useCompletionHandoff is fed the raw, unchanged isCompleted state, plus the coordinated audio/visual handoff\'s audioReady', () => {
+    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted, audioReady\);/);
   });
 
   it('the completed branch renders <CompletionReveal active={showCompletionPanel} journeyTone="evening" ...> - auto-freshness detection applies', () => {
@@ -107,8 +107,8 @@ describe('QuietBreathing.jsx (standalone) — the combined isCompleted/earlyEnde
     expect(source).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
   });
 
-  it('useCompletionHandoff is fed the combined isCompleted || earlyEnded flag - either genuinely ends the active exercise the same way', () => {
-    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted \|\| earlyEnded\);/);
+  it('useCompletionHandoff is fed the combined isCompleted || earlyEnded flag - either genuinely ends the active exercise the same way - plus the coordinated audio/visual handoff\'s audioReady', () => {
+    expect(source).toMatch(/const \{ activeViewExiting, showCompletionPanel \} = useCompletionHandoff\(isCompleted \|\| earlyEnded, audioReady\);/);
   });
 
   it('the standalone branch renders exactly one CompletionReveal, active on showCompletionPanel, celebratory ONLY on isCompleted - a genuine early exit gets a plain cross-fade, never the completed-check scale/glow treatment', () => {
@@ -244,50 +244,63 @@ describe('Every migrated screen keeps its pre-existing journey-tone visual token
   });
 });
 
-// B67 device-feedback pass — "Coordinate this with the existing 2-second
-// audio fade without forcing the user to wait for it." Proven structurally,
-// not just by the timing math (useCompletionHandoff.js's own doc comment):
-// the audio fade call (fadeOutAndStop()) and the visual-transition trigger
-// (setIsCompleted(true)/handleNaturalCompletion) are two independent
-// statements in the same synchronous natural-completion callback on every
-// screen - neither is awaited, neither reads the other's state, and
-// nothing in either file imports the other. The visual sequence (~600-
-// 800ms) always finishes well before the audio fade (~2000ms, a fixed
-// constant in InteractiveAmbientMusic.jsx/meditationAudioController.js) -
-// the completion panel is always fully visible and interactive while the
-// music is still audibly fading in the background, never the reverse.
-describe('B67 device-feedback pass — the visual transition and the ~2s audio fade are genuinely independent, never coupled', () => {
-  it('on every ternary-swap screen, the audio fade call and setIsCompleted(true) are two adjacent, unconditional statements in the same callback - neither is awaited, neither gates the other', () => {
+// B67 device-feedback pass — originally "coordinate this with the existing
+// 2-second audio fade WITHOUT forcing the user to wait for it": the audio
+// fade call and the visual-transition trigger (setIsCompleted(true)/
+// handleNaturalCompletion) fired as two independent, un-awaited statements,
+// and the completion panel could reveal (and "Continue" become tappable)
+// well before the 2s fade actually finished.
+//
+// Superseded by a later, explicit requirement: "music reaches silence
+// before the next screen appears" - letting the fade survive an unmount
+// (the earlier fix) proved it doesn't get CUT OFF, never that it finishes
+// FIRST. The two statements below are still adjacent and unconditional in
+// the same synchronous callback (so the outgoing view still freezes
+// immediately, unaffected) - but the reveal itself is now explicitly
+// GATED on audioReady, a value derived from the very Promise
+// fadeOutAndStop()/tick() returns (via useAudioFadeHandoff.js), bounded by
+// a fallback so it can never stall. The two CORE modules
+// (useCompletionHandoff.js/CompletionReveal.jsx vs.
+// InteractiveAmbientMusic.jsx/meditationAudioController.js) still never
+// import one another - the coupling lives only in each page's own call
+// site, which is where beginHandoff()/audioReady are wired.
+describe('Coordinated audio/visual handoff — the reveal now waits for the audio fade, it does not merely survive navigating past it', () => {
+  it('on every InteractiveAmbientMusic-based screen, the completion callback wraps the fade call in beginHandoff() (not a bare fire-and-forget call) before setIsCompleted(true) - the outgoing view still freezes immediately (isCompleted is unconditional and immediate), but the reveal itself is gated separately via audioReady', () => {
     for (const file of ['./MorningFlow.jsx', './Breathe.jsx', './EveningBreathing.jsx', './QuietBreathing.jsx']) {
       const source = read(file);
-      expect(source).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);\s*\n\s*(?:if \(anytimeOrigin\) \{\s*\n\s*)?setCompletionGreeting\(/);
+      expect(source).toMatch(/beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);\s*\n\s*(?:if \(anytimeOrigin\) \{\s*\n\s*)?setCompletionGreeting\(/);
+      expect(source).toMatch(/import \{ useAudioFadeHandoff \} from '\.\.\/hooks\/useAudioFadeHandoff';/);
     }
   });
 
-  it('MorningMeditate.jsx/EveningMeditate.jsx: the audio fade lives inside meditationSessionController.js\'s own tick(), called from useMeditationSession.js\'s interval callback BEFORE onComplete/handleNaturalCompletion ever runs - same synchronous callback, same guarantee', () => {
+  it('MorningMeditate.jsx/EveningMeditate.jsx: the audio fade still lives inside meditationSessionController.js\'s own tick(), called from useMeditationSession.js\'s interval callback BEFORE onComplete/handleNaturalCompletion ever runs - same synchronous callback as before, but tick() now also returns audioSettled, and the hook feeds it through beginHandoff() (useAudioFadeHandoff.js) before cleanupSession()', () => {
     for (const file of ['./MorningMeditate.jsx', './EveningMeditate.jsx']) {
       const source = read(file);
       // Neither page file calls fadeOutAndStop/the music controller
       // directly - it's entirely owned by the shared meditation session
-      // stack, never duplicated here.
+      // stack, never duplicated here. Each now reads session.audioReady
+      // instead.
       expect(source).not.toMatch(/fadeOutAndStop/);
+      expect(source).toMatch(/useCompletionHandoff\(isCompleted, session\.audioReady\)/);
     }
     const controllerSource = read('../lib/meditationSessionController.js');
-    expect(controllerSource).toMatch(/const tick = \(\) => \{\s*\n\s*const completed = session\.tick\(\);\s*\n\s*if \(completed && currentSoundId && audioControllers\.has\(currentSoundId\)\) \{\s*\n\s*audioControllers\.get\(currentSoundId\)\.fadeOutAndStop\(\);/);
+    expect(controllerSource).toMatch(/const tick = \(\) => \{\s*\n\s*const completed = session\.tick\(\);\s*\n\s*let audioSettled = Promise\.resolve\(\);\s*\n\s*if \(completed && currentSoundId && audioControllers\.has\(currentSoundId\)\) \{\s*\n\s*audioSettled = audioControllers\.get\(currentSoundId\)\.fadeOutAndStop\(\);/);
     const hookSource = read('../hooks/useMeditationSession.js');
-    // tick()'s own fadeOutAndStop() call happens synchronously inside
-    // current.tick() here, strictly before cleanupSession()/setPhase/
-    // onComplete - confirmed by the literal statement order in this same
-    // callback.
+    // current.tick() -> beginHandoff(audioSettled) -> cleanupSession() ->
+    // onComplete, in that order, inside the same callback.
     const tickCallback = hookSource.match(/intervalRef\.current = setInterval\(\(\) => \{([\s\S]*?)\n {4}\}, 1000\);/)?.[1] ?? '';
     expect(tickCallback).not.toBe('');
     const tickCallIdx = tickCallback.indexOf('current.tick()');
+    const handoffIdx = tickCallback.indexOf('beginHandoff(audioSettled);');
+    const cleanupIdx = tickCallback.indexOf('cleanupSession();');
     const onCompleteIdx = tickCallback.indexOf('onComplete?.(finished)');
     expect(tickCallIdx).toBeGreaterThan(-1);
-    expect(onCompleteIdx).toBeGreaterThan(tickCallIdx);
+    expect(handoffIdx).toBeGreaterThan(tickCallIdx);
+    expect(cleanupIdx).toBeGreaterThan(handoffIdx);
+    expect(onCompleteIdx).toBeGreaterThan(cleanupIdx);
   });
 
-  it('the audio fade duration (2000ms) and the combined visual transition target (~600-800ms) are independent constants, defined in entirely separate modules - neither file actually imports the other (mentioning the relationship in a doc comment, as these files deliberately do to explain WHY they are independent, is not a coupling)', () => {
+  it('the two core modules on each side still never import one another - the audio fade duration (2000ms) and the visual transition\'s own HOLD_MS/EXIT_FADE_MS stay independent constants in separate files; the coupling is an injected audioReady boolean at each page\'s own call site, not a cross-import', () => {
     const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const audioFiles = ['../components/InteractiveAmbientMusic.jsx', '../lib/meditationAudioController.js'];
     const visualFiles = ['../hooks/useCompletionHandoff.js', '../components/CompletionReveal.jsx'];
@@ -300,5 +313,12 @@ describe('B67 device-feedback pass — the visual transition and the ~2s audio f
       const codeOnly = stripComments(read(file));
       expect(codeOnly).not.toMatch(/fadeOutAndStop|FADE_OUT_DURATION_MS|InteractiveAmbientMusic|meditationAudioController/);
     }
+  });
+
+  it('useAudioFadeHandoff.js is the one shared place both sides route through - every InteractiveAmbientMusic-based screen and useMeditationSession.js import it, rather than each reimplementing its own Promise/timeout wiring', () => {
+    for (const file of ['./MorningFlow.jsx', './Breathe.jsx', './EveningBreathing.jsx', './QuietBreathing.jsx']) {
+      expect(read(file)).toMatch(/import \{ useAudioFadeHandoff \} from '\.\.\/hooks\/useAudioFadeHandoff';/);
+    }
+    expect(read('../hooks/useMeditationSession.js')).toMatch(/import \{ useAudioFadeHandoff \} from '\.\/useAudioFadeHandoff';/);
   });
 });

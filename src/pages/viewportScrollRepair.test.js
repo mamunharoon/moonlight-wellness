@@ -43,7 +43,7 @@ const SCROLL_INNER = '<div className="h-full w-full overflow-y-auto overflow-x-h
 // coverage across Morning/Anytime/Evening Meditation).
 describe('SelfGuidedMeditation.jsx — setup screen owns its own scroll container via the shared ExerciseScreenShell', () => {
   it('wraps the setup return in the shared ExerciseScreenShell, matching MorningMeditate.jsx', () => {
-    expect(selfGuidedMeditationSource).toMatch(/if \(session\.phase === 'active' && session\.snapshot\) \{/);
+    expect(selfGuidedMeditationSource).toMatch(/if \(\(session\.phase === 'active' \|\| isCompleted\) && session\.snapshot\) \{/);
     expect(selfGuidedMeditationSource).toMatch(/import \{ ExerciseScreenShell \} from '\.\.\/components\/journey\/ExerciseScreenShell';/);
     // Only the setup (non-active) return needs the fix - the active
     // session screen (MeditationActiveSession) already scrolls correctly

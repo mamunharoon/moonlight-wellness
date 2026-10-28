@@ -63,14 +63,16 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 // brief 50ms still accomplishes; EXIT_FADE stays long enough on its own
 // to read as a genuine fade, not a cut.
 //
-// This is independent of, and deliberately never synchronized with, the
-// audio fade-out - they are two separate timers started at the same
-// instant (the same natural-completion callback that calls both
-// musicPlayerRef.current?.fadeOutAndStop()/the meditation controller's
-// equivalent AND sets isCompleted true/calls onComplete). The audio keeps
-// fading in the background for its own full ~2s regardless of how this
-// visual sequence paces itself - nothing here ever awaits or blocks on
-// it, and nothing in the audio path reads this hook's own state.
+// Coordinated audio/visual handoff — this hook's independence from the
+// audio fade-out (described above, kept for every pre-existing caller) is
+// now opt-out, not absolute: `audioReady` (new, second argument, defaults
+// to true) lets a caller that DOES need to wait for music to actually
+// reach silence first hold this hook at 'active' - the outgoing view stays
+// exactly as it already is, fully stable, same as during the hold below -
+// until audioReady flips true, and only then does the hold -> exit-fade ->
+// reveal sequence begin. A caller that never passes audioReady (or whose
+// music was already off/failed, so the wait resolves immediately - see
+// useAudioFadeHandoff.js) sees zero behaviour change from before.
 const HOLD_MS = 50;
 const EXIT_FADE_MS = 250;
 
@@ -82,16 +84,16 @@ const detectReducedMotion = () => {
   }
 };
 
-export const useCompletionHandoff = (isCompleted) => {
+export const useCompletionHandoff = (isCompleted, audioReady = true) => {
   const [reducedMotion] = useState(detectReducedMotion);
-  // 'phase' is only meaningful while isCompleted && !reducedMotion - see
-  // effectivePhase below, which derives the actual returned state for
-  // every other case rather than routing them through more setState
-  // calls here.
+  // 'phase' is only meaningful while isCompleted && audioReady &&
+  // !reducedMotion - see effectivePhase below, which derives the actual
+  // returned state for every other case rather than routing them through
+  // more setState calls here.
   const [phase, setPhase] = useState('active');
 
   useEffect(() => {
-    if (!isCompleted || reducedMotion) return;
+    if (!isCompleted || reducedMotion || !audioReady) return;
     // Resets to 'active' synchronously at the start of every fresh
     // completion cycle - the first step of kicking off this effect's own
     // hold -> exit-fade timer sequence below (the same sanctioned
@@ -101,12 +103,14 @@ export const useCompletionHandoff = (isCompleted) => {
     // otherwise guards against. Required, not cosmetic: without it, a
     // second completion in the same mount (Play Again/Breathe again)
     // would inherit the PREVIOUS cycle's stale 'revealed' phase for the
-    // brief instant before the hold timer below fires.
+    // brief instant before the hold timer below fires. Re-runs (and is
+    // harmless/idempotent) if audioReady flips true after isCompleted
+    // already did - exactly the coordinated-handoff case this is for.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('active');
     const holdTimer = setTimeout(() => setPhase('exiting'), HOLD_MS);
     return () => clearTimeout(holdTimer);
-  }, [isCompleted, reducedMotion]);
+  }, [isCompleted, reducedMotion, audioReady]);
 
   useEffect(() => {
     if (phase !== 'exiting') return;
@@ -114,12 +118,13 @@ export const useCompletionHandoff = (isCompleted) => {
     return () => clearTimeout(fadeTimer);
   }, [phase]);
 
-  // Derived, not stored: both "not completed" (always 'active', however
-  // stale `phase` itself might be from a prior cycle) and "completed but
-  // Reduced Motion" (always 'revealed' immediately, no hold/exit-fade at
-  // all) are fully derivable from props/reducedMotion already available
-  // this render.
-  const effectivePhase = !isCompleted ? 'active' : reducedMotion ? 'revealed' : phase;
+  // Derived, not stored: "not completed" (always 'active'), "completed but
+  // still awaiting audio" (also always 'active' - the outgoing view stays
+  // stable, however stale `phase` itself might be from a prior cycle), and
+  // "completed, audio ready, Reduced Motion" (always 'revealed'
+  // immediately, no hold/exit-fade at all) are fully derivable from props/
+  // reducedMotion already available this render.
+  const effectivePhase = !isCompleted || !audioReady ? 'active' : reducedMotion ? 'revealed' : phase;
 
   return {
     // The active view's own branch stays rendered (unchanged internally)

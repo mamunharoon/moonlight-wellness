@@ -33,6 +33,7 @@ import { getBreathingAcknowledgement, getCompletionGreeting } from '../lib/outco
 import { createBreathingSession } from '../lib/breathingSession';
 import { CompletionReveal } from '../components/CompletionReveal';
 import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
+import { useAudioFadeHandoff } from '../hooks/useAudioFadeHandoff';
 import { resolveAnytimeOrigin } from '../lib/anytimeOrigin';
 import { AnytimeClosingHandoffMessage, AnytimeClosingHandoffActions } from '../components/AnytimeClosingHandoff';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -368,13 +369,19 @@ export const QuietBreathing = ({ standalone = false }) => {
   // the instant the exercise ends, is left early, or the end-confirm
   // dialog opens.
   useWakeLock(hasBegun && !earlyEnded && !isCompleted && !endConfirmOpen);
+  // Coordinated audio/visual handoff — see useAudioFadeHandoff.js.
+  // audioReady is only ever set false by the natural-completion tick
+  // below (fed into beginHandoff there) - the earlyEnded/End Session path
+  // calls the instant stop() (nothing to await), so audioReady stays true
+  // throughout it, exactly preserving its existing immediate reveal.
+  const { audioReady, beginHandoff } = useAudioFadeHandoff();
   // Completion-transition-tuning pass — purely additive/visual; isCompleted/
   // earlyEnded themselves keep their exact original timing for every other
   // consumer. Only the render ternary below (standalone branch) swaps from
   // isCompleted || earlyEnded to showCompletionPanel - see
   // useCompletionHandoff.js's own doc comment. Fed the combined flag since
   // EITHER genuinely ends the active exercise the same way here.
-  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted || earlyEnded);
+  const { activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted || earlyEnded, audioReady);
   // Back/early-exit pause correction — found live: endConfirmOpen never
   // gated the timer/music at all, so both kept running behind "End this
   // breathing session?" (the same "doesn't pause behind the dialog"
@@ -421,7 +428,7 @@ export const QuietBreathing = ({ standalone = false }) => {
         // getBreathingAcknowledgement string and Done/Breathe again pair,
         // completely unchanged - "existing direct completion behaviour."
         stopBreathingInterval();
-        musicPlayerRef.current?.fadeOutAndStop();
+        beginHandoff(musicPlayerRef.current?.fadeOutAndStop() ?? Promise.resolve());
         if (anytimeOrigin) {
           setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'reset' }));
         }
@@ -430,7 +437,7 @@ export const QuietBreathing = ({ standalone = false }) => {
     }, 1000);
 
     return () => stopBreathingInterval();
-  }, [standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin]);
+  }, [standalone, hasBegun, earlyEnded, isCompleted, endConfirmOpen, anytimeOrigin]); // eslint-disable-line react-hooks/exhaustive-deps -- beginHandoff (useAudioFadeHandoff.js) is a plain function recreated every render, never itself a dependency's worth of state; including it would re-arm this interval every render for no reason
 
   // Non-standalone (Support's embedded usage) - completely unchanged: the
   // exact original naive interval, keyed off plain secondsLeft state,

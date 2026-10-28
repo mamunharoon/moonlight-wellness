@@ -33,7 +33,7 @@ describe('MorningFlow.jsx (Stretch) — completion is an explicit, authoritative
     expect(callbackBody).toMatch(/if \(completed\) \{/);
     const completedBranch = callbackBody.match(/if \(completed\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopStretchInterval\(\);/);
-    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
+    expect(completedBranch).toMatch(/beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);/);
     expect(completedBranch).toMatch(/setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'morning', practice: 'stretching' \}\)\);/);
     expect(completedBranch).toMatch(/setIsCompleted\(true\);/);
   });
@@ -48,7 +48,7 @@ describe('MorningFlow.jsx (Stretch) — completion is an explicit, authoritative
     expect(fn).toMatch(/session\.advanceMovement\(\)/);
     expect(fn).toMatch(/if \(completed\) \{/);
     expect(fn).toMatch(/stopStretchInterval\(\);/);
-    expect(fn).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
+    expect(fn).toMatch(/beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);/);
     expect(fn).toMatch(/setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'morning', practice: 'stretching' \}\)\);/);
     expect(fn).toMatch(/setIsCompleted\(true\);/);
   });

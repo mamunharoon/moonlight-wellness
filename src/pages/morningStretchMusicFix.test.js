@@ -193,12 +193,12 @@ describe('9. Back confirmation pauses and resumes correctly', () => {
 
 describe('10. Completion, early-exit, and unmount all stop and release audio', () => {
   it('natural completion (timer reaching zero) fades music out synchronously-triggered in the same callback that flips isCompleted', () => {
-    expect(morningFlowSource).toMatch(/stopStretchInterval\(\);\s*\n\s*musicPlayerRef\.current\?\.fadeOutAndStop\(\);\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'morning', practice: 'stretching' \}\)\);\s*\n\s*setIsCompleted\(true\);/);
+    expect(morningFlowSource).toMatch(/stopStretchInterval\(\);\s*\n\s*beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'morning', practice: 'stretching' \}\)\);\s*\n\s*setIsCompleted\(true\);/);
   });
 
   it('manual completion (handleNextStep reaching the final movement) also fades music out the same way', () => {
     const body = morningFlowSource.match(/const handleNextStep = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    expect(body).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
+    expect(body).toMatch(/beginHandoff\(musicPlayerRef\.current\?\.fadeOutAndStop\(\) \?\? Promise\.resolve\(\)\);/);
   });
 
   it('leaveStretch (the one confirmed early-exit path) stops music and clears the "was playing" ref', () => {

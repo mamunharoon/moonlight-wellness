@@ -145,7 +145,10 @@ export const EveningMeditate = () => {
   // B67 device-feedback pass — see MorningMeditate.jsx's identical block
   // for the full rationale (useCompletionHandoff.js's own doc comment has
   // the complete root-cause and ~600-800ms target).
-  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
+  //
+  // Coordinated audio/visual handoff — see MorningMeditate.jsx's identical
+  // block for the full rationale.
+  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted, session.audioReady);
 
   // Build 16 physical-iPhone correction (F3/F4) - see MorningMeditate.jsx's
   // identical block for the full rationale.

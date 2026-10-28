@@ -13,9 +13,10 @@ describe('useCompletionHandoff — purely additive, never touches isCompleted or
     expect(source).not.toMatch(/recordPracticeCompletion|practiceCompletions/);
   });
 
-  it('takes isCompleted as its only argument - never receives or calls a setter for it, so the caller\'s own isCompleted state and its timing are completely untouched', () => {
-    expect(source).toMatch(/export const useCompletionHandoff = \(isCompleted\) => \{/);
+  it('takes isCompleted and audioReady (defaulting to true) as its only arguments - never receives or calls a setter for either, so the caller\'s own isCompleted state and its timing are completely untouched', () => {
+    expect(source).toMatch(/export const useCompletionHandoff = \(isCompleted, audioReady = true\) => \{/);
     expect(source).not.toMatch(/setIsCompleted/);
+    expect(source).not.toMatch(/setAudioReady/);
   });
 });
 
@@ -28,8 +29,8 @@ describe('useCompletionHandoff — the hold -> exit-fade -> revealed sequence', 
     expect(source).toMatch(/const EXIT_FADE_MS = 250;/);
   });
 
-  it('the hold timer transitions phase to \'exiting\' only after HOLD_MS, and only when genuinely completed and motion is not reduced', () => {
-    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| reducedMotion\) return;[\s\S]*?\n {2}\}, \[isCompleted, reducedMotion\]\);/)?.[0] ?? '';
+  it('the hold timer transitions phase to \'exiting\' only after HOLD_MS, and only when genuinely completed, audio is ready, and motion is not reduced', () => {
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| reducedMotion \|\| !audioReady\) return;[\s\S]*?\n {2}\}, \[isCompleted, reducedMotion, audioReady\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/const holdTimer = setTimeout\(\(\) => setPhase\('exiting'\), HOLD_MS\);/);
     expect(body).toMatch(/return \(\) => clearTimeout\(holdTimer\);/);
@@ -43,20 +44,20 @@ describe('useCompletionHandoff — the hold -> exit-fade -> revealed sequence', 
   });
 });
 
-describe('useCompletionHandoff — Reduced Motion skips the hold and exit-fade entirely', () => {
+describe('useCompletionHandoff — Reduced Motion skips the hold and exit-fade entirely, but never skips waiting for audio', () => {
   it('reduced motion is detected via the same established try/catch pattern as every other screen, captured once at mount', () => {
     expect(source).toMatch(/Boolean\(getReducedMotionPreference\(\) \|\| window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\);/);
     expect(source).toMatch(/const \[reducedMotion\] = useState\(detectReducedMotion\);/);
   });
 
-  it('effectivePhase resolves straight to \'revealed\' under reduced motion whenever isCompleted is true - no hold, no exit-fade, no stagger of its own', () => {
-    expect(source).toMatch(/const effectivePhase = !isCompleted \? 'active' : reducedMotion \? 'revealed' : phase;/);
+  it('effectivePhase resolves straight to \'revealed\' under reduced motion only once BOTH isCompleted and audioReady are true - no hold, no exit-fade, no stagger of its own, but still gated on audio', () => {
+    expect(source).toMatch(/const effectivePhase = !isCompleted \|\| !audioReady \? 'active' : reducedMotion \? 'revealed' : phase;/);
   });
 });
 
 describe('useCompletionHandoff — a second completion in the same mount (Play Again/Breathe again) never inherits a stale phase', () => {
-  it('phase resets to \'active\' synchronously at the start of every fresh (isCompleted && !reducedMotion) cycle, before scheduling the hold timer', () => {
-    const effectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| reducedMotion\) return;[\s\S]*?\n {2}\}, \[isCompleted, reducedMotion\]\);/)?.[0] ?? '';
+  it('phase resets to \'active\' synchronously at the start of every fresh (isCompleted && !reducedMotion && audioReady) cycle, before scheduling the hold timer', () => {
+    const effectBody = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| reducedMotion \|\| !audioReady\) return;[\s\S]*?\n {2}\}, \[isCompleted, reducedMotion, audioReady\]\);/)?.[0] ?? '';
     const resetIdx = effectBody.indexOf("setPhase('active')");
     const holdIdx = effectBody.indexOf('setTimeout');
     expect(resetIdx).toBeGreaterThan(-1);
@@ -64,7 +65,34 @@ describe('useCompletionHandoff — a second completion in the same mount (Play A
   });
 
   it('whenever isCompleted is false, effectivePhase is always \'active\' regardless of whatever the internal phase state happens to still hold from a previous cycle', () => {
-    expect(source).toMatch(/const effectivePhase = !isCompleted \? 'active' : /);
+    expect(source).toMatch(/const effectivePhase = !isCompleted \|\| !audioReady \? 'active' : /);
+  });
+});
+
+// Coordinated audio/visual handoff — a caller now passes audioReady
+// (fed by useAudioFadeHandoff.js or useMeditationSession.js's own identical
+// mechanism) so the hold -> exit-fade -> reveal sequence genuinely cannot
+// start until music has actually reached silence (or the bounded fallback
+// elapsed) - not merely survives a later unmount, which does not prove this
+// ordering.
+describe('useCompletionHandoff — coordinated audio/visual handoff: the reveal sequence waits for audioReady', () => {
+  it('defaults audioReady to true - a caller with no music/no fade concept (or every pre-existing single-argument call site) sees zero behaviour change', () => {
+    expect(source).toMatch(/export const useCompletionHandoff = \(isCompleted, audioReady = true\) => \{/);
+  });
+
+  it('isCompleted alone is never sufficient to start the hold timer - audioReady must also be true', () => {
+    const body = source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!isCompleted \|\| reducedMotion \|\| !audioReady\) return;[\s\S]*?\n {2}\}, \[isCompleted, reducedMotion, audioReady\]\);/)?.[0] ?? '';
+    expect(body).not.toBe('');
+  });
+
+  it('while isCompleted is true but audioReady is false, effectivePhase stays \'active\' regardless of reducedMotion - the outgoing view stays fully stable until audio catches up', () => {
+    // effectivePhase = !isCompleted || !audioReady ? 'active' : ... - the
+    // reducedMotion branch is only ever reached once audioReady is true.
+    const effectivePhaseLine = source.match(/const effectivePhase = [^\n]+/)?.[0] ?? '';
+    const audioGateIdx = effectivePhaseLine.indexOf('!audioReady');
+    const reducedMotionIdx = effectivePhaseLine.indexOf('reducedMotion ?');
+    expect(audioGateIdx).toBeGreaterThan(-1);
+    expect(reducedMotionIdx).toBeGreaterThan(audioGateIdx);
   });
 });
 

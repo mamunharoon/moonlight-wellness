@@ -212,9 +212,9 @@ describe('createMeditationSessionController — Begin with a track starts exactl
     await flushAsync();
     expect(resolveUrl).not.toHaveBeenCalled();
     expect(createAudioElement).not.toHaveBeenCalled();
-    expect(controller.tick()).toEqual({ completed: false });
-    expect(controller.tick()).toEqual({ completed: false });
-    expect(controller.tick()).toEqual({ completed: true });
+    expect(controller.tick()).toMatchObject({ completed: false });
+    expect(controller.tick()).toMatchObject({ completed: false });
+    expect(controller.tick()).toMatchObject({ completed: true });
     expect(controller.getSnapshot().status).toBe('completed');
   });
 
@@ -257,7 +257,7 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     const results = [];
     for (let i = 0; i < 120; i += 1) results.push(controller.tick());
     expect(results.slice(0, 119).every((r) => r.completed === false)).toBe(true);
-    expect(results[119]).toEqual({ completed: true });
+    expect(results[119]).toMatchObject({ completed: true });
   });
 
   it('5-minute (300s) session completes at exactly the 300th tick, even though IM02 is ~300.37s (slightly longer)', async () => {
@@ -267,7 +267,7 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     const results = [];
     for (let i = 0; i < 300; i += 1) results.push(controller.tick());
     expect(results.slice(0, 299).every((r) => r.completed === false)).toBe(true);
-    expect(results[299]).toEqual({ completed: true });
+    expect(results[299]).toMatchObject({ completed: true });
   });
 
   it('10-minute (600s) session completes at exactly the 600th tick, with the track started only once across the whole session', async () => {
@@ -277,7 +277,7 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     const results = [];
     for (let i = 0; i < 600; i += 1) results.push(controller.tick());
     expect(results.slice(0, 599).every((r) => r.completed === false)).toBe(true);
-    expect(results[599]).toEqual({ completed: true });
+    expect(results[599]).toMatchObject({ completed: true });
     expect(createAudioElement).toHaveBeenCalledTimes(1);
     expect(resolveUrl).toHaveBeenCalledTimes(1);
   });
@@ -568,9 +568,9 @@ describe('createMeditationSessionController — track-resolution/playback failur
     await flushAsync();
     expect(controller.getSnapshot().audioError).toBe(true);
     expect(controller.getSnapshot().soundId).toBe('IM01'); // controller doesn't self-revert - the page does (see SelfGuidedMeditation.jsx)
-    expect(controller.tick()).toEqual({ completed: false });
-    expect(controller.tick()).toEqual({ completed: false });
-    expect(controller.tick()).toEqual({ completed: true });
+    expect(controller.tick()).toMatchObject({ completed: false });
+    expect(controller.tick()).toMatchObject({ completed: false });
+    expect(controller.tick()).toMatchObject({ completed: true });
   });
 
   it('the page-level fallback (setSoundId(null) after an observed audioError) truthfully reports No Music with no error', async () => {
@@ -606,8 +606,8 @@ describe('createMeditationSessionController — track-resolution/playback failur
     expect(() => controller.begin()).not.toThrow();
     await flushAsync();
     expect(controller.getSnapshot().audioError).toBe(true);
-    expect(controller.tick()).toEqual({ completed: false });
-    expect(controller.tick()).toEqual({ completed: true });
+    expect(controller.tick()).toMatchObject({ completed: false });
+    expect(controller.tick()).toMatchObject({ completed: true });
   });
 });
 

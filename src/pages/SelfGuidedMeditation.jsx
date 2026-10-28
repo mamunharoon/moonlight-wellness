@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
@@ -126,21 +126,25 @@ export const SelfGuidedMeditation = () => {
     }
   });
 
+  // Coordinated audio/visual handoff — unlike MorningMeditate.jsx/
+  // EveningMeditate.jsx (which reveal an in-place completion panel on the
+  // SAME mounted screen), this page's own completion genuinely navigates
+  // to a separate route ('/self-guided-meditation-complete'). onComplete
+  // used to call that navigate() immediately - meaning the user could
+  // already be looking at the next screen while the 2s music fade was
+  // still audibly running in the background (the exact ordering gap this
+  // pass closes: surviving the unmount is not the same as finishing
+  // first). onComplete now only stashes the result and flips isCompleted;
+  // the effect below does the actual navigate(), gated on
+  // session.audioReady (useMeditationSession.js's own useAudioFadeHandoff
+  // wiring - bounded, so this can never stall) - the active view keeps
+  // rendering, frozen, until then (see the render branch below).
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState(null);
+
   const handleComplete = (finished) => {
-    // WakeWise DEV — Anytime completion correction: a practice reached
-    // through Anytime Reset's own "Or choose another quick reset" carries
-    // its needId/durationId here via router state (preset.anytimeNeed/
-    // anytimeDuration) - forwarded on to the completion screen so its own
-    // "Choose another quick reset" can return to the exact recommendation
-    // the user was on, not restart the Anytime wizard from step 1.
-    navigate('/self-guided-meditation-complete', {
-      state: {
-        ...finished,
-        from: searchParams.get('from') || null,
-        anytimeNeed: preset?.anytimeNeed || null,
-        anytimeDuration: preset?.anytimeDuration || null
-      }
-    });
+    setPendingCompletion(finished);
+    setIsCompleted(true);
   };
 
   const session = useMeditationSession({
@@ -149,6 +153,24 @@ export const SelfGuidedMeditation = () => {
     initialSoundId: preset?.soundId,
     onComplete: handleComplete
   });
+
+  useEffect(() => {
+    if (!isCompleted || !session.audioReady || !pendingCompletion) return;
+    // WakeWise DEV — Anytime completion correction: a practice reached
+    // through Anytime Reset's own "Or choose another quick reset" carries
+    // its needId/durationId here via router state (preset.anytimeNeed/
+    // anytimeDuration) - forwarded on to the completion screen so its own
+    // "Choose another quick reset" can return to the exact recommendation
+    // the user was on, not restart the Anytime wizard from step 1.
+    navigate('/self-guided-meditation-complete', {
+      state: {
+        ...pendingCompletion,
+        from: searchParams.get('from') || null,
+        anytimeNeed: preset?.anytimeNeed || null,
+        anytimeDuration: preset?.anytimeDuration || null
+      }
+    });
+  }, [isCompleted, session.audioReady, pendingCompletion, navigate, searchParams, preset]);
 
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [earlyEnded, setEarlyEnded] = useState(false);
@@ -234,7 +256,15 @@ export const SelfGuidedMeditation = () => {
     );
   }
 
-  if (session.phase === 'active' && session.snapshot) {
+  // Coordinated audio/visual handoff — session.phase already flipped back
+  // to 'setup' by useMeditationSession.js's own interval callback (same as
+  // MorningMeditate.jsx/EveningMeditate.jsx), so isCompleted (this page's
+  // own state, set by handleComplete above) is what keeps this branch
+  // matching for as long as the navigate effect above is still waiting on
+  // audioReady - session.snapshot itself still holds the real final frozen
+  // values (never cleared on completion), so the active view keeps
+  // rendering its own last genuine state, not a stale placeholder.
+  if ((session.phase === 'active' || isCompleted) && session.snapshot) {
     return (
       <>
         {/* WakeWise DEV — colour glow extension: standalone Self-Guided
@@ -244,6 +274,12 @@ export const SelfGuidedMeditation = () => {
             background of its own by design - each caller owns its own
             atmosphere, exactly like this. */}
         <JourneyGlow journey={journeyTone} />
+        {/* Coordinated audio/visual handoff — frozen (no pointer events)
+            the instant isCompleted is true, mirroring MorningMeditate.jsx/
+            EveningMeditate.jsx's identical B67-era wrapper: Pause/Resume/
+            End Session/sound-switcher must never remain interactive while
+            this page is only waiting on audioReady before navigating. */}
+        <div style={isCompleted ? { pointerEvents: 'none' } : undefined}>
         <MeditationActiveSession
           journeyTone={journeyTone}
           style={session.style}
@@ -286,6 +322,7 @@ export const SelfGuidedMeditation = () => {
             cancelLabel: 'Keep Meditating'
           }}
         />
+        </div>
         {/* WakeWise Phase 2 (B7, dialog severity audit) — was `destructive`,
             matching MorningMeditate.jsx's own whole-routine exit dialog
             for consistency; both are now `mildDestructive` for the same

@@ -82,6 +82,14 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // fade can never keep nudging .volume after something else has already
   // taken over, and can never outlive the element it targets.
   const fadeIntervalRef = useRef(null);
+  // Coordinated audio/visual handoff — fadeOutAndStop() returns a Promise
+  // so a caller can await actual silence+release before revealing/
+  // navigating; this holds that Promise's own `resolve` for as long as a
+  // fade is in flight, so ANY path that ends it early (not just reaching
+  // FADE_OUT_DURATION_MS naturally) - cancelFade() below, called by a
+  // fresh start()/preload() or a manual stop() - still resolves it rather
+  // than leaving an awaiting caller to fall back on the bounded timeout.
+  const fadeResolveRef = useRef(null);
   // Restores DEFAULT_VOLUME whenever an in-flight fade is actually
   // cancelled (a no-op when nothing was fading) - a ramp stopped partway
   // through would otherwise leave the element sitting at whatever partial
@@ -94,6 +102,11 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
       setLevel(DEFAULT_VOLUME);
+      if (fadeResolveRef.current) {
+        const resolveFade = fadeResolveRef.current;
+        fadeResolveRef.current = null;
+        resolveFade();
+      }
     }
   };
 
@@ -297,6 +310,13 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // itself instead, the same way destroy() would have - see the branch on
   // isMountedRef below and the unmount cleanup effect's own matching
   // doc comment.
+  //
+  // Returns a Promise, resolved once the fade genuinely reaches silence
+  // (and release, if unmounted - see above) - or immediately, already
+  // resolved, if there was nothing to fade (music off, paused, or a failed
+  // load never actually started it) - so a caller (useAudioFadeHandoff.js)
+  // can await real silence before revealing/navigating, with no added
+  // delay at all when there was no music to begin with.
   const fadeOutAndStop = () => {
     // Captured once, into this closure, rather than re-read as
     // audioRef.current on every tick below - coordinated audio/visual
@@ -308,7 +328,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     // keeps working perfectly via this closure even though the ref no
     // longer points to it.
     const audio = audioRef.current;
-    if (!audio || audio.paused) return;
+    if (!audio || audio.paused) return Promise.resolve();
     // startVolume read via getLevel() - NOT audio.volume directly - so
     // this correctly reads the GainNode's current value when the Web
     // Audio graph is active (audio.volume is pinned to 1 from that point
@@ -317,31 +337,36 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     const startVolume = getLevel() > 0 ? getLevel() : DEFAULT_VOLUME;
     cancelFade(); // after reading startVolume - cancelFade() itself resets the level to DEFAULT_VOLUME
     const startTime = Date.now();
-    fadeIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const ratio = Math.max(1 - elapsed / FADE_OUT_DURATION_MS, 0);
-      setLevel(startVolume * ratio);
-      if (elapsed >= FADE_OUT_DURATION_MS) {
-        clearInterval(fadeIntervalRef.current);
-        fadeIntervalRef.current = null;
-        audio.pause();
-        if (isMountedRef.current) {
-          setLevel(DEFAULT_VOLUME); // restored - not just cosmetic, see this function's own doc comment above
-        } else {
-          // The screen was navigated away from while this fade was still
-          // running (see the unmount cleanup's matching guard above) -
-          // this element/context will never be reused by this now-unmounted
-          // instance, so finish the release the cleanup deferred, now that
-          // the fade has genuinely reached silence (prevents any overlap
-          // with whatever the destination screen does next).
-          audio.removeAttribute('src');
-          audio.load();
-          audioContextRef.current?.close().catch(() => {});
-          audioContextRef.current = null;
-          gainNodeRef.current = null;
+    return new Promise((resolve) => {
+      fadeResolveRef.current = resolve;
+      fadeIntervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const ratio = Math.max(1 - elapsed / FADE_OUT_DURATION_MS, 0);
+        setLevel(startVolume * ratio);
+        if (elapsed >= FADE_OUT_DURATION_MS) {
+          clearInterval(fadeIntervalRef.current);
+          fadeIntervalRef.current = null;
+          fadeResolveRef.current = null;
+          audio.pause();
+          if (isMountedRef.current) {
+            setLevel(DEFAULT_VOLUME); // restored - not just cosmetic, see this function's own doc comment above
+          } else {
+            // The screen was navigated away from while this fade was still
+            // running (see the unmount cleanup's matching guard above) -
+            // this element/context will never be reused by this now-unmounted
+            // instance, so finish the release the cleanup deferred, now that
+            // the fade has genuinely reached silence (prevents any overlap
+            // with whatever the destination screen does next).
+            audio.removeAttribute('src');
+            audio.load();
+            audioContextRef.current?.close().catch(() => {});
+            audioContextRef.current = null;
+            gainNodeRef.current = null;
+          }
+          resolve();
         }
-      }
-    }, FADE_STEP_MS);
+      }, FADE_STEP_MS);
+    });
   };
 
   // Build 16 physical-iPhone correction (F4) — resolves and primes the

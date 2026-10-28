@@ -687,16 +687,25 @@ describe('InteractiveAmbientMusic.jsx — coordinated audio/visual handoff (fade
   it('fadeOutAndStop captures the audio element into its own closure variable once, and never re-reads audioRef.current afterwards inside its interval - the fix for React nulling the ref mid-unmount', () => {
     const fnBody = playerSource.match(/const fadeOutAndStop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(fnBody).not.toBe('');
-    expect(fnBody).toMatch(/const audio = audioRef\.current;\s*\n\s*if \(!audio \|\| audio\.paused\) return;/);
-    const intervalBody = fnBody.match(/fadeIntervalRef\.current = setInterval\(\(\) => \{[\s\S]*?\n {4}\}, FADE_STEP_MS\);/)?.[0] ?? '';
+    expect(fnBody).toMatch(/const audio = audioRef\.current;\s*\n\s*if \(!audio \|\| audio\.paused\) return Promise\.resolve\(\);/);
+    const intervalBody = fnBody.match(/fadeIntervalRef\.current = setInterval\(\(\) => \{[\s\S]*?\n {6}\}, FADE_STEP_MS\);/)?.[0] ?? '';
     expect(intervalBody).not.toBe('');
     expect(intervalBody).not.toMatch(/audioRef\.current/);
     expect(intervalBody).toMatch(/audio\.pause\(\);/);
   });
 
+  it('fadeOutAndStop returns a Promise, resolved via the interval\'s own `resolve` once the fade genuinely finishes - and ALSO resolved by cancelFade() if something else (a fresh start()/preload(), or stop()) ends the fade early, so an awaiting caller never falls through to its own bounded fallback unnecessarily', () => {
+    const fnBody = playerSource.match(/const fadeOutAndStop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fnBody).toMatch(/return new Promise\(\(resolve\) => \{/);
+    expect(fnBody).toMatch(/fadeResolveRef\.current = resolve;/);
+    const cancelFadeBody = playerSource.match(/const cancelFade = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(cancelFadeBody).toMatch(/if \(fadeResolveRef\.current\) \{/);
+    expect(cancelFadeBody).toMatch(/const resolveFade = fadeResolveRef\.current;\s*\n\s*fadeResolveRef\.current = null;\s*\n\s*resolveFade\(\);/);
+  });
+
   it('once the fade genuinely finishes, it branches on isMountedRef: restores DEFAULT_VOLUME for reuse while still mounted, or performs the full release (removeAttribute/load/close AudioContext) if the screen was navigated away from first', () => {
     const fnBody = playerSource.match(/const fadeOutAndStop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
-    const mountedBranch = fnBody.match(/if \(isMountedRef\.current\) \{([\s\S]*?)\n {8}\} else \{([\s\S]*?)\n {8}\}/);
+    const mountedBranch = fnBody.match(/if \(isMountedRef\.current\) \{([\s\S]*?)\n {10}\} else \{([\s\S]*?)\n {10}\}/);
     expect(mountedBranch).not.toBeNull();
     const [, whileMounted, afterUnmount] = mountedBranch;
     expect(whileMounted).toMatch(/setLevel\(DEFAULT_VOLUME\);/);
