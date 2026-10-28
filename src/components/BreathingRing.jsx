@@ -45,6 +45,8 @@
  * accent fills paired with on-<accent> tokens already measure >=8.6:1
  * (>=9.3:1 under Hold), so they get no plate.
  */
+import { useLayoutEffect, useRef, useState } from 'react';
+
 const RING_TOKENS = {
   primary: {
     glow: 'bg-primary/10',
@@ -84,8 +86,34 @@ const RING_TOKENS = {
 // slowed, since the phase name (breatheState) is already rendered
 // unconditionally below and stays clearly legible from text alone with
 // the scaling/pulsing/brightness motion gone.
-export const BreathingRing = ({ breatheState, secondsLeft, journeyTone = 'primary', reducedMotion = false }) => {
+// B68 device feedback — natural completion freezes breatheState/secondsLeft,
+// but the glow/orb's own 4000ms transition (far longer than the 250ms
+// completion exit-fade this ring sits inside) can still be mid-flight at
+// that instant, moving underneath the fade. `freeze` (fed the same
+// isCompleted/earlyEnded flag the caller's exit-fade wrapper already uses)
+// captures the ACTUAL current rendered opacity/transform/size/brightness via
+// getComputedStyle, synchronously before the next paint, and holds exactly
+// that appearance with no further transition - never snaps to the
+// transition's target value, only ever to wherever it already visually was.
+export const BreathingRing = ({ breatheState, secondsLeft, journeyTone = 'primary', reducedMotion = false, freeze = false }) => {
   const tokens = RING_TOKENS[journeyTone] || RING_TOKENS.primary;
+  const glowRef = useRef(null);
+  const orbRef = useRef(null);
+  const [frozenStyle, setFrozenStyle] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!freeze || reducedMotion || frozenStyle) return;
+    const glow = glowRef.current;
+    const orb = orbRef.current;
+    if (!glow || !orb) return;
+    const glowComputed = getComputedStyle(glow);
+    const orbComputed = getComputedStyle(orb);
+    setFrozenStyle({
+      glow: { opacity: glowComputed.opacity, transform: glowComputed.transform, transition: 'none' },
+      orb: { width: orbComputed.width, height: orbComputed.height, filter: orbComputed.filter, transition: 'none' }
+    });
+  }, [freeze, reducedMotion, frozenStyle]);
+
   const glowMotionClasses = reducedMotion
     ? 'opacity-70'
     : `transition-all duration-[4000ms] ${breatheState === 'Inhale' ? 'scale-125 opacity-100' : 'scale-95 opacity-50'}`;
@@ -95,11 +123,11 @@ export const BreathingRing = ({ breatheState, secondsLeft, journeyTone = 'primar
 
   return (
     <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
-      <div className={`absolute inset-0 rounded-full ${tokens.glow} blur-3xl ${glowMotionClasses}`}></div>
+      <div ref={glowRef} className={`absolute inset-0 rounded-full ${tokens.glow} blur-3xl ${glowMotionClasses}`} style={frozenStyle?.glow}></div>
 
       <div className="absolute inset-0 border-2 border-white/5 rounded-full"></div>
 
-      <div className={`rounded-full ${tokens.orb} flex flex-col items-center justify-center shadow-xl ${tokens.text} ${orbSizeClasses}`}>
+      <div ref={orbRef} className={`rounded-full ${tokens.orb} flex flex-col items-center justify-center shadow-xl ${tokens.text} ${orbSizeClasses}`} style={frozenStyle?.orb}>
         <div className={tokens.labelScrim ? `${tokens.labelScrim} rounded-2xl px-4 py-1.5 flex flex-col items-center` : 'flex flex-col items-center'}>
           <span className="text-lg font-bold tracking-wider uppercase">{breatheState}</span>
           <span className={`text-xs ${tokens.subtext} mt-1 font-semibold`}>{secondsLeft}s left</span>

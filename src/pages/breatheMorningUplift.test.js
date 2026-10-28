@@ -52,7 +52,7 @@ describe('Breathe.jsx — active "Center Yourself" grounding view', () => {
   });
 
   it('BreathingRing now receives journeyTone="morning" explicitly - the active grounding view is gold, not the original always-peach look - and the Phase 1 reducedMotion prop', () => {
-    expect(source).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" reducedMotion=\{reducedMotion\} \/>/);
+    expect(source).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" reducedMotion=\{reducedMotion\} freeze=\{isCompleted\} \/>/);
   });
 
   it('the active pattern label pill (activePattern.supportingLabel/label) stays the neutral bg-white/5 treatment - unchanged, since it is real per-pattern data, not a decorative moment this phase targets', () => {

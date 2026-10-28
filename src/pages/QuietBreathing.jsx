@@ -785,7 +785,7 @@ export const QuietBreathing = ({ standalone = false }) => {
                 Just breathe. There is nowhere else to be.
               </p>
 
-              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} />
+              <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} freeze={isCompleted || earlyEnded} />
             </div>
 
             <div className="space-y-3 w-full">

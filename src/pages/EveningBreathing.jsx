@@ -693,7 +693,7 @@ export const EveningBreathing = () => {
               </p>
             </div>
 
-            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="evening" reducedMotion={reducedMotion} />
+            <BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone="evening" reducedMotion={reducedMotion} freeze={isCompleted} />
           </div>
         </div>
       ))}

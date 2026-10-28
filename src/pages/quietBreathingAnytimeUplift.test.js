@@ -68,10 +68,10 @@ describe('QuietBreathing.jsx — Continue resolves to the mint journey-action he
 // standalone branch (which now has a real journey identity of its own -
 // see usePracticeJourneyTone.js) gained the dynamic prop.
 describe('QuietBreathing.jsx — BreathingRing: standalone is dynamically themed, non-standalone stays peach', () => {
-  it('the standalone branch passes the dynamic journeyTone={journeyTone} and the Phase 1 reducedMotion prop', () => {
+  it('the standalone branch passes the dynamic journeyTone={journeyTone}, the Phase 1 reducedMotion prop, and the B68 freeze prop fed isCompleted || earlyEnded', () => {
     const usages = [...standaloneBlock.matchAll(/<BreathingRing[^/]*\/>/g)].map((m) => m[0]);
     expect(usages.length).toBe(1);
-    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} />');
+    expect(usages[0]).toBe('<BreathingRing breatheState={breatheState} secondsLeft={secondsLeft} journeyTone={journeyTone} reducedMotion={reducedMotion} freeze={isCompleted || earlyEnded} />');
   });
 
   it('the non-standalone (Support-embedded) branch still omits journeyTone entirely - unchanged, still peach - but still passes the Phase 1 reducedMotion prop', () => {

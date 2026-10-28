@@ -89,21 +89,61 @@ describe('BreathingRing — Phase 1 Reduced Motion correction', () => {
 });
 
 describe('real consumer wiring — each embedded journey passes its own fixed tone; standalone passes its dynamically-resolved one', () => {
-  it('Breathe.jsx (Morning) passes journeyTone="morning" and the Phase 1 reducedMotion prop', () => {
-    expect(breatheSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" reducedMotion=\{reducedMotion\} \/>/);
+  it('Breathe.jsx (Morning) passes journeyTone="morning", the Phase 1 reducedMotion prop, and the B68 freeze prop fed isCompleted', () => {
+    expect(breatheSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="morning" reducedMotion=\{reducedMotion\} freeze=\{isCompleted\} \/>/);
   });
 
-  it('EveningBreathing.jsx passes journeyTone="evening" and the Phase 1 reducedMotion prop', () => {
-    expect(eveningBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="evening" reducedMotion=\{reducedMotion\} \/>/);
+  it('EveningBreathing.jsx passes journeyTone="evening", the Phase 1 reducedMotion prop, and the B68 freeze prop fed isCompleted', () => {
+    expect(eveningBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone="evening" reducedMotion=\{reducedMotion\} freeze=\{isCompleted\} \/>/);
   });
 
-  it('QuietBreathing.jsx standalone branch passes the dynamic journeyTone={journeyTone} and the Phase 1 reducedMotion prop', () => {
-    expect(quietBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone=\{journeyTone\} reducedMotion=\{reducedMotion\} \/>/);
+  it('QuietBreathing.jsx standalone branch passes the dynamic journeyTone={journeyTone}, the Phase 1 reducedMotion prop, and the B68 freeze prop fed isCompleted || earlyEnded (the same flag its own exit-fade wrapper already uses)', () => {
+    expect(quietBreathingSource).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} journeyTone=\{journeyTone\} reducedMotion=\{reducedMotion\} freeze=\{isCompleted \|\| earlyEnded\} \/>/);
   });
 
   it('QuietBreathing.jsx non-standalone (Support-embedded) branch omits journeyTone entirely - stays peach, per the existing approved brief this file\'s own doc comment already documents - but still passes the Phase 1 reducedMotion prop', () => {
     const nonStandaloneReturn = quietBreathingSource.slice(quietBreathingSource.lastIndexOf('return (\n    <EveningSceneShell'));
     expect(nonStandaloneReturn).toMatch(/<BreathingRing breatheState=\{breatheState\} secondsLeft=\{secondsLeft\} reducedMotion=\{reducedMotion\} \/>/);
+  });
+});
+
+// B68 device feedback — completion transitions appeared acceptable but
+// Meditation felt smoother than Breathing/Stretching. Root-caused (not
+// guessed) to BreathingRing's own 4000ms glow/orb transition, which can
+// still be mid-flight the instant natural completion freezes breatheState -
+// 16x longer than the 250ms completion exit-fade this ring sits inside, and
+// far longer than the ~1s tick cadence that drives it. Stretching's own
+// progress-bar/card-border transitions were checked too (stretchSession.js's
+// advanceMovement() leaves activeIndex unchanged on the completing tick, so
+// neither ever starts a fresh transition at completion) - confirmed to need
+// no equivalent change.
+describe('BreathingRing — B68 completion-freeze correction (DEV-only)', () => {
+  it('accepts a freeze prop defaulting to false (unchanged behaviour when omitted)', () => {
+    expect(source).toMatch(/freeze = false/);
+  });
+
+  it('the freeze effect is skipped entirely under reducedMotion (nothing is transitioning there to freeze) and never re-measures once already frozen', () => {
+    const effectBlock = source.match(/useLayoutEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[freeze, reducedMotion, frozenStyle\]\);/)?.[0] ?? '';
+    expect(effectBlock).not.toBe('');
+    expect(effectBlock).toMatch(/if \(!freeze \|\| reducedMotion \|\| frozenStyle\) return;/);
+  });
+
+  it('captures the ACTUAL current rendered opacity/transform (glow) and width/height/filter (orb) via getComputedStyle - never a hardcoded/target value', () => {
+    const effectBlock = source.match(/useLayoutEffect\(\(\) => \{[\s\S]*?\n {2}\}, \[freeze, reducedMotion, frozenStyle\]\);/)?.[0] ?? '';
+    expect(effectBlock).toMatch(/getComputedStyle\(glow\)/);
+    expect(effectBlock).toMatch(/getComputedStyle\(orb\)/);
+    expect(effectBlock).toMatch(/opacity: glowComputed\.opacity, transform: glowComputed\.transform, transition: 'none'/);
+    expect(effectBlock).toMatch(/width: orbComputed\.width, height: orbComputed\.height, filter: orbComputed\.filter, transition: 'none'/);
+  });
+
+  it('the glow/orb divs keep their existing animated classes untouched (pre-freeze behaviour and timing are byte-identical) and only gain a ref plus an inline style that is null until frozen', () => {
+    expect(source).toMatch(/<div ref=\{glowRef\} className=\{`absolute inset-0 rounded-full \$\{tokens\.glow\} blur-3xl \$\{glowMotionClasses\}`\} style=\{frozenStyle\?\.glow\}><\/div>/);
+    expect(source).toMatch(/<div ref=\{orbRef\} className=\{`rounded-full \$\{tokens\.orb\} flex flex-col items-center justify-center shadow-xl \$\{tokens\.text\} \$\{orbSizeClasses\}`\} style=\{frozenStyle\?\.orb\}>/);
+    expect(source).toMatch(/transition-all duration-\[4000ms\]/);
+  });
+
+  it('once frozen, the inline style carries transition: none - so a frozen ring never resumes animating even if re-rendered again while isCompleted stays true', () => {
+    expect(source).toMatch(/transition: 'none'/g);
   });
 });
 
