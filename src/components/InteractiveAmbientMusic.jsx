@@ -51,6 +51,8 @@ import { isInteractiveMusicEligible } from '../lib/backgroundMusicSelection';
 // else (e.g. a later-opened BetaVideoModal); it just can't be
 // *auto-applied* as playback on this specific surface.
 const DEFAULT_VOLUME = 0.35;
+const FADE_OUT_DURATION_MS = 2000;
+const FADE_STEP_MS = 50;
 
 // Exposed via ref (see useImperativeHandle below) so Breathe.jsx/
 // MorningFlow.jsx's own "Resume with Music" button — part of their
@@ -69,6 +71,108 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // sense that would block a real start() - see that ref's own doc
   // comment for the real bug this split fixes).
   const isBusyRef = useRef(false);
+  // Natural-completion fade-out (see fadeOutAndStop below) - a plain
+  // setInterval id, cancelled by every abrupt path (stop(), the
+  // `suspended` effect, and this component's own unmount cleanup) so a
+  // fade can never keep nudging .volume after something else has already
+  // taken over, and can never outlive the element it targets.
+  const fadeIntervalRef = useRef(null);
+  // Restores DEFAULT_VOLUME whenever an in-flight fade is actually
+  // cancelled (a no-op when nothing was fading) - a ramp stopped partway
+  // through would otherwise leave the element sitting at whatever partial
+  // volume it had just reached, silently undercutting whatever happens
+  // next (a fresh start()/preload() that takes the already-primed fast
+  // path, which skips re-setting volume itself - see start()'s own doc
+  // comment above its call to this function).
+  const cancelFade = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+      setLevel(DEFAULT_VOLUME);
+    }
+  };
+
+  // iOS/WKWebView verification pass (B66 physical-iPhone review) — found,
+  // confirmed via MDN/Apple's own WebKit docs, NOT assumed: iOS silently
+  // ignores HTMLMediaElement.volume entirely for real output (only
+  // .muted is honoured there; actual level is hardware-button-only). A
+  // ramp that only ever set audio.volume would be a complete no-op on a
+  // physical iPhone - audibly identical to the old abrupt stop, just
+  // delayed by FADE_OUT_DURATION_MS. The standard, verified workaround:
+  // route playback through a Web Audio GainNode instead - iOS does honour
+  // AudioContext gain ramps. Lazily created on the first real start() (a
+  // genuine user gesture, same requirement as audio.play() itself) and
+  // reused for the life of this mounted instance - createMediaElementSource
+  // can only ever be called once per <audio> element. If Web Audio is
+  // unavailable, unsupported, or setup throws for any reason, this falls
+  // back to the original audio.volume path (setLevel below) - correct
+  // everywhere except iOS, exactly like before this pass, never a hard
+  // failure.
+  //
+  // CORS - verified, not assumed: once routed through a GainNode, a
+  // cross-origin source (requestBetaVideoUrl's signed Supabase Storage
+  // URLs - a different origin than this app) silently outputs ZERO audio,
+  // no error, unless the element's crossOrigin is set AND the resource
+  // itself serves Access-Control-Allow-Origin. The <audio> tag below sets
+  // crossOrigin="anonymous" (before any src is ever assigned, as
+  // required); the Storage gateway serving these objects was confirmed
+  // this session, via a direct curl against the live DEV endpoint, to
+  // return "Access-Control-Allow-Origin: *" on both its OPTIONS preflight
+  // and a plain GET.
+  const audioContextRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const audioGraphFailedRef = useRef(false);
+
+  const ensureAudioGraph = () => {
+    if (gainNodeRef.current || audioGraphFailedRef.current) return gainNodeRef.current;
+    const audio = audioRef.current;
+    if (!audio) return null;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        audioGraphFailedRef.current = true;
+        return null;
+      }
+      const ctx = new AudioContextClass();
+      const source = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      // From here on, the GainNode is the ONLY volume control - pinning
+      // the element itself to unity avoids double-attenuation on
+      // platforms where .volume DOES still work (it would otherwise
+      // multiply with the gain value instead of being superseded by it).
+      audio.volume = 1;
+      gain.gain.value = DEFAULT_VOLUME;
+      audioContextRef.current = ctx;
+      gainNodeRef.current = gain;
+      return gain;
+    } catch {
+      // Web Audio unavailable/unsupported/blocked - fall back to
+      // audio.volume everywhere this component sets a level. Correct on
+      // every platform this was already correct on; only iOS loses the
+      // audible fade (degrades to the old abrupt stop), never breaks
+      // play/pause itself.
+      audioGraphFailedRef.current = true;
+      return null;
+    }
+  };
+
+  const setLevel = (value) => {
+    const gain = gainNodeRef.current;
+    if (gain) {
+      gain.gain.value = value;
+      return;
+    }
+    const audio = audioRef.current;
+    if (audio) audio.volume = value;
+  };
+
+  const getLevel = () => {
+    const gain = gainNodeRef.current;
+    if (gain) return gain.gain.value;
+    return audioRef.current?.volume ?? DEFAULT_VOLUME;
+  };
   // Mirrors the `suspended` prop for start()'s own async gap below (a
   // plain render-time assignment, not an effect — refs are exempt from
   // the state-derived-in-effect rule specifically for this "let an
@@ -101,11 +205,20 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   useEffect(() => {
     const audio = audioRef.current;
     return () => {
+      cancelFade();
       if (audio) {
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
       }
+      // Releases the AudioContext (if the Web Audio graph was ever
+      // established - see ensureAudioGraph above) alongside the element
+      // itself - this instance's graph can never be reused by a later
+      // mount anyway (createMediaElementSource is already spent on this
+      // now-released element).
+      audioContextRef.current?.close().catch(() => {});
+      audioContextRef.current = null;
+      gainNodeRef.current = null;
     };
   }, []);
 
@@ -133,7 +246,53 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // .play(). Calling .pause() when already paused (or .play() when
   // already playing) is a safe native no-op either way.
   const stop = () => {
+    cancelFade(); // an abrupt stop always wins over a fade in flight - instant, per requirement
+    setLevel(DEFAULT_VOLUME); // undo any partial ramp so a later start() is never silently quiet (GainNode-aware - see ensureAudioGraph above)
     audioRef.current?.pause();
+  };
+
+  // Gentle fade-out for NATURAL session completion only - every other exit
+  // (manual Back/Leave, the `suspended` guard above, unmount) goes through
+  // stop() above and stays instant, per the product requirement ("preserve
+  // immediate stopping when required"). Ramps the element's own .volume
+  // down to 0 over durationMs via a plain setInterval (same shape as
+  // BetaVideoModal.jsx's remainingMs-driven fade for Sleep Soundscapes,
+  // the only other fade in this codebase), then pauses and explicitly
+  // restores DEFAULT_VOLUME - not just cosmetic: start()'s own preloaded
+  // fast-path skips re-setting volume, so this is what actually guarantees
+  // "replay starts at normal volume" for whichever start() runs next. Does
+  // NOT release the element (no removeAttribute/load) - these four
+  // screens show their own in-place completion panel rather than
+  // navigating away immediately, so the same element may still be reused
+  // by this screen; the existing unmount-cleanup effect (which also calls
+  // cancelFade()) remains the one place that fully releases it, exactly
+  // as before.
+  const fadeOutAndStop = () => {
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+    // startVolume read via getLevel() - NOT audio.volume directly - so
+    // this correctly reads the GainNode's current value when the Web
+    // Audio graph is active (audio.volume is pinned to 1 from that point
+    // on, see ensureAudioGraph's own doc comment; reading it directly
+    // here would ramp from the wrong starting point).
+    const startVolume = getLevel() > 0 ? getLevel() : DEFAULT_VOLUME;
+    cancelFade(); // after reading startVolume - cancelFade() itself resets the level to DEFAULT_VOLUME
+    const startTime = Date.now();
+    fadeIntervalRef.current = setInterval(() => {
+      if (!audioRef.current) {
+        cancelFade();
+        return;
+      }
+      const elapsed = Date.now() - startTime;
+      const ratio = Math.max(1 - elapsed / FADE_OUT_DURATION_MS, 0);
+      setLevel(startVolume * ratio);
+      if (elapsed >= FADE_OUT_DURATION_MS) {
+        clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+        audioRef.current.pause();
+        setLevel(DEFAULT_VOLUME); // restored - not just cosmetic, see this function's own doc comment above
+      }
+    }, FADE_STEP_MS);
   };
 
   // Build 16 physical-iPhone correction (F4) — resolves and primes the
@@ -182,9 +341,14 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         if (suspendedRef.current) return;
         const audio = audioRef.current;
         if (!audio) return;
+        // A still-running completion fade (see fadeOutAndStop below) must
+        // never keep overwriting .volume underneath a fresh preload/start -
+        // see start()'s own identical guard for the full rationale (review
+        // pass: "starting another session during a fade").
+        cancelFade();
         audio.src = url;
         audio.loop = true;
-        audio.volume = DEFAULT_VOLUME;
+        setLevel(DEFAULT_VOLUME);
         isPreloadedRef.current = true;
       } catch {
         // Preload is a pure head start, not a user-visible action - a
@@ -225,6 +389,28 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     isBusyRef.current = true;
     unmuteRequestedRef.current = false;
     setLoadError(false);
+    // Review pass ("starting another session during a fade") — this
+    // component is never remounted for a same-screen restart (Breathe
+    // Again/Stretch Again return to this screen's own setup, not a fresh
+    // mount), so a still-running completion fade (fadeOutAndStop below)
+    // could otherwise keep ramping .volume toward 0 for up to ~2s AFTER a
+    // fresh start() has already set audio.src and called play() -
+    // cancelled here unconditionally, before any of that happens, so a
+    // restart is never audibly undercut by the previous session's own
+    // fade tail.
+    cancelFade();
+    // Still within this tap's own synchronous call stack - no await has
+    // happened yet anywhere in this function - the one safe place to
+    // create/resume the AudioContext, the same gesture requirement
+    // audio.play() itself has (a later await, even one that resolves
+    // immediately, is a strictly weaker guarantee on iOS). See
+    // ensureAudioGraph's own doc comment above for why this exists at all
+    // (iOS ignores audio.volume entirely) and for the CORS verification
+    // backing it.
+    const gain = ensureAudioGraph();
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
     try {
       // Verification-pass correction (F4 acceptance audit, see this
       // function's own top-of-file doc comment) — wait out an in-flight
@@ -248,7 +434,13 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
         if (suspendedRef.current) return;
         audio.src = url;
         audio.loop = true;
-        audio.volume = DEFAULT_VOLUME;
+        setLevel(DEFAULT_VOLUME);
+      } else if (gain) {
+        // Preloaded fast-path: audio.src was already set by preload(),
+        // which runs before any gesture and therefore never creates the
+        // graph itself - do it now so this still-synchronous tap is the
+        // one that satisfies iOS's gesture requirement for it.
+        setLevel(DEFAULT_VOLUME);
       }
       isPreloadedRef.current = false;
       // First-use silent-music fix — if unmute() already fired while the
@@ -338,7 +530,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // instant the user safely stops the exercise, without waiting for the
   // `suspended` prop (which only reacts to an open guided video/manual
   // pause, not this).
-  useImperativeHandle(ref, () => ({ start, stop, isPlaying, preload, unmute }));
+  useImperativeHandle(ref, () => ({ start, stop, fadeOutAndStop, isPlaying, preload, unmute }));
 
   if (!eligible) return null;
 
@@ -358,6 +550,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
       <audio
         ref={audioRef}
         preload="none"
+        crossOrigin="anonymous"
         aria-hidden="true"
         className="hidden"
         onError={() => setLoadError(true)}

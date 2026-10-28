@@ -373,7 +373,7 @@ export const QuietBreathing = ({ standalone = false }) => {
         // getBreathingAcknowledgement string and Done/Breathe again pair,
         // completely unchanged - "existing direct completion behaviour."
         stopBreathingInterval();
-        musicPlayerRef.current?.stop();
+        musicPlayerRef.current?.fadeOutAndStop();
         if (anytimeOrigin) {
           setCompletionGreeting(getCompletionGreeting({ journey: 'anytime', practice: 'reset' }));
         }

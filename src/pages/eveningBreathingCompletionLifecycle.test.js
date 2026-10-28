@@ -35,7 +35,7 @@ describe('EveningBreathing.jsx — completion is an explicit, authoritative stat
     expect(callbackBody).toMatch(/if \(completed\) \{/);
     const completedBranch = callbackBody.match(/if \(completed\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
-    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
+    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
     expect(completedBranch).toMatch(/setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'evening', practice: 'breathing' \}\)\);/);
     expect(completedBranch).toMatch(/setIsCompleted\(true\);/);
   });

@@ -167,8 +167,8 @@ describe('9. Back confirmation pauses and resumes correctly', () => {
 
 describe('10. Completion, early exit, and unmount all stop and release audio', () => {
   for (const { name, source } of SURFACES) {
-    it(`${name}: natural completion (timer reaching zero) stops music synchronously in the same callback that flips isCompleted`, () => {
-      expect(source).toMatch(/stopBreathingInterval\(\);\s*\n\s*musicPlayerRef\.current\?\.stop\(\);/);
+    it(`${name}: natural completion (timer reaching zero) fades music out synchronously-triggered in the same callback that flips isCompleted`, () => {
+      expect(source).toMatch(/stopBreathingInterval\(\);\s*\n\s*musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
     });
 
     it(`${name}: leaveExercise (the one confirmed early-exit path) stops music and clears the "was playing" ref, and resets the double-tap guard`, () => {

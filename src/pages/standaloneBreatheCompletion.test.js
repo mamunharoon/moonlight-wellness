@@ -49,7 +49,7 @@ describe('QuietBreathing.jsx (standalone) — isCompleted is an explicit, author
     const completedBranch = standaloneEffect.match(/if \(completed\) \{([\s\S]*?)setIsCompleted\(true\);\s*\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).not.toBe('');
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
-    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
+    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
   });
 
   it('the non-standalone (Support) interval effect still navigates directly at secondsLeft <= 0 - completely unaffected by the standalone-only rewrite', () => {

@@ -102,7 +102,9 @@ describe('Start only after a user gesture (iOS autoplay rules)', () => {
 
   it('sets a low default volume appropriate for a background bed, not full volume', () => {
     expect(playerSource).toMatch(/const DEFAULT_VOLUME = 0\.35;/);
-    expect(playerSource).toMatch(/audio\.volume = DEFAULT_VOLUME;/);
+    // iOS/WKWebView verification pass - volume is set via setLevel() (GainNode-aware,
+    // see ensureAudioGraph's own doc comment), not a direct audio.volume assignment.
+    expect(playerSource).toMatch(/setLevel\(DEFAULT_VOLUME\);/);
   });
 
   it('loops seamlessly via the native loop attribute', () => {
@@ -466,7 +468,7 @@ describe('InteractiveAmbientMusic.jsx exposes start(), stop(), isPlaying(), prel
     // gesture requirement of its own.
     expect(playerSource).toMatch(/const isPlaying = \(\) => musicEnabled;/);
     expect(playerSource).toMatch(/const unmute = \(\) => \{/);
-    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, isPlaying, preload, unmute \}\)\);/);
+    expect(playerSource).toMatch(/useImperativeHandle\(ref, \(\) => \(\{ start, stop, fadeOutAndStop, isPlaying, preload, unmute \}\)\);/);
     const imperativeIndex = playerSource.indexOf('useImperativeHandle(ref');
     const eligibleReturnIndex = playerSource.indexOf('if (!eligible) return null;');
     expect(imperativeIndex).toBeGreaterThan(-1);
@@ -572,5 +574,86 @@ describe('InteractiveAmbientMusic.jsx — start() no longer silently drops playb
     const toggleBody = playerSource.match(/const handleToggle = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
     expect(toggleBody).toMatch(/if \(isBusyRef\.current\) return;/);
     expect(toggleBody).not.toMatch(/preloadPromiseRef/);
+  });
+});
+
+// Review pass ("starting another session during a fade") — this component
+// is never remounted for a same-screen restart (Breathe Again/Stretch
+// Again return to this screen's own setup state, not a fresh mount - see
+// standaloneBreatheCompletion.test.js/morningStretchMusicFix.test.js), so a
+// still-running completion fade must not survive into a fresh
+// preload()/start() call on the same instance.
+describe('A fresh preload()/start() always cancels any in-flight completion fade first', () => {
+  it('start() calls cancelFade() unconditionally, before its own busy-guard try block', () => {
+    const startBody = playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const busyIdx = startBody.indexOf('isBusyRef.current = true;');
+    const cancelFadeIdx = startBody.indexOf('cancelFade();');
+    const tryIdx = startBody.indexOf('try {');
+    expect(busyIdx).toBeGreaterThan(-1);
+    expect(cancelFadeIdx).toBeGreaterThan(busyIdx);
+    expect(tryIdx).toBeGreaterThan(cancelFadeIdx);
+  });
+
+  it('preload() calls cancelFade() before re-priming the element', () => {
+    const preloadBody = playerSource.match(/const preload = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(preloadBody).toMatch(/cancelFade\(\);\s*\n\s*audio\.src = url;/);
+  });
+
+  it('cancelFade() itself restores DEFAULT_VOLUME (GainNode-aware, via setLevel) whenever it actually cancels a running fade - a stopped-partway ramp can never leave the element silently stuck at a partial volume', () => {
+    const cancelFadeBody = playerSource.match(/const cancelFade = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(cancelFadeBody).toMatch(/if \(fadeIntervalRef\.current\) \{/);
+    expect(cancelFadeBody).toMatch(/setLevel\(DEFAULT_VOLUME\);/);
+  });
+});
+
+// iOS/WKWebView verification pass (B66 physical-iPhone review) - iOS
+// silently ignores HTMLMediaElement.volume entirely for real output
+// (confirmed via MDN/Apple's own WebKit docs, not assumed - see
+// ensureAudioGraph's own doc comment in the source for the citations).
+// These checks guard the Web Audio GainNode workaround and its CORS
+// prerequisite - no DOM/AudioContext exists in this repo's Vitest, so
+// this is source-level only, matching the rest of this file; the
+// fallback path (no Web Audio available) is exactly what every other
+// test in this file already exercises and asserts on.
+describe('Web Audio GainNode workaround for iOS (HTMLMediaElement.volume does nothing there)', () => {
+  it('the <audio> element sets crossOrigin="anonymous" - required before any src is ever assigned, or createMediaElementSource silently outputs zero audio for this cross-origin (Supabase Storage) source', () => {
+    expect(playerSource).toMatch(/<audio\s*\n\s*ref=\{audioRef\}\s*\n\s*preload="none"\s*\n\s*crossOrigin="anonymous"/);
+  });
+
+  it('ensureAudioGraph creates an AudioContext -> MediaElementSource -> GainNode -> destination graph, pins the element itself to unity gain, and gracefully falls back (never throws) when Web Audio is unavailable', () => {
+    const fnBody = playerSource.match(/const ensureAudioGraph = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fnBody).not.toBe('');
+    expect(fnBody).toMatch(/window\.AudioContext \|\| window\.webkitAudioContext/);
+    expect(fnBody).toMatch(/ctx\.createMediaElementSource\(audio\)/);
+    expect(fnBody).toMatch(/ctx\.createGain\(\)/);
+    expect(fnBody).toMatch(/source\.connect\(gain\)/);
+    expect(fnBody).toMatch(/gain\.connect\(ctx\.destination\)/);
+    expect(fnBody).toMatch(/audio\.volume = 1;/); // unity - avoids double-attenuation once the GainNode is live
+    expect(fnBody).toMatch(/\} catch \{/);
+  });
+
+  it('setLevel()/getLevel() prefer the GainNode when present, falling back to audio.volume only when it is not', () => {
+    const setLevelBody = playerSource.match(/const setLevel = \(value\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(setLevelBody).toMatch(/const gain = gainNodeRef\.current;\s*\n\s*if \(gain\) \{\s*\n\s*gain\.gain\.value = value;/);
+    expect(setLevelBody).toMatch(/audio\.volume = value;/);
+    const getLevelBody = playerSource.match(/const getLevel = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(getLevelBody).toMatch(/if \(gain\) return gain\.gain\.value;/);
+  });
+
+  it('start() creates/resumes the AudioContext synchronously, before its own first await (including the preload-await), so iOS\'s gesture requirement for it is satisfied by the same tap as play()', () => {
+    const startBody = stripComments(playerSource.match(/const start = async \(muted = false\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '');
+    const cancelFadeIdx = startBody.indexOf('cancelFade();');
+    const ensureGraphIdx = startBody.indexOf('const gain = ensureAudioGraph();');
+    const tryIdx = startBody.indexOf('try {');
+    const firstAwaitIdx = startBody.indexOf('await ');
+    expect(cancelFadeIdx).toBeGreaterThan(-1);
+    expect(ensureGraphIdx).toBeGreaterThan(cancelFadeIdx);
+    expect(tryIdx).toBeGreaterThan(ensureGraphIdx); // graph setup happens before the try block even opens - before the preload-await inside it
+    expect(firstAwaitIdx).toBeGreaterThan(tryIdx);
+    expect(startBody).toMatch(/if \(audioContextRef\.current\?\.state === 'suspended'\) \{\s*\n\s*audioContextRef\.current\.resume\(\)\.catch\(\(\) => \{\}\);/);
+  });
+
+  it('the unmount-cleanup effect closes the AudioContext alongside releasing the element', () => {
+    expect(playerCodeOnly).toMatch(/audioContextRef\.current\?\.close\(\)\.catch\(\(\) => \{\}\);\s*\n\s*audioContextRef\.current = null;\s*\n\s*gainNodeRef\.current = null;/);
   });
 });

@@ -345,7 +345,7 @@ export const Breathe = () => {
         // stop the music, and enter the completed state, all in one
         // step, exactly once per real completion.
         stopBreathingInterval();
-        musicPlayerRef.current?.stop();
+        musicPlayerRef.current?.fadeOutAndStop();
         setCompletionGreeting(getBreathingCompletionGreeting('morning'));
         setIsCompleted(true);
       }

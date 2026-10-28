@@ -156,10 +156,15 @@ export const createMeditationSessionController = ({
     reconcileAudio();
   };
 
+  // Natural completion gets a gentle fade-out (fadeOutAndStop), not the
+  // instant stop() that end()/pause()/setSoundId use elsewhere in this
+  // module - see meditationAudioController.js's own fadeOutAndStop doc
+  // comment for how this survives the unmount that happens the instant
+  // the caller navigates to the completion screen.
   const tick = () => {
     const completed = session.tick();
     if (completed && currentSoundId && audioControllers.has(currentSoundId)) {
-      audioControllers.get(currentSoundId).stop();
+      audioControllers.get(currentSoundId).fadeOutAndStop();
     }
     return { completed };
   };

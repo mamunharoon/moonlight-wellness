@@ -33,7 +33,7 @@ describe('QuietBreathing.jsx (standalone, Anytime) — completion is an explicit
     expect(standaloneEffect).toMatch(/current\.tick\(\)/);
     const completedBranch = standaloneEffect.match(/if \(completed\) \{([\s\S]*?)setIsCompleted\(true\);\s*\n\s*\}/)?.[1] ?? '';
     expect(completedBranch).toMatch(/stopBreathingInterval\(\);/);
-    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.stop\(\);/);
+    expect(completedBranch).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);/);
     expect(completedBranch).toMatch(/if \(anytimeOrigin\) \{\s*\n\s*setCompletionGreeting\(getCompletionGreeting\(\{ journey: 'anytime', practice: 'reset' \}\)\);\s*\n\s*\}/);
   });
 
