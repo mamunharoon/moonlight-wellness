@@ -220,7 +220,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
       audioContextRef.current = null;
       gainNodeRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- deliberately mount/unmount-only, same as useMeditationSession.js's own identical cleanup effect; cancelFade is stable in practice (defined fresh each render but only ever invoked from this unmount cleanup, never relied on to see a later render's closure)
 
   // No sign-out defensive guard here (removed): a guest is now genuinely
   // allowed to hear this ambient loop (see GUEST_ALLOWED_IDS in
