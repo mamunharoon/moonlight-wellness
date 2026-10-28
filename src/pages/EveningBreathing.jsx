@@ -304,7 +304,7 @@ export const EveningBreathing = () => {
         // music, and enter the completed state, all in one step, exactly
         // once per real completion.
         stopBreathingInterval();
-        musicPlayerRef.current?.stop();
+        musicPlayerRef.current?.fadeOutAndStop();
         setCompletionGreeting(getCompletionGreeting({ journey: 'evening', practice: 'breathing' }));
         setIsCompleted(true);
       }

@@ -379,7 +379,7 @@ export const MorningFlow = () => {
         // music, and enter the completed state, all in one step, exactly
         // once per real completion.
         stopStretchInterval();
-        musicPlayerRef.current?.stop();
+        musicPlayerRef.current?.fadeOutAndStop();
         setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
         setIsCompleted(true);
       }
@@ -479,7 +479,7 @@ export const MorningFlow = () => {
     setActiveStep(activeIndex);
     if (completed) {
       stopStretchInterval();
-      musicPlayerRef.current?.stop();
+      musicPlayerRef.current?.fadeOutAndStop();
       setCompletionGreeting(getCompletionGreeting({ journey: 'morning', practice: 'stretching' }));
       setIsCompleted(true);
     }

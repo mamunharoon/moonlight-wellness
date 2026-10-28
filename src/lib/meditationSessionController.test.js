@@ -282,14 +282,40 @@ describe('createMeditationSessionController — exact completion boundaries', ()
     expect(resolveUrl).toHaveBeenCalledTimes(1);
   });
 
-  it('natural completion stops the current track', async () => {
+  it('natural completion fades the current track out over ~2s rather than stopping it abruptly', async () => {
     const { controller, createAudioElement } = setup({ durationSeconds: 2, initialSoundId: 'IM01' });
     controller.begin();
     await flushAsync();
     const el = createAudioElement.mock.results[0].value;
+    const volumeAtStart = el.volume;
+    vi.useFakeTimers();
+    try {
+      controller.tick();
+      controller.tick(); // crosses the completion boundary - triggers fadeOutAndStop(), not an immediate stop()
+      // Immediately after the completing tick, playback is still audibly
+      // running (gentle fade, not an abrupt cut) - this is the actual
+      // behaviour change under test, not an implementation detail.
+      expect(el.paused).toBe(false);
+      vi.advanceTimersByTime(1000); // halfway through the ~2s ramp
+      expect(el.paused).toBe(false);
+      expect(el.volume).toBeLessThan(volumeAtStart);
+      expect(el.volume).toBeGreaterThan(0);
+      vi.advanceTimersByTime(1100); // past the full ~2s ramp
+      expect(el.paused).toBe(true);
+      expect(el.volume).toBe(volumeAtStart); // restored, not left silent - next play() must not start silently
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('end() (deliberate stop) remains instant - no fade', async () => {
+    const { controller, createAudioElement } = setup({ durationSeconds: 120, initialSoundId: 'IM01' });
+    controller.begin();
+    await flushAsync();
+    const el = createAudioElement.mock.results[0].value;
     controller.tick();
-    controller.tick();
-    expect(el.paused).toBe(true);
+    controller.end();
+    expect(el.paused).toBe(true); // instant - no ramp, no advanceTimersByTime needed
   });
 });
 
