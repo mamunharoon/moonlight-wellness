@@ -12,6 +12,7 @@ import { useStepReviewMode } from '../session/useStepReviewMode';
 import { useReviewNavigation } from '../session/useReviewNavigation';
 import { getStepLabel } from '../lib/stepLabels';
 import { useMeditationSession } from '../hooks/useMeditationSession';
+import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
@@ -141,6 +142,11 @@ export const EveningMeditate = () => {
     onComplete: handleNaturalCompletion
   });
 
+  // B67 device-feedback pass — see MorningMeditate.jsx's identical block
+  // for the full rationale (useCompletionHandoff.js's own doc comment has
+  // the complete root-cause and ~600-800ms target).
+  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
+
   // Build 16 physical-iPhone correction (F3/F4) - see MorningMeditate.jsx's
   // identical block for the full rationale.
   const countdown = usePreparationCountdown({
@@ -235,23 +241,23 @@ export const EveningMeditate = () => {
     );
   }
 
-  // Evening Meditation completion correction — a genuine dedicated
-  // completed panel, checked BEFORE the active-session branch below.
-  // useMeditationSession.js's own onComplete fires only after it has
-  // already flipped phase back to 'setup' (see its own doc comment), so
-  // without this explicit isCompleted branch the render would silently
-  // fall through to the ordinary setup screen with no acknowledgement at
-  // all. Periwinkle visual language reused verbatim from
-  // MorningMeditate.jsx's own completed panel (EveningComplete.jsx's own
-  // bg-evening-accent/10 + border-evening-accent-tint/25 + shadow-evening-
-  // glow badge shape) - never the Morning gold or Anytime mint treatment.
-  if (isCompleted) {
+  // B67 device-feedback pass — the active-session view (below) must keep
+  // rendering through the HOLD + EXIT FADE, using session's own last-known
+  // snapshot, before this completion panel is allowed to appear - gated
+  // on showCompletionPanel (only true once useCompletionHandoff's own
+  // timer sequence finishes), never raw isCompleted directly - see
+  // MorningMeditate.jsx's identical block for the full rationale.
+  // Periwinkle visual language reused verbatim from MorningMeditate.jsx's
+  // own completed panel (EveningComplete.jsx's own bg-evening-accent/10 +
+  // border-evening-accent-tint/25 + shadow-evening-glow badge shape) -
+  // never the Morning gold or Anytime mint treatment.
+  if (showCompletionPanel) {
     return (
       <EveningSceneShell atmosphere={{ phase: 'moonlight' }} showBack backFallback="/evening-breathing" showExit protectedHeader>
         <ProgressIndicator activeStep="meditation" sessionId="evening-wind-down" onReviewStep={requestReview} />
         {/* "Your Momentum" foundation, Phase 3 — the shared completion-
-            reveal transition. This is an early-return architecture: the
-            branch above only ever renders once isCompleted is ALREADY
+            reveal transition. This is an early-return architecture: this
+            branch only ever renders once showCompletionPanel is ALREADY
             true (it's skipped entirely while false), so CompletionReveal
             would only ever mount here with active already true from its
             own very first render - its usual auto-freshness detection
@@ -265,7 +271,7 @@ export const EveningMeditate = () => {
             reason, the same "always-rendered completion" case
             SessionComplete.jsx's own isFreshCompletion already handles. */}
         <CompletionReveal
-          active
+          active={showCompletionPanel}
           isFresh
           journeyTone="evening"
           className="flex-1 flex flex-col items-center justify-center text-center space-y-8"
@@ -297,7 +303,17 @@ export const EveningMeditate = () => {
     );
   }
 
-  if (session.phase === 'active' && session.snapshot) {
+  // B67 device-feedback pass — stays true through the brief HOLD +
+  // EXIT_FADE window after a NATURAL completion too (isCompleted &&
+  // showActiveView), rendering session's own last real snapshot (never
+  // cleared by cleanupSession()) frozen and fading out, instead of
+  // instantly unmounting the instant isCompleted flips. A DELIBERATE early
+  // exit (Finish & continue/Choose another/End Meditation, all via
+  // session.endSession()) never sets isCompleted true, so this condition's
+  // `session.phase === 'active'` half being already false by then keeps
+  // every manual exit exactly as instant as before - see
+  // MorningMeditate.jsx's identical block for the full rationale.
+  if ((session.phase === 'active' || (isCompleted && showActiveView)) && session.snapshot) {
     // Nested-shell correction — the previous structure wrapped
     // MeditationActiveSession (which owns its own full-viewport
     // ExerciseScreenShell: header + single scroll body) inside
@@ -338,36 +354,52 @@ export const EveningMeditate = () => {
     return (
       <>
         <AtmosphereManager phase="moonlight" className="fixed inset-0 -z-10 pointer-events-none" />
-        <MeditationActiveSession
-          journeyTone="evening"
-          style={session.style}
-          snapshot={session.snapshot}
-          soundId={session.soundId}
-          soundUnavailable={session.soundUnavailable}
-          onSelectSound={session.selectSound}
-          onPause={session.pause}
-          onResume={session.resume}
-          onRequestLeave={handleEndMeditation}
-          onRequestClose={handleRequestExitRoutine}
-          endCopy={{
-            buttonLabel: 'End Meditation',
-            buttonAriaLabel: 'End meditation',
-            dialogTitle: 'End this meditation?',
-            dialogMessage: 'Your current meditation will end. Your Evening Wind-Down stays right where it is.',
-            confirmLabel: 'End Meditation',
-            cancelLabel: 'Keep Meditating'
-          }}
-          bottomAction={{
-            buttonLabel: 'Finish & continue',
-            buttonAriaLabel: 'Finish meditation and continue to Prepare for Rest',
-            dialogTitle: 'Finish meditation?',
-            dialogMessage: 'Your meditation will end and your Evening Wind-Down will continue to Prepare for Rest.',
-            confirmLabel: 'Finish & continue',
-            cancelLabel: 'Keep meditating',
-            onConfirm: handleFinishAndContinue
-          }}
-          onChooseAnother={handleChooseAnother}
-        />
+        {/* B67 device-feedback pass — pointer-events disabled the instant
+            natural completion fires (prevents a duplicate tap on now-stale
+            controls during the brief transition); the opacity fade itself
+            only starts once activeViewExiting - same pattern as
+            MorningMeditate.jsx/Breathe.jsx/MorningFlow.jsx/
+            EveningBreathing.jsx/QuietBreathing.jsx's own "active ring"
+            wrapper. 250ms matches useCompletionHandoff's own EXIT_FADE_MS
+            exactly. */}
+        <div
+          style={
+            isCompleted
+              ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) }
+              : undefined
+          }
+        >
+          <MeditationActiveSession
+            journeyTone="evening"
+            style={session.style}
+            snapshot={session.snapshot}
+            soundId={session.soundId}
+            soundUnavailable={session.soundUnavailable}
+            onSelectSound={session.selectSound}
+            onPause={session.pause}
+            onResume={session.resume}
+            onRequestLeave={handleEndMeditation}
+            onRequestClose={handleRequestExitRoutine}
+            endCopy={{
+              buttonLabel: 'End Meditation',
+              buttonAriaLabel: 'End meditation',
+              dialogTitle: 'End this meditation?',
+              dialogMessage: 'Your current meditation will end. Your Evening Wind-Down stays right where it is.',
+              confirmLabel: 'End Meditation',
+              cancelLabel: 'Keep Meditating'
+            }}
+            bottomAction={{
+              buttonLabel: 'Finish & continue',
+              buttonAriaLabel: 'Finish meditation and continue to Prepare for Rest',
+              dialogTitle: 'Finish meditation?',
+              dialogMessage: 'Your meditation will end and your Evening Wind-Down will continue to Prepare for Rest.',
+              confirmLabel: 'Finish & continue',
+              cancelLabel: 'Keep meditating',
+              onConfirm: handleFinishAndContinue
+            }}
+            onChooseAnother={handleChooseAnother}
+          />
+        </div>
         {/* Same copy/severity as ExitEveningButton.jsx's own dialog - the
             canonical whole-Evening-Wind-Down exit confirmation, reused
             verbatim rather than inventing new wording for this one screen. */}

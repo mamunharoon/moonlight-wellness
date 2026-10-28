@@ -119,7 +119,7 @@ describe('MorningMeditate.jsx — registry wiring proves Breathe -> Meditate -> 
 
 describe('MorningMeditate.jsx — End Meditation (embedded copy), never advances/navigates/interrupts the parent journey', () => {
   it('the exact required embedded copy is passed as endCopy', () => {
-    const block = source.match(/endCopy=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
+    const block = source.match(/endCopy=\{\{[\s\S]*?\n {12}\}\}/)?.[0] ?? '';
     expect(block).toMatch(/buttonLabel: 'End Meditation'/);
     expect(block).toMatch(/dialogTitle: 'End this meditation\?'/);
     expect(block).toMatch(/confirmLabel: 'End Meditation'/);
@@ -182,7 +182,7 @@ describe('MorningMeditate.jsx — active screen: Back/End Meditation and Close/X
 
   it('onRequestClose (Close/X) is a SEPARATE prop, wired to this page\'s own handleRequestExitRoutine - never the same function/value as onRequestLeave', () => {
     expect(source).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
-    const activeBlock = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const activeBlock = source.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(activeBlock).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
     expect(activeBlock).toMatch(/onRequestClose=\{handleRequestExitRoutine\}/);
   });

@@ -778,7 +778,7 @@ export const QuietBreathing = ({ standalone = false }) => {
           // controls must never remain tappable behind the result panel.
           <div
             className="flex-1 flex flex-col justify-between"
-            style={(isCompleted || earlyEnded) ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+            style={(isCompleted || earlyEnded) ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) } : undefined}
           >
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
               <p className="text-sm text-on-surface-variant max-w-xs mx-auto leading-relaxed">

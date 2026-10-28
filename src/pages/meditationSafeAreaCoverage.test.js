@@ -102,21 +102,21 @@ describe('Evening Meditation (EveningMeditate.jsx) — countdown/completed/setup
   });
 
   it('the active session never wraps MeditationActiveSession in EveningSceneShell - exactly one viewport owner (MeditationActiveSession\'s own ExerciseScreenShell), never two nested full-height shells', () => {
-    const activeBlock = eveningMeditateSource.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const activeBlock = eveningMeditateSource.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(activeBlock).not.toBe('');
     expect(activeBlock).not.toMatch(/<EveningSceneShell/);
     expect(activeBlock).toMatch(/<MeditationActiveSession/);
   });
 
   it('the active session still shows the moonlight atmosphere (decorative, non-scrolling, reproduced directly) and the whole-journey Exit still uses the exact same leaveActiveRoutine() mechanism/copy as every other Evening screen', () => {
-    const activeBlock = eveningMeditateSource.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const activeBlock = eveningMeditateSource.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(activeBlock).toMatch(/<AtmosphereManager phase="moonlight"/);
     expect(eveningMeditateSource).toMatch(/leaveActiveRoutine\(\);/);
     expect(eveningMeditateSource).toMatch(/title="Leave Evening Wind-Down\?"/);
   });
 
   it('Back/End Meditation/Finish & continue/Choose another routing is unchanged by the structural fix', () => {
-    const activeBlock = eveningMeditateSource.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const activeBlock = eveningMeditateSource.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(activeBlock).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
     expect(activeBlock).toMatch(/onConfirm: handleFinishAndContinue/);
     expect(activeBlock).toMatch(/onChooseAnother=\{handleChooseAnother\}/);

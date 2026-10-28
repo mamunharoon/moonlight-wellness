@@ -788,7 +788,7 @@ export const Breathe = () => {
         // remain tappable behind the completion panel.
         <div
           className="space-y-5"
-          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) } : undefined}
         >
           <div className="text-center space-y-2">
             <span className="font-label-sm text-xs text-morning-accent uppercase tracking-widest font-bold">Grounding Exercise</span>

@@ -12,6 +12,7 @@ import { useReviewNavigation } from '../session/useReviewNavigation';
 import { useActiveRoutineStep } from '../hooks/useActiveRoutineStep';
 import { getStepLabel } from '../lib/stepLabels';
 import { useMeditationSession } from '../hooks/useMeditationSession';
+import { useCompletionHandoff } from '../hooks/useCompletionHandoff';
 import { usePreparationCountdown } from '../hooks/usePreparationCountdown';
 import { PreparationCountdown } from '../components/PreparationCountdown';
 import { MeditationSetupPanel } from '../components/journey/MeditationSetupPanel';
@@ -157,6 +158,20 @@ export const MorningMeditate = () => {
     initialSoundId: 'IM01',
     onComplete: handleNaturalCompletion
   });
+
+  // B67 device-feedback pass — "Meditation is slightly smoother but should
+  // feel consistent" with Breathe.jsx/MorningFlow.jsx/EveningBreathing.jsx/
+  // QuietBreathing.jsx's own hold+exit-fade treatment (see
+  // useCompletionHandoff.js's own doc comment for the full root-cause and
+  // the shared ~600-800ms target). This screen's early-return architecture
+  // previously had no such treatment at all (useMeditationSession.js's own
+  // interval callback has ALREADY flipped session.phase back to 'setup'
+  // before onComplete/handleNaturalCompletion ever runs - see that hook's
+  // own doc comment - so isCompleted and the phase flip land in the exact
+  // same render pass with nothing to soften the cut). Purely additive,
+  // same as everywhere else this hook is used - never touches isCompleted
+  // itself or any existing side effect's timing.
+  const { showActiveView, activeViewExiting, showCompletionPanel } = useCompletionHandoff(isCompleted);
 
   // Build 16 physical-iPhone correction (F3/F4) — Begin now transitions
   // into a shared 5-second preparation countdown instead of starting the
@@ -308,15 +323,16 @@ export const MorningMeditate = () => {
     );
   }
 
-  // Morning Meditation completion correction — a genuine dedicated
-  // completed panel, checked BEFORE the active-session branch below.
-  // useMeditationSession.js's own onComplete fires only after it has
-  // already flipped phase back to 'setup' (see its own doc comment), so
-  // without this explicit isCompleted branch the render would silently
-  // fall through to the ordinary setup screen with no acknowledgement at
-  // all. Warm-gold visual language reused verbatim from Breathe.jsx/
-  // MorningFlow.jsx's own completed panels - never a new colour.
-  if (isCompleted) {
+  // B67 device-feedback pass — the active-session view (below) must keep
+  // rendering through the HOLD + EXIT FADE, using session's own last-known
+  // snapshot (useMeditationSession.js never clears it on completion),
+  // before this completion panel is allowed to appear - gated on
+  // showCompletionPanel (only true once useCompletionHandoff's own timer
+  // sequence finishes), never raw isCompleted directly, so the two
+  // branches below can never both want to render at once. Warm-gold
+  // visual language reused verbatim from Breathe.jsx/MorningFlow.jsx's own
+  // completed panels - never a new colour.
+  if (showCompletionPanel) {
     return (
       // Physical-iPhone correction (exercise-screen safe-area architecture)
       // — see MorningFlow.jsx's identical fix/doc comment for the root
@@ -334,8 +350,8 @@ export const MorningMeditate = () => {
       <div className="flex flex-col min-h-full">
         <JourneyGlow journey="morning" />
         {/* "Your Momentum" foundation, Phase 3 — the shared completion-
-            reveal transition. This is an early-return architecture: the
-            branch above only ever renders once isCompleted is ALREADY
+            reveal transition. This is an early-return architecture: this
+            branch only ever renders once showCompletionPanel is ALREADY
             true (it's skipped entirely while false), so CompletionReveal
             would only ever mount here with active already true from its
             own very first render - its usual auto-freshness detection
@@ -349,7 +365,7 @@ export const MorningMeditate = () => {
             reason, the same "always-rendered completion" case
             SessionComplete.jsx's own isFreshCompletion already handles. */}
         <CompletionReveal
-          active
+          active={showCompletionPanel}
           isFresh
           journeyTone="morning"
           className="flex-1 flex flex-col items-center justify-center text-center space-y-6"
@@ -398,7 +414,18 @@ export const MorningMeditate = () => {
     );
   }
 
-  if (session.phase === 'active' && session.snapshot) {
+  // B67 device-feedback pass — stays true through the brief HOLD +
+  // EXIT_FADE window after a NATURAL completion too (isCompleted &&
+  // showActiveView), rendering session's own last real snapshot (never
+  // cleared by cleanupSession()) frozen and fading out, instead of
+  // instantly unmounting the instant isCompleted flips. A DELIBERATE early
+  // exit (Finish & continue/Choose another/End Meditation, all via
+  // session.endSession()) never sets isCompleted true, so showActiveView's
+  // own always-true-while-!isCompleted default correctly falls through
+  // here too - excluded by the `session.phase === 'active'` half of this
+  // condition already being false by then - keeping every manual exit
+  // exactly as instant as before.
+  if ((session.phase === 'active' || (isCompleted && showActiveView)) && session.snapshot) {
     return (
       <>
         {/* WakeWise DEV — colour glow extension: Morning's own embedded
@@ -407,36 +434,54 @@ export const MorningMeditate = () => {
             own by design - each caller (Morning/Anytime/Evening) owns
             its own atmosphere. */}
         <JourneyGlow journey="morning" />
-        <MeditationActiveSession
-          journeyTone="morning"
-          style={session.style}
-          snapshot={session.snapshot}
-          soundId={session.soundId}
-          soundUnavailable={session.soundUnavailable}
-          onSelectSound={session.selectSound}
-          onPause={session.pause}
-          onResume={session.resume}
-          onRequestLeave={handleEndMeditation}
-          onRequestClose={handleRequestExitRoutine}
-          endCopy={{
-            buttonLabel: 'End Meditation',
-            buttonAriaLabel: 'End meditation',
-            dialogTitle: 'End this meditation?',
-            dialogMessage: 'Your current meditation will end. Your Morning routine stays right where it is.',
-            confirmLabel: 'End Meditation',
-            cancelLabel: 'Keep Meditating'
-          }}
-          bottomAction={{
-            buttonLabel: 'Finish & continue',
-            buttonAriaLabel: 'Finish meditation and continue to Affirmation',
-            dialogTitle: 'Finish meditation?',
-            dialogMessage: 'Your meditation will end and your Morning routine will continue to Affirmation.',
-            confirmLabel: 'Finish & continue',
-            cancelLabel: 'Keep meditating',
-            onConfirm: handleFinishAndContinue
-          }}
-          onChooseAnother={handleChooseAnother}
-        />
+        {/* B67 device-feedback pass — pointer-events disabled the instant
+            natural completion fires (prevents a duplicate tap on now-stale
+            controls during the brief transition); the opacity fade itself
+            only starts once activeViewExiting (the hold's own final frame
+            stays fully visible, unchanged, first) - same pattern as
+            Breathe.jsx/MorningFlow.jsx/EveningBreathing.jsx/
+            QuietBreathing.jsx's own "active ring" wrapper. 250ms matches
+            useCompletionHandoff's own EXIT_FADE_MS exactly - a mismatched
+            CSS duration here would let this fade keep visibly animating
+            after the hook has already swapped in the completion panel. */}
+        <div
+          style={
+            isCompleted
+              ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) }
+              : undefined
+          }
+        >
+          <MeditationActiveSession
+            journeyTone="morning"
+            style={session.style}
+            snapshot={session.snapshot}
+            soundId={session.soundId}
+            soundUnavailable={session.soundUnavailable}
+            onSelectSound={session.selectSound}
+            onPause={session.pause}
+            onResume={session.resume}
+            onRequestLeave={handleEndMeditation}
+            onRequestClose={handleRequestExitRoutine}
+            endCopy={{
+              buttonLabel: 'End Meditation',
+              buttonAriaLabel: 'End meditation',
+              dialogTitle: 'End this meditation?',
+              dialogMessage: 'Your current meditation will end. Your Morning routine stays right where it is.',
+              confirmLabel: 'End Meditation',
+              cancelLabel: 'Keep Meditating'
+            }}
+            bottomAction={{
+              buttonLabel: 'Finish & continue',
+              buttonAriaLabel: 'Finish meditation and continue to Affirmation',
+              dialogTitle: 'Finish meditation?',
+              dialogMessage: 'Your meditation will end and your Morning routine will continue to Affirmation.',
+              confirmLabel: 'Finish & continue',
+              cancelLabel: 'Keep meditating',
+              onConfirm: handleFinishAndContinue
+            }}
+            onChooseAnother={handleChooseAnother}
+          />
+        </div>
         {/* Same copy/severity as BackButton.jsx's own default "Leave this
             routine?" guard - the canonical whole-Morning-routine exit
             confirmation, reused verbatim rather than inventing new wording

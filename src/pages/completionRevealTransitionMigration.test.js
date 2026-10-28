@@ -35,7 +35,7 @@ describe('MorningFlow.jsx — showCompletionPanel drives the shared CompletionRe
   });
 
   it('the outgoing active-exercise branch fades via activeViewExiting rather than being unmounted instantly', () => {
-    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
   });
 
   it('never shows a factual insight/milestone here (Morning Stretch alone is not one of the three Phase 2 tracked activities) - no MomentumPanel import', () => {
@@ -61,7 +61,7 @@ describe('Breathe.jsx — showCompletionPanel drives the shared CompletionReveal
   });
 
   it('the outgoing active-exercise branch fades via activeViewExiting rather than being unmounted instantly', () => {
-    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
   });
 
   it('never shows a factual insight/milestone here (Morning Breathing alone is not one of the three Phase 2 tracked activities) - no MomentumPanel import', () => {
@@ -88,7 +88,7 @@ describe('EveningBreathing.jsx — showCompletionPanel drives the shared Complet
   });
 
   it('the outgoing active-exercise branch (single top-level child, no space-y class needed) fades via activeViewExiting', () => {
-    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+    expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
   });
 
   it('never shows a factual insight/milestone here (Evening Breathing alone is not one of the three Phase 2 tracked activities) - no MomentumPanel import', () => {
@@ -126,7 +126,7 @@ describe('QuietBreathing.jsx (standalone) — the combined isCompleted/earlyEnde
   });
 
   it('the outgoing active-exercise branch (further down the same ternary chain, outside standaloneBlock\'s own deliberately-narrow slice) fades via activeViewExiting, replicating EveningSceneShell\'s own content-container flex/justify-between class', () => {
-    expect(source).toMatch(/className="flex-1 flex flex-col justify-between"\s*\n\s*style=\{\(isCompleted \|\| earlyEnded\) \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+    expect(source).toMatch(/className="flex-1 flex flex-col justify-between"\s*\n\s*style=\{\(isCompleted \|\| earlyEnded\) \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
     expect(source).toMatch(/pointerEvents: 'none'/);
   });
 
@@ -136,16 +136,16 @@ describe('QuietBreathing.jsx (standalone) — the combined isCompleted/earlyEnde
   });
 });
 
-describe('useCompletionHandoff is wired into exactly the six screens with a genuine "active exercise" view to hold+fade - never into the always-rendered completion pages, BetaVideoModal (video DOM stays mounted, no blank-frame issue), or the two early-return meditation screens (documented limitation)', () => {
+describe('useCompletionHandoff is wired into exactly the six screens with a genuine "active exercise" view to hold+fade - never into the always-rendered completion pages, BetaVideoModal (video DOM stays mounted, no blank-frame issue), or the standalone-navigate meditation screen', () => {
   it('MorningFlow/Breathe/EveningBreathing/QuietBreathing all import it', () => {
     for (const file of ['./MorningFlow.jsx', './Breathe.jsx', './EveningBreathing.jsx', './QuietBreathing.jsx']) {
       expect(read(file)).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
     }
   });
 
-  it('MorningMeditate.jsx/EveningMeditate.jsx do NOT import it - session.snapshot/session.phase are already reset to \'setup\' by the time onComplete fires (see useMeditationSession.js\'s own doc comment), so holding/fading the real MeditationActiveSession view would require freezing a stale snapshot of a component with live audio/pause state - out of scope for "smallest reusable", a documented limitation', () => {
+  it('B67 device-feedback pass: MorningMeditate.jsx/EveningMeditate.jsx NOW import it too - the previously-documented limitation is resolved. session.snapshot is never cleared by cleanupSession()/useMeditationSession.js on completion, so the real last-known snapshot can still be rendered, frozen, through the hold+exit-fade; pointerEvents: \'none\' (gated on isCompleted, same as every other screen) handles the "live audio/pause state must not remain interactive" concern that previously motivated excluding these two screens, rather than needing to avoid the freeze altogether', () => {
     for (const file of ['./MorningMeditate.jsx', './EveningMeditate.jsx']) {
-      expect(read(file)).not.toMatch(/useCompletionHandoff/);
+      expect(read(file)).toMatch(/import \{ useCompletionHandoff \} from '\.\.\/hooks\/useCompletionHandoff';/);
     }
   });
 
@@ -160,13 +160,13 @@ describe('No stale active exercise remains interactive behind the completion pan
   it('MorningFlow.jsx/Breathe.jsx/EveningBreathing.jsx all gate pointerEvents: \'none\' on the raw, unchanged isCompleted (not merely activeViewExiting) - the exercise has already genuinely finished the moment isCompleted flips, so its own Skip/Exit/video-row controls must never remain tappable during the hold, not just during the later exit-fade', () => {
     for (const file of ['./MorningFlow.jsx', './Breathe.jsx', './EveningBreathing.jsx']) {
       const source = read(file);
-      expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+      expect(source).toMatch(/style=\{isCompleted \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
     }
   });
 
   it('QuietBreathing.jsx (standalone) gates pointerEvents: \'none\' on isCompleted || earlyEnded - either genuinely ends the exercise the same way', () => {
     const source = read('./QuietBreathing.jsx');
-    expect(source).toMatch(/style=\{\(isCompleted \|\| earlyEnded\) \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 350ms ease-out' \} : null\) \} : undefined\}/);
+    expect(source).toMatch(/style=\{\(isCompleted \|\| earlyEnded\) \? \{ pointerEvents: 'none', \.\.\.\(activeViewExiting \? \{ opacity: 0, transition: 'opacity 250ms ease-out' \} : null\) \} : undefined\}/);
   });
 });
 
@@ -177,10 +177,10 @@ describe('MorningMeditate.jsx — early-return isCompleted panel uses Completion
     expect(source).toMatch(/import \{ CompletionReveal \} from '\.\.\/components\/CompletionReveal';/);
   });
 
-  it('CompletionReveal is only ever reached via an early `if (isCompleted) { return (...); }` - it would only ever mount with active already true, so isFresh must be passed explicitly rather than relying on auto-detection', () => {
-    const body = source.match(/if \(isCompleted\) \{\s*\n\s*return \([\s\S]*?\n {4}\);\s*\n {2}\}/)?.[0] ?? '';
+  it('CompletionReveal is only ever reached via an early `if (showCompletionPanel) { return (...); }` (B67: gated on useCompletionHandoff\'s own showCompletionPanel, not raw isCompleted, since the active view must keep rendering through the hold+exit-fade first) - it would only ever mount with active already true, so isFresh must be passed explicitly rather than relying on auto-detection', () => {
+    const body = source.match(/if \(showCompletionPanel\) \{\s*\n\s*return \([\s\S]*?\n {4}\);\s*\n {2}\}/)?.[0] ?? '';
     expect(body).not.toBe('');
-    expect(body).toMatch(/<CompletionReveal\s*\n\s*active\s*\n\s*isFresh\s*\n\s*journeyTone="morning"/);
+    expect(body).toMatch(/<CompletionReveal\s*\n\s*active=\{showCompletionPanel\}\s*\n\s*isFresh\s*\n\s*journeyTone="morning"/);
   });
 
   it('isCompleted\'s own useState initializer is a hardcoded false, never restored from persisted/session state - the precondition that makes a constant isFresh safe', () => {
@@ -195,10 +195,10 @@ describe('EveningMeditate.jsx — early-return isCompleted panel uses Completion
     expect(source).toMatch(/import \{ CompletionReveal \} from '\.\.\/components\/CompletionReveal';/);
   });
 
-  it('CompletionReveal is only ever reached via an early `if (isCompleted) { return (...); }` - isFresh is passed explicitly', () => {
-    const body = source.match(/if \(isCompleted\) \{\s*\n\s*return \([\s\S]*?\n {4}\);\s*\n {2}\}/)?.[0] ?? '';
+  it('CompletionReveal is only ever reached via an early `if (showCompletionPanel) { return (...); }` (B67: see MorningMeditate.jsx\'s identical change) - isFresh is passed explicitly', () => {
+    const body = source.match(/if \(showCompletionPanel\) \{\s*\n\s*return \([\s\S]*?\n {4}\);\s*\n {2}\}/)?.[0] ?? '';
     expect(body).not.toBe('');
-    expect(body).toMatch(/<CompletionReveal\s*\n\s*active\s*\n\s*isFresh\s*\n\s*journeyTone="evening"/);
+    expect(body).toMatch(/<CompletionReveal\s*\n\s*active=\{showCompletionPanel\}\s*\n\s*isFresh\s*\n\s*journeyTone="evening"/);
   });
 
   it('isCompleted\'s own useState initializer is a hardcoded false, never restored from persisted/session state', () => {
@@ -240,6 +240,65 @@ describe('Every migrated screen keeps its pre-existing journey-tone visual token
       const source = read(file);
       expect(source).toMatch(/evening-accent/);
       expect(source).not.toMatch(/morning-accent|shadow-mint-glow/);
+    }
+  });
+});
+
+// B67 device-feedback pass — "Coordinate this with the existing 2-second
+// audio fade without forcing the user to wait for it." Proven structurally,
+// not just by the timing math (useCompletionHandoff.js's own doc comment):
+// the audio fade call (fadeOutAndStop()) and the visual-transition trigger
+// (setIsCompleted(true)/handleNaturalCompletion) are two independent
+// statements in the same synchronous natural-completion callback on every
+// screen - neither is awaited, neither reads the other's state, and
+// nothing in either file imports the other. The visual sequence (~600-
+// 800ms) always finishes well before the audio fade (~2000ms, a fixed
+// constant in InteractiveAmbientMusic.jsx/meditationAudioController.js) -
+// the completion panel is always fully visible and interactive while the
+// music is still audibly fading in the background, never the reverse.
+describe('B67 device-feedback pass — the visual transition and the ~2s audio fade are genuinely independent, never coupled', () => {
+  it('on every ternary-swap screen, the audio fade call and setIsCompleted(true) are two adjacent, unconditional statements in the same callback - neither is awaited, neither gates the other', () => {
+    for (const file of ['./MorningFlow.jsx', './Breathe.jsx', './EveningBreathing.jsx', './QuietBreathing.jsx']) {
+      const source = read(file);
+      expect(source).toMatch(/musicPlayerRef\.current\?\.fadeOutAndStop\(\);\s*\n\s*(?:if \(anytimeOrigin\) \{\s*\n\s*)?setCompletionGreeting\(/);
+    }
+  });
+
+  it('MorningMeditate.jsx/EveningMeditate.jsx: the audio fade lives inside meditationSessionController.js\'s own tick(), called from useMeditationSession.js\'s interval callback BEFORE onComplete/handleNaturalCompletion ever runs - same synchronous callback, same guarantee', () => {
+    for (const file of ['./MorningMeditate.jsx', './EveningMeditate.jsx']) {
+      const source = read(file);
+      // Neither page file calls fadeOutAndStop/the music controller
+      // directly - it's entirely owned by the shared meditation session
+      // stack, never duplicated here.
+      expect(source).not.toMatch(/fadeOutAndStop/);
+    }
+    const controllerSource = read('../lib/meditationSessionController.js');
+    expect(controllerSource).toMatch(/const tick = \(\) => \{\s*\n\s*const completed = session\.tick\(\);\s*\n\s*if \(completed && currentSoundId && audioControllers\.has\(currentSoundId\)\) \{\s*\n\s*audioControllers\.get\(currentSoundId\)\.fadeOutAndStop\(\);/);
+    const hookSource = read('../hooks/useMeditationSession.js');
+    // tick()'s own fadeOutAndStop() call happens synchronously inside
+    // current.tick() here, strictly before cleanupSession()/setPhase/
+    // onComplete - confirmed by the literal statement order in this same
+    // callback.
+    const tickCallback = hookSource.match(/intervalRef\.current = setInterval\(\(\) => \{([\s\S]*?)\n {4}\}, 1000\);/)?.[1] ?? '';
+    expect(tickCallback).not.toBe('');
+    const tickCallIdx = tickCallback.indexOf('current.tick()');
+    const onCompleteIdx = tickCallback.indexOf('onComplete?.(finished)');
+    expect(tickCallIdx).toBeGreaterThan(-1);
+    expect(onCompleteIdx).toBeGreaterThan(tickCallIdx);
+  });
+
+  it('the audio fade duration (2000ms) and the combined visual transition target (~600-800ms) are independent constants, defined in entirely separate modules - neither file actually imports the other (mentioning the relationship in a doc comment, as these files deliberately do to explain WHY they are independent, is not a coupling)', () => {
+    const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const audioFiles = ['../components/InteractiveAmbientMusic.jsx', '../lib/meditationAudioController.js'];
+    const visualFiles = ['../hooks/useCompletionHandoff.js', '../components/CompletionReveal.jsx'];
+    for (const file of audioFiles) {
+      const src = read(file);
+      expect(src).toMatch(/FADE_OUT_DURATION_MS = 2000;/);
+      expect(stripComments(src)).not.toMatch(/useCompletionHandoff|CompletionReveal/);
+    }
+    for (const file of visualFiles) {
+      const codeOnly = stripComments(read(file));
+      expect(codeOnly).not.toMatch(/fadeOutAndStop|FADE_OUT_DURATION_MS|InteractiveAmbientMusic|meditationAudioController/);
     }
   });
 });

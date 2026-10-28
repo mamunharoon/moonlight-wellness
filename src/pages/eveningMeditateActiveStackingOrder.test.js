@@ -71,7 +71,7 @@ describe('ExerciseScreenShell — real execution: its own root is a plain in-flo
 
 describe('EveningMeditate.jsx — active-session atmosphere is genuinely negative z-index, numerically proven (release-blocking runtime fix)', () => {
   const source = read('./EveningMeditate.jsx');
-  const activeBlock = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+  const activeBlock = source.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
   const atmosphereMatch = activeBlock.match(/<AtmosphereManager phase="moonlight" className="([^"]*)"/);
   const atmosphereClassName = atmosphereMatch?.[1] ?? '';
 

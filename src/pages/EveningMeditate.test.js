@@ -121,7 +121,7 @@ describe('EveningMeditate.jsx — registry wiring proves Breathing -> Meditation
 
 describe('EveningMeditate.jsx — End Meditation (embedded copy), never advances/navigates/interrupts the parent journey', () => {
   it('the exact required embedded copy is passed as endCopy', () => {
-    const block = source.match(/endCopy=\{\{[\s\S]*?\n {10}\}\}/)?.[0] ?? '';
+    const block = source.match(/endCopy=\{\{[\s\S]*?\n {12}\}\}/)?.[0] ?? '';
     expect(block).toMatch(/buttonLabel: 'End Meditation'/);
     expect(block).toMatch(/dialogTitle: 'End this meditation\?'/);
     expect(block).toMatch(/confirmLabel: 'End Meditation'/);
@@ -143,7 +143,7 @@ describe('EveningMeditate.jsx — Back/Exit reuse Evening\'s existing split conv
   });
 
   it('pre-start screen: exactly one showExit, wired to EveningSceneShell\'s own unmodified ExitEveningButton', () => {
-    const activeBlock = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const activeBlock = source.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     const preStartBlock = source.slice(source.indexOf(activeBlock) + activeBlock.length);
     expect(preStartBlock).toMatch(/showBack backFallback="\/evening-breathing" showExit/);
     // Comments stripped first - this file's own doc comment legitimately
@@ -165,7 +165,7 @@ describe('EveningMeditate.jsx — Back/Exit reuse Evening\'s existing split conv
 // exact same mechanism/copy ExitEveningButton.jsx used) - never a second,
 // competing corner control.
 describe('EveningMeditate.jsx — active screen: exactly ONE whole-journey Exit/X, structurally distinct from End Meditation (nested-shell correction)', () => {
-  const activeBlock = () => source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+  const activeBlock = () => source.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
 
   it('no longer wraps MeditationActiveSession in EveningSceneShell - the moonlight atmosphere renders directly via AtmosphereManager instead, and MeditationActiveSession is the one real viewport/scroll owner', () => {
     const block = activeBlock();

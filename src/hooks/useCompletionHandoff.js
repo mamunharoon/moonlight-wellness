@@ -46,16 +46,32 @@ import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 // even start - this hook only ever delays which JSX renders, never any
 // side effect.
 //
-// Physical-iPhone completion-transition refinement pass — retuned
-// (200/350 -> 150/250) so this hook's own prefix, combined with
-// CompletionReveal's own retuned settle time, lands the complete visible
-// sequence inside the newly-approved ~1.1-1.4s target instead of the
-// previous ~1.2-1.5s (see CompletionReveal.jsx's own doc comment for the
-// exact combined math) - a "slightly lengthen the reveal" request never
-// meant "add more delay to every layer"; shortening this HOLD/EXIT_FADE
-// prefix while lengthening CompletionReveal's own stagger is what keeps
-// the total in range without adding a second multi-second pause anywhere.
-const HOLD_MS = 150;
+// B67 device-feedback pass — Stretching/Breathing "appear abruptly" on a
+// physical iPhone, Meditation "slightly smoother but should feel
+// consistent." Root cause this time was genuinely total duration (unlike
+// the prior pass's finding): the previous ~1.1-1.4s combined sequence
+// read as sluggish/disjointed next to the newly-added ~2s audio fade
+// (fadeOutAndStop, InteractiveAmbientMusic.jsx/meditationAudioController.js)
+// starting at the exact same instant - two independent, differently-paced
+// fades beginning together made the SHORTER one (this visual sequence)
+// feel like it was dragging rather than gentle. Retuned down
+// (150/250 -> 50/250) to a new ~600-800ms target for the combined HOLD +
+// EXIT_FADE + CompletionReveal's own settle (see that component's own doc
+// comment for the exact combined math) - HOLD shortened rather than
+// EXIT_FADE, since the hold's whole job is just "don't let the fade look
+// like it's interrupting the final active frame mid-motion," which a
+// brief 50ms still accomplishes; EXIT_FADE stays long enough on its own
+// to read as a genuine fade, not a cut.
+//
+// This is independent of, and deliberately never synchronized with, the
+// audio fade-out - they are two separate timers started at the same
+// instant (the same natural-completion callback that calls both
+// musicPlayerRef.current?.fadeOutAndStop()/the meditation controller's
+// equivalent AND sets isCompleted true/calls onComplete). The audio keeps
+// fading in the background for its own full ~2s regardless of how this
+// visual sequence paces itself - nothing here ever awaits or blocks on
+// it, and nothing in the audio path reads this hook's own state.
+const HOLD_MS = 50;
 const EXIT_FADE_MS = 250;
 
 const detectReducedMotion = () => {

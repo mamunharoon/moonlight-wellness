@@ -38,12 +38,12 @@ describe('MorningMeditate.jsx — completion is an explicit, authoritative state
     expect(source).toMatch(/const session = useMeditationSession\(\{\s*\n\s*initialStyleId: 'mindful-pause',\s*\n\s*initialDurationId: '2min',\s*\n\s*initialSoundId: 'IM01',\s*\n\s*onComplete: handleNaturalCompletion\s*\n\s*\}\);/);
   });
 
-  it('the isCompleted branch is checked (and returns) before the session.phase === \'active\' branch, since useMeditationSession.js has already flipped phase back to \'setup\' by the time onComplete fires', () => {
-    const isCompletedIndex = source.indexOf('if (isCompleted) {');
-    const activePhaseIndex = source.indexOf("if (session.phase === 'active' && session.snapshot) {");
-    expect(isCompletedIndex).toBeGreaterThan(-1);
+  it('the showCompletionPanel branch is still checked (and returns) before the active-or-exiting branch - harmless either way (the two conditions are mutually exclusive by construction, per useCompletionHandoff\'s own single-phase state machine), kept in this order to match the file\'s pre-existing structure', () => {
+    const showCompletionPanelIndex = source.indexOf('if (showCompletionPanel) {');
+    const activePhaseIndex = source.indexOf("if ((session.phase === 'active' || (isCompleted && showActiveView)) && session.snapshot) {");
+    expect(showCompletionPanelIndex).toBeGreaterThan(-1);
     expect(activePhaseIndex).toBeGreaterThan(-1);
-    expect(isCompletedIndex).toBeLessThan(activePhaseIndex);
+    expect(showCompletionPanelIndex).toBeLessThan(activePhaseIndex);
   });
 });
 
@@ -58,7 +58,7 @@ describe('MorningMeditate.jsx — completion greeting is picked exactly once per
   });
 
   it('the completed panel renders the held completionGreeting value directly - never calls getCompletionGreeting again in JSX', () => {
-    const completedPanel = source.match(/if \(isCompleted\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}if \(session\.phase === 'active'/)?.[1] ?? '';
+    const completedPanel = source.match(/if \(showCompletionPanel\) \{([\s\S]*?)\n {2}\}[\s\S]*?\n {2}if \(\(session\.phase === 'active'/)?.[1] ?? '';
     expect(completedPanel).not.toBe('');
     expect(completedPanel).toMatch(/\{completionGreeting\}/);
     expect(completedPanel).not.toMatch(/getCompletionGreeting\(/);
@@ -66,7 +66,7 @@ describe('MorningMeditate.jsx — completion greeting is picked exactly once per
 });
 
 describe('MorningMeditate.jsx — dedicated completion panel is its own full-tree return branch, never overlaid on top of setup/active', () => {
-  const completedPanel = source.match(/if \(isCompleted\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}if \(session\.phase === 'active'/)?.[1] ?? '';
+  const completedPanel = source.match(/if \(showCompletionPanel\) \{([\s\S]*?)\n {2}\}[\s\S]*?\n {2}if \(\(session\.phase === 'active'/)?.[1] ?? '';
 
   it('the completed branch contains no MeditationSetupPanel and no MeditationActiveSession - the active/setup views are gone, not hidden behind it', () => {
     expect(completedPanel).not.toBe('');
@@ -87,7 +87,7 @@ describe('MorningMeditate.jsx — dedicated completion panel is its own full-tre
 
 describe('MorningMeditate.jsx — Continue to Affirmation (required primary action, existing approved destination, never a new route)', () => {
   it('the completed panel\'s primary button calls advanceToAffirmation directly and is labelled exactly as required', () => {
-    const completedPanel = source.match(/if \(isCompleted\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}if \(session\.phase === 'active'/)?.[1] ?? '';
+    const completedPanel = source.match(/if \(showCompletionPanel\) \{([\s\S]*?)\n {2}\}[\s\S]*?\n {2}if \(\(session\.phase === 'active'/)?.[1] ?? '';
     expect(completedPanel).toMatch(/onClick=\{advanceToAffirmation\}/);
     expect(completedPanel).toMatch(/<span>Continue to Affirmation<\/span>/);
   });
@@ -116,11 +116,13 @@ describe('MorningMeditate.jsx — deliberate early finish (Finish & continue) an
     expect(fn).not.toMatch(/isCompleted|completionGreeting/);
   });
 
-  it('MeditationActiveSession\'s onRequestLeave (handleEndMeditation, End Meditation) never sets isCompleted - ending early is structurally distinct from natural completion', () => {
-    const activeBranch = source.match(/if \(session\.phase === 'active' && session\.snapshot\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}return \(/)?.[1] ?? '';
+  it('MeditationActiveSession\'s onRequestLeave (handleEndMeditation, End Meditation) never sets isCompleted - ending early is structurally distinct from natural completion. B67: the surrounding branch now legitimately references isCompleted (the fade-wrapper style/condition), so this checks handleEndMeditation itself, not the whole branch text', () => {
+    const activeBranch = source.match(/if \(\(session\.phase === 'active' \|\| \(isCompleted && showActiveView\)\) && session\.snapshot\) \{([\s\S]*?)\n {2}\}\s*\n\s*\n {2}return \(/)?.[1] ?? '';
     expect(activeBranch).not.toBe('');
     expect(activeBranch).toMatch(/onRequestLeave=\{handleEndMeditation\}/);
-    expect(activeBranch).not.toMatch(/isCompleted/);
+    const handleEndMeditationFn = source.match(/const handleEndMeditation = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(handleEndMeditationFn).not.toBe('');
+    expect(handleEndMeditationFn).not.toMatch(/isCompleted/);
   });
 });
 

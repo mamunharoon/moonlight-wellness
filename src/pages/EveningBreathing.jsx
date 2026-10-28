@@ -683,7 +683,7 @@ export const EveningBreathing = () => {
         // finished, so its own controls must never remain tappable
         // behind the completion panel.
         <div
-          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) } : undefined}
         >
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className="space-y-2">

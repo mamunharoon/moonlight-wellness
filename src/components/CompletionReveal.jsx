@@ -95,29 +95,30 @@ const GLOW_CLASSES = Object.freeze({
   anytime: 'shadow-mint-glow'
 });
 
-// Physical-iPhone completion-transition refinement pass — this
-// component's own settle time is only PART of the true end-to-end visible
-// transition for the four screens that also use useCompletionHandoff's
-// own HOLD + EXIT FADE of the outgoing active view (that part happens
-// entirely BEFORE this component ever mounts - see that hook's own doc
-// comment). Retuned again here to land the combined sequence inside the
-// newly-approved ~1.1-1.4s target (previously ~1.2-1.5s): with
-// useCompletionHandoff's own 400ms hold+exit-fade prefix (150+250), a
-// 1-item stagger now settles at 400+80+200+0+470=1150ms and a 2-item
-// stagger at 400+80+200+150+470=1300ms - both inside 1.1-1.4s (verified
-// in this file's own test suite). Screens with no such prefix (the
-// always-rendered completion pages, and the two early-return meditation
-// screens that never got the hold+exit-fade treatment - see
-// useCompletionHandoff.js's own documented limitation) settle faster on
-// this component's own timing alone (750-1050ms for 1-3 items) - an
-// honest, already-explained architectural difference, not a second
-// timing implementation. STAGGER_STEP_MS stays within the approved
-// 100-150ms-per-item range, at its top.
-const COMMIT_DELAY_MS = 80;
-const FRAME_TRANSITION_MS = 550;
-const STAGGER_TRANSITION_MS = 470;
-const STAGGER_STEP_MS = 150;
-const STAGGER_BASE_DELAY_MS = 200;
+// B67 device-feedback pass — see useCompletionHandoff.js's own doc
+// comment for the full root-cause (the prior ~1.1-1.4s combined sequence
+// read as sluggish next to the ~2s audio fade starting at the same
+// instant, NOT because either fade individually looked wrong). New
+// combined target: ~600-800ms total, "fade out the exercise content, then
+// fade in the completion content."
+//
+// Combined math, with useCompletionHandoff's own retuned 300ms prefix
+// (50ms hold + 250ms exit-fade - this component mounts only once that
+// prefix completes): COMMIT_DELAY_MS lands `entered` at local +40ms; a
+// no-stagger frame then settles at 40+300=340ms after mount (total
+// 300+340=640ms); a 2-item stagger's LAST item settles at
+// 40+60+1*80+250=430ms after mount (total 300+430=730ms) - both inside
+// the 600-800ms target (verified in this file's own test suite). Screens
+// with no useCompletionHandoff prefix (the always-rendered completion
+// pages reached via navigate(), which have no prior "exercise content" of
+// their own to fade out first) settle on this component's timing alone -
+// a 2-item stagger there finishes at ~430ms, faster still, which is
+// correct: there is nothing to coordinate a fade-OUT with on those pages.
+const COMMIT_DELAY_MS = 40;
+const FRAME_TRANSITION_MS = 300;
+const STAGGER_TRANSITION_MS = 250;
+const STAGGER_STEP_MS = 80;
+const STAGGER_BASE_DELAY_MS = 60;
 const REDUCED_MOTION_TRANSITION_MS = 200;
 // "Small upward greeting reveal" (approved brief) - every staggered item,
 // greeting included, settles in with a small upward slide alongside its

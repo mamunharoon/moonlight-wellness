@@ -869,7 +869,7 @@ export const MorningFlow = () => {
         // panel, even while still visible during the hold.
         <div
           className="space-y-3"
-          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 350ms ease-out' } : null) } : undefined}
+          style={isCompleted ? { pointerEvents: 'none', ...(activeViewExiting ? { opacity: 0, transition: 'opacity 250ms ease-out' } : null) } : undefined}
         >
           {/* Progress visual bar */}
           <div className="glass-panel p-5 rounded-2xl space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">

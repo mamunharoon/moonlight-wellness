@@ -108,8 +108,8 @@ describe('CompletionReveal — journey glow reuses existing, already-approved to
 });
 
 describe('CompletionReveal — stagger reveals children with an incremental, approved delay and a small upward slide; the primary action is never held back by the frame\'s own opacity', () => {
-  it('stagger step is within the approved 100-150ms per-item range, at its top', () => {
-    expect(source).toMatch(/const STAGGER_STEP_MS = 150;/);
+  it('stagger step is retuned by the B67 device-feedback pass (150 -> 80) to fit the new ~600-800ms combined target', () => {
+    expect(source).toMatch(/const STAGGER_STEP_MS = 80;/);
   });
 
   it('each staggered node gets its own transitionDelay proportional to its index - never all revealed simultaneously', () => {
@@ -132,35 +132,37 @@ describe('CompletionReveal — stagger reveals children with an incremental, app
   });
 });
 
-describe('CompletionReveal — completion-transition refinement: true end-to-end settle time, combined with useCompletionHandoff\'s own hold+exit-fade prefix, lands inside the approved ~1.1-1.4s target', () => {
+describe('CompletionReveal — B67 device-feedback pass: true end-to-end settle time, combined with useCompletionHandoff\'s own hold+exit-fade prefix, lands inside the new ~600-800ms target ("fade out the exercise content, then fade in the completion content")', () => {
   it('the retuned constants exist exactly as specified', () => {
-    expect(source).toMatch(/const COMMIT_DELAY_MS = 80;/);
-    expect(source).toMatch(/const STAGGER_BASE_DELAY_MS = 200;/);
-    expect(source).toMatch(/const STAGGER_TRANSITION_MS = 470;/);
+    expect(source).toMatch(/const COMMIT_DELAY_MS = 40;/);
+    expect(source).toMatch(/const STAGGER_BASE_DELAY_MS = 60;/);
+    expect(source).toMatch(/const STAGGER_TRANSITION_MS = 250;/);
   });
 
-  it('a 1/2-item stagger, combined with useCompletionHandoff\'s 400ms hold+exit-fade prefix, both settle within 1.1-1.4s - the practically-occurring cases for the four hold+exit-fade screens (badge+greeting is the maximum stagger count there)', () => {
-    const HOLD_PLUS_EXIT_MS = 400; // useCompletionHandoff.js: HOLD_MS(150) + EXIT_FADE_MS(250)
-    const COMMIT_DELAY_MS = 80;
-    const STAGGER_BASE_DELAY_MS = 200;
-    const STAGGER_STEP_MS = 150;
-    const STAGGER_TRANSITION_MS = 470;
+  it('a 1/2-item stagger, combined with useCompletionHandoff\'s 300ms hold+exit-fade prefix, both settle within ~600-800ms - the practically-occurring cases for the four hold+exit-fade screens (badge+greeting is the maximum stagger count there)', () => {
+    const HOLD_PLUS_EXIT_MS = 300; // useCompletionHandoff.js: HOLD_MS(50) + EXIT_FADE_MS(250)
+    const COMMIT_DELAY_MS = 40;
+    const STAGGER_BASE_DELAY_MS = 60;
+    const STAGGER_STEP_MS = 80;
+    const STAGGER_TRANSITION_MS = 250;
     const settleMs = (i) => HOLD_PLUS_EXIT_MS + COMMIT_DELAY_MS + STAGGER_BASE_DELAY_MS + i * STAGGER_STEP_MS + STAGGER_TRANSITION_MS;
+    expect(settleMs(0)).toBe(650);
+    expect(settleMs(1)).toBe(730);
     for (const i of [0, 1]) {
-      expect(settleMs(i)).toBeGreaterThanOrEqual(1100);
-      expect(settleMs(i)).toBeLessThanOrEqual(1400);
+      expect(settleMs(i)).toBeGreaterThanOrEqual(600);
+      expect(settleMs(i)).toBeLessThanOrEqual(800);
     }
   });
 
-  it('without the hold+exit-fade prefix (the always-rendered completion pages, and the two early-return meditation screens with a documented limitation), this component\'s own settle time alone is faster (750-1050ms for 1-3 items) - an honest architectural difference, not a second timing implementation', () => {
-    const COMMIT_DELAY_MS = 80;
-    const STAGGER_BASE_DELAY_MS = 200;
-    const STAGGER_STEP_MS = 150;
-    const STAGGER_TRANSITION_MS = 470;
+  it('without the hold+exit-fade prefix (the always-rendered completion pages reached via navigate(), which have no prior "exercise content" of their own to fade out first), this component\'s own settle time alone is faster (350-510ms for 1-3 items) - correct, not a second timing implementation: there is nothing to coordinate a fade-OUT with on those pages', () => {
+    const COMMIT_DELAY_MS = 40;
+    const STAGGER_BASE_DELAY_MS = 60;
+    const STAGGER_STEP_MS = 80;
+    const STAGGER_TRANSITION_MS = 250;
     const settleMs = (i) => COMMIT_DELAY_MS + STAGGER_BASE_DELAY_MS + i * STAGGER_STEP_MS + STAGGER_TRANSITION_MS;
-    expect(settleMs(0)).toBe(750);
-    expect(settleMs(1)).toBe(900);
-    expect(settleMs(2)).toBe(1050);
+    expect(settleMs(0)).toBe(350);
+    expect(settleMs(1)).toBe(430);
+    expect(settleMs(2)).toBe(510);
   });
 });
 
@@ -186,8 +188,8 @@ describe('CompletionReveal — forwards arbitrary extra props (e.g. role="status
 });
 
 describe('CompletionReveal — frame entrance timing', () => {
-  it('the frame entrance transition is within the approved 450-600ms range', () => {
-    expect(source).toMatch(/const FRAME_TRANSITION_MS = 550;/);
+  it('the frame entrance transition is retuned by the B67 device-feedback pass (550 -> 300) to fit the new ~600-800ms combined target', () => {
+    expect(source).toMatch(/const FRAME_TRANSITION_MS = 300;/);
   });
 
   it('a short delayed state flip (not a bare synchronous setState) reliably lets the browser commit the initial paint first, matching SessionComplete.jsx\'s own established reasoning', () => {
