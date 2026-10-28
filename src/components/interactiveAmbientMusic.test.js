@@ -657,3 +657,59 @@ describe('Web Audio GainNode workaround for iOS (HTMLMediaElement.volume does no
     expect(playerCodeOnly).toMatch(/audioContextRef\.current\?\.close\(\)\.catch\(\(\) => \{\}\);\s*\n\s*audioContextRef\.current = null;\s*\n\s*gainNodeRef\.current = null;/);
   });
 });
+
+// Coordinated audio/visual handoff — a "Continue" tap can navigate away
+// (unmounting this component, which React-routes to the next routine
+// screen) WHILE a natural-completion fade is still running (the fade takes
+// 2s; the completion panel with its Continue button appears after only
+// ~650-730ms - see useCompletionHandoff.js/CompletionReveal.jsx). Before
+// this fix, the unmount cleanup unconditionally cancelled that fade (which
+// itself snaps the volume back up to DEFAULT_VOLUME) and then released the
+// element - audibly a volume jump followed by an abrupt cut, not a gentle
+// fade to silence. Mirrors meditationAudioController.js's own proven
+// `if (fading) return;` destroy() guard, adapted for this being a React
+// ref (which React nulls on unmount) rather than a plain closure variable.
+describe('InteractiveAmbientMusic.jsx — coordinated audio/visual handoff (fade survives a mid-fade unmount)', () => {
+  it('tracks mount state via isMountedRef, flipped false as the very first thing the unmount cleanup does', () => {
+    expect(playerSource).toMatch(/const isMountedRef = useRef\(true\);/);
+    const cleanupBody = playerSource.match(/return \(\) => \{\s*\n\s*isMountedRef\.current = false;[\s\S]*?\n {4}\};/)?.[0] ?? '';
+    expect(cleanupBody).not.toBe('');
+  });
+
+  it('the unmount cleanup defers release entirely to an in-flight fade - it returns before touching the element/AudioContext when fadeIntervalRef.current is set', () => {
+    const cleanupBody = playerSource.match(/return \(\) => \{\s*\n\s*isMountedRef\.current = false;[\s\S]*?\n {4}\};/)?.[0] ?? '';
+    const guardIdx = cleanupBody.indexOf('if (fadeIntervalRef.current) return;');
+    const releaseIdx = cleanupBody.indexOf("audio.removeAttribute('src');");
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(releaseIdx).toBeGreaterThan(guardIdx);
+  });
+
+  it('fadeOutAndStop captures the audio element into its own closure variable once, and never re-reads audioRef.current afterwards inside its interval - the fix for React nulling the ref mid-unmount', () => {
+    const fnBody = playerSource.match(/const fadeOutAndStop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(fnBody).not.toBe('');
+    expect(fnBody).toMatch(/const audio = audioRef\.current;\s*\n\s*if \(!audio \|\| audio\.paused\) return;/);
+    const intervalBody = fnBody.match(/fadeIntervalRef\.current = setInterval\(\(\) => \{[\s\S]*?\n {4}\}, FADE_STEP_MS\);/)?.[0] ?? '';
+    expect(intervalBody).not.toBe('');
+    expect(intervalBody).not.toMatch(/audioRef\.current/);
+    expect(intervalBody).toMatch(/audio\.pause\(\);/);
+  });
+
+  it('once the fade genuinely finishes, it branches on isMountedRef: restores DEFAULT_VOLUME for reuse while still mounted, or performs the full release (removeAttribute/load/close AudioContext) if the screen was navigated away from first', () => {
+    const fnBody = playerSource.match(/const fadeOutAndStop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    const mountedBranch = fnBody.match(/if \(isMountedRef\.current\) \{([\s\S]*?)\n {8}\} else \{([\s\S]*?)\n {8}\}/);
+    expect(mountedBranch).not.toBeNull();
+    const [, whileMounted, afterUnmount] = mountedBranch;
+    expect(whileMounted).toMatch(/setLevel\(DEFAULT_VOLUME\);/);
+    expect(whileMounted).not.toMatch(/removeAttribute/);
+    expect(afterUnmount).toMatch(/audio\.removeAttribute\('src'\);/);
+    expect(afterUnmount).toMatch(/audio\.load\(\);/);
+    expect(afterUnmount).toMatch(/audioContextRef\.current\?\.close\(\)\.catch\(\(\) => \{\}\);/);
+  });
+
+  it('a manual Back/Leave (stop()) is completely unaffected - it still cancels any fade unconditionally and instantly, with no isMountedRef involvement at all', () => {
+    const stopBody = playerSource.match(/const stop = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(stopBody).not.toMatch(/isMountedRef/);
+    expect(stopBody).toMatch(/cancelFade\(\);/);
+    expect(stopBody).toMatch(/audioRef\.current\?\.pause\(\);/);
+  });
+});

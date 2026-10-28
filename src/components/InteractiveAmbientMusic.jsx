@@ -63,6 +63,11 @@ const FADE_STEP_MS = 50;
 export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended = false, hideToggle = false }, ref) => {
   const { isGuest } = useAuth();
   const audioRef = useRef(null);
+  // Coordinated audio/visual handoff — set false by the unmount cleanup
+  // effect below; read by fadeOutAndStop's own interval (see both for the
+  // full rationale) to tell whether this screen is still mounted when the
+  // fade naturally finishes.
+  const isMountedRef = useRef(true);
   // Duplicate-playback guard: ignored while start()'s own play()/pause()
   // cycle (including its network fetch) is already in flight, so a
   // remount race or repeated rapid taps can never issue two overlapping
@@ -202,10 +207,31 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   // captured here, in the effect body, not read lazily inside the
   // returned cleanup itself - the ref is guaranteed fresh at this point,
   // unlike by unmount time (same pattern BetaVideoModal.jsx uses).
+  //
+  // Coordinated audio/visual handoff — the one exception: if a natural-
+  // completion fade is still running when this fires (see the cleanup
+  // function's own doc comment below), release is deferred to that fade's
+  // own interval instead of happening here.
   useEffect(() => {
     const audio = audioRef.current;
     return () => {
-      cancelFade();
+      isMountedRef.current = false;
+      // Coordinated audio/visual handoff — a navigate() that happens WHILE
+      // a natural-completion fade (fadeOutAndStop below) is still running
+      // (e.g. "Continue" tapped from the completion panel before the 2s
+      // fade has finished) must let that fade actually keep fading to
+      // silence in the background, not cut it off here - the same pattern
+      // meditationAudioController.js's own destroy() already uses
+      // (`if (fading) return;`), adapted for this being a React ref rather
+      // than a plain closure: React nulls audioRef.current as part of this
+      // very unmount, so fadeOutAndStop's interval is written to use the
+      // `audio` element it captured directly, never audioRef.current, and
+      // performs the full release itself once the fade genuinely finishes
+      // (see its own isMountedRef check). A manual Back/Leave (stop(),
+      // called explicitly before navigating) is unaffected - it already
+      // cancels any fade unconditionally, by design, before this cleanup
+      // ever runs.
+      if (fadeIntervalRef.current) return;
       if (audio) {
         audio.pause();
         audio.removeAttribute('src');
@@ -220,7 +246,7 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
       audioContextRef.current = null;
       gainNodeRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- deliberately mount/unmount-only, same as useMeditationSession.js's own identical cleanup effect; cancelFade is stable in practice (defined fresh each render but only ever invoked from this unmount cleanup, never relied on to see a later render's closure)
+  }, []); // deliberately mount/unmount-only, same as useMeditationSession.js's own identical cleanup effect
 
   // No sign-out defensive guard here (removed): a guest is now genuinely
   // allowed to hear this ambient loop (see GUEST_ALLOWED_IDS in
@@ -252,22 +278,35 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
   };
 
   // Gentle fade-out for NATURAL session completion only - every other exit
-  // (manual Back/Leave, the `suspended` guard above, unmount) goes through
-  // stop() above and stays instant, per the product requirement ("preserve
+  // (manual Back/Leave, the `suspended` guard above) goes through stop()
+  // above and stays instant, per the product requirement ("preserve
   // immediate stopping when required"). Ramps the element's own .volume
   // down to 0 over durationMs via a plain setInterval (same shape as
   // BetaVideoModal.jsx's remainingMs-driven fade for Sleep Soundscapes,
   // the only other fade in this codebase), then pauses and explicitly
   // restores DEFAULT_VOLUME - not just cosmetic: start()'s own preloaded
   // fast-path skips re-setting volume, so this is what actually guarantees
-  // "replay starts at normal volume" for whichever start() runs next. Does
-  // NOT release the element (no removeAttribute/load) - these four
-  // screens show their own in-place completion panel rather than
-  // navigating away immediately, so the same element may still be reused
-  // by this screen; the existing unmount-cleanup effect (which also calls
-  // cancelFade()) remains the one place that fully releases it, exactly
-  // as before.
+  // "replay starts at normal volume" for whichever start() runs next.
+  //
+  // Coordinated audio/visual handoff — while this screen stays mounted
+  // (the user hasn't tapped "Continue" yet), this does NOT release the
+  // element (no removeAttribute/load): these four screens show their own
+  // in-place completion panel, so the same element may still be reused by
+  // this screen (e.g. "Breathe/Stretch Again"). If the screen is navigated
+  // away from before the fade finishes, this performs the full release
+  // itself instead, the same way destroy() would have - see the branch on
+  // isMountedRef below and the unmount cleanup effect's own matching
+  // doc comment.
   const fadeOutAndStop = () => {
+    // Captured once, into this closure, rather than re-read as
+    // audioRef.current on every tick below - coordinated audio/visual
+    // handoff: a "Continue" tap can navigate away (unmounting this
+    // component) WHILE this fade is still running, and React nulls
+    // audioRef.current as part of that very unmount (the unmount cleanup
+    // effect above defers release to this interval precisely so that can
+    // happen) - a live DOM/AudioContext handle on a now-detached element
+    // keeps working perfectly via this closure even though the ref no
+    // longer points to it.
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
     // startVolume read via getLevel() - NOT audio.volume directly - so
@@ -279,18 +318,28 @@ export const InteractiveAmbientMusic = forwardRef(({ musicVariantId, suspended =
     cancelFade(); // after reading startVolume - cancelFade() itself resets the level to DEFAULT_VOLUME
     const startTime = Date.now();
     fadeIntervalRef.current = setInterval(() => {
-      if (!audioRef.current) {
-        cancelFade();
-        return;
-      }
       const elapsed = Date.now() - startTime;
       const ratio = Math.max(1 - elapsed / FADE_OUT_DURATION_MS, 0);
       setLevel(startVolume * ratio);
       if (elapsed >= FADE_OUT_DURATION_MS) {
         clearInterval(fadeIntervalRef.current);
         fadeIntervalRef.current = null;
-        audioRef.current.pause();
-        setLevel(DEFAULT_VOLUME); // restored - not just cosmetic, see this function's own doc comment above
+        audio.pause();
+        if (isMountedRef.current) {
+          setLevel(DEFAULT_VOLUME); // restored - not just cosmetic, see this function's own doc comment above
+        } else {
+          // The screen was navigated away from while this fade was still
+          // running (see the unmount cleanup's matching guard above) -
+          // this element/context will never be reused by this now-unmounted
+          // instance, so finish the release the cleanup deferred, now that
+          // the fade has genuinely reached silence (prevents any overlap
+          // with whatever the destination screen does next).
+          audio.removeAttribute('src');
+          audio.load();
+          audioContextRef.current?.close().catch(() => {});
+          audioContextRef.current = null;
+          gainNodeRef.current = null;
+        }
       }
     }, FADE_STEP_MS);
   };
