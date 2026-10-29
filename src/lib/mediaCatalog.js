@@ -326,7 +326,25 @@ const INTERACTIVE_ONLY_IDS = new Set(['IB01', 'IS01', 'IM01', 'IM02', 'I01', 'I0
 // reason) stays documented and ready to reuse.
 const LIBRARY_EXCLUDED_STRETCH_IDS = new Set([]);
 
-export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id) && !LIBRARY_EXCLUDED_STRETCH_IDS.has(entry.id)).map((entry) => ({
+// Owner-approved catalogue removals (2026-10-29) — a DIFFERENT exclusion
+// reason from both sets above: not "never a Library row by design"
+// (INTERACTIVE_ONLY_IDS) and not "reachable only via its own dedicated
+// page" (LIBRARY_EXCLUDED_STRETCH_IDS), but "owner decided this specific
+// id should no longer be customer-facing." Nothing else about the id
+// changes: betaVideoManifest.js's entry, the Edge Function's
+// EXERCISE_PATHS mapping, and the underlying Storage object are all left
+// completely untouched — getBetaVideoById() still resolves it, so a
+// rollback is just removing the id from this set, never a data restore.
+//   - E24 (Confidence): removed from Library/Explore per explicit owner
+//     approval. Already had no routine `page` reference (see the
+//     MORNING-FLOW REDESIGN REACHABILITY UPDATE comment above) and is
+//     not part of MEDITATION_METADATA or ANYTIME_RESET_METADATA, so this
+//     is its only reachable surface — excluding it here fully removes it
+//     from customer-facing discovery. Distinct from A01 "Confidence
+//     Affirmations" and E12 "Confidence Builder," both untouched.
+const REMOVED_CATALOG_IDS = new Set(['E24']);
+
+export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id) && !LIBRARY_EXCLUDED_STRETCH_IDS.has(entry.id) && !REMOVED_CATALOG_IDS.has(entry.id)).map((entry) => ({
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
   meditation: MEDITATION_METADATA[entry.id] || null,
