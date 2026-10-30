@@ -31,7 +31,8 @@
 // E16 (Anxiety Relief) and E17 (Stress Reset) were part of Support.jsx's
 // original mood-video mapping before the "Need a moment" journey was
 // rebuilt into its current direct feeling->recommendation flow (which
-// uses E02/E03/E04/E08/E09 instead) — neither id has a contextual page
+// uses E02/E03/E04/B01/E09 instead — B01 replaced E08 in the anxious
+// mapping 2026-10-30, see Support.jsx's own comment) — neither id has a contextual page
 // reference anymore. Not unreachable overall (both are fully browsable
 // and playable via Library, same as any other id), just no longer
 // embedded in a specific flow. `page: null` reflects this honestly
