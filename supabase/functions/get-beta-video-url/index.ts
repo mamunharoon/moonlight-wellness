@@ -183,9 +183,9 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   // filename marker - see betaVideoManifest.js's own header comment on
   // this same series for the full explanation and verified durations.
   // Paths below are mirrored byte-for-byte from betaVideoManifest.js.
-  ['SL01', 'faststart-v2/WW_SL01_Rain_v2_faststart.mp4'],
-  ['SL02', 'faststart-v2/WW_SL02_OceanWaves_Preview_v2_faststart.mp4'],
-  ['SL03', 'faststart-v2/WW_SL03_ForestAmbience_v2_faststart.mp4'],
+  ['SL01', 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4'],
+  ['SL02', 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4'],
+  ['SL03', 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4'],
   ['SL04', 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4'],
   ['SL05', 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4'],
   ['SL06', 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4'],

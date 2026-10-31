@@ -26,9 +26,14 @@ import { BETA_VIDEO_MANIFEST } from './betaVideoManifest';
 const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf-8');
 const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts');
 
+// SL01-SL03 left this list 2026-11-01: their runtime mapping was
+// corrected to point directly at their verified faststart-v1/ objects,
+// per the owner's instruction that faststart-v1 is the only approved
+// active media folder - see
+// reports/sl01-sl03-dev-runtime-correction-2026-11-01.md.
 const FASTSTART_V2_IDS = [
   'E04', 'E05', 'E06', 'E11', 'E13',
-  'SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10'
+  'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10'
 ];
 
 const edgeFnPaths = Object.fromEntries(

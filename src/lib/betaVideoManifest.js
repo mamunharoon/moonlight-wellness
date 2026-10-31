@@ -655,7 +655,7 @@ export const BETA_VIDEO_MANIFEST = [
     // whole-minute UI label, never "5 min" for any of these ten.
     id: 'SL01',
     title: 'Rain',
-    storagePath: 'faststart-v2/WW_SL01_Rain_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4',
     description: 'Settle into the steady rhythm of gentle rain.',
     durationLabel: '2 min'
   },
@@ -666,16 +666,20 @@ export const BETA_VIDEO_MANIFEST = [
     // convention for this id - not a signal this is an incomplete/trailer
     // clip (see the SL01-SL10 Storage audit's own finding on this).
     // User-facing title stays "Ocean Waves" regardless.
-    storagePath: 'faststart-v2/WW_SL02_OceanWaves_Preview_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4',
     description: 'Rest with slow waves meeting a quiet shore.',
-    durationLabel: '3 min'
+    // 2026-11-01: new object is 120.384s (ffprobe-measured) - rounds to
+    // "2 min", down from the prior faststart-v2/ object's "3 min".
+    durationLabel: '2 min'
   },
   {
     id: 'SL03',
     title: 'Forest Ambience',
-    storagePath: 'faststart-v2/WW_SL03_ForestAmbience_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4',
     description: 'Unwind among soft woodland sounds.',
-    durationLabel: '3 min'
+    // 2026-11-01: new object is 117.227s (ffprobe-measured) - rounds to
+    // "2 min", down from the prior faststart-v2/ object's "3 min".
+    durationLabel: '2 min'
   },
   {
     id: 'SL04',
