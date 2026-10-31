@@ -65,8 +65,8 @@ const BREATHING_PATTERN_ICONS = {
  * pattern. A real native <input type="radio"> per pattern (via
  * BreathingPatternRow) - exactly one selected at a time.
  *
- * Video Integration: additional rows offering "Deep Breathing" and
- * "Mindful Breathing" alongside the morning routine's own breathing step
+ * Video Integration: additional rows offering "Calming Breath Meditation"
+ * (E08) and "Mindful Breathing" alongside the morning routine's own breathing step
  * - reuses this exact page rather than adding a parallel breathing
  * screen. Shown to any signed-in user (guests excluded).
  *

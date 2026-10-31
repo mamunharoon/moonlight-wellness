@@ -112,9 +112,18 @@ export const BETA_VIDEO_MANIFEST = [
   },
   {
     id: 'E08',
-    title: 'Deep Breathing',
+    // Retitled 2026-10-30 (owner-approved, following the E08-vs-B01
+    // duplication review — see reports/e08-b01-deep-breathing-duplication-
+    // review-2026-10-30.md and its saved transcripts): the old "Deep
+    // Breathing" / "Deep Breathing Practice" pair read as near-duplicates
+    // even though the two teach genuinely different techniques. This
+    // title/description pair was verified word-for-word against the
+    // transcribed narration, not assumed — E08 has a real counted
+    // inhale/hold/exhale pattern ("One, two, three, four... Hold your
+    // breath gently. One, two...").
+    title: 'Calming Breath Meditation',
     storagePath: 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4',
-    description: 'A guided deep-breathing video to center yourself.'
+    description: 'A short, guided breathing meditation with gentle counting and brief breath holds.'
   },
   {
     id: 'E09',
@@ -286,9 +295,13 @@ export const BETA_VIDEO_MANIFEST = [
   },
   {
     id: 'B01',
-    title: 'Deep Breathing Practice',
+    // Retitled 2026-10-30 (owner-approved) — see E08's own comment above
+    // for the full rationale. B01's narration was verified to explicitly
+    // teach belly/diaphragmatic breathing "without holding" and at the
+    // user's "own pace", distinct from E08's counted hold pattern.
+    title: 'Gentle Breathing Basics',
     storagePath: 'faststart-v1/WW_B01_DeepBreathing_Mobile_Background_v1.png_faststart.mp4',
-    description: 'A guided video for a deep breathing practice.'
+    description: 'Learn comfortable belly breathing at your own pace, without holding your breath.'
   },
   {
     id: 'B02',
