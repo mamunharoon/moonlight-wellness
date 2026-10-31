@@ -39,7 +39,19 @@ import { useBackHandler } from '../hooks/useBackHandler';
  *
  * Feeling -> exercise mapping matches the requested pairs exactly, reusing
  * existing built pages/videos rather than inventing new content:
- *   anxious      -> Instant Calm (E03) or Deep Breathing (E08)
+ *   anxious      -> Instant Calm (E03, default) or Gentle Breathing Basics
+ *                   (B01, "Choose Another") — swapped from E08 on
+ *                   2026-10-30 (owner-approved, see
+ *                   reports/e08-b01-deep-breathing-duplication-review-
+ *                   2026-10-30.md): the narration audit found E08 includes
+ *                   a counted breath-hold with no safety guidance, while
+ *                   B01 explicitly teaches breathing "without holding" and
+ *                   includes stop-if-uncomfortable guidance — a better fit
+ *                   for this specific anxious-user flow. E08 is otherwise
+ *                   unchanged and still appears in Library/Breathe.jsx/
+ *                   Anytime Reset/Meditation exactly as before; this is
+ *                   not a claim that either video treats anxiety or
+ *                   guarantees any health benefit.
  *   overwhelmed  -> Overwhelmed Mind (E02) or Grounding (the existing
  *                   5-4-3-2-1 exercise at /grounding)
  *   stressed     -> Release Tension (E04) or Mindful Pause (E09)
@@ -86,7 +98,7 @@ const MOOD_RECOMMENDATIONS = {
     body: 'Nothing needs to be solved right now. Just stay with this moment.',
     options: [
       { kind: 'video', id: 'E03' },
-      { kind: 'video', id: 'E08' }
+      { kind: 'video', id: 'B01' }
     ]
   },
   overwhelmed: {
