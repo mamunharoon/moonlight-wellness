@@ -147,10 +147,14 @@ describe('Catalogue facts reconfirmed against current source (audit cross-check)
     // REMOVED_CATALOG_IDS - 72 became 71, non-sleep-soundscape count 62
     // became 61. Manifest entry, Edge Function mapping and Storage object
     // are untouched (see mediaCatalog.js's own comment on that set).
-    expect(MEDIA_CATALOG.length).toBe(71);
+    // 2026-11-01 (Phase 2 consolidation): GR01-GR03 (Gratitude content,
+    // already live in PROD since 2026-10-22) ported into dev's manifest -
+    // 71 became 74, non-sleep-soundscape count 61 became 64. None are
+    // Sleep Soundscapes.
+    expect(MEDIA_CATALOG.length).toBe(74);
     const sleepSoundscapes = MEDIA_CATALOG.filter((e) => e.category === 'Sleep Soundscapes');
     expect(sleepSoundscapes.length).toBe(10);
-    expect(MEDIA_CATALOG.length - sleepSoundscapes.length).toBe(61);
+    expect(MEDIA_CATALOG.length - sleepSoundscapes.length).toBe(64);
   });
 
   it('no interactive-only/draft id (IB01/IS01/IM01/IM02/I01/I02) ever appears in any Explore catalogue - they are already excluded from MEDIA_CATALOG itself', () => {

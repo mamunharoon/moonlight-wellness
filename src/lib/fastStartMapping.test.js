@@ -35,10 +35,21 @@ const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts'
 // per the owner's instruction that faststart-v1 is the only approved
 // active media folder - see
 // reports/sl01-sl03-dev-runtime-correction-2026-11-01.md.
-const FASTSTART_V2_IDS = [
-  'E04', 'E05', 'E11', 'E13',
-  'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10'
-];
+// E04, E05, E11, E13, SL04-SL10 all left this list 2026-11-01 (Phase 2
+// consolidation, owner-approved) - see
+// reports/phase2-migration-manifest-2026-11-01.md. E04/E11: the object
+// moved was byte-identical (SHA-256-confirmed) to the faststart-v2/ copy
+// it replaces. E05: owner explicitly chose to keep the faststart-v1/
+// object (a genuinely different, non-identical cut) over the
+// faststart-v2/ object previously mapped. E13: the faststart-v1/ path now
+// holds the exact bytes of the already-approved, playback-tested object
+// that used to be served from faststart-v2/; the owner's raw
+// pre-optimization upload that previously occupied the faststart-v1/ path
+// was backed up (reports/e13-dev-v1-rawupload-backup-2026-11-01/) before
+// being overwritten. SL04-SL10: PROD's mapping already pointed here;
+// dev's mapping was the one lagging - no Storage write needed for these.
+// This list is now empty: every active id resolves from faststart-v1/.
+const FASTSTART_V2_IDS = [];
 
 const edgeFnPaths = Object.fromEntries(
   [...edgeFnSource.matchAll(/\['([A-Z0-9]+)',\s*'([^']+)'\]/g)].map((m) => [m[1], m[2]])
@@ -108,7 +119,22 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
   // reason as M06COVER: real PNG still cover images, never remuxed.
   // S01-S05 themselves are NOT exempt - they too are genuine Fast Start
   // remuxes of this batch's own replaced exports.
-  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER'];
+  //
+  // GR01-GR03 (Gratitude content, added 2026-10-22, ported to dev
+  // 2026-11-01) join for the same reason as IM01/IM02: brand-new,
+  // originally-narrated videos uploaded directly into faststart-v1/, never
+  // run through the Fast Start remux pipeline and never an `exercises/`
+  // object - no "_faststart" marker because none was ever added.
+  //
+  // SL09/SL10 join for a DIFFERENT reason, ported from
+  // revenuecat-native-purchase-integration along with the rest of
+  // SL04-SL10 2026-11-01: these ARE genuine Fast Start remuxes (verified
+  // moov-before-mdat, same pipeline as every other SL id), but the
+  // uploaded object names themselves never carried the "_faststart"
+  // suffix - exempted from the naming check only, not from the
+  // fast-start-ness itself. See betaVideoManifest.js's own matching
+  // comment on these two entries.
+  const REMUX_EXEMPT_IDS = ['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'GR01', 'GR02', 'GR03', 'SL09', 'SL10'];
 
   it('every remuxed path carries the _faststart marker before its extension (the remux naming convention)', () => {
     for (const [id, path] of Object.entries(edgeFnPaths)) {
@@ -117,8 +143,8 @@ describe('Fast Start conversion — every live ID maps to a Fast Start object, n
     }
   });
 
-  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
-    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER']);
+  it('IM01/IM02/S06-S09/M06/M06COVER/S06COVER-S09COVER/GR01-GR03/SL09-SL10 are the only explicit, deliberate exceptions, and only for the exact verified reasons above', () => {
+    expect(REMUX_EXEMPT_IDS).toEqual(['IM01', 'IM02', 'S06', 'S07', 'S08', 'S09', 'M06', 'M06COVER', 'S06COVER', 'S07COVER', 'S08COVER', 'S09COVER', 'GR01', 'GR02', 'GR03', 'SL09', 'SL10']);
     expect(edgeFnPaths.IM01).toBe('faststart-v1/WW_IM01_InteractiveMeditation_MusicBed_v1.m4a');
     expect(edgeFnPaths.IM02).toBe('faststart-v1/WW_IM02_InteractiveMeditation_SoftPiano_v1.m4a');
     // S06 renamed on the 2026-10-05 stretching refresh reupload (gained

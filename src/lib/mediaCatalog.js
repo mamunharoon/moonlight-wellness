@@ -154,6 +154,13 @@ const METADATA = {
   A03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
   A05: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
   A06: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  // GR01-GR03 - new Gratitude content (2026-10-22). Same category/
+  // timeOfDay/page shape as their closest existing siblings above
+  // (A02/A03/A05/A06) - not added to Morning or Evening journeys, per
+  // instruction; browsable via Library only, same as those siblings.
+  GR01: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  GR02: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
+  GR03: { category: 'Gratitude & Reflection', timeOfDay: 'any', page: null },
 
   // Evening Wind-Down (video content — distinct from Sleep Soundscapes)
   E05: { category: 'Evening Wind-Down', timeOfDay: 'evening', page: '/prepare-for-rest' },

@@ -89,13 +89,23 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E04',
     title: 'Release Tension',
-    storagePath: 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) - the
+    // object was byte-identical (SHA-256-confirmed) to the faststart-v2/
+    // copy it replaces; this is a path move, not a content change.
+    storagePath: 'faststart-v1/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4',
     description: 'A short guided sequence to let go of physical tension.'
   },
   {
     id: 'E05',
     title: 'Night-time Calm',
-    storagePath: 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation, owner
+    // decision): the owner chose to KEEP this faststart-v1/-named object
+    // (162.69s) over the previously-mapped faststart-v2/ object (157.00s)
+    // - these are genuinely different cuts, not a re-encode of the same
+    // source. Owner will replace this with new narration later; do not
+    // revert to the faststart-v2/ object, which is left in Storage
+    // untouched for reference only.
+    storagePath: 'faststart-v1/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4',
     description: 'A slow wind-down video to ease you toward sleep.'
   },
   {
@@ -140,7 +150,10 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E11',
     title: 'Positive Energy',
-    storagePath: 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) - the
+    // object was byte-identical (SHA-256-confirmed) to the faststart-v2/
+    // copy it replaces; this is a path move, not a content change.
+    storagePath: 'faststart-v1/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4',
     description: 'A guided video to lift your energy and mood.'
   },
   {
@@ -152,7 +165,15 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E13',
     title: 'Morning Focus',
-    storagePath: 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation, owner
+    // decision: option C). The faststart-v1/ path now holds the exact
+    // bytes of the already-approved, playback-tested object (SHA-256
+    // 47b23701...38fd7f9, owner-approved 2026-10-31 as "E13 PASS") that
+    // was previously served from faststart-v2/. The owner's raw
+    // pre-optimization upload that used to occupy this path was backed up
+    // first - see reports/e13-dev-v1-rawupload-backup-2026-11-01/ - before
+    // being overwritten. No re-encode performed.
+    storagePath: 'faststart-v1/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to sharpen your focus for the day ahead.'
   },
   {
@@ -435,6 +456,33 @@ export const BETA_VIDEO_MANIFEST = [
     storagePath: 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4',
     description: 'A guided video for a quick sensory reset.'
   },
+  // GR01-GR03 - Gratitude content added 2026-10-22 on the production
+  // branch; ported to dev 2026-11-01 (Phase 2 consolidation) - this id set
+  // was never added to dev's manifest before now. Three narrated videos,
+  // uploaded and verified this batch (H.264/AAC, Fast Start confirmed by
+  // direct moov/mdat atom inspection, under 20MB, full decode clean).
+  // storagePath is the object's real, already-uploaded name in Storage -
+  // not renamed to match the "_faststart.mp4" suffix convention every
+  // other entry uses, since it was uploaded without that suffix; flagged,
+  // not silently reproduced as if it matched.
+  {
+    id: 'GR01',
+    title: 'Finding Strength in What We Have',
+    storagePath: 'faststart-v1/WW_GR01_FindingStrengthInWhatWeHave_v1.mp4',
+    description: 'A guided gratitude video for finding strength in what you already have.'
+  },
+  {
+    id: 'GR02',
+    title: 'Gratitude Through Uncertainty',
+    storagePath: 'faststart-v1/WW_GR02_GratitudeThroughUncertainty_v1.mp4',
+    description: 'A guided gratitude video for staying grounded through uncertainty.'
+  },
+  {
+    id: 'GR03',
+    title: 'Beginning Today with Enough',
+    storagePath: 'faststart-v1/WW_GR03_BeginningTodayWithEnough_v1.mp4',
+    description: 'A guided gratitude video for beginning today with what is already enough.'
+  },
   {
     id: 'M01',
     title: 'Mindfulness Meditation',
@@ -682,55 +730,69 @@ export const BETA_VIDEO_MANIFEST = [
     durationLabel: '2 min'
   },
   {
+    // SL04-SL10 moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) -
+    // PROD's mapping already pointed here (fixed 2026-10-12); dev was the
+    // one lagging. Objects and durationLabels below mirrored byte-for-byte
+    // from revenuecat-native-purchase-integration, which already carried
+    // the corrected labels for this content.
     id: 'SL04',
     title: 'Fireplace',
-    storagePath: 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4',
     description: 'Relax beside the warmth of a gently crackling fire.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   {
     id: 'SL05',
     title: 'Gentle Wind',
-    storagePath: 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4',
+    // Object name keeps the owner's own double ".mp4" before "_faststart"
+    // (as uploaded) - preserved exactly, never renamed.
+    storagePath: 'faststart-v1/WW_SL05_Wind_v2.mp4_faststart.mp4',
     description: 'Drift off with a soft breeze across an open meadow.',
     durationLabel: '2 min'
   },
   {
+    // 2026-10-12: renamed by the owner on upload (gained "_compressed"
+    // before "_faststart") - preserved exactly, never renamed back.
     id: 'SL06',
     title: 'White Noise',
-    storagePath: 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v2_compressed_faststart.mp4',
     description: 'A steady sound to soften surrounding distractions.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL07',
     title: 'Pink Noise',
-    storagePath: 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4',
     description: 'A balanced, gentle sound for restful sleep.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL08',
     title: 'Brown Noise',
-    storagePath: 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL08_BrownNoise_v2.mp4_faststart.mp4',
     description: 'A deeper, softer sound for calm and focus.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     // Genuinely new catalogue items (not a replacement) - same
     // true-fast-start migration and verification as SL01-SL08 above.
+    // Object name has no "_faststart" marker (as uploaded) - preserved
+    // exactly, never renamed; see REMUX_EXEMPT_IDS in
+    // fastStartMapping.test.js for why that naming-convention check is
+    // deliberately exempted here even though this object IS genuinely
+    // fast-start remuxed.
     id: 'SL09',
     title: 'Soothing Birds',
-    storagePath: 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL09_SoothingBirds_v1.mp4',
     description: 'Settle with gentle birdsong in a peaceful natural setting.',
-    durationLabel: '3 min'
+    durationLabel: '2 min'
   },
   {
     id: 'SL10',
     title: 'Rustling Leaves',
-    storagePath: 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4',
+    storagePath: 'faststart-v1/WW_SL10_RustlingLeaves_v1.mp4',
     description: 'Unwind with soft rustling leaves and gentle piano.',
-    durationLabel: '3 min'
+    durationLabel: '1 min'
   },
   // Introduction guide videos - see mediaCatalog.js's INTERACTIVE_ONLY_IDS
   // (I01/I02 are added there too): never a Library-browsable "Watch" row,

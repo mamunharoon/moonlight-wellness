@@ -24,20 +24,29 @@ const read = (relativePath) => readFileSync(fileURLToPath(new URL(relativePath, 
 // were calibrated to the prior faststart-v2/ content's durations
 // (170.017s/198.345s) and would be wrong for the new files. SL01's new
 // duration (127.488s) still rounds to the same "2 min" as before.
+//
+// SL04-SL10 moved from faststart-v2/ to faststart-v1/ on 2026-11-01
+// (Phase 2 consolidation, owner-approved) - PROD's mapping already
+// pointed here (fixed 2026-10-12); dev was the one lagging. storagePaths
+// and durationLabels below mirrored byte-for-byte from
+// revenuecat-native-purchase-integration, which already carried the
+// corrected labels for this content (see
+// reports/phase2-migration-manifest-2026-11-01.md). No Storage write was
+// needed - objects already existed, SHA-256/ETag-confirmed matching PROD.
 const SL_ENTRIES = {
   SL01: { storagePath: 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4', durationLabel: '2 min' },
   SL02: { storagePath: 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4', durationLabel: '2 min' },
   SL03: { storagePath: 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4', durationLabel: '2 min' },
-  SL04: { storagePath: 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4', durationLabel: '3 min' },
-  SL05: { storagePath: 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4', durationLabel: '2 min' },
-  SL06: { storagePath: 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL07: { storagePath: 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL08: { storagePath: 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4', durationLabel: '3 min' },
-  SL09: { storagePath: 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4', durationLabel: '3 min' },
-  SL10: { storagePath: 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4', durationLabel: '3 min' }
+  SL04: { storagePath: 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4', durationLabel: '1 min' },
+  SL05: { storagePath: 'faststart-v1/WW_SL05_Wind_v2.mp4_faststart.mp4', durationLabel: '2 min' },
+  SL06: { storagePath: 'faststart-v1/WW_SL06_WhiteNoise_v2_compressed_faststart.mp4', durationLabel: '2 min' },
+  SL07: { storagePath: 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4', durationLabel: '2 min' },
+  SL08: { storagePath: 'faststart-v1/WW_SL08_BrownNoise_v2.mp4_faststart.mp4', durationLabel: '2 min' },
+  SL09: { storagePath: 'faststart-v1/WW_SL09_SoothingBirds_v1.mp4', durationLabel: '2 min' },
+  SL10: { storagePath: 'faststart-v1/WW_SL10_RustlingLeaves_v1.mp4', durationLabel: '1 min' }
 };
 
-const FASTSTART_V1_SL_IDS = new Set(['SL01', 'SL02', 'SL03']);
+const FASTSTART_V1_SL_IDS = new Set(['SL01', 'SL02', 'SL03', 'SL04', 'SL05', 'SL06', 'SL07', 'SL08', 'SL09', 'SL10']);
 
 describe('betaVideoManifest.js — every SL01-SL10 id is registered exactly once, at its verified current path', () => {
   for (const [id, { storagePath, durationLabel }] of Object.entries(SL_ENTRIES)) {
@@ -46,9 +55,8 @@ describe('betaVideoManifest.js — every SL01-SL10 id is registered exactly once
       expect(entry).toBeDefined();
       expect(entry.storagePath).toBe(storagePath);
       expect(entry.durationLabel).toBe(durationLabel);
-      // SL01-SL03 are now faststart-v1/ (2026-11-01 correction); the
-      // remaining seven stay on faststart-v2/ (Build 15 migration) -
-      // neither group may point at the other's folder.
+      // All ten are faststart-v1/ as of 2026-11-01 (SL01-SL03 corrected
+      // that date; SL04-SL10 followed in the same Phase 2 consolidation).
       const expectedPrefix = FASTSTART_V1_SL_IDS.has(id) ? 'faststart-v1/' : 'faststart-v2/';
       expect(entry.storagePath.startsWith(expectedPrefix)).toBe(true);
       // None of the ten may still claim the old, unverified "5 min" label.

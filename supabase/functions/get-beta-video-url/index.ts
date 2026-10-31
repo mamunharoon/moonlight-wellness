@@ -73,16 +73,30 @@ import { resolveBetaVideoUrlRequest } from '../_shared/betaVideoUrlAccess.ts';
 const EXERCISE_PATHS: Map<string, string> = new Map([
   ['E02', 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4'],
   ['E03', 'faststart-v1/WW_E03_InstantCalm_v3.mp4_faststart.mp4'],
-  ['E04', 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
-  ['E05', 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
+  // E04/E05/E11/E13 moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation,
+  // owner-approved). E04/E11: byte-identical content to their prior
+  // faststart-v2/ objects (SHA-256-confirmed before the copy; the copy was
+  // the existing bytes moved, not a re-encode). E05: owner explicitly chose
+  // to keep the faststart-v1/-named object (the one already live here) over
+  // the faststart-v2/ object the mapping previously pointed at - owner will
+  // replace this with new narration later; the faststart-v2/ copy is left
+  // in Storage untouched for reference. E13: the faststart-v1/ path now
+  // holds the exact bytes of the already-approved, playback-tested object
+  // (SHA-256 47b23701...38fd7f9) that was previously served from
+  // faststart-v2/ - the owner's raw pre-optimization upload that used to
+  // occupy this path was backed up first (see
+  // reports/e13-dev-v1-rawupload-backup-2026-11-01/) before being
+  // overwritten. See reports/phase2-migration-manifest-2026-11-01.md.
+  ['E04', 'faststart-v1/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
+  ['E05', 'faststart-v1/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
   ['E06', 'faststart-v1/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4'],
   ['E07', 'faststart-v1/WW_E07_MorningGratitude_Music_v2.mp3_faststart.mp4'],
   ['E08', 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4'],
   ['E09', 'faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4'],
   ['E10', 'faststart-v1/WW_E10_EveningReflection_Music_v1.mp3_faststart.mp4'],
-  ['E11', 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4'],
+  ['E11', 'faststart-v1/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4'],
   ['E12', 'faststart-v1/WW_E12_ConfidenceBuilder_Portrait_v1.png_faststart.mp4'],
-  ['E13', 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E13', 'faststart-v1/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4'],
   ['E14', 'faststart-v1/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3_faststart.mp4'],
   ['E15', 'faststart-v1/WW_E15_AFreshStart_BackgroundMusic_v1.mp3_faststart.mp4'],
   ['E16', 'faststart-v1/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3_faststart.mp4'],
@@ -132,6 +146,14 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['G02', 'faststart-v1/WW_G02_MuscleRelaxation_v1.mp4_faststart.mp4'],
   ['G03', 'faststart-v1/WW_G03_BodyAwareness_v1.mp4_faststart.mp4'],
   ['G04', 'faststart-v1/WW_G04_SensoryReset_v1.mp4_faststart.mp4'],
+  // GR01-GR03 - Gratitude content added 2026-10-22 on the production
+  // branch; ported here 2026-11-01 (Phase 2 consolidation) - this id set
+  // was never added to dev's mapping before now. Objects already existed
+  // in faststart-v1/ in both DEV and PROD; this is a mapping-only addition,
+  // mirrored byte-for-byte from revenuecat-native-purchase-integration.
+  ['GR01', 'faststart-v1/WW_GR01_FindingStrengthInWhatWeHave_v1.mp4'],
+  ['GR02', 'faststart-v1/WW_GR02_GratitudeThroughUncertainty_v1.mp4'],
+  ['GR03', 'faststart-v1/WW_GR03_BeginningTodayWithEnough_v1.mp4'],
   ['M01', 'faststart-v1/WW_M01_MindfulnessMeditation_v1.mp4_faststart.mp4'],
   ['M02', 'faststart-v1/WW_M02_BodyScan_v1.mp4_faststart.mp4'],
   ['M03', 'faststart-v1/WW_M03_LovingKindness_v1.mp4_faststart.mp4'],
@@ -186,13 +208,19 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['SL01', 'faststart-v1/WW_SL01_Rain_v2_faststart.mp4'],
   ['SL02', 'faststart-v1/WW_SL02_OceanWaves_Preview_v2_faststart.mp4'],
   ['SL03', 'faststart-v1/WW_SL03_ForestAmbience_v2_faststart.mp4'],
-  ['SL04', 'faststart-v2/WW_SL04_Fireplace_v2_faststart.mp4'],
-  ['SL05', 'faststart-v2/WW_SL05_Wind_v2_faststart.mp4'],
-  ['SL06', 'faststart-v2/WW_SL06_WhiteNoise_v2_faststart.mp4'],
-  ['SL07', 'faststart-v2/WW_SL07_PinkNoise_v2_faststart.mp4'],
-  ['SL08', 'faststart-v2/WW_SL08_BrownNoise_v2_faststart.mp4'],
-  ['SL09', 'faststart-v2/WW_SL09_SoothingBirds_v1_faststart.mp4'],
-  ['SL10', 'faststart-v2/WW_SL10_RustlingLeaves_v1_faststart.mp4'],
+  // SL04-SL10 moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) -
+  // PROD's mapping already pointed here (fixed independently, 2026-10-12
+  // owner re-upload); DEV's mapping was the one still lagging. Objects were
+  // already present and SHA-256/ETag-confirmed matching in both
+  // environments' faststart-v1/ before this change - mapping-only fix, no
+  // Storage write needed.
+  ['SL04', 'faststart-v1/WW_SL04_Fireplace_v2_faststart.mp4'],
+  ['SL05', 'faststart-v1/WW_SL05_Wind_v2.mp4_faststart.mp4'],
+  ['SL06', 'faststart-v1/WW_SL06_WhiteNoise_v2_compressed_faststart.mp4'],
+  ['SL07', 'faststart-v1/WW_SL07_PinkNoise_v2.mp4_faststart.mp4'],
+  ['SL08', 'faststart-v1/WW_SL08_BrownNoise_v2.mp4_faststart.mp4'],
+  ['SL09', 'faststart-v1/WW_SL09_SoothingBirds_v1.mp4'],
+  ['SL10', 'faststart-v1/WW_SL10_RustlingLeaves_v1.mp4'],
   // Introduction guide videos (Introduction.jsx) - verified against
   // storage.objects (name, mimetype video/mp4, size) before adding. Same
   // JWT-required/anonymous-rejected policy as every other id above -
