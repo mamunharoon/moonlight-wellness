@@ -32,7 +32,11 @@ const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts'
 // own updated comment on this series for the full explanation. The
 // Build 15 faststart-v2/ objects remain in Storage, untouched, for
 // rollback - just no longer the live mapping.
-const FASTSTART_V2_IDS = ['E04', 'E05', 'E06', 'E11', 'E13'];
+// E06 left this list 2026-11-01: PROD runtime mapping corrected to
+// faststart-v1, matching the owner-approved DEV content, as part of the
+// controlled six-id PROD media promotion - see
+// reports/e06-sl01-sl03-prod-promotion-manifest-2026-11-01.md.
+const FASTSTART_V2_IDS = ['E04', 'E05', 'E11', 'E13'];
 
 const edgeFnPaths = Object.fromEntries(
   [...edgeFnSource.matchAll(/\['([A-Z0-9]+)',\s*'([^']+)'\]/g)].map((m) => [m[1], m[2]])

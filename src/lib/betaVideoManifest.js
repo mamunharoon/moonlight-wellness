@@ -101,7 +101,7 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E06',
     title: 'Gentle Awakening',
-    storagePath: 'faststart-v2/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4',
+    storagePath: 'faststart-v1/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4',
     description: 'A soft guided start to ease into your morning.'
   },
   {
