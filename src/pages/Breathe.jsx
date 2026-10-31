@@ -35,31 +35,35 @@ const INTERACTIVE_BREATHING_MUSIC_ID = 'IB01';
 // here. E08 first since it was already here, E28 appended in the order
 // it was assigned to this screen.
 const BREATHE_VIDEOS = [
-  { id: 'E08', blurb: 'A guided video for this breathing exercise.' },
+  { id: 'E08', blurb: 'A short, guided breathing meditation with gentle counting and brief breath holds.' },
   { id: 'E28', blurb: 'A guided video for slow, mindful breathing.' }
 ];
 
 // B01-B05: a distinct "Breathing Sessions" collection, kept in its own
 // array/section (with its own heading) rather than merged into
-// BREATHE_VIDEOS above, specifically so "Deep Breathing Practice" (B01)
-// reads as its own thing next to the existing E08 "Deep Breathing" row on
-// this same page, not as a duplicate of it.
+// BREATHE_VIDEOS above, specifically so "Gentle Breathing Basics" (B01)
+// reads as its own thing next to the existing E08 "Calming Breath
+// Meditation" row on this same page, not as a duplicate of it —
+// confirmed, not just titled apart, by the 2026-10-30 narration audit
+// (reports/e08-b01-deep-breathing-duplication-review-2026-10-30.md): B01
+// teaches diaphragmatic breathing without any breath-hold, E08 has a
+// real counted inhale/hold/exhale pattern.
 const BREATHING_SESSION_VIDEOS = [
-  { id: 'B01', blurb: 'A guided video for a deep breathing practice.' },
+  { id: 'B01', blurb: 'Learn comfortable belly breathing at your own pace, without holding your breath.' },
   { id: 'B02', blurb: 'A guided video for box breathing.' },
   { id: 'B03', blurb: 'A guided video for 4-7-8 breathing.' },
   { id: 'B04', blurb: 'A guided video for coherent breathing.' },
   { id: 'B05', blurb: 'A guided video for alternate nostril breathing.' }
 ];
 
-// Video Integration: additional rows offering "Deep Breathing" and
-// "Mindful Breathing" alongside the morning routine's own breathing step
-// - reuses this exact page rather than adding a parallel breathing
-// screen, since its own copy ("Deep Belly Breath") already matches both
-// videos' subject. Shown to any signed-in user (guests excluded). Access
-// was originally gated on profiles.beta_access; that gate was removed
-// once these videos were approved for general availability in this
-// environment.
+// Video Integration: additional rows offering "Calming Breath Meditation"
+// (E08) and "Mindful Breathing" alongside the morning routine's own
+// breathing step - reuses this exact page rather than adding a parallel
+// breathing screen, since its own copy ("Deep Belly Breath") already
+// matches both videos' subject. Shown to any signed-in user (guests
+// excluded). Access was originally gated on profiles.beta_access; that
+// gate was removed once these videos were approved for general
+// availability in this environment.
 //
 // Morning-flow redesign — interactive timer vs. optional guided video:
 // this screen's own Inhale/Hold/Exhale ring has no narration or audio of
