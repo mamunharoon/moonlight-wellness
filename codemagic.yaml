@@ -186,25 +186,45 @@ workflows:
           cd ios/App
           pod install
 
-      - name: Set a unique, monotonically increasing build number
+      - name: Determine and set the next available TestFlight build number
         script: |
           set -euo pipefail
-          # $BUILD_NUMBER is Codemagic's own auto-incrementing counter for
-          # this workflow -- strictly increasing across builds without this
-          # repo ever tracking or committing a build number itself. (There
-          # is no $CM_BUILD_NUMBER variable -- referencing it under `set -u`
-          # is what previously failed the build with "unbound variable".)
+          # Build 54 failed to publish here: this step used to trust
+          # Codemagic's own per-workflow $BUILD_NUMBER counter as the
+          # CFBundleVersion, but App Store Connect already had build 70
+          # uploaded via a different path (the sibling
+          # wakewise-ios-sandbox-test workflow below queries App Store
+          # Connect directly for its next build number, so its counter and
+          # this workflow's local counter had drifted apart) -- Apple
+          # rejected the upload with ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE
+          # ("The bundle version must be higher than the previously
+          # uploaded version: 70"). Same fix as that workflow's own prior
+          # "Build 24" incident (see its step below): always query App
+          # Store Connect for the real current highest build number and
+          # use highest+1 -- correct on every run, regardless of which
+          # workflow or manual process uploaded the previous build. If the
+          # query fails, abort rather than falling back to a local counter
+          # or timestamp.
+          #
           # CFBundleShortVersionString (MARKETING_VERSION, currently 1.0)
           # is deliberately left untouched here -- that's a product
           # decision, not something the pipeline should bump on its own.
-          if [ -z "${BUILD_NUMBER:-}" ]; then
-            echo "BUILD_NUMBER was not provided by Codemagic for this build; falling back to the current UTC epoch-seconds timestamp so CFBundleVersion still increases monotonically."
-            BUILD_NUMBER="$(date -u +%s)"
-          fi
-          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "BUILD_NUMBER ('$BUILD_NUMBER') is not a plain non-negative integer -- App Store Connect requires CFBundleVersion to be numeric. Aborting."
+          APP_LOOKUP_JSON="$(app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" --strict-match-identifier --json)"
+          APP_ID="$(echo "$APP_LOOKUP_JSON" | jq -r 'if type == "array" then . else .data end | map(.id) | if length == 1 then .[0] else "" end')"
+          if [ -z "$APP_ID" ] || ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
+            echo "Could not resolve exactly one numeric App Store Connect app ID for bundle ID $BUNDLE_ID (lookup returned: $APP_LOOKUP_JSON). Refusing to guess -- aborting rather than hardcoding or falling back to a cached value."
             exit 1
           fi
+          echo "Resolved App Store Connect app ID $APP_ID for bundle ID $BUNDLE_ID."
+
+          QUERIED_BUILD_NUMBER="$(app-store-connect get-latest-build-number --platform IOS "$APP_ID")"
+          if ! [[ "$QUERIED_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Could not obtain a valid highest-build-number response from App Store Connect for app ID $APP_ID / bundle ID $BUNDLE_ID (got: '$QUERIED_BUILD_NUMBER'). Refusing to guess -- aborting rather than falling back to a counter or timestamp."
+            exit 1
+          fi
+
+          BUILD_NUMBER=$((QUERIED_BUILD_NUMBER + 1))
+          echo "Highest existing build in App Store Connect for $BUNDLE_ID: $QUERIED_BUILD_NUMBER. Using next available: $BUILD_NUMBER."
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
 
