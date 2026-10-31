@@ -65,8 +65,8 @@ describe('Phase 2C — post-baseline catalogue additions (M06/S06-S09 + their co
     }
   });
 
-  it('MEDIA_CATALOG holds exactly 75 real entries today: the spec\'s 73-entry baseline minus the 5 covers (never in MEDIA_CATALOG) plus the 5 approved-Plus M06/S06-S09 parents (= 72), plus the 3 new GR01-GR03 gratitude ids added 2026-10-22 (= 75)', () => {
-    expect(MEDIA_CATALOG.length).toBe(75);
+  it('MEDIA_CATALOG holds exactly 74 real entries today: the spec\'s 73-entry baseline minus the 5 covers (never in MEDIA_CATALOG) plus the 5 approved-Plus M06/S06-S09 parents (= 72), plus the 3 new GR01-GR03 gratitude ids added 2026-10-22 (= 75), minus the 2026-11-01 owner-approved E24 (Confidence) removal via REMOVED_CATALOG_IDS (= 74)', () => {
+    expect(MEDIA_CATALOG.length).toBe(74);
   });
 
   it('none of the 5 cover ids ever appear in MEDIA_CATALOG - confirms they stay excluded, never Library-browsable, never independently selectable', () => {
