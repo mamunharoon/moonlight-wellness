@@ -36,7 +36,16 @@ const edgeFnSource = read('../../supabase/functions/get-beta-video-url/index.ts'
 // faststart-v1, matching the owner-approved DEV content, as part of the
 // controlled six-id PROD media promotion - see
 // reports/e06-sl01-sl03-prod-promotion-manifest-2026-11-01.md.
-const FASTSTART_V2_IDS = ['E04', 'E05', 'E11', 'E13'];
+// E04, E05, E11, E13 left this list 2026-11-01 (Phase 2 consolidation,
+// owner-approved) - see reports/phase2-migration-manifest-2026-11-01.md.
+// E04/E11: the object moved was byte-identical (SHA-256-confirmed) to the
+// faststart-v2/ copy it replaces. E05: owner explicitly chose to keep the
+// faststart-v1/ object (a genuinely different, non-identical cut) over
+// the faststart-v2/ object previously mapped. E13: the faststart-v1/ path
+// now holds the exact bytes of the already-approved, playback-tested
+// object that used to be served from faststart-v2/.
+// This list is now empty: every active id resolves from faststart-v1/.
+const FASTSTART_V2_IDS = [];
 
 const edgeFnPaths = Object.fromEntries(
   [...edgeFnSource.matchAll(/\['([A-Z0-9]+)',\s*'([^']+)'\]/g)].map((m) => [m[1], m[2]])

@@ -73,16 +73,27 @@ import { fetchEntitlementRecords } from '../_shared/entitlementRecords.ts';
 const EXERCISE_PATHS: Map<string, string> = new Map([
   ['E02', 'faststart-v1/WW_E02_OverwhelmedMind_Final_v2.mp4Use_faststart.mp4'],
   ['E03', 'faststart-v1/WW_E03_InstantCalm_v3.mp4_faststart.mp4'],
-  ['E04', 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
-  ['E05', 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
+  // E04/E05/E11/E13 moved to faststart-v1/ 2026-11-01 (Phase 2
+  // consolidation, owner-approved). E04/E11: byte-identical content to
+  // their prior faststart-v2/ objects (SHA-256-confirmed before the copy;
+  // the copy was the existing bytes moved, not a re-encode). E05: owner
+  // explicitly chose to keep the faststart-v1/-named object over the
+  // faststart-v2/ object previously mapped - these are genuinely
+  // different cuts, not a re-encode of the same source; owner will
+  // replace this with new narration later. E13: the faststart-v1/ path
+  // now holds the exact bytes of the already-approved, playback-tested
+  // object (SHA-256 47b23701...38fd7f9) previously served from
+  // faststart-v2/ - see reports/phase2-migration-manifest-2026-11-01.md.
+  ['E04', 'faststart-v1/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
+  ['E05', 'faststart-v1/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
   ['E06', 'faststart-v1/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4'],
   ['E07', 'faststart-v1/WW_E07_MorningGratitude_Music_v2.mp3_faststart.mp4'],
   ['E08', 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4'],
   ['E09', 'faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4'],
   ['E10', 'faststart-v1/WW_E10_EveningReflection_Music_v1.mp3_faststart.mp4'],
-  ['E11', 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4'],
+  ['E11', 'faststart-v1/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4'],
   ['E12', 'faststart-v1/WW_E12_ConfidenceBuilder_Portrait_v1.png_faststart.mp4'],
-  ['E13', 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4'],
+  ['E13', 'faststart-v1/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4'],
   ['E14', 'faststart-v1/WW_E14_MotivationBoost_BackgroundMusic_v2.mp3_faststart.mp4'],
   ['E15', 'faststart-v1/WW_E15_AFreshStart_BackgroundMusic_v1.mp3_faststart.mp4'],
   ['E16', 'faststart-v1/WW_E16_AnxietyRelief_BackgroundMusic_v1.mp3_faststart.mp4'],

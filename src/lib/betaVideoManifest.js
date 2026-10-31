@@ -89,13 +89,23 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E04',
     title: 'Release Tension',
-    storagePath: 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) - the
+    // object was byte-identical (SHA-256-confirmed) to the faststart-v2/
+    // copy it replaces; this is a path move, not a content change.
+    storagePath: 'faststart-v1/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4',
     description: 'A short guided sequence to let go of physical tension.'
   },
   {
     id: 'E05',
     title: 'Night-time Calm',
-    storagePath: 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation, owner
+    // decision): the owner chose to KEEP this faststart-v1/-named object
+    // (162.69s) over the previously-mapped faststart-v2/ object (157.00s)
+    // - these are genuinely different cuts, not a re-encode of the same
+    // source. Owner will replace this with new narration later; do not
+    // revert to the faststart-v2/ object, which is left in Storage
+    // untouched for reference only.
+    storagePath: 'faststart-v1/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4',
     description: 'A slow wind-down video to ease you toward sleep.'
   },
   {
@@ -140,7 +150,10 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E11',
     title: 'Positive Energy',
-    storagePath: 'faststart-v2/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation) - the
+    // object was byte-identical (SHA-256-confirmed) to the faststart-v2/
+    // copy it replaces; this is a path move, not a content change.
+    storagePath: 'faststart-v1/WW_E11_PositiveEnergy_Music_v1.mp3_faststart.mp4',
     description: 'A guided video to lift your energy and mood.'
   },
   {
@@ -152,7 +165,13 @@ export const BETA_VIDEO_MANIFEST = [
   {
     id: 'E13',
     title: 'Morning Focus',
-    storagePath: 'faststart-v2/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4',
+    // Moved to faststart-v1/ 2026-11-01 (Phase 2 consolidation, owner
+    // decision: option C). The faststart-v1/ path now holds the exact
+    // bytes of the already-approved, playback-tested object (SHA-256
+    // 47b23701...38fd7f9, owner-approved 2026-10-31 as "E13 PASS") that
+    // was previously served from faststart-v2/. See
+    // reports/phase2-migration-manifest-2026-11-01.md.
+    storagePath: 'faststart-v1/WW_E13_MorningFocus_BackgroundMusic_v1.mp3_faststart.mp4',
     description: 'A guided video to sharpen your focus for the day ahead.'
   },
   {
