@@ -75,7 +75,7 @@ const EXERCISE_PATHS: Map<string, string> = new Map([
   ['E03', 'faststart-v1/WW_E03_InstantCalm_v3.mp4_faststart.mp4'],
   ['E04', 'faststart-v2/WW_E04_ReleaseTension_Portrait_v2png_faststart.mp4'],
   ['E05', 'faststart-v2/WW_E05_NightTimeCalm_v2.mp4_faststart.mp4'],
-  ['E06', 'faststart-v2/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4'],
+  ['E06', 'faststart-v1/WW_E06_GentleAwakening_Gratitude_v3.mp3_faststart.mp4'],
   ['E07', 'faststart-v1/WW_E07_MorningGratitude_Music_v2.mp3_faststart.mp4'],
   ['E08', 'faststart-v1/WW_E08_DeepBreathing_v2.mp4_faststart.mp4'],
   ['E09', 'faststart-v1/WW_E09_MindfulPause_Music_v1.mp3_faststart.mp4'],
