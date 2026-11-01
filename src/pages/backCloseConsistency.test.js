@@ -32,7 +32,6 @@ const REPLACED_BACK_BUTTONS = [
   { file: './AdminHome.jsx', fallback: '/', label: 'Back to app' },
   { file: './AdminSubscriptions.jsx', fallback: '/admin', label: 'Back to Administration' },
   { file: './AdminUsers.jsx', fallback: '/admin', label: 'Back to Administration' },
-  { file: './FastStartPilot.jsx', fallback: '/admin', label: 'Back to Admin' },
   { file: './AudioLibrary.jsx', fallback: '/settings', label: 'Back to Settings' },
   { file: './Beta.jsx', fallback: '/settings', label: 'Back to Settings' },
   { file: './Settings.jsx', fallback: '/profile', label: 'Back to Profile' },
