@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 import { getEntitlements } from '../lib/entitlements';
 import { applySubscriptionOverride } from '../lib/subscriptionOverride';
 import { fetchEntitlementRecords } from '../lib/entitlementSnapshot';
 import { resolveUnifiedEntitlement, ENTITLEMENT_STATES } from '../lib/entitlementResolver';
+import { clearSignedVideoUrlCache } from '../lib/signedVideoUrlCache';
 
 const SubscriptionContext = createContext();
 
@@ -120,6 +121,26 @@ export const SubscriptionProvider = ({ children }) => {
   }, [user, authLoading]);
 
   const refreshSubscription = () => loadSubscription(user);
+
+  // Video startup performance (2026-11-01, DEV only) — defense-in-depth,
+  // not a fix for a live gap: DEV's get-beta-video-url does not actually
+  // gate on entitlement today (see that file's own header comment), and
+  // a signed URL's own 5-minute TTL already bounds how long any cached
+  // copy — or an uncached one, for that matter — can be used regardless
+  // of what happens to the user's plan afterward. This just avoids
+  // leaving a stale-plan-shaped cache entry sitting around once a real
+  // plan change is observed, rather than waiting up to 5 minutes for it
+  // to expire on its own. Skips the very first resolution (mount/sign-in)
+  // — that's a plan being learned, not a plan changing.
+  const previousPlanRef = useRef(undefined);
+  useEffect(() => {
+    const previous = previousPlanRef.current;
+    const current = `${subscription.plan}:${subscription.status}`;
+    if (previous !== undefined && previous !== current) {
+      clearSignedVideoUrlCache();
+    }
+    previousPlanRef.current = current;
+  }, [subscription.plan, subscription.status]);
 
   // WakeWise Phase 2B — the unified, multi-provider entitlement result
   // (see entitlementResolver.js's own header). Deliberately a SEPARATE
