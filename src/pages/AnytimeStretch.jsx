@@ -9,6 +9,7 @@ import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { setPendingContent } from '../lib/pendingContent';
+import { formatElapsedTime } from '../lib/formatElapsedTime';
 import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/anytimeStretchCatalog';
 
 /*
@@ -46,6 +47,16 @@ import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/a
  * Only the single supplied narration track plays - no
  * InteractiveAmbientMusic or any other second soundtrack is ever mounted
  * on this page.
+ *
+ * "Consistently audio-only" fix (2026-11-05) — the circular session
+ * cover photo above the title (and its resolveCover/preloadedCoverRef
+ * machinery) is REMOVED: these four sessions must show no exercise
+ * photograph at all, in Anytime or Library (see betaVideoManifest.js's
+ * matching coverId removal for S06-S09). The icon badge below the title
+ * is now always the plain accessibility_new glyph, never a photo; an
+ * "Audio" label makes the content type explicit. The underlying
+ * S06COVER-S09COVER manifest entries/PNG objects are untouched - simply
+ * no longer fetched or referenced from this page.
  *
  * First-use silent-narration fix (physical-iPhone TestFlight report) —
  * root cause (traced live): selecting a session used to be `async
@@ -86,13 +97,6 @@ import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/a
  * remove the one genuinely unavoidable case (a cold tap faster than any
  * network round trip could ever complete).
  */
-const formatTime = (seconds) => {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-};
-
 export const AnytimeStretch = () => {
   const navigate = useNavigate();
   const audioRef = useRef(null);
@@ -107,17 +111,6 @@ export const AnytimeStretch = () => {
   // own upfront estimate once this is available - "respect the actual
   // media duration" in practice, not just in the selection list's copy.
   const [duration, setDuration] = useState(0);
-  // Session cover image - resolved via the exact same signed-URL
-  // mechanism as the audio itself (requestBetaVideoUrl(session.coverId)),
-  // reusing betaVideoManifest.js/get-beta-video-url's existing
-  // S06COVER-S09COVER entries (the very same ones the Library card for
-  // these four sessions already resolves this same cover through).
-  // Unlike the audio URL, this
-  // is never on the critical path for the gesture-synchronous play()
-  // call below - an image load has no autoplay policy to satisfy, so it
-  // always resolves in the background and simply fills in once ready;
-  // never blocks or delays playback starting.
-  const [coverUrl, setCoverUrl] = useState(null);
 
   const session = selectedId ? getAnytimeStretchSessionById(selectedId) : null;
 
@@ -127,12 +120,6 @@ export const AnytimeStretch = () => {
   // instead of awaiting a fresh fetch first. A plain ref, not state: this
   // is a background head start with nothing of its own to render.
   const preloadedRef = useRef({});
-  // Same head-start idea for each session's cover image, keyed by
-  // coverId this time (a separate id/signed-URL from the audio one) -
-  // no gesture-timing constraint applies to an <img>, but preloading
-  // still means the cover is very likely already in hand by the time a
-  // session is tapped, same as the audio.
-  const preloadedCoverRef = useRef({});
 
   // Speculatively resolves every session's signed URL as soon as this
   // screen mounts - see this file's own top-of-file doc comment for the
@@ -151,12 +138,6 @@ export const AnytimeStretch = () => {
           preloadedRef.current[s.exerciseId] = { url, expiresAt };
         })
         .catch(() => {});
-      requestBetaVideoUrl(s.coverId)
-        .then(({ url, expiresAt }) => {
-          if (cancelled) return;
-          preloadedCoverRef.current[s.coverId] = { url, expiresAt };
-        })
-        .catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -171,31 +152,6 @@ export const AnytimeStretch = () => {
   }, [view]);
   useEffect(() => () => audioRef.current?.pause(), []);
 
-  // Resolves this session's cover image in the background - cache-first
-  // (preloadedCoverRef), falling back to a fresh fetch. Deliberately
-  // fire-and-forget: never awaited by handleSelect, never blocks or
-  // delays audio playback starting, and a failure here simply leaves
-  // coverUrl null (the view falls back to the plain icon badge below,
-  // the pre-existing baseline - never an error state of its own).
-  // Guarded against a fast session-switch race (select A, back, select B
-  // before A's own fetch resolves) via currentCoverIdRef - A's `.then`
-  // landing after B is already selected must never overwrite B's cover.
-  const currentCoverIdRef = useRef(null);
-  const resolveCover = (coverId) => {
-    currentCoverIdRef.current = coverId;
-    const cachedCover = preloadedCoverRef.current[coverId];
-    if (cachedCover && !isSignedUrlExpired(cachedCover.expiresAt)) {
-      setCoverUrl(cachedCover.url);
-      return;
-    }
-    requestBetaVideoUrl(coverId)
-      .then(({ url, expiresAt }) => {
-        preloadedCoverRef.current[coverId] = { url, expiresAt };
-        if (currentCoverIdRef.current === coverId) setCoverUrl(url);
-      })
-      .catch(() => {});
-  };
-
   const handleSelect = (id) => {
     const target = getAnytimeStretchSessionById(id);
     setSelectedId(id);
@@ -203,8 +159,6 @@ export const AnytimeStretch = () => {
     setDuration(0);
     setIsPlaying(false);
     setErrorMessage('');
-    setCoverUrl(null);
-    resolveCover(target.coverId);
 
     const audio = audioRef.current;
     const cached = preloadedRef.current[target.exerciseId];
@@ -340,7 +294,7 @@ export const AnytimeStretch = () => {
               <SelectionRow
                 key={s.id}
                 label={s.title}
-                description={formatTime(s.durationSeconds)}
+                description={formatElapsedTime(s.durationSeconds)}
                 selected={false}
                 onClick={() => handleSelect(s.id)}
                 accent="anytime"
@@ -387,22 +341,18 @@ export const AnytimeStretch = () => {
             style={{ backgroundColor: 'rgb(var(--color-tertiary-tint) / 0.05)' }}
           >
             <div className="space-y-2 pt-2">
-              {/* Session cover, generic-icon fix - same circular slot,
-                  same size/border/glow treatment, just filled with the
-                  session's real cover photo once resolveCover resolves
-                  it. Falls back to the original plain icon badge
-                  (unchanged markup) whenever coverUrl isn't available
-                  yet or failed to resolve - never a broken-image state. */}
-              {coverUrl ? (
-                <span className="inline-flex items-center justify-center w-20 h-20 rounded-full overflow-hidden border-2 border-tertiary-tint/30 mx-auto">
-                  <img src={coverUrl} alt="" className="w-full h-full object-cover" />
-                </span>
-              ) : (
-                <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-tertiary-tint/15 border-2 border-tertiary-tint/30 text-tertiary mx-auto">
-                  <span className="material-symbols-outlined text-4xl" aria-hidden="true">accessibility_new</span>
-                </span>
-              )}
+              {/* "Consistently audio-only" fix (2026-11-05) - no exercise
+                  photograph here (never fetched for these sessions at
+                  all now - see this file's own top-of-file doc comment);
+                  always the plain icon badge, plus an explicit "Audio"
+                  label so the content type is never ambiguous. */}
+              <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-tertiary-tint/15 border-2 border-tertiary-tint/30 text-tertiary mx-auto">
+                <span className="material-symbols-outlined text-4xl" aria-hidden="true">accessibility_new</span>
+              </span>
               <h1 className="font-headline-lg text-2xl text-on-surface font-bold tracking-tight pt-2">{session.title}</h1>
+              <span className="inline-block text-[10px] uppercase tracking-wider font-bold text-tertiary/80 bg-tertiary-tint/15 px-2.5 py-1 rounded-full">
+                Audio
+              </span>
             </div>
 
             <div className="space-y-2">
@@ -410,7 +360,7 @@ export const AnytimeStretch = () => {
                 <div className="h-full bg-tertiary transition-all duration-150" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="text-xs text-on-surface-variant font-semibold">
-                {formatTime(currentTime)} / {formatTime(duration || session.durationSeconds)}
+                {formatElapsedTime(currentTime)} / {formatElapsedTime(duration || session.durationSeconds)}
               </p>
             </div>
 

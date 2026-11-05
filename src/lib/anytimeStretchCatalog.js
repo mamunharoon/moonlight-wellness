@@ -18,46 +18,40 @@
 // the same canonical Stretch glyph Morning's own pathway preview already
 // uses, so this integration introduces no new icon identity for the same
 // concept.
-// 2026-10-05 stretching content refresh: all four durations updated to
-// match the re-recorded MP3s (ffprobe-measured against the live
-// objects, not guessed) - notably shorter than the previous batch, not
-// a measurement error.
 //
-// coverId (added for the Anytime player's own cover-image display,
-// matching the generic icon -> real session cover fix) resolves through
-// this exact same signed-URL mechanism (requestBetaVideoUrl) - the
-// identical S06COVER-S09COVER entries betaVideoManifest.js/
-// get-beta-video-url already carry for Library's own BetaVideoModal use
-// of these same four sessions. One shared id/path mapping, two
-// independent consumers - never a second cover upload or path.
+// 2026-11-05 "consistently audio-only" fix — `coverId` is REMOVED from
+// all four sessions (the owner replaced all four underlying MP3s in DEV
+// Storage with an Adobe Express voice+music mix; these sessions must
+// show no exercise photograph here or in Library, matching
+// betaVideoManifest.js's own identical coverId removal for S06-S09 - see
+// that file's comment for the full rationale). `durationSeconds` below
+// is the new ffprobe-measured value against the replaced objects - all
+// four genuinely got longer (narration remixed with a music bed/fades,
+// not a measurement error).
 export const ANYTIME_STRETCH_SESSIONS = [
   {
     id: 'chest-shoulder',
     exerciseId: 'S06',
-    coverId: 'S06COVER',
     title: 'Chest & Shoulder Stretch',
-    durationSeconds: 52
+    durationSeconds: 103
   },
   {
     id: 'hands-wrists',
     exerciseId: 'S07',
-    coverId: 'S07COVER',
     title: 'Hands & Wrists Refresh',
-    durationSeconds: 44
+    durationSeconds: 97
   },
   {
     id: 'feet-ankles',
     exerciseId: 'S08',
-    coverId: 'S08COVER',
     title: 'Feet & Ankles Refresh',
-    durationSeconds: 41
+    durationSeconds: 90
   },
   {
     id: 'gentle-side',
     exerciseId: 'S09',
-    coverId: 'S09COVER',
     title: 'Gentle Side Stretch',
-    durationSeconds: 49
+    durationSeconds: 56
   }
 ];
 

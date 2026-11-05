@@ -59,18 +59,30 @@
 //                                        shouldShowMusicToggle in backgroundMusicSelection.js
 //                                        fall back to the plain id whenever this is absent
 //                                        or doesn't resolve to a real entry
-// @property {string} [mediaType]   - 'audio' marks an entry with no video track at all (only
-//                                     M06 today) - BetaVideoModal.jsx renders its still cover
-//                                     image + native <audio controls> instead of a <video>
-//                                     element for these, and skips fullscreen entirely (no
-//                                     video frame to be fullscreen about). Absent/undefined
-//                                     means the ordinary <video> path, unchanged.
+// @property {string} [mediaType]   - 'audio' marks an entry with no video track at all
+//                                     (M06, S06-S09) - BetaVideoModal.jsx renders an audio
+//                                     player instead of a <video> element for these, and skips
+//                                     fullscreen entirely (no video frame to be fullscreen
+//                                     about). Absent/undefined means the ordinary <video> path,
+//                                     unchanged.
 // @property {string} [coverId]     - for a mediaType:'audio' entry, the id of its own still
 //                                     cover-image sibling entry below (fetched as a second
 //                                     signed URL via this exact same mechanism, private bucket
 //                                     included) - see M06COVER's own entry and
 //                                     INTERACTIVE_ONLY_IDS in mediaCatalog.js (a cover entry is
-//                                     never itself a browsable Library row)
+//                                     never itself a browsable Library row). Absent means no
+//                                     cover is fetched/shown at all - S06-S09 deliberately omit
+//                                     this (see minimalAudioPlayer below) even though their own
+//                                     S06COVER-S09COVER sibling entries still exist below,
+//                                     untouched, simply unused by anything now.
+// @property {boolean} [minimalAudioPlayer] - 'consistently audio-only' fix (2026-11-05): opts a
+//                                     mediaType:'audio' entry into BetaVideoModal.jsx's clean
+//                                     custom audio player (title/"Audio" label/play-pause/
+//                                     progress/elapsed-total time) instead of the still-cover-
+//                                     image + native <audio controls> presentation - and
+//                                     suppresses the generic "Begin Exercise" video-style
+//                                     overlay for it. Only S06-S09 set this; M06 is unaffected
+//                                     and keeps its original presentation exactly as before.
 
 /** @type {BetaVideoEntry[]} */
 export const BETA_VIDEO_MANIFEST = [
@@ -579,34 +591,40 @@ export const BETA_VIDEO_MANIFEST = [
   // Anytime Stretch (DEV integration) — mirrored byte-for-byte from
   // get-beta-video-url/index.ts's own EXERCISE_PATHS (see that file's
   // comment on this exact block for the storagePath/naming rationale).
-  // Audio-only (no video track), same shape as M06 above: mediaType:
-  // 'audio' + coverId resolve to BetaVideoModal's still-cover-image
-  // player when opened from Library. Still ALSO played via
+  // Audio-only (no video track). Still ALSO played via
   // AnytimeStretch.jsx's own separate plain <audio> element/exerciseId
   // lookup - these extra fields are additive and that existing feature
   // reads neither, so it's completely unaffected.
   //
-  // 2026-10-05 stretching content refresh: all four MP3s + new cover
-  // PNGs verified against live storage.objects (not assumed). S06's
-  // filename changed on reupload (gained a "1" before the extension -
-  // confirmed the old no-"1" object no longer exists, this is a rename
-  // not a duplicate); S07-S09 kept their exact prior filenames.
-  // durationSeconds dropped notably from the previous batch (content
-  // was re-recorded, not just re-uploaded) - durationLabel below is the
-  // new ffprobe-measured value, same whole-minute-rounding convention
-  // as SL01-SL10/M06. 2026-10-05 Library expansion: these four are now
-  // also browsable/playable via Library (see mediaCatalog.js's
-  // METADATA block and the removal of S06-S09 from
-  // LIBRARY_EXCLUDED_STRETCH_IDS there) - an explicit, later product
-  // decision superseding the original "No Library expansion" scope.
+  // 2026-11-05 "consistently audio-only" fix — the owner replaced all
+  // four MP3s in DEV Storage (Adobe Express voice+music mix, same
+  // filenames/paths - a content-only replacement, re-verified via fresh
+  // ffprobe against the live objects, not assumed). `coverId` is REMOVED
+  // from all four entries here: these sessions must show no exercise
+  // photograph in either Anytime or Library, and `coverId` was the one
+  // field that drove fetching/rendering that cover image in both
+  // surfaces - removing it (not the underlying S06COVER-S09COVER
+  // entries/PNG objects below, which stay fully intact, just now
+  // orphaned/unused by anything) cleanly severs that without touching
+  // Storage. `minimalAudioPlayer: true` (new) is BetaVideoModal.jsx's
+  // own opt-in flag for the clean custom audio player (title/"Audio"
+  // label/play-pause/progress/elapsed-total time, no native
+  // <audio controls>, no "Begin Exercise" video-style overlay) - scoped
+  // to exactly these four ids so M06 "Mindful Listening" (the one other
+  // mediaType:'audio' entry) keeps its own original still-cover-image +
+  // native-controls presentation completely unchanged.
+  // durationLabel below is the new ffprobe-measured value against the
+  // replaced objects (same whole-minute-rounding convention as
+  // SL01-SL10/M06) - all four genuinely got longer (narration remixed
+  // with a music bed/fades), not a measurement error.
   {
     id: 'S06',
     title: 'Chest & Shoulder Stretch',
     storagePath: 'faststart-v1/ST01_Chest_Shoulder_Stretch1.mp3.MP3',
     description: 'A guided audio stretch for your chest and shoulders.',
-    durationLabel: '1 min',
+    durationLabel: '2 min',
     mediaType: 'audio',
-    coverId: 'S06COVER'
+    minimalAudioPlayer: true
   },
   {
     id: 'S06COVER',
@@ -619,9 +637,9 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Hands & Wrists Refresh',
     storagePath: 'faststart-v1/ST02_Hands_Wrists_Refresh.mp3.MP3',
     description: 'A guided audio stretch to refresh your hands and wrists.',
-    durationLabel: '1 min',
+    durationLabel: '2 min',
     mediaType: 'audio',
-    coverId: 'S07COVER'
+    minimalAudioPlayer: true
   },
   {
     id: 'S07COVER',
@@ -634,9 +652,9 @@ export const BETA_VIDEO_MANIFEST = [
     title: 'Feet & Ankles Refresh',
     storagePath: 'faststart-v1/ST03_Feet_Ankles_Refresh.mp3.MP3',
     description: 'A guided audio stretch to refresh your feet and ankles.',
-    durationLabel: '1 min',
+    durationLabel: '2 min',
     mediaType: 'audio',
-    coverId: 'S08COVER'
+    minimalAudioPlayer: true
   },
   {
     id: 'S08COVER',
@@ -651,7 +669,7 @@ export const BETA_VIDEO_MANIFEST = [
     description: 'A gentle guided audio side stretch.',
     durationLabel: '1 min',
     mediaType: 'audio',
-    coverId: 'S09COVER'
+    minimalAudioPlayer: true
   },
   {
     id: 'S09COVER',
