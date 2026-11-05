@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isNativePlatform } from '../lib/platform';
+import { formatElapsedTime } from '../lib/formatElapsedTime';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
@@ -123,6 +124,15 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
   // unchanged - only the video-specific fullscreen calls are gated off,
   // immediately below and in the two handlers that call them.
   const isAudioOnly = entry.mediaType === 'audio';
+  // "Consistently audio-only" fix (2026-11-05, S06-S09 "ST01-ST04" only,
+  // ported from dev commit d759a2c) - opts an audio-only entry into the
+  // clean custom player below (no cover image, no native <audio
+  // controls>, no "Begin Exercise" video-style overlay) instead of the
+  // original still-cover-image + native-controls presentation. M06
+  // "Mindful Listening" never sets this flag, so it keeps that original
+  // presentation byte-for-byte unchanged - see the manifest entry's own
+  // doc comment on this field.
+  const useMinimalAudioPlayer = isAudioOnly && entry.minimalAudioPlayer === true;
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -130,6 +140,13 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
   // alongside videoUrl in the same effect below whenever entry.coverId
   // is present (today, only M06). null for every ordinary <video> entry.
   const [coverUrl, setCoverUrl] = useState(null);
+  // Minimal audio player (useMinimalAudioPlayer entries only) - the real
+  // elapsed/total time for its own progress bar + time text, driven by
+  // the hidden <audio>'s own onTimeUpdate/onLoadedMetadata (separate from
+  // handleMediaLoadedMetadata's duration cache/onDurationKnown callback,
+  // which both branches already share unchanged).
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   // Bumped by the Retry button. The fetch effect depends on it (alongside
   // entry.id) instead of on a `load` function reference — keeps the whole
   // fetch fully local to the effect, so there's no outer function identity
@@ -291,6 +308,8 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
       setIsVideoPlaying(false);
       setIsFullscreen(false);
       setFallbackFullscreen(false);
+      setAudioCurrentTime(0);
+      setAudioDuration(0);
       setHasEnded(false);
       setCompletionMessage(null);
       setCoverUrl(null);
@@ -824,6 +843,34 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
     });
   };
 
+  // Minimal audio player's one play/pause button - serves both the
+  // initial "deliberate user action" tap (hasStarted false, element
+  // paused, so this is exactly handleBegin's play() call minus the
+  // fullscreen request that's already a no-op for audio) and every
+  // later toggle. Never fullscreen-related (useMinimalAudioPlayer always
+  // implies isAudioOnly). A defensive hasEnded reset mirrors
+  // handleResumeOrReplay's, for correctness even outside Library's own
+  // completionContext (which already fully covers the ended case with
+  // CompletionReveal before this button could ever be tapped again).
+  const handleToggleMinimalAudio = () => {
+    const audio = videoRef.current;
+    if (!audio) return;
+    if (hasEnded) {
+      audio.currentTime = 0;
+      setHasEnded(false);
+      setCompletionMessage(null);
+      hasEndedProcessedRef.current = false;
+    }
+    if (audio.paused) {
+      audio.play().catch(() => {
+        setStatus('error');
+        setErrorMessage("Couldn't start playback.");
+      });
+    } else {
+      audio.pause();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
@@ -870,41 +917,104 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
           {status === 'ready' && videoUrl && (
             <>
               {isAudioOnly ? (
-                // Mindful Listening (M06) and any future audio-only entry:
-                // still cover image fills the frame exactly like a video
-                // would, native <audio controls> sits over the bottom of
-                // it - no subtitles, no video animation, no fullscreen
-                // (there's nothing visual to be fullscreen about). Shares
-                // handleMediaPlay/Pause/LoadedMetadata/handleVideoError
-                // with the <video> branch below so the completion/caching/
-                // error-retry behaviour is identical, not reimplemented -
-                // and shares every overlay below too (Begin Exercise,
-                // completion, etc.), since those are siblings of this
-                // ternary, not nested inside either branch of it.
-                <>
-                  {coverUrl && (
-                    <img
-                      src={coverUrl}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  )}
-                  <audio
-                    ref={videoRef}
-                    key={videoUrl}
-                    src={videoUrl}
-                    controls={!hasEnded}
-                    controlsList="nodownload"
-                    preload="metadata"
-                    className="absolute bottom-0 left-0 right-0 w-full z-[1]"
-                    onError={handleVideoError}
-                    onPlay={handleMediaPlay}
-                    onPause={handleMediaPause}
-                    onLoadedMetadata={handleMediaLoadedMetadata}
-                  >
-                    Your browser doesn&apos;t support embedded audio.
-                  </audio>
-                </>
+                !useMinimalAudioPlayer ? (
+                  // Mindful Listening (M06) and any future audio-only
+                  // entry that doesn't opt into the minimal player below:
+                  // still cover image fills the frame exactly like a
+                  // video would, native <audio controls> sits over the
+                  // bottom of it - no subtitles, no video animation, no
+                  // fullscreen (there's nothing visual to be fullscreen
+                  // about). Shares handleMediaPlay/Pause/LoadedMetadata/
+                  // handleVideoError with the <video> branch below so the
+                  // completion/caching/error-retry behaviour is
+                  // identical, not reimplemented - and shares every
+                  // overlay below too (Begin Exercise, completion, etc.),
+                  // since those are siblings of this ternary, not nested
+                  // inside either branch of it.
+                  <>
+                    {coverUrl && (
+                      <img
+                        src={coverUrl}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
+                    <audio
+                      ref={videoRef}
+                      key={videoUrl}
+                      src={videoUrl}
+                      controls={!hasEnded}
+                      controlsList="nodownload"
+                      preload="metadata"
+                      className="absolute bottom-0 left-0 right-0 w-full z-[1]"
+                      onError={handleVideoError}
+                      onPlay={handleMediaPlay}
+                      onPause={handleMediaPause}
+                      onLoadedMetadata={handleMediaLoadedMetadata}
+                    >
+                      Your browser doesn&apos;t support embedded audio.
+                    </audio>
+                  </>
+                ) : (
+                  // "Consistently audio-only" fix (2026-11-05, S06-S09
+                  // only, ported from dev commit d759a2c) - clean custom
+                  // player: no cover image, no native <audio controls>,
+                  // no "Begin Exercise" overlay (excluded below) - just
+                  // the title (already shown in this modal's own header
+                  // above the frame), an "Audio" label, a custom
+                  // play/pause button, and a progress bar with
+                  // elapsed/total time. The <audio> element itself is
+                  // visually hidden but still owns real playback and
+                  // still shares handleMediaPlay/Pause/LoadedMetadata/
+                  // handleVideoError with every other branch, so
+                  // completion/caching/error-retry behaviour is
+                  // identical, not reimplemented. controlsList isn't
+                  // needed here - there's no visible native controls bar
+                  // to suppress a download icon from.
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-black px-6">
+                    <audio
+                      ref={videoRef}
+                      key={videoUrl}
+                      src={videoUrl}
+                      preload="metadata"
+                      className="hidden"
+                      onError={handleVideoError}
+                      onPlay={handleMediaPlay}
+                      onPause={handleMediaPause}
+                      onLoadedMetadata={(e) => {
+                        handleMediaLoadedMetadata(e);
+                        setAudioDuration(e.currentTarget.duration);
+                      }}
+                      onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
+                    >
+                      Your browser doesn&apos;t support embedded audio.
+                    </audio>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-white/60 bg-white/10 px-3 py-1 rounded-full">
+                      Audio
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleMinimalAudio}
+                      aria-label={isVideoPlaying ? 'Pause' : hasStarted ? 'Resume' : `Play ${entry.title}`}
+                      className="w-16 h-16 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg active:scale-95 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-3xl" aria-hidden="true" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {isVideoPlaying ? 'pause' : 'play_arrow'}
+                      </span>
+                    </button>
+                    <div className="w-full max-w-[220px] space-y-1.5">
+                      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-150"
+                          style={{ width: `${audioDuration > 0 ? Math.min(100, (audioCurrentTime / audioDuration) * 100) : 0}%` }}
+                        />
+                      </div>
+                      <p className="text-center text-[11px] text-white/70 font-semibold">
+                        {formatElapsedTime(audioCurrentTime)} / {formatElapsedTime(audioDuration)}
+                      </p>
+                    </div>
+                  </div>
+                )
               ) : (
                 <video
                   ref={videoRef}
@@ -1005,7 +1115,13 @@ export const BetaVideoModal = ({ entry, onClose, showBetaBadge = false, onEnded,
                   through as the reported "blurred poster + faint native
                   controls". A fully opaque layer hides both regardless
                   of what's being decoded underneath, on either engine. */}
-              {!hasStarted && !timerEnded && (
+              {/* "Consistently audio-only" fix (2026-11-05, ported from
+                  dev commit d759a2c) - excluded for useMinimalAudioPlayer
+                  entries: that branch's own play/pause button (which also
+                  serves as the first, deliberate-gesture start tap - see
+                  handleToggleMinimalAudio) replaces this video-style
+                  full-black "Begin Exercise" overlay entirely. */}
+              {!hasStarted && !timerEnded && !useMinimalAudioPlayer && (
                 <button
                   type="button"
                   onClick={handleBegin}

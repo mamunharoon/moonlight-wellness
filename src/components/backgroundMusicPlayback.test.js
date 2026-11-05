@@ -72,22 +72,27 @@ describe('Playback cleanup — stop on close/back/route-change/unmount (already 
     expect(modalSource).toMatch(/const handleClose = \(\) => \{\s*\n\s*videoRef\.current\?\.pause\(\);/);
   });
 
-  it('exactly one video and one audio element author site, both bound to videoRef as the ONE mutually-exclusive playback element (isAudioOnly ternary) - no second, dual-track media element was introduced for music', () => {
+  it('exactly one video element author site and exactly two mutually-exclusive audio element author sites, all bound to videoRef as the ONE playback element (isAudioOnly/useMinimalAudioPlayer ternary) - no genuinely-simultaneous, dual-track media element was introduced for music', () => {
     // Matches only the actual JSX tag openings (ref={videoRef} immediately
     // follows each one in this file), not the many prose mentions of
     // "<video>"/"<audio>" in this file's own doc comments. 2026-10-05
-    // meditation refresh: a genuine <audio ref={videoRef}> now exists
-    // for mediaType:'audio' entries (M06) - an intentional, unrelated
-    // addition (a still-cover-image audio player). It and the original
-    // <video> are the two arms of one ternary (isAudioOnly ? <audio> :
-    // <video>), never both mounted at once - this test can't verify
-    // runtime exclusivity via source text, but confirms exactly this
-    // pair exists and nothing more, which is what would catch a THIRD,
-    // genuinely-simultaneous media element for background music.
+    // meditation refresh: a genuine <audio ref={videoRef}> exists for
+    // mediaType:'audio' entries (M06) - an intentional, unrelated
+    // addition (a still-cover-image audio player). 2026-11-05
+    // "consistently audio-only" fix: a SECOND <audio ref={videoRef}>
+    // author site joined it (S06-S09's own minimal audio player) - still
+    // never a second SIMULTANEOUS element: all three (<video>, M06's
+    // <audio>, the minimal player's <audio>) are mutually-exclusive arms
+    // of one nested ternary (isAudioOnly ? (!useMinimalAudioPlayer ? ... :
+    // ...) : <video>), never more than one mounted at once - this test
+    // can't verify runtime exclusivity via source text, but confirms
+    // exactly these three author sites exist and nothing more, which is
+    // what would catch a FOURTH, genuinely-simultaneous media element for
+    // background music.
     const videoTags = modalSource.match(/<video\s*\n\s*ref=\{videoRef\}/g) ?? [];
     const audioTags = modalSource.match(/<audio\s*\n\s*ref=\{videoRef\}/g) ?? [];
     expect(videoTags.length).toBe(1);
-    expect(audioTags.length).toBe(1);
+    expect(audioTags.length).toBe(2);
     expect(modalSource).toMatch(/isAudioOnly \? \(/);
   });
 });

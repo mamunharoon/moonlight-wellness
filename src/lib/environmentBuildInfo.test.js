@@ -66,9 +66,19 @@ describe('Settings.jsx — Environment row wired from real data, not a hardcoded
     expect(source).toMatch(/formatBuildCommitLabel\(\{ nativeBuild, commit: BUILD_COMMIT \}\)/);
   });
 
-  it('the pre-existing Version/Build number rows are untouched - this is an additive third row, not a replacement', () => {
-    expect(source).toMatch(/APP_VERSION/);
-    expect(source).toMatch(/BUILD_NUMBER/);
+  it('the Environment row is additive, independent of the separate Version/Build number rows - 2026-11-05 "native TestFlight display fix" (ported from dev commit dece7dd) corrected those two rows to also read real native data (useNativeAppInfo, a second/different App.getInfo() consumer), but this Environment row/its own nativeBuild effect/BUILD_COMMIT/ENVIRONMENT_LABEL wiring is completely untouched by that change - still the exact same imports and rendering verified by every other test in this file', () => {
+    expect(source).toMatch(/import \{ useNativeAppInfo \} from '\.\.\/hooks\/useNativeAppInfo';/);
+    expect(source).not.toMatch(/const APP_VERSION/);
+    expect(source).not.toMatch(/const BUILD_NUMBER/);
+    // The pre-existing Environment row's own nativeBuild state/effect -
+    // a SEPARATE App.getInfo() consumer from useNativeAppInfo - survives
+    // byte-for-byte: still exactly one, never merged or removed.
+    // useNativeAppInfo's own CapacitorApp.getInfo() call lives in its own
+    // file (src/hooks/useNativeAppInfo.js - see that file's own test),
+    // not inlined here, so this file's own source text still shows only
+    // the pre-existing Environment row's single call.
+    expect((source.match(/const \[nativeBuild, setNativeBuild\] = useState\(null\);/g) ?? []).length).toBe(1);
+    expect((source.match(/CapacitorApp\.getInfo\(\)/g) ?? []).length).toBe(1);
   });
 
   it('the Environment row sits in the always-rendered Application section, not behind the gated Diagnostics section', () => {

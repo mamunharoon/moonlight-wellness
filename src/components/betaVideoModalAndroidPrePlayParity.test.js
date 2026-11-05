@@ -28,8 +28,13 @@ import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./BetaVideoModal.jsx', import.meta.url)), 'utf-8');
 
+// 2026-11-05 "consistently audio-only" fix added a third condition
+// clause (&& !useMinimalAudioPlayer, excluding S06-S09's own minimal
+// audio player from this overlay entirely) - this regex is updated to
+// match it; the overlay itself, for every entry that still reaches it,
+// is completely unchanged.
 const beginOverlayBody = () =>
-  source.match(/\{!hasStarted && !timerEnded && \(\s*\n\s*<button[\s\S]*?<\/button>\s*\n\s*\)\}/)?.[0] ?? '';
+  source.match(/\{!hasStarted && !timerEnded && !useMinimalAudioPlayer && \(\s*\n\s*<button[\s\S]*?<\/button>\s*\n\s*\)\}/)?.[0] ?? '';
 
 describe('BetaVideoModal.jsx — Begin Exercise overlay is fully opaque, matching the iPhone clean-black presentation', () => {
   it('found the overlay button block', () => {

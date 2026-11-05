@@ -113,12 +113,21 @@ describe('BetaVideoModal.jsx — audio-only render branch', () => {
     expect(audioTag).not.toMatch(/fallbackFullscreen/);
   });
 
-  it('handleMediaPlay/handleMediaPause/handleMediaLoadedMetadata are defined exactly once each, shared (not duplicated) by both branches', () => {
+  it('handleMediaPlay/handleMediaPause/handleMediaLoadedMetadata are defined exactly once each, shared (not duplicated) across every branch', () => {
     expect((modalSource.match(/const handleMediaPlay = \(\) => \{/g) ?? []).length).toBe(1);
     expect((modalSource.match(/const handleMediaPause = \(\) => setIsVideoPlaying\(false\);/g) ?? []).length).toBe(1);
     expect((modalSource.match(/const handleMediaLoadedMetadata = \(e\) => \{/g) ?? []).length).toBe(1);
-    expect((modalSource.match(/onPlay=\{handleMediaPlay\}/g) ?? []).length).toBe(2);
-    expect((modalSource.match(/onPause=\{handleMediaPause\}/g) ?? []).length).toBe(2);
+    // 3, not 2, as of the 2026-11-05 "consistently audio-only" fix: a
+    // third branch (S06-S09's own minimal audio player - see
+    // betaVideoModalMinimalAudioPlayer.test.js) now also wires onPlay/
+    // onPause straight to these same shared handlers - still the exact
+    // same single definitions, never redefined, just one more legitimate
+    // reuse site alongside M06's branch and the <video> branch.
+    // onLoadedMetadata stays 2: that branch wraps the call in its own
+    // inline arrow (to also capture audioDuration) rather than passing
+    // handleMediaLoadedMetadata directly - see that same test file.
+    expect((modalSource.match(/onPlay=\{handleMediaPlay\}/g) ?? []).length).toBe(3);
+    expect((modalSource.match(/onPause=\{handleMediaPause\}/g) ?? []).length).toBe(3);
     expect((modalSource.match(/onLoadedMetadata=\{handleMediaLoadedMetadata\}/g) ?? []).length).toBe(2);
   });
 });

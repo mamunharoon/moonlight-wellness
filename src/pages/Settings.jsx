@@ -11,6 +11,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { isNativePlatform } from '../lib/platform';
 import { BUILD_COMMIT } from '../lib/buildInfo';
 import { ENVIRONMENT_LABEL, formatBuildCommitLabel } from '../lib/environmentBuildInfo';
+import { useNativeAppInfo } from '../hooks/useNativeAppInfo';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -24,13 +25,21 @@ import { ENVIRONMENT_LABEL, formatBuildCommitLabel } from '../lib/environmentBui
  * per row, min-h-[56px] touch targets, glass-panel grouping) — no new
  * visual language.
  *
- * Version/build number are plain constants mirroring package.json's
- * committed version, not read from a build-time env var — no such
- * plumbing exists in this project, and adding it is infra, not the
- * "lightweight polish" this sprint scopes. Update both together.
+ * Version/build number — native TestFlight display fix (2026-11-05,
+ * ported from dev commit dece7dd): read from the real installed binary
+ * via useNativeAppInfo (@capacitor/app's App.getInfo()), not a
+ * hardcoded constant — see that hook's own doc comment for why a static
+ * value here can never stay correct, and for how this is a separate,
+ * narrower concern from this file's own existing Environment row
+ * (nativeBuild/buildCommitLabel below), which is untouched by this fix.
+ * Browser preview shows an honest "Web preview" label instead of a
+ * fabricated version/build, since getInfo() has no web implementation.
  */
-const APP_VERSION = '0.0.0';
-const BUILD_NUMBER = '1';
+const VERSION_DISPLAY = Object.freeze({
+  web: 'Web preview',
+  loading: 'Loading…',
+  error: 'Unavailable'
+});
 
 // WakeWise Phase 3 (R13) — "Subscription" is the row's fixed label ("what
 // this row is"); the actual plan is its live value, same split every
@@ -60,6 +69,18 @@ export const Settings = () => {
       .catch(() => setNativeBuild(null));
   }, []);
   const buildCommitLabel = formatBuildCommitLabel({ nativeBuild, commit: BUILD_COMMIT });
+
+  // Version/Build number fix (2026-11-05) — a separate hook/call from
+  // the Environment row's own `nativeBuild` effect above (left
+  // untouched): that effect exists for internal dev/QA freshness
+  // checks, this one is the general-purpose "what version is this app"
+  // display every user sees. Two independent App.getInfo() calls is a
+  // deliberate, low-cost tradeoff for keeping the existing Environment
+  // row's behaviour provably unchanged rather than threading a second
+  // consumer through its state.
+  const appInfo = useNativeAppInfo();
+  const versionDisplay = appInfo.status === 'ready' ? appInfo.version : VERSION_DISPLAY[appInfo.status];
+  const buildDisplay = appInfo.status === 'ready' ? appInfo.build : VERSION_DISPLAY[appInfo.status];
 
   if (ConfirmDialog && Link) { /* no-op to satisfy blind linter */ }
 
@@ -350,11 +371,11 @@ export const Settings = () => {
         <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Version</span>
-            <span className="text-sm text-on-surface-variant">{APP_VERSION}</span>
+            <span className="text-sm text-on-surface-variant">{versionDisplay}</span>
           </div>
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Build number</span>
-            <span className="text-sm text-on-surface-variant">{BUILD_NUMBER}</span>
+            <span className="text-sm text-on-surface-variant">{buildDisplay}</span>
           </div>
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Environment</span>

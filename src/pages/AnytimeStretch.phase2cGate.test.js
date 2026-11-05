@@ -61,12 +61,19 @@ describe('AnytimeStretch.jsx — Phase 2C gate, checked before any network call'
     expect(body).not.toMatch(/isGuest|resolvePremiumGate|PREMIUM_GATE/);
   });
 
-  it('cross-account cache safety: the preload effect is keyed by the resolved userId and resets both caches before re-preloading, so a prior identity\'s signed URLs can never be read after an identity change', () => {
+  it('cross-account cache safety: the preload effect is keyed by the resolved userId and resets its cache before re-preloading, so a prior identity\'s signed URLs can never be read after an identity change', () => {
     const body = source.match(/useEffect\(\(\) => \{\s*\n\s*let cancelled = false;\s*\n\s*preloadedRef\.current[\s\S]*?\n {2}\}, \[userId\]\);/)?.[0] ?? '';
     expect(body).not.toBe('');
     expect(body).toMatch(/preloadedRef\.current = \{\};/);
-    expect(body).toMatch(/preloadedCoverRef\.current = \{\};/);
-    // The resets happen before any requestBetaVideoUrl call, not after -
+    // 2026-11-05 "consistently audio-only" fix (ported from dev commit
+    // d759a2c) removed the separate cover-image preload cache
+    // (preloadedCoverRef) entirely - these four sessions no longer show
+    // a cover photo at all, so there is nothing left to preload for it.
+    // preloadedRef (the audio signed-URL cache) is the only cache this
+    // effect owns now; the same cross-account reset guarantee applies to
+    // it unchanged.
+    expect(body).not.toMatch(/preloadedCoverRef/);
+    // The reset happens before any requestBetaVideoUrl call, not after -
     // a prior identity's results must already be gone before this
     // identity's own preload starts writing.
     expect(body.indexOf('preloadedRef.current = {};')).toBeLessThan(body.indexOf('requestBetaVideoUrl'));
