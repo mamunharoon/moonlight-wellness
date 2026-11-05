@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getReducedMotionPreference, setReducedMotionPreference } from '../lib/reducedMotionPreference';
 import { isBetaProgramVisible } from '../lib/featureFlags';
 import { BackButton } from '../components/BackButton';
+import { useNativeAppInfo } from '../hooks/useNativeAppInfo';
 
 /*
  * Settings & Profile Polish, Sprint 1 — Settings screen
@@ -20,13 +21,19 @@ import { BackButton } from '../components/BackButton';
  * per row, min-h-[56px] touch targets, glass-panel grouping) — no new
  * visual language.
  *
- * Version/build number are plain constants mirroring package.json's
- * committed version, not read from a build-time env var — no such
- * plumbing exists in this project, and adding it is infra, not the
- * "lightweight polish" this sprint scopes. Update both together.
+ * Version/build number — native TestFlight display fix (2026-11-05):
+ * read from the real installed binary via useNativeAppInfo
+ * (@capacitor/app's App.getInfo()), not a hardcoded constant — see that
+ * hook's own doc comment for why a static value here can never stay
+ * correct. Browser preview shows an honest "Web preview" label instead
+ * of a fabricated version/build, since getInfo() has no web
+ * implementation.
  */
-const APP_VERSION = '0.0.0';
-const BUILD_NUMBER = '1';
+const VERSION_DISPLAY = Object.freeze({
+  web: 'Web preview',
+  loading: 'Loading…',
+  error: 'Unavailable'
+});
 
 // WakeWise Phase 3 (R13) — "Subscription" is the row's fixed label ("what
 // this row is"); the actual plan is its live value, same split every
@@ -41,6 +48,9 @@ export const Settings = () => {
   const { subscription } = useSubscription();
   const [activeDialog, setActiveDialog] = useState(null); // 'sign-out' | null
   const [reducedMotion, setReducedMotionState] = useState(getReducedMotionPreference);
+  const appInfo = useNativeAppInfo();
+  const versionDisplay = appInfo.status === 'ready' ? appInfo.version : VERSION_DISPLAY[appInfo.status];
+  const buildDisplay = appInfo.status === 'ready' ? appInfo.build : VERSION_DISPLAY[appInfo.status];
 
   if (ConfirmDialog && Link) { /* no-op to satisfy blind linter */ }
 
@@ -306,11 +316,11 @@ export const Settings = () => {
         <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Version</span>
-            <span className="text-sm text-on-surface-variant">{APP_VERSION}</span>
+            <span className="text-sm text-on-surface-variant">{versionDisplay}</span>
           </div>
           <div className={`${rowClass} cursor-default`}>
             <span className="text-sm font-semibold text-on-surface-variant">Build number</span>
-            <span className="text-sm text-on-surface-variant">{BUILD_NUMBER}</span>
+            <span className="text-sm text-on-surface-variant">{buildDisplay}</span>
           </div>
         </div>
       </section>
