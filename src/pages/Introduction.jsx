@@ -17,6 +17,9 @@ import { getStepIndex } from '../session/sessionRegistry';
 import { MORNING_STEP_IDS } from '../session/sessionConstants';
 import { setPendingJourneyIntent, isAllowedJourneyAction } from '../lib/pendingJourneyIntent';
 import { completeIntroductionVersion } from '../lib/introductionCompletion';
+import { now as devNow } from '../lib/devClock';
+import { getZonedParts } from '../lib/timezone';
+import { getMorningCompletionKey, getEveningCompletionKey } from '../lib/dailyCompletion';
 
 /*
  * First-use WakeWise welcome screen (Build 16 redesign).
@@ -263,7 +266,7 @@ export const Introduction = () => {
   // model. Works for guests too (AlarmContext's own guest-device-local
   // storage path already gives every guest a genuinely working local
   // alarm).
-  const { alarmTime, isAlarmSet, alarmSoundId, alarmConfigured } = useAlarm();
+  const { alarmTime, isAlarmSet, alarmSoundId, alarmConfigured, userId, effectiveTimezone } = useAlarm();
   const [saving, setSaving] = useState(false);
 
   // Morning/Evening authentication continuity — captured ONCE, at the
@@ -317,9 +320,14 @@ export const Introduction = () => {
   // (sessionConstants.js: Intention -> Stretch -> Breathe -> Meditate
   // (optional) -> Affirm -> Complete); "other steps" covers the rest
   // without listing all five and crowding this short explanation.
-  const welcomeSubcopy = isReturningSignedInUser
-    ? 'What would you like to do today?'
-    : 'Morning routines, anytime resets and evening wind-downs — at your own pace.';
+  // WakeWise DEV — Welcome-screen copy update (owner-approved), extended
+  // to the first-visit variant: both variants now show the same tagline
+  // plus supporting sentence - only `welcomeHeading` above still tells
+  // first-visit and returning-user apart ("Welcome to WakeWise" vs
+  // "Welcome back, {firstName}"), exactly as approved. The tagline/
+  // subcopy pair is no longer conditional on isReturningSignedInUser.
+  const welcomeSubcopyTagline = 'A little time. A fresh start.';
+  const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect.';
   const [saveError, setSaveError] = useState('');
 
   // Reuses the exact same shared signed-URL/guest-gating mechanism every
@@ -356,7 +364,38 @@ export const Introduction = () => {
   // 1 (Set Intention), then land on its real screen. Nothing here is
   // invented - every call is the same real function those two existing
   // handlers already use.
+  //
+  // Welcome-back defect fix: unlike Home.jsx (which only ever reaches
+  // handleBeginRiseAndReset after morningCardState === 'completed' shows
+  // its own card and the user explicitly confirms "Repeat Morning
+  // Routine" via activeDialog), this screen's Morning card previously
+  // called the identical reset-and-start unconditionally — bypassing
+  // that check entirely. A user who had already fully completed today's
+  // Morning Reset, then logged out/in, landed back on this "Welcome
+  // back" card and tapping Morning silently started a brand-new session
+  // (a new sessionId/idempotency_key) with no confirmation — completing
+  // it would write a genuine second practice_completion_events row for
+  // the same day, not deduplicated (the unique constraint is keyed by
+  // sessionId, which a fresh startSession() always mints anew). Fixed by
+  // checking the SAME isMorningDone flag Home.jsx itself reads
+  // (dailyCompletion.js's own localStorage key) before deciding: already
+  // done today routes to Home, where the existing, approved repeat-
+  // confirmation flow takes over — never a second, divergent
+  // confirmation UI built here.
+  const isMorningDoneToday = localStorage.getItem(getMorningCompletionKey(userId)) === getZonedParts(effectiveTimezone, devNow()).dateKey;
   const beginRiseAndReset = () => {
+    if (isMorningDoneToday) {
+      // Lands on Home with Morning explicitly selected (Home.jsx's own
+      // selectedPeriod initializer reads this navigation state) so the
+      // user sees the real "Morning Reset finished" / "Repeat Morning
+      // Routine" card immediately - never Home's own clock-based default,
+      // which would otherwise fall through to Anytime once Morning is
+      // done for the day. Starting a new session is then only ever a
+      // result of that button's own explicit confirm dialog - never
+      // automatic, and never from this redirect alone.
+      navigate('/', { state: { selectedPeriod: 'morning' } });
+      return;
+    }
     if (state.status === 'playing' || state.status === 'interrupted') {
       resetSession();
     }
@@ -369,6 +408,39 @@ export const Introduction = () => {
   // the session (see Home.jsx's handleBeginEveningWindDown, which this
   // matches exactly). Gentle Reset is simpler still: a plain, stateless
   // navigate, matching RoutineDetail.jsx's own gentle-reset handling.
+  //
+  // Welcome-back defect fix (Evening half - see beginRiseAndReset's own
+  // comment above for the Morning half, fixed first): this card's plain
+  // navigate('/evening-wind-down') landed on EveningWindDown.jsx's Begin
+  // screen regardless of today's state. That screen's own handleBegin
+  // correctly resumes a playing/interrupted session for this exact
+  // routine, but has no completed-today check at all - if today's
+  // Evening already reached a genuine completion, it fell straight
+  // through to the reset-before-start guard and started a FRESH session.
+  // Sharper than Morning's gap was: for a registered user, Home.jsx's own
+  // Evening-completed card never even exposes a plain "start again"
+  // button - only "Review or Edit" and a "Redo" that goes through its own
+  // confirmation and the dedicated redoEveningWindDown() call (which
+  // explicitly handles today's EXISTING response data) before it, only
+  // then, navigates here. This card bypassed all of that. Fixed the same
+  // way as Morning: check the same isEveningDone flag Home.jsx itself
+  // reads, and when today's Evening is already done, redirect to Home
+  // with Evening explicitly selected instead - Home's own existing
+  // completed card (Review/Edit, and Redo with its real confirmation and
+  // redoEveningWindDown() data handling) takes over entirely. This
+  // redirect itself never resets any response, never starts a session,
+  // and never records a completion - it is a plain navigate with no
+  // Session Engine call, exactly like the unchanged not-done branch
+  // below.
+  const isEveningDoneToday = localStorage.getItem(getEveningCompletionKey(userId)) === getZonedParts(effectiveTimezone, devNow()).dateKey;
+  const beginEveningWindDown = () => {
+    if (isEveningDoneToday) {
+      navigate('/', { state: { selectedPeriod: 'evening' } });
+      return;
+    }
+    navigate('/evening-wind-down');
+  };
+
   const CARD_DESTINATIONS = {
     morning: beginRiseAndReset,
     // WakeWise DEV — "Repair Take a calming pause": routes to this app's
@@ -378,7 +450,7 @@ export const Introduction = () => {
     // entry (need -> time -> recommendation) instead of jumping straight
     // into one fixed exercise - see this file's own top doc comment.
     calm: () => navigate('/anytime-reset'),
-    sleep: () => navigate('/evening-wind-down')
+    sleep: beginEveningWindDown
   };
 
   const continueTo = (destination) => {
@@ -566,9 +638,21 @@ export const Introduction = () => {
           <h1 className="text-2xl font-morning-display text-on-surface tracking-tight">
             {welcomeHeading}
           </h1>
-          <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
-            {welcomeSubcopy}
-          </p>
+          {/* Tight gap between these two lines (not the outer space-y-1.5)
+              so the returning-user variant's extra line adds minimal
+              height to this already space-constrained hero block - see
+              this block's own "Welcome spacing correction" comment above
+              for why that matters on a 390x844 viewport. */}
+          <div className={welcomeSubcopyTagline ? 'space-y-0.5' : undefined}>
+            {welcomeSubcopyTagline && (
+              <p className="text-sm font-semibold text-on-surface leading-snug max-w-sm mx-auto">
+                {welcomeSubcopyTagline}
+              </p>
+            )}
+            <p className="text-sm text-on-surface-variant leading-snug max-w-sm mx-auto">
+              {welcomeSubcopy}
+            </p>
+          </div>
         </div>
 
         {introVideoAvailable && (
@@ -625,7 +709,7 @@ export const Introduction = () => {
           hidden. */}
       <section aria-labelledby="welcome-cards-heading" className="space-y-3 !mt-[30px]">
         <h2 id="welcome-cards-heading" className="text-xl font-bold text-on-surface">
-          Start where you are
+          Find a reset that fits your day
         </h2>
         {/* WakeWise DEV — Welcome vertical-space fix: space-y-3 -> space-y-2
             between cards, p-4 -> p-3 -> p-1.5 and the icon chip

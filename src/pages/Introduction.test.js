@@ -16,20 +16,28 @@ const appSource = read('../App.jsx');
 const profileSource = read('./Profile.jsx');
 
 describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-screen redesign)', () => {
-  it('new-guest / new-signed-in-user variant has the exact required First Visit heading and supporting copy', () => {
+  it('new-guest / new-signed-in-user variant has the exact required First Visit heading, and now shares the same approved tagline/supporting copy as the returning-user variant', () => {
     expect(introductionSource).toMatch(/: 'Welcome to WakeWise';/);
-    // Welcome-screen uplift: shares the exact same short value-prop
-    // sentence as Welcome.jsx's own supporting text, instead of the
-    // earlier alarm/routine-focused paragraph - the alarm itself is still
-    // shown via the separate AlarmStatusCard below, unchanged.
+    // Welcome-screen copy fix: the approved tagline + supporting sentence
+    // now applies to BOTH variants - the old, un-approved "Morning
+    // routines, anytime resets..." first-visit-only line is gone from the
+    // real rendered markup entirely (not merely from one branch of it).
+    expect(introductionSource).not.toMatch(/Morning routines, anytime resets and evening wind-downs/);
+    expect(introductionSource).toMatch(/const welcomeSubcopyTagline = 'A little time\. A fresh start\.';/);
     expect(introductionSource).toMatch(
-      /: 'Morning routines, anytime resets and evening wind-downs — at your own pace\.';/
+      /const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/
     );
   });
 
-  it('existing signed-in version-1 user variant has the exact required Welcome Back heading and supporting copy', () => {
+  it('existing signed-in version-1 user variant has the exact required Welcome Back heading, sharing the same tagline/supporting copy as the first-visit variant', () => {
     expect(introductionSource).toMatch(/\? `Welcome back, \$\{firstName\}`/);
-    expect(introductionSource).toMatch(/\? 'What would you like to do today\?'/);
+    expect(introductionSource).toMatch(/const welcomeSubcopy = 'Take a moment to reset—with time to breathe, move or reflect\.';/);
+  });
+
+  it('only the heading (not the tagline/subcopy) still distinguishes first-visit from returning-user - welcomeHeading stays conditional on isReturningSignedInUser, welcomeSubcopyTagline/welcomeSubcopy do not', () => {
+    expect(introductionSource).toMatch(/const welcomeHeading = isReturningSignedInUser/);
+    expect(introductionSource).not.toMatch(/const welcomeSubcopyTagline = isReturningSignedInUser/);
+    expect(introductionSource).not.toMatch(/const welcomeSubcopy = isReturningSignedInUser/);
   });
 
   it('an existing user without a valid first name gets the plain "Welcome back" fallback, never a dangling comma/placeholder', () => {
@@ -54,7 +62,15 @@ describe('Introduction.jsx — personalised opening copy (WakeWise DEV welcome-s
 
   it('the returning-user signal comes from ?existing=1 (Auth.jsx\'s own redirect) or AuthContext\'s already-loaded profile.introduction_completed_version - never a new stored flag, never re-asking the user anything', () => {
     expect(introductionSource).toMatch(/searchParams\.get\('existing'\) === '1' \|\| Boolean\(profile\?\.introduction_completed_version\)/);
-    expect(introductionSource).not.toMatch(/localStorage/);
+    // Scoped to the isReturningSignedInUser statement itself, not the
+    // whole file - the Welcome-back Morning-card defect fix (below)
+    // separately and legitimately reads the SAME today's-completion
+    // localStorage flag Home.jsx itself already uses, for an unrelated
+    // purpose (today's routine state, never "has this user seen the
+    // welcome screen before").
+    const isReturningBody = introductionSource.match(/const isReturningSignedInUser =\s*\n\s*!isGuest[\s\S]*?;/)?.[0] ?? '';
+    expect(isReturningBody).not.toBe('');
+    expect(isReturningBody).not.toMatch(/localStorage/);
   });
 
   it('has the exact required Go to Home action', () => {
@@ -96,12 +112,13 @@ describe('Introduction.jsx — three tappable destination cards', () => {
     // Anytime Reset entry (need -> time -> recommendation, the same short
     // flow Home's own "Start Anytime Reset" already opens - WakeWise DEV
     // F3 correction, superseding the earlier direct-to-breathe routing),
-    // and 'sleep' to a plain navigate to Evening Wind-Down's real intro
-    // route (same as Home.jsx's own handleBeginEveningWindDown -
-    // EveningWindDown.jsx's own Begin button starts the session, not this
-    // navigate).
+    // and 'sleep' to the real beginEveningWindDown (Welcome-back Evening
+    // defect fix - checked below - a plain navigate to Evening Wind-Down's
+    // real intro route when today's Evening is not yet done, same as
+    // Home.jsx's own handleBeginEveningWindDown; EveningWindDown.jsx's own
+    // Begin button starts the session, not this navigate).
     expect(introductionSource).toMatch(
-      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,[\s\S]*?\s*calm: \(\) => navigate\('\/anytime-reset'\),\s*\n\s*sleep: \(\) => navigate\('\/evening-wind-down'\)\s*\n\s*\};/
+      /const CARD_DESTINATIONS = \{\s*\n\s*morning: beginRiseAndReset,[\s\S]*?\s*calm: \(\) => navigate\('\/anytime-reset'\),\s*\n\s*sleep: beginEveningWindDown\s*\n\s*\};/
     );
     // beginRiseAndReset itself mirrors Home.jsx's own
     // handleBeginRiseAndReset / RoutineDetail.jsx's own beginRiseAndReset
@@ -484,7 +501,7 @@ describe('Introduction.jsx — Welcome alarm-status card', () => {
   });
 
   it('reads alarmTime/isAlarmSet/alarmSoundId/alarmConfigured straight from useAlarm() - no second/local alarm state of its own', () => {
-    expect(introductionSource).toMatch(/const \{ alarmTime, isAlarmSet, alarmSoundId, alarmConfigured \} = useAlarm\(\);/);
+    expect(introductionSource).toMatch(/const \{ alarmTime, isAlarmSet, alarmSoundId, alarmConfigured, userId, effectiveTimezone \} = useAlarm\(\);/);
   });
 
   it('renders exactly one AlarmStatusCard, passing every real field through as props with the correct per-copy-variant flag', () => {
@@ -510,5 +527,99 @@ describe('Introduction.jsx — Welcome alarm-status card', () => {
 
   it('never requests notification permission merely because this screen rendered - no permission call exists anywhere in this file', () => {
     expect(introductionSource).not.toMatch(/requestPermission/);
+  });
+});
+
+describe('Introduction.jsx — Welcome-back Morning card defect fix: already-completed-today must never silently restart', () => {
+  it('imports the real dailyCompletion/timezone/devClock helpers needed to check today\'s state - not a guess, not a second new flag', () => {
+    expect(introductionSource).toMatch(/import \{ now as devNow \} from '\.\.\/lib\/devClock';/);
+    expect(introductionSource).toMatch(/import \{ getZonedParts \} from '\.\.\/lib\/timezone';/);
+    expect(introductionSource).toMatch(/import \{ getMorningCompletionKey, getEveningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+  });
+
+  it('computes isMorningDoneToday from the SAME localStorage key/dateKey shape Home.jsx itself uses, never a bespoke check', () => {
+    expect(introductionSource).toMatch(
+      /const isMorningDoneToday = localStorage\.getItem\(getMorningCompletionKey\(userId\)\) === getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/
+    );
+  });
+
+  it('beginRiseAndReset checks isMorningDoneToday FIRST, before any resetSession/startSession call - and returns immediately, never falling through to the reset-and-start path on the same tap', () => {
+    const body = introductionSource.match(/const beginRiseAndReset = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    const guardIndex = body.indexOf('if (isMorningDoneToday)');
+    const navigateHomeIndex = body.indexOf("navigate('/', { state: { selectedPeriod: 'morning' } });");
+    const returnIndex = body.indexOf('return;');
+    const resetIndex = body.indexOf('resetSession();');
+    const startSessionIndex = body.indexOf("startSession('morning-routine'");
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(guardIndex).toBeLessThan(resetIndex);
+    expect(guardIndex).toBeLessThan(startSessionIndex);
+    expect(navigateHomeIndex).toBeGreaterThan(guardIndex);
+    expect(returnIndex).toBeGreaterThan(navigateHomeIndex);
+    expect(returnIndex).toBeLessThan(resetIndex);
+    expect(returnIndex).toBeLessThan(startSessionIndex);
+  });
+
+  it('never calls resetSession or startSession when today\'s Morning is already done - no progress-clearing, no new session, on this branch', () => {
+    const guardBranch = introductionSource.match(/if \(isMorningDoneToday\) \{[\s\S]*?\n {4}\}/)?.[0] ?? '';
+    expect(guardBranch).not.toBe('');
+    expect(guardBranch).not.toMatch(/resetSession\(\)/);
+    expect(guardBranch).not.toMatch(/startSession\(/);
+  });
+
+  it('redirects to Home with Morning explicitly selected via navigation state - never a bare navigate(\'/\') that would fall through to Home\'s own clock-based default (which resolves to Anytime once Morning is done today, not Morning)', () => {
+    expect(introductionSource).toMatch(/navigate\('\/', \{ state: \{ selectedPeriod: 'morning' \} \}\);/);
+  });
+
+  it('leaves the not-yet-done branch completely unchanged - unfinished/not-started sessions still reach the exact same reset-and-start sequence as before', () => {
+    const body = introductionSource.match(/const beginRiseAndReset = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/if \(state\.status === 'playing' \|\| state\.status === 'interrupted'\) \{\s*\n\s*resetSession\(\);\s*\n\s*\}/);
+    expect(body).toMatch(/startSession\('morning-routine', \{ startIndex: getStepIndex\('morning-routine', MORNING_STEP_IDS\.INTENTION\) \}\);/);
+    expect(body).toMatch(/navigate\('\/intention-setup'\);/);
+  });
+});
+
+describe('Introduction.jsx — Welcome-back Evening card defect fix: already-completed-today must never silently restart, reset responses, or bypass Redo', () => {
+  it('imports getEveningCompletionKey alongside the Morning one - not a second, differently-shaped check', () => {
+    expect(introductionSource).toMatch(/import \{ getMorningCompletionKey, getEveningCompletionKey \} from '\.\.\/lib\/dailyCompletion';/);
+  });
+
+  it('computes isEveningDoneToday from the SAME localStorage key/dateKey shape Home.jsx itself uses, never a bespoke check', () => {
+    expect(introductionSource).toMatch(
+      /const isEveningDoneToday = localStorage\.getItem\(getEveningCompletionKey\(userId\)\) === getZonedParts\(effectiveTimezone, devNow\(\)\)\.dateKey;/
+    );
+  });
+
+  it('beginEveningWindDown checks isEveningDoneToday first and returns immediately - never falling through to the plain navigate on the same tap', () => {
+    const body = introductionSource.match(/const beginEveningWindDown = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).not.toBe('');
+    const guardIndex = body.indexOf('if (isEveningDoneToday)');
+    const navigateHomeIndex = body.indexOf("navigate('/', { state: { selectedPeriod: 'evening' } });");
+    const returnIndex = body.indexOf('return;');
+    const navigateWindDownIndex = body.lastIndexOf("navigate('/evening-wind-down');");
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(guardIndex).toBeLessThan(navigateWindDownIndex);
+    expect(navigateHomeIndex).toBeGreaterThan(guardIndex);
+    expect(returnIndex).toBeGreaterThan(navigateHomeIndex);
+    expect(returnIndex).toBeLessThan(navigateWindDownIndex);
+  });
+
+  it('never resets a response, starts a session, or records a completion when today\'s Evening is already done - the guard branch is a plain redirect only, no Session Engine call, no routineResponses/practiceCompletions import used inside it', () => {
+    const guardBranch = introductionSource.match(/if \(isEveningDoneToday\) \{[\s\S]*?\n {4}\}/)?.[0] ?? '';
+    expect(guardBranch).not.toBe('');
+    expect(guardBranch).not.toMatch(/resetSession\(|startSession\(|resetRoutine\(|redoEveningWindDown\(/);
+  });
+
+  it('redirects to Home with Evening explicitly selected via navigation state - so Home\'s own existing completed card (Review/Edit, and Redo with its real confirmation and redoEveningWindDown data handling) takes over, never a second/divergent implementation of either here', () => {
+    expect(introductionSource).toMatch(/navigate\('\/', \{ state: \{ selectedPeriod: 'evening' \} \}\);/);
+    // Confirms this file never IMPORTS the Redo mechanism itself - that
+    // logic stays exclusively in Home.jsx/routineResponses.js (a doc
+    // comment explaining why is fine; an import/call would not be).
+    expect(introductionSource).not.toMatch(/import \{[^}]*redoEveningWindDown/);
+  });
+
+  it('leaves the not-yet-done branch completely unchanged - unfinished/not-started/interrupted Evening sessions still reach the exact same plain navigate to EveningWindDown.jsx as before, which itself still owns all resume behaviour', () => {
+    const body = introductionSource.match(/const beginEveningWindDown = \(\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
+    expect(body).toMatch(/navigate\('\/evening-wind-down'\);\s*\n {2}\};/);
   });
 });
