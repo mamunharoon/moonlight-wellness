@@ -5,12 +5,17 @@ import { ExerciseScreenShell } from '../components/journey/ExerciseScreenShell';
 import { JourneyHeader } from '../components/journey/JourneyHeader';
 import { SelectionRow } from '../components/journey/SelectionRow';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
 import { JourneyGlow } from '../components/JourneyGlow';
 import { getJourneyPrimaryActionClasses } from '../lib/journeyAction';
 import { requestBetaVideoUrl, isSignedUrlExpired } from '../lib/betaVideoAccess';
 import { setPendingContent } from '../lib/pendingContent';
 import { formatElapsedTime } from '../lib/formatElapsedTime';
 import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/anytimeStretchCatalog';
+import { useAuth } from '../context/AuthContext';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
+import { getCatalogEntryById } from '../lib/mediaCatalog';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 
 /*
  * Anytime Stretch.
@@ -99,12 +104,22 @@ import { ANYTIME_STRETCH_SESSIONS, getAnytimeStretchSessionById } from '../lib/a
  */
 export const AnytimeStretch = () => {
   const navigate = useNavigate();
+  const { isGuest } = useAuth();
+  const entitlement = useUnifiedEntitlement();
   const audioRef = useRef(null);
   const [view, setView] = useState('select'); // 'select' | 'loading' | 'playing' | 'complete' | 'error'
   const [selectedId, setSelectedId] = useState(null);
   const [signedUrl, setSignedUrl] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
+  // Phase 2C — the premium paywall, a sibling of signInPromptOpen above:
+  // checked AFTER isGuest in handleSelect (a guest always sees the sign-in
+  // prompt first, regardless of whether the tapped session is Plus), this
+  // only ever opens for an already signed-in, non-guest user who tapped a
+  // Plus session they aren't currently entitled to. `paywallTargetId`
+  // records which session id Retry/View-Plus should act on.
+  const [paywallState, setPaywallState] = useState(null);
+  const [paywallTargetId, setPaywallTargetId] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   // Real, loaded-metadata duration (the actual file), never the catalog's
@@ -154,6 +169,21 @@ export const AnytimeStretch = () => {
 
   const handleSelect = (id) => {
     const target = getAnytimeStretchSessionById(id);
+    // Phase 2C — checked BEFORE any network call, never after catching a
+    // server error. Guest first, exactly matching every other page's
+    // ordering (Library.jsx, etc.) — a guest always sees the sign-in
+    // prompt, never the Plus paywall, regardless of the tapped session.
+    if (isGuest) {
+      setSignInPromptOpen(true);
+      return;
+    }
+    const gate = resolvePremiumGate(getCatalogEntryById(target.exerciseId), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return; // defer — never guess, never flash a paywall before the real read resolves
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallTargetId(id);
+      setPaywallState(gate);
+      return;
+    }
     setSelectedId(id);
     setCurrentTime(0);
     setDuration(0);
@@ -248,6 +278,25 @@ export const AnytimeStretch = () => {
     setPendingContent({ returnPath: '/anytime-stretch' });
     setSignInPromptOpen(false);
     navigate('/auth?tab=signup');
+  };
+
+  const dismissPaywall = () => {
+    setPaywallState(null);
+    setPaywallTargetId(null);
+  };
+  // Re-attempts the exact same tap via handleSelect itself (which
+  // re-checks isGuest/the premium gate fresh) rather than duplicating
+  // that logic here — if the retry still isn't allowed, handleSelect's
+  // own gate re-sets paywallState to whatever the fresh result is.
+  const retryPaywall = () => {
+    if (!paywallTargetId) return;
+    const id = paywallTargetId;
+    dismissPaywall();
+    handleSelect(id);
+  };
+  const viewPlusOptions = () => {
+    dismissPaywall();
+    navigate('/subscription');
   };
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -409,6 +458,13 @@ export const AnytimeStretch = () => {
         onSignIn={handleSignIn}
         onCreateAccount={handleCreateAccount}
         onDismiss={() => setSignInPromptOpen(false)}
+      />
+      <PlusPaywallDialog
+        open={!!paywallState}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </ExerciseScreenShell>
   );

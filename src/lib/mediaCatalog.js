@@ -352,11 +352,35 @@ const LIBRARY_EXCLUDED_STRETCH_IDS = new Set([]);
 //     Affirmations" and E12 "Confidence Builder," both untouched.
 const REMOVED_CATALOG_IDS = new Set(['E24']);
 
+// Phase 2C — Free vs. WakeWise Plus Access Specification
+// (docs/phase-2c-access-specification.md §3) — every id NOT in this set
+// is Plus by default. This mirrors, and must be kept in sync with,
+// supabase/functions/_shared/premiumExerciseIds.ts's own independently-
+// declared FREE_EXERCISE_IDS — deliberately duplicated across the Deno/
+// Vite boundary rather than imported, the same established convention
+// this project already uses for KNOWN_APPLE_PLUS_PRODUCT_IDS.
+const FREE_EXERCISE_IDS = new Set([
+  'S04', 'S05', 'S01', 'E03', 'E04', 'E11', 'E23', 'E30', 'B02',
+  'M01', 'M02', 'M03', 'M04', 'F01', 'SL01', 'SL04', 'SL06', 'G01', 'A02'
+]);
+
+// Mirrors premiumExerciseIds.ts's own identically-named, identically-
+// reasoned constant — kept here purely so this file's own classification
+// of these five ids is an explicit, traceable record rather than an
+// invisible side effect of "not in FREE_EXERCISE_IDS." APPROVED — owner
+// confirmed Plus for all five. Already enforced identically either way
+// (every id not in FREE_EXERCISE_IDS was already Plus); this set exists
+// for traceability, not to change behaviour.
+export const APPROVED_PLUS_IDS = new Set(['M06', 'S06', 'S07', 'S08', 'S09']);
+
+export const isFreeExerciseId = (id) => FREE_EXERCISE_IDS.has(id);
+
 export const MEDIA_CATALOG = BETA_VIDEO_MANIFEST.filter((entry) => !INTERACTIVE_ONLY_IDS.has(entry.id) && !LIBRARY_EXCLUDED_STRETCH_IDS.has(entry.id) && !REMOVED_CATALOG_IDS.has(entry.id)).map((entry) => ({
   ...entry,
   ...(METADATA[entry.id] || DEFAULT_METADATA),
   meditation: MEDITATION_METADATA[entry.id] || null,
-  active: true
+  active: true,
+  premium: !FREE_EXERCISE_IDS.has(entry.id)
 }));
 
 export const getCatalogEntryById = (id) => MEDIA_CATALOG.find((entry) => entry.id === id);

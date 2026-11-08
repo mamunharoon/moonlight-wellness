@@ -61,10 +61,10 @@ export const PublicDeleteAccount = () => {
         </div>
 
         <div className="space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">A cancellable waiting period</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Deletion is immediate and permanent</p>
           <p className="text-sm text-on-surface-variant leading-relaxed">
-            Requesting deletion does not delete anything immediately. It starts a 7-day period during which you can
-            cancel the request and keep your account exactly as it was.
+            Confirming deletion in the app deletes your account and data right away. There is no waiting period, and
+            it cannot be undone afterward.
           </p>
         </div>
 

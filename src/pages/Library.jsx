@@ -1,13 +1,17 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CATALOG_CATEGORIES, MEDIA_CATALOG, ANYTIME_RESET_NEEDS, ANYTIME_RESET_DURATIONS, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog } from '../lib/mediaCatalog';
+import { useUnifiedEntitlement } from '../context/SubscriptionContext';
+import { CATALOG_CATEGORIES, MEDIA_CATALOG, ANYTIME_RESET_NEEDS, ANYTIME_RESET_DURATIONS, getCategoryIcon, getCategoryAccentClass, getMeditationCatalog, getCatalogEntryById } from '../lib/mediaCatalog';
 import { isValidExploreJourney, getExploreCatalogForJourney, getCuratedExploreCatalog } from '../lib/exploreFiltering';
 import { getCachedDurationMinutes } from '../lib/durationCache';
 import { useProtectedVideo } from '../hooks/useProtectedVideo';
 import { BetaVideoModal } from '../components/BetaVideoModal';
 import { SignInPromptDialog } from '../components/SignInPromptDialog';
+import { PlusPaywallDialog } from '../components/PlusPaywallDialog';
+import { PREMIUM_GATE, resolvePremiumGate } from '../lib/premiumAccess';
 import { BackButton } from '../components/BackButton';
 import { getReducedMotionPreference } from '../lib/reducedMotionPreference';
 
@@ -105,6 +109,7 @@ const MEDITATION_FILTER = 'Meditation';
  */
 export const Library = () => {
   const { isGuest } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory =
     [...CATALOG_CATEGORIES, MEDITATION_FILTER].find((c) => slugify(c) === searchParams.get('category')) || null;
@@ -239,15 +244,54 @@ export const Library = () => {
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const entitlement = useUnifiedEntitlement();
   const {
     openVideo,
-    handleSelect,
+    handleSelect: openProtectedVideo,
     closeVideo,
     promptOpen,
     dismissPrompt,
     confirmSignIn,
     confirmCreateAccount
   } = useProtectedVideo();
+  // Phase 2C — the premium paywall, local to this page only (not threaded
+  // through useProtectedVideo's own shared handleSelect, which every other
+  // caller of that hook also uses — keeping this check here, not in the
+  // hook, means this fix is scoped exactly to Library, not every page that
+  // shares the hook). Guest is still checked first, via the hook's own
+  // handleSelect below, exactly matching every other page's ordering — a
+  // guest always sees the sign-in prompt, never this paywall, regardless
+  // of whether the tapped item is Plus.
+  const [paywallState, setPaywallState] = useState(null);
+  const [paywallTargetId, setPaywallTargetId] = useState(null);
+  const handleSelect = (id) => {
+    if (isGuest) {
+      openProtectedVideo(id);
+      return;
+    }
+    const gate = resolvePremiumGate(getCatalogEntryById(id), entitlement);
+    if (gate === PREMIUM_GATE.LOADING) return; // defer — never guess, never flash a paywall before the real read resolves
+    if (gate !== PREMIUM_GATE.ALLOWED) {
+      setPaywallTargetId(id);
+      setPaywallState(gate);
+      return;
+    }
+    openProtectedVideo(id);
+  };
+  const dismissPaywall = () => {
+    setPaywallState(null);
+    setPaywallTargetId(null);
+  };
+  const retryPaywall = () => {
+    if (!paywallTargetId) return;
+    const id = paywallTargetId;
+    dismissPaywall();
+    handleSelect(id);
+  };
+  const viewPlusOptions = () => {
+    dismissPaywall();
+    navigate('/subscription');
+  };
 
   // "Explore More" discovery, Phase 5 — while journeyScopeActive, every
   // grouping below is restricted to this exact id set (getExploreCatalogForJourney's
@@ -322,6 +366,12 @@ export const Library = () => {
     const cachedMinutes = getCachedDurationMinutes(entry.id);
     const durationLabel = entry.durationLabel || (cachedMinutes ? `~${cachedMinutes} min` : 'Guided video');
     const isUnavailable = entry.active === false;
+    // Phase 2C — a passive lock cue for a signed-in, non-guest user who
+    // isn't entitled to a Plus item, distinct from the guest lock above.
+    // Never shown while the entitlement read is still loading (the same
+    // "never show a premium cue before the subscriber is recognised" rule
+    // premiumAccess.js's own isPremiumLocked documents).
+    const isPremiumLockedForViewer = !isGuest && resolvePremiumGate(entry, entitlement) === PREMIUM_GATE.LOCKED;
     return (
       <button
         key={entry.id}
@@ -334,7 +384,7 @@ export const Library = () => {
       >
         <span className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-primary text-xl">
-            {isUnavailable ? 'error_outline' : isGuest ? 'lock' : 'play_circle'}
+            {isUnavailable ? 'error_outline' : isGuest || isPremiumLockedForViewer ? 'lock' : 'play_circle'}
           </span>
         </span>
         <span className="flex-1 min-w-0">
@@ -571,6 +621,13 @@ export const Library = () => {
         onSignIn={confirmSignIn}
         onCreateAccount={confirmCreateAccount}
         onDismiss={dismissPrompt}
+      />
+      <PlusPaywallDialog
+        open={!!paywallState}
+        state={paywallState}
+        onViewPlus={viewPlusOptions}
+        onRetry={retryPaywall}
+        onDismiss={dismissPaywall}
       />
     </div>
   );

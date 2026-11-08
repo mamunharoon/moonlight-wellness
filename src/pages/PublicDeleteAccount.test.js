@@ -35,9 +35,10 @@ describe('PublicDeleteAccount — reachable without authentication', () => {
     expect(source).toMatch(/Apple App Store or Google Play/);
   });
 
-  it('discloses the 7-day cancellable waiting period, matching the real in-app flow rather than promising instant deletion', () => {
-    expect(source).toMatch(/7-day period/);
-    expect(source).toMatch(/cancel the request and keep your account/);
+  it('discloses that deletion is immediate and permanent, matching the real in-app flow (Immediate Account Deletion) rather than a cancellable waiting period that no longer exists', () => {
+    expect(source).toMatch(/Deletion is immediate and permanent/);
+    expect(source).toMatch(/deletes your account and data right away/);
+    expect(source).not.toMatch(/7-day period/);
   });
 });
 

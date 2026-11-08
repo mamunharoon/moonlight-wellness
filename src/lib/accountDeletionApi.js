@@ -68,6 +68,41 @@ export const getMyBillingSnapshot = async (userId) => {
   return { subscription: data ?? { plan: 'free', status: 'active', provider: 'manual' }, error: null };
 };
 
+// Immediate Account Deletion — replaces the UI's old "submit, wait 7
+// days, a manual operator completes it" call (requestAccountDeletion,
+// below — kept, unused by DeleteAccount.jsx now, see its own header).
+// A 200 response here means the account and its data are genuinely,
+// irreversibly gone server-side already (see delete-account/index.ts's
+// own header for the exact order of operations) — never a "request
+// accepted" acknowledgement. Any error thrown here means NOTHING was
+// deleted (an early validation/auth failure) or the attempt is safely
+// resumable (see that function's own partial-failure outcomes) — the
+// caller must never treat a thrown error as a partial success.
+export const deleteAccountNow = async ({ password, confirmationPhrase }) => {
+  const { data, error } = await supabase.functions.invoke('delete-account', {
+    body: { password, confirmationPhrase }
+  });
+  if (error) {
+    // Same unwrapping as stripeApi.js's own startCheckout — surfaces the
+    // Edge Function's real, specific message (e.g. "...your account has
+    // not been deleted yet. Please try again.") rather than a generic
+    // "Edge Function returned a non-2xx status code", so a retry-safe
+    // failure actually reads as retry-safe to the person seeing it.
+    let payload = null;
+    try {
+      payload = await error.context?.json?.();
+    } catch {
+      // Body wasn't JSON, or already consumed — fall through with no payload.
+    }
+    throw new Error(payload?.error || error.message);
+  }
+  return data;
+};
+
+// Kept for the old 7-day model's own still-cancellable requests only
+// (see request-account-deletion/index.ts's own header) — DeleteAccount.jsx
+// no longer calls this for a NEW request; deleteAccountNow above is the
+// only path a fresh "Request account deletion" tap reaches.
 export const requestAccountDeletion = async ({ password, confirmationPhrase }) => {
   const { data, error } = await supabase.functions.invoke('request-account-deletion', {
     body: { password, confirmationPhrase }
@@ -76,6 +111,9 @@ export const requestAccountDeletion = async ({ password, confirmationPhrase }) =
   return data;
 };
 
+// Still fully functional for an existing 'pending' row carried over from
+// the old model — see cancel-account-deletion/index.ts, untouched by
+// this change.
 export const cancelAccountDeletion = async () => {
   const { data, error } = await supabase.functions.invoke('cancel-account-deletion');
   if (error) throw error;
