@@ -10,7 +10,20 @@ import { isNativePlatform } from './platform';
 // this repo's `dev` branch is always served from the DEV preview URL
 // below, never Production, and the native app is never served over
 // HTTP(S) at all (see capacitor.config.ts — no server.url).
-const WEB_RESET_PASSWORD_URL = 'https://wakewise-git-dev-mamun65.vercel.app/reset-password';
+const WEB_RESET_PASSWORD_URL_DEV_FALLBACK = 'https://wakewise-git-dev-mamun65.vercel.app/reset-password';
+
+// Production web redirect target — read from VITE_WEB_RESET_PASSWORD_URL,
+// a build-time env var set per Vercel environment, the same pattern
+// VITE_SUPABASE_URL/VITE_SUPABASE_PUBLISHABLE_KEY already use (Production
+// and Preview now have their own separate values for those; this var
+// follows the same split). Never a hardcoded literal here — this file has
+// no way to know what Production's real domain is, and guessing one would
+// risk baking in a wrong value permanently. Until Production's own value
+// is actually set in Vercel, this falls back to the exact DEV preview
+// constant below, preserving today's behavior rather than breaking or
+// guessing — Preview/DEV builds need no new config at all for this to
+// keep working exactly as before.
+const WEB_RESET_PASSWORD_URL = import.meta.env.VITE_WEB_RESET_PASSWORD_URL || WEB_RESET_PASSWORD_URL_DEV_FALLBACK;
 const NATIVE_RESET_PASSWORD_URL = 'wakewise://reset-password';
 
 const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1']);
