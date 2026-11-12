@@ -18,6 +18,21 @@ import { useNativeDeepLinks } from './hooks/useNativeDeepLinks';
 import { useMorningReminderNotificationTap } from './hooks/useMorningReminderNotificationTap';
 import { useRevenueCatIdentity } from './hooks/useRevenueCatIdentity';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+// Password-recovery link race fix — ResetPassword must NOT be
+// lazy-loaded like the pages below it. Reached only via an external
+// email link (never in-app navigation), it races Supabase's own
+// hash-based PASSWORD_RECOVERY event: that event fires once, early,
+// while this component's separate chunk is still being fetched, and
+// onAuthStateChange never replays a missed event to a late subscriber.
+// getSession() alone is deliberately not accepted as proof of recovery
+// (see resetPasswordAccess.js's own header — an ordinary pre-existing
+// session must never be mistaken for one), so a missed event left the
+// page showing "invalid or expired" even when Supabase had genuinely
+// just verified the link. A static import removes the extra chunk-fetch
+// hop from the critical path, so this component mounts and subscribes
+// in the same initial effect flush as AuthContext's own listener,
+// well before GoTrue's hash processing resolves.
+import { ResetPassword } from './pages/ResetPassword';
 
 // Mobile navigation repair, Phase 4 (performance): route-level code
 // splitting. The audit found a single ~670KB (170KB gzip) JS chunk
@@ -62,7 +77,6 @@ const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ defa
 // both Morning and Evening, inserted immediately after Breathe/Breathing.
 const MorningMeditate = lazy(() => import('./pages/MorningMeditate').then((m) => ({ default: m.MorningMeditate })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
-const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
 // WakeWise Phase 2A — Profile/account-management foundation.
 const ChangePassword = lazy(() => import('./pages/ChangePassword').then((m) => ({ default: m.ChangePassword })));
 // Public, unauthenticated account-deletion resource for Google Play's Data
@@ -308,7 +322,7 @@ function App() {
                 <Route path="intention-setup" element={withFallback(<IntentionSetup />)} />
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
-                <Route path="reset-password" element={withFallback(<ResetPassword />)} />
+                <Route path="reset-password" element={<ResetPassword />} />
                 {/* WakeWise Phase 2A — public, unauthenticated account-
                     deletion resource. Full-bleed, same placement as
                     auth/reset-password above (outside <Layout>, reachable
