@@ -21,8 +21,12 @@ describe('Subscription.jsx — platform routing (readiness-gap item 7: Android m
     expect(source).not.toMatch(/isAppleIAPSupported\(\)\s*;?\s*\n/); // never assigned as the routing flag
   });
 
-  it('the Stripe/web purchase section is gated on !IS_NATIVE, not !IS_NATIVE_IOS - an Android build cannot reach it', () => {
-    expect(source).toMatch(/\{!plusActive && !IS_NATIVE && \(/);
+  it('the Stripe/web purchase section (both the live and the checkout-disabled branches) is gated on !IS_NATIVE, not !IS_NATIVE_IOS - an Android build cannot reach either', () => {
+    // Matches both `{!plusActive && !IS_NATIVE && (` (pre-U2 structure, if
+    // ever restored) and `{!plusActive && !IS_NATIVE && WEB_CHECKOUT_...
+    // && (` (current structure, either branch) - the one thing that must
+    // never be true is IS_NATIVE_IOS alone, checked separately below.
+    expect(source).toMatch(/\{!plusActive && !IS_NATIVE && [\s\S]{0,60}?\(/);
     expect(source).not.toMatch(/\{!plusActive && !IS_NATIVE_IOS && \(/);
   });
 

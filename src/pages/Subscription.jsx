@@ -15,7 +15,9 @@ import {
   formatMonthlyPrice,
   formatPrice,
   trialDisclosureText,
-  usdReferencePricingDisclosureText
+  usdReferencePricingDisclosureText,
+  WEB_CHECKOUT_TEMPORARILY_DISABLED,
+  WEB_CHECKOUT_UNAVAILABLE_MESSAGE
 } from '../lib/pricingConfig';
 import { isNativePlatform, isIOS, isAndroid } from '../lib/platform';
 // Native purchase/restore integration — readiness-gap item: wires the
@@ -690,6 +692,15 @@ export const Subscription = () => {
         setCheckoutError('A checkout is already in progress for your account. Please wait a moment and try again.');
       } else if (e.code === 'ATTEMPT_NO_LONGER_VALID') {
         setCheckoutError('That checkout attempt is no longer valid. Please try again.');
+      } else if (e.code === 'CHECKOUT_TEMPORARILY_DISABLED') {
+        // Defense in depth: the price cards/button below are already
+        // hidden whenever WEB_CHECKOUT_TEMPORARILY_DISABLED is true, so
+        // this path shouldn't normally be reachable - but if the backend
+        // is ever actually asked (e.g. this client-side mirror drifts out
+        // of sync with the real PROD secret), it must show the exact same
+        // wording as the proactive replacement UI, never the generic
+        // fallback below.
+        setCheckoutError(WEB_CHECKOUT_UNAVAILABLE_MESSAGE);
       } else {
         setCheckoutError("We couldn't start checkout. Please try again.");
       }
@@ -828,7 +839,22 @@ export const Subscription = () => {
           so a native Android build can never fall through to the
           Stripe/web branch below it). Web: Stripe only, unchanged from
           before this task. */}
-      {!plusActive && !IS_NATIVE && (
+      {!plusActive && !IS_NATIVE && WEB_CHECKOUT_TEMPORARILY_DISABLED && (
+        // U2 / Path A (see pricingConfig.js's own header on
+        // WEB_CHECKOUT_TEMPORARILY_DISABLED): no toggle, no price card, no
+        // Upgrade button, no "by subscribing you agree to..." disclosure -
+        // there is nothing to agree to while no purchase can be made. This
+        // makes no checkout request of any kind; it is a pure display
+        // branch that never calls startCheckout/handleUpgradeClick.
+        <div
+          role="status"
+          className="glass-panel rounded-2xl p-4 text-center border-white/10"
+        >
+          <p className="text-sm font-semibold text-on-surface">{WEB_CHECKOUT_UNAVAILABLE_MESSAGE}</p>
+        </div>
+      )}
+
+      {!plusActive && !IS_NATIVE && !WEB_CHECKOUT_TEMPORARILY_DISABLED && (
         <div className="space-y-3">
           <div className="flex glass-panel rounded-full p-1 border-white/10">
             {Object.entries(INTERVAL_LABELS).map(([value, label]) => (

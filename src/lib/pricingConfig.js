@@ -99,3 +99,45 @@ export const trialDisclosureText = () =>
 
 export const foundingMemberDisclosureText = () =>
   `Start with a ${TRIAL_DAYS}-day free trial, then ${formatPrice(FOUNDING_ANNUAL_FIRST_YEAR_PRICE)} for your first year. Your subscription renews at ${formatPrice(FOUNDING_ANNUAL_RENEWAL_PRICE)} per year unless cancelled before renewal.`;
+
+// *** 2026-11-12: web-only "new checkouts disabled" mirror (U2 / Path A) ***
+// PROD's real `create-checkout-session` Edge Function has carried a
+// server-enforced kill switch since 2026-10-28, 08:47:49 UTC
+// (`STRIPE_NEW_CHECKOUTS_DISABLED=true`, deployed from commit
+// fd6dd261e90a33a8b9e59daf1f4e968517db544b under explicit owner approval
+// — see reports/path-a-prod-execution-2026-10-28.md and
+// reports/path-a-prod-approval-request-2026-10-28.md). It returns `503
+// CHECKOUT_TEMPORARILY_DISABLED` before ever reaching Stripe, because
+// PROD has no real Stripe webhook deployed (U2) to sync renewals,
+// cancellations, or failed payments for a web subscriber afterward.
+//
+// This constant is a HAND-SYNCED MIRROR of that real secret, not a live
+// read of it — there is no client-reachable way to read a Supabase
+// secret's value. It exists so the web UI can proactively hide the
+// Monthly/Yearly price cards and the "Upgrade to WakeWise Plus" button
+// instead of offering an action that is guaranteed to fail, per the
+// approval request's own explicit, still-standing hard constraint: *"Do
+// not unset or flip STRIPE_NEW_CHECKOUTS_DISABLED while the PROD webhook
+// gap (U2) remains unresolved. Re-enabling checkout is Path B's separate,
+// later decision."*
+//
+// Flip this to `false` ONLY after ALL of the following, in order: (1)
+// Path B (the real Stripe webhook, syncing renewals/cancellations/failed
+// payments) is built, deployed to PROD, and verified against a real
+// Stripe test-mode event; (2) the real PROD secret
+// `STRIPE_NEW_CHECKOUTS_DISABLED` is itself unset/set to `false` by
+// someone with Supabase access; (3) the Stripe Price objects behind
+// STRIPE_PRICE_PLUS_MONTHLY/YEARLY have been read-verified (Stripe
+// Dashboard or a restricted read-only API key — not available to this
+// codebase) to actually charge what this file displays. Flipping only
+// this client-side constant, without all three, would show a working
+// Upgrade button for a checkout that still fails server-side.
+export const WEB_CHECKOUT_TEMPORARILY_DISABLED = true;
+
+// Same wording used in two places: the proactive replacement UI below
+// (shown instead of the price cards/button, so most visitors never reach
+// the backend at all) and the reactive fallback in Subscription.jsx's own
+// checkout-error handler, for the one case the backend is still actually
+// asked and it independently agrees checkout is disabled (confirms the
+// two can never show different wording for the same state).
+export const WEB_CHECKOUT_UNAVAILABLE_MESSAGE = 'Web subscriptions are temporarily unavailable. Please check back soon.';
