@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { shouldTreatAsValidRecovery } from '../lib/resetPasswordAccess';
+import { subscribeToRecoverySession } from '../lib/resetPasswordRecoverySession';
 import {
   resolveAuthError,
   logAuthDiagnostic,
@@ -31,59 +31,33 @@ export const ResetPassword = () => {
   const passwordInputRef = useRef(null);
   const confirmPasswordInputRef = useRef(null);
 
-  useEffect(() => {
-    if (!supabase) return;
-
-    let recoveryEventFired = false;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        recoveryEventFired = true;
-        setStatus('valid');
-      }
-    });
-
-    // getSession() is used only to know when Supabase has finished processing
-    // the URL for a recovery token — never as proof of recovery itself. Any
-    // pre-existing session (anonymous or normal) must not grant access.
-    //
-    // The one narrow exception: a native wakewise:// recovery link, which
-    // never becomes window.location the way a web link does, so Supabase's
-    // own URL-detection here never runs and PASSWORD_RECOVERY never fires
-    // for it. useNativeDeepLinks.js / nativeAuthRecovery.js already fully
-    // validated that link (genuine type=recovery tokens) and established
-    // the session itself via the official setSession() API *before*
-    // navigating here with `recoveryVerified` in router state — state only
-    // reachable via our own internal navigate() call, never present in a
-    // URL, browser history, or anything a direct/crafted visit could set.
-    // Still independently re-confirm a session actually exists rather than
-    // trusting that flag alone.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (recoveryEventFired) return;
-      const valid = shouldTreatAsValidRecovery({
-        recoveryEventFired,
-        nativeRecoveryVerified: location.state?.recoveryVerified,
-        hasSession: Boolean(session),
-      });
-      setStatus((current) => (current === 'valid' ? current : valid ? 'valid' : 'invalid'));
-    });
-
-    return () => subscription.unsubscribe();
-    // Native password recovery fix (warm-start race) — depends on the one
-    // piece of location.state this effect actually reads, not []. A warm
-    // app (this page already mounted, e.g. from an earlier expired/
-    // reused link) receiving a FRESH recovery link re-navigates to this
-    // exact path via the same navigate('/reset-password', {replace:true,
-    // state:{recoveryVerified:true}}) call (see useNativeDeepLinks.js) -
-    // react-router matches the same route and does NOT remount this
-    // component for a pathname-only replace, so an effect that only ever
-    // ran once at the ORIGINAL mount would keep reading its first,
-    // possibly-absent location.state forever and never notice the new,
-    // genuinely-verified one. Re-running on a real change here is safe:
-    // the listener/getSession() pair is the same idempotent check either
-    // way, and the functional setStatus update above already guards
-    // against ever downgrading an already-'valid' status.
-  }, [location.state?.recoveryVerified]);
+  // Confirmation-check effect — the actual subscribe/getSession/
+  // shouldTreatAsValidRecovery orchestration lives in
+  // resetPasswordRecoverySession.js (see its own header), extracted so
+  // the web mount-timing race it closes (passwordRecoveryLatch.js) is
+  // independently testable against a fake Supabase client, without
+  // rendering this page.
+  //
+  // Native password recovery fix (warm-start race) — depends on the one
+  // piece of location.state this effect actually reads, not []. A warm
+  // app (this page already mounted, e.g. from an earlier expired/
+  // reused link) receiving a FRESH recovery link re-navigates to this
+  // exact path via the same navigate('/reset-password', {replace:true,
+  // state:{recoveryVerified:true}}) call (see useNativeDeepLinks.js) -
+  // react-router matches the same route and does NOT remount this
+  // component for a pathname-only replace, so an effect that only ever
+  // ran once at the ORIGINAL mount would keep reading its first,
+  // possibly-absent location.state forever and never notice the new,
+  // genuinely-verified one. Re-running on a real change here is safe:
+  // the listener/getSession() pair is the same idempotent check either
+  // way, and subscribeToRecoverySession's own functional setStatus
+  // update already guards against ever downgrading an already-'valid'
+  // status.
+  useEffect(() => subscribeToRecoverySession({
+    supabase,
+    setStatus,
+    nativeRecoveryVerified: location.state?.recoveryVerified,
+  }), [location.state?.recoveryVerified]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

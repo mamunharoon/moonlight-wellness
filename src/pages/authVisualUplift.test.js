@@ -138,7 +138,7 @@ describe('ResetPassword.jsx — mirrors Auth.jsx\'s exact same approved changes'
   });
 
   it('real recovery-link validation, password policy, and the weak-password/mismatch handling are completely untouched', () => {
-    expect(resetSource).toMatch(/shouldTreatAsValidRecovery\(\{/);
+    expect(resetSource).toMatch(/subscribeToRecoverySession\(\{/);
     expect(resetSource).toMatch(/isPasswordTooShort\(password\)/);
     expect(resetSource).toMatch(/password !== confirmPassword/);
     expect(resetSource).toMatch(/isWeakPasswordError\(updateError\)/);

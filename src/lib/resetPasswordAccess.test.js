@@ -37,4 +37,16 @@ describe('shouldTreatAsValidRecovery', () => {
       shouldTreatAsValidRecovery({ recoveryEventFired: false, nativeRecoveryVerified: undefined, hasSession: true })
     ).toBe(false);
   });
+
+  it('accepts a PASSWORD_RECOVERY event latched earlier by passwordRecoveryLatch.js, even with no live event and no session yet', () => {
+    expect(
+      shouldTreatAsValidRecovery({ recoveryEventFired: false, nativeRecoveryVerified: false, hasSession: false, latchedEarlier: true })
+    ).toBe(true);
+  });
+
+  it('rejects an ordinary signed-in session even when latchedEarlier is merely undefined/missing — only an explicit true latch counts', () => {
+    expect(
+      shouldTreatAsValidRecovery({ recoveryEventFired: false, nativeRecoveryVerified: false, hasSession: true, latchedEarlier: undefined })
+    ).toBe(false);
+  });
 });

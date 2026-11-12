@@ -3,8 +3,8 @@
 // weak_password handling as Sign Up, applied the same source-level way as
 // Auth.signupUx.test.js (no DOM rendering available in this repo's Vitest
 // - see that file's own note). Does not touch the confirmation-link
-// architecture itself (useEffect/onAuthStateChange block above) - only the
-// password-entry form below it.
+// architecture itself (now delegated to resetPasswordRecoverySession.js
+// - see that module's own header) - only the password-entry form below it.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -120,9 +120,8 @@ describe('ResetPassword — same approved 8-character new-password rule as Sign 
     expect(source).toMatch(/\{isSubmitting \? 'Updating\.\.\.' : 'Update Password'\}/);
   });
 
-  it('does not introduce a new confirmation mechanism or automatic sign-in - the existing recovery-session/onAuthStateChange architecture and the plain "success -> Continue button" path are unchanged', () => {
-    expect(source).toMatch(/onAuthStateChange\(\(event\) => \{/);
-    expect(source).toMatch(/if \(event === 'PASSWORD_RECOVERY'\) \{/);
+  it('does not introduce a new confirmation mechanism or automatic sign-in - the existing recovery-session architecture (now in resetPasswordRecoverySession.js) and the plain "success -> Continue button" path are unchanged', () => {
+    expect(source).toMatch(/subscribeToRecoverySession\(\{/);
     expect(source).not.toMatch(/signInWithPassword|signInWithOtp|signInWithOAuth/);
     const successBlock = source.match(/\{status === 'success' && \([\s\S]*?\)\}/)?.[0] ?? '';
     expect(successBlock).toMatch(/Your password has been updated successfully\./);

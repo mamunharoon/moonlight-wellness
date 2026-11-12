@@ -15,14 +15,24 @@
 // Source-level check, same convention as ResetPassword.passwordPolicy.test.js/
 // ResetPassword.mobileSafeArea.test.js (no DOM rendering available in
 // this repo's Vitest - see either file's own note).
+//
+// 2026-11-12 update: the effect's own subscribe/getSession/
+// shouldTreatAsValidRecovery body was extracted into
+// resetPasswordRecoverySession.js (see its own header - a separate, web
+// mount-timing race fix), leaving ResetPassword.jsx's own effect as a
+// thin call-through. The dependency-array/re-run behaviour this file
+// protects is unchanged and still lives here; the extracted body's own
+// behaviour is covered by ResetPassword.recoveryLatchRace.test.js
+// instead, against a fake Supabase client.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const source = readFileSync(fileURLToPath(new URL('./ResetPassword.jsx', import.meta.url)), 'utf-8');
+const sessionModuleSource = readFileSync(fileURLToPath(new URL('../lib/resetPasswordRecoverySession.js', import.meta.url)), 'utf-8');
 
 const confirmationEffectBody = () =>
-  source.match(/useEffect\(\(\) => \{\s*\n\s*if \(!supabase\) return;[\s\S]*?\n\s*\}, \[location\.state\?\.recoveryVerified\]\);/)?.[0] ?? '';
+  source.match(/useEffect\(\(\) => subscribeToRecoverySession\(\{[\s\S]*?\}\), \[location\.state\?\.recoveryVerified\]\);/)?.[0] ?? '';
 
 describe('ResetPassword.jsx — confirmation-check effect re-runs on a fresh native recovery link, even while already mounted', () => {
   it('found the effect, now keyed on location.state?.recoveryVerified rather than []', () => {
@@ -34,16 +44,19 @@ describe('ResetPassword.jsx — confirmation-check effect re-runs on a fresh nat
     expect(source).not.toMatch(/eslint-disable-next-line react-hooks\/exhaustive-deps/);
   });
 
-  it('still subscribes onAuthStateChange and calls getSession() exactly as before - only the dependency array changed, not the confirmation logic itself', () => {
+  it('passes nativeRecoveryVerified through from location.state on every re-run, not just the original mount', () => {
     const body = confirmationEffectBody();
-    expect(body).toMatch(/onAuthStateChange\(\(event\) => \{/);
-    expect(body).toMatch(/getSession\(\)\.then\(/);
-    expect(body).toMatch(/shouldTreatAsValidRecovery\(\{/);
-    expect(body).toMatch(/return \(\) => subscription\.unsubscribe\(\);/);
+    expect(body).toMatch(/nativeRecoveryVerified: location\.state\?\.recoveryVerified/);
+  });
+
+  it('the extracted subscribeToRecoverySession still subscribes onAuthStateChange and calls getSession() exactly as before - only its location (not its logic) changed', () => {
+    expect(sessionModuleSource).toMatch(/onAuthStateChange\(\(event\) => \{/);
+    expect(sessionModuleSource).toMatch(/getSession\(\)\.then\(/);
+    expect(sessionModuleSource).toMatch(/shouldTreatAsValidRecovery\(\{/);
+    expect(sessionModuleSource).toMatch(/return \(\) => subscription\.unsubscribe\(\);/);
   });
 
   it('still never downgrades an already-"valid" status on re-run (the functional setStatus guard)', () => {
-    const body = confirmationEffectBody();
-    expect(body).toMatch(/setStatus\(\(current\) => \(current === 'valid' \? current : valid \? 'valid' : 'invalid'\)\);/);
+    expect(sessionModuleSource).toMatch(/setStatus\(\(current\) => \(current === 'valid' \? current : valid \? 'valid' : 'invalid'\)\);/);
   });
 });

@@ -90,9 +90,8 @@ describe('No unintended regressions', () => {
     expect(source).toMatch(/PASSWORD_MISMATCH_MESSAGE/);
   });
 
-  it('the confirmation-link/PASSWORD_RECOVERY architecture is untouched - no new auth mechanism introduced', () => {
-    expect(source).toMatch(/onAuthStateChange\(\(event\) => \{/);
-    expect(source).toMatch(/if \(event === 'PASSWORD_RECOVERY'\) \{/);
+  it('the confirmation-link architecture is untouched - still delegates to subscribeToRecoverySession, no new auth mechanism introduced', () => {
+    expect(source).toMatch(/subscribeToRecoverySession\(\{/);
     expect(source).not.toMatch(/signInWithPassword|signInWithOtp|signInWithOAuth/);
   });
 });
