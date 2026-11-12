@@ -5,20 +5,34 @@
 // drift from each other. This is a display config only — it does not
 // create, read, or touch any Stripe product or price object.
 //
-// *** NOT YET RECONCILED WITH STRIPE ***
-// The values below are ZavaraAI's PROPOSED Australian launch pricing,
-// supplied for UI/legal preparation. STRIPE_PRICE_PLUS_MONTHLY and
-// STRIPE_PRICE_PLUS_YEARLY (the Supabase Edge Function secrets
-// create-checkout-session actually charges) are configured but their
-// dollar amounts are not readable from this codebase — Supabase's own
-// `secrets list` masks secret values, and this task does not have
-// Stripe Dashboard/API access. Do not assume these numbers already
-// match the live Stripe Price objects. Before this goes live, someone
-// with Stripe Dashboard access must either confirm the Price objects
-// already charge these exact amounts, or create new ones and update the
-// two secrets to match — the second of those is explicitly a "create or
-// alter Stripe products/prices" action requiring separate owner
-// approval, never done implicitly by editing this file.
+// *** RECONCILED AGAINST APPLE'S OWN APPROVED AU PRICING — STILL NOT
+// RECONCILED AGAINST STRIPE ***
+// 2026-11-12: MONTHLY_PRICE corrected from 7.99 to 9.99. The web preview
+// was showing 7.99, which matched neither of the two independent,
+// authoritative references available: (1) App Store Connect's own
+// "Current Pricing for New Subscribers" table for
+// com.zavaraai.wakewise.plus.monthly lists Australia (AUD) $9.99 — read
+// directly from ASC, not assumed; (2) this exact $9.99 figure is also
+// the one already documented in currencyDisplay.js's own header, from a
+// real RevenueCat/StoreKit TestFlight sandbox observation ("Apple's own
+// purchase-confirmation sheet read 'A$9.99'"). ANNUAL_PRICE (59.99) was
+// already correct — ASC's Australia (AUD) price for
+// com.zavaraai.wakewise.plus.annual is also $59.99, confirmed the same
+// way.
+//
+// What this does NOT establish: whether Stripe's own configured Price
+// objects (STRIPE_PRICE_PLUS_MONTHLY / STRIPE_PRICE_PLUS_YEARLY — the
+// Supabase Edge Function secrets create-checkout-session actually
+// charges for web purchases) charge these same amounts. Those secrets'
+// dollar values are still not readable from this codebase or from
+// Supabase's own `secrets list` (which masks secret values), and no
+// Stripe Dashboard/API access is available here. Do not assume web
+// checkout now charges exactly 9.99/59.99 just because the display was
+// corrected to match Apple's figures — someone with Stripe Dashboard
+// access must still confirm the Price objects charge these exact
+// amounts, or create/update them to match (the latter is explicitly a
+// "create or alter Stripe products/prices" action requiring separate
+// owner approval, never done implicitly by editing this file).
 import { formatExplicitCurrencyAmount } from './currencyDisplay';
 
 export const CURRENCY = 'AUD';
@@ -26,7 +40,7 @@ export const CURRENCY_SYMBOL = '$';
 
 export const TRIAL_DAYS = 7;
 
-export const MONTHLY_PRICE = 7.99;
+export const MONTHLY_PRICE = 9.99;
 export const ANNUAL_PRICE = 59.99;
 
 // Founding-member introductory offer (see

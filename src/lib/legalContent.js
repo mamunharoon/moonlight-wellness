@@ -67,7 +67,7 @@
 //     decision list. Do not treat this file's prices as Stripe-verified.
 
 export const CONTACT_INFO = {
-  company: 'ZavaraAi',
+  company: 'ZavaraAI',
   product: 'WakeWise',
   email: 'info@zavaraai.com',
   country: 'Australia'
@@ -546,7 +546,7 @@ export const LEGAL_CONTENT = {
     isLegal: false,
     sections: [
       {
-        heading: 'WakeWise by ZavaraAi',
+        heading: 'WakeWise by ZavaraAI',
         paragraphs: ['A quiet companion for mornings, evenings, and moments when life feels heavy.']
       }
     ]
