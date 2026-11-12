@@ -23,17 +23,39 @@ import { supabase } from './supabaseClient';
 // PASSWORD_RECOVERY event, never a plain session - an ordinary signed-in
 // visitor can never set it, exactly as resetPasswordAccess.js's own
 // header already requires of the live-event check this augments.
+//
+// Carry-over fix — this is a plain module-level flag that otherwise
+// lives for the entire tab's JS runtime, not just one page load. Left
+// as a simple set-and-read boolean, a single successful recovery would
+// stay readable as `true` forever afterward in that same tab: a
+// completed reset, a sign-out, or signing in as a different account
+// (this app's own switch-accounts path always signs out first - see
+// AuthContext.jsx's signOut()) could all silently inherit someone
+// else's already-used recovery grant with no new link ever clicked.
+// Closed two ways: wasPasswordRecoveryLatched() below consumes the flag
+// on read (mirrors the underlying Supabase recovery token's own
+// single-use design - once ResetPassword has read a `true` latch to
+// show the form, that latch has done its one job), and a SIGNED_OUT
+// event clears it outright, for the narrower case where it latched but
+// was never actually read (e.g. ResetPassword never mounted to consume
+// it) before the tab moved on to a different session.
 let recoveryEventLatched = false;
 
 if (supabase) {
   supabase.auth.onAuthStateChange((event) => {
     if (event === 'PASSWORD_RECOVERY') {
       recoveryEventLatched = true;
+    } else if (event === 'SIGNED_OUT') {
+      recoveryEventLatched = false;
     }
   });
 }
 
-export const wasPasswordRecoveryLatched = () => recoveryEventLatched;
+export const wasPasswordRecoveryLatched = () => {
+  const latched = recoveryEventLatched;
+  recoveryEventLatched = false;
+  return latched;
+};
 
 // Test-only reset - lets tests that re-import this module via
 // vi.resetModules() start from a clean latch instead of leaking state

@@ -163,4 +163,42 @@ describe('ResetPassword mount-timing race — PASSWORD_RECOVERY fires before the
 
     expect(status).toBe('valid');
   });
+
+  it('a second visit to /reset-password in the same tab, after sign-out, does not inherit the first visit\'s already-consumed latch', async () => {
+    const fakeSupabaseForThisTest = makeFakeSupabase();
+    vi.doMock('../lib/supabaseClient', () => ({ supabase: fakeSupabaseForThisTest }));
+
+    await import('../lib/passwordRecoveryLatch');
+    const { subscribeToRecoverySession } = await import('../lib/resetPasswordRecoverySession');
+
+    // First visit: a genuine recovery link, event fires before the page
+    // subscribes (the race), caught by the latch as already verified
+    // above.
+    fakeSupabaseForThisTest.auth.__fireAuthEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+    let firstStatus = 'checking';
+    subscribeToRecoverySession({
+      supabase: fakeSupabaseForThisTest,
+      setStatus: (next) => { firstStatus = typeof next === 'function' ? next(firstStatus) : next; },
+      nativeRecoveryVerified: undefined,
+    });
+    await flushMicrotasks();
+    expect(firstStatus).toBe('valid');
+
+    // User finishes the reset, then signs out — this app's own
+    // account-switch path always signs out first (AuthContext.jsx).
+    fakeSupabaseForThisTest.auth.__fireAuthEvent('SIGNED_OUT');
+
+    // A second visit to the SAME path in the SAME tab, with no new
+    // recovery link ever clicked, must not reuse the first visit's
+    // already-spent latch.
+    let secondStatus = 'checking';
+    subscribeToRecoverySession({
+      supabase: fakeSupabaseForThisTest,
+      setStatus: (next) => { secondStatus = typeof next === 'function' ? next(secondStatus) : next; },
+      nativeRecoveryVerified: undefined,
+    });
+    await flushMicrotasks();
+
+    expect(secondStatus).toBe('invalid');
+  });
 });
