@@ -14,6 +14,16 @@
 // for the established precedent) - reads the real index.html/vercel.json
 // content, never a copy, so a future edit to either file is caught here
 // too.
+//
+// 2026-11-12 update: this WEB deployment's CSP is now scoped to the real
+// PROD Supabase project only, matching live production's own already-
+// deployed vercel.json (commit 6056baa, "fix: correct PROD CSP to allow
+// the real PROD Supabase project"). This is not a regression of the fix
+// described above - that incident was connect-src never including PROD
+// at all (a DEV-only CSP blocking a production-configured build's own
+// requests). This web deployment now intentionally allows only the one
+// Supabase project it actually targets, rather than both - still never
+// zero, still never the wrong one.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -42,8 +52,8 @@ const extractVercelJsonCsp = () => {
 
 // Splits "directive src1 src2 ..." entries into a { directiveName: [sources] }
 // map - robust to the exact source ordering within a directive, which the
-// fix above deliberately does not need to preserve beyond "both the DEV
-// and production hosts are present".
+// fix above deliberately does not need to preserve beyond "the production
+// host is present and the DEV host is not".
 const parseDirectives = (csp) => {
   const map = {};
   for (const part of csp.split(';').map((s) => s.trim()).filter(Boolean)) {
@@ -65,24 +75,24 @@ describe.each([
 ])('CSP — %s', (_label, getCsp) => {
   const directives = () => parseDirectives(getCsp());
 
-  it('connect-src allows both DEV and production Supabase over https and wss', () => {
+  it('connect-src allows production Supabase over https and wss, and never DEV', () => {
     const sources = directives()['connect-src'];
-    expect(sources).toContain(DEV_HTTPS);
-    expect(sources).toContain(DEV_WSS);
     expect(sources).toContain(PROD_HTTPS);
     expect(sources).toContain(PROD_WSS);
+    expect(sources).not.toContain(DEV_HTTPS);
+    expect(sources).not.toContain(DEV_WSS);
   });
 
-  it('img-src allows both DEV and production Supabase (signed media/avatar URLs)', () => {
+  it('img-src carries no Supabase host at all (images aren\'t served from signed Supabase URLs) - never DEV, never PROD', () => {
     const sources = directives()['img-src'];
-    expect(sources).toContain(DEV_HTTPS);
-    expect(sources).toContain(PROD_HTTPS);
+    expect(sources).not.toContain(PROD_HTTPS);
+    expect(sources).not.toContain(DEV_HTTPS);
   });
 
-  it('media-src allows both DEV and production Supabase (signed video/audio URLs)', () => {
+  it('media-src allows production Supabase (signed video/audio URLs), and never DEV', () => {
     const sources = directives()['media-src'];
-    expect(sources).toContain(DEV_HTTPS);
     expect(sources).toContain(PROD_HTTPS);
+    expect(sources).not.toContain(DEV_HTTPS);
   });
 
   it('introduces no wildcard source anywhere in the policy', () => {

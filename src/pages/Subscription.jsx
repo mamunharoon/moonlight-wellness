@@ -13,8 +13,9 @@ import {
   annualSavingsPercent,
   formatAnnualPrice,
   formatMonthlyPrice,
+  formatPrice,
   trialDisclosureText,
-  CURRENCY
+  usdReferencePricingDisclosureText
 } from '../lib/pricingConfig';
 import { isNativePlatform, isIOS, isAndroid } from '../lib/platform';
 // Native purchase/restore integration — readiness-gap item: wires the
@@ -51,7 +52,7 @@ import { GOOGLE_OFFER_NAMES } from '../lib/revenueCatConfig';
 // currencyDisplay.js's own header for the full root-cause writeup.
 // Always built from the package/option's own real price + ISO currency
 // code, never a hardcoded/converted figure.
-import { formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount, describeBillingPeriod } from '../lib/currencyDisplay';
+import { formatNativeStorePrice, formatGoogleMicrosPrice, describeBillingPeriod } from '../lib/currencyDisplay';
 // Trial/intro-offer wording, reconciled per-product instead of a single
 // "annual only" assumption — see trialOfferWording.js's own header for
 // why (a real sandbox purchase recorded a TRIAL period on the MONTHLY
@@ -852,11 +853,12 @@ export const Subscription = () => {
             </p>
             {interval === 'yearly' && (
               <p className="text-xs text-on-surface-variant">
-                Approximately {formatExplicitCurrencyAmount(annualEffectiveMonthly(), CURRENCY)} per month — save
-                approximately {annualSavingsPercent()}% compared with monthly billing.
+                Approximately {formatPrice(annualEffectiveMonthly())} per month — Save {annualSavingsPercent()}%
+                compared with paying monthly for 12 months.
               </p>
             )}
             <p className="text-xs text-on-surface-variant pt-1">{trialDisclosureText()}</p>
+            <p className="text-xs text-on-surface-variant pt-1">{usdReferencePricingDisclosureText()}</p>
           </div>
 
           {/* Apple App Review Guideline 3.1.2 expects the Privacy Policy and

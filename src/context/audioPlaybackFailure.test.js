@@ -96,18 +96,21 @@ describe('the CSP media-src directive stays first-party-only (no external audio 
 
   const extract = (src) => src.match(/media-src ([^;]+);/)?.[1];
 
-  // Production TestFlight signup-failure fix (2026-10-23): media-src now
-  // also allows the app's own production Supabase project
-  // (wqpszprbuqdjcfmdqdlv) alongside DEV - both are this app's own first-
-  // party backends, never a third party, so this does not weaken the
-  // guard below; soundhelix.com or any other external host must still
+  // Production TestFlight signup-failure fix (2026-10-23): media-src
+  // originally also allowed the app's own production Supabase project
+  // (wqpszprbuqdjcfmdqdlv) alongside DEV - both were this app's own
+  // first-party backends, never a third party. 2026-11-12: this WEB
+  // deployment's CSP was further narrowed to the production project
+  // only, matching live production's own already-deployed vercel.json
+  // (commit 6056baa) - still first-party-only, just one first-party host
+  // instead of two; soundhelix.com or any other external host must still
   // never appear.
-  it('vercel.json\'s media-src allows only \'self\', blob:, and the app\'s own two Supabase projects - no third-party host', () => {
-    expect(extract(vercelJsonSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co https://wqpszprbuqdjcfmdqdlv.supabase.co");
+  it('vercel.json\'s media-src allows only \'self\', blob:, and the app\'s own production Supabase project - no third-party host, no DEV host', () => {
+    expect(extract(vercelJsonSource)).toBe("'self' blob: https://wqpszprbuqdjcfmdqdlv.supabase.co");
   });
 
-  it('index.html\'s <meta> CSP (the policy that also governs the native Capacitor build) matches exactly - no soundhelix.com or any other external host', () => {
-    expect(extract(indexHtmlSource)).toBe("'self' blob: https://kvdxuhyndevrfvsalgnx.supabase.co https://wqpszprbuqdjcfmdqdlv.supabase.co");
+  it('index.html\'s <meta> CSP (the policy that also governs the native Capacitor build) matches exactly - no soundhelix.com, no DEV host, no other external host', () => {
+    expect(extract(indexHtmlSource)).toBe("'self' blob: https://wqpszprbuqdjcfmdqdlv.supabase.co");
   });
 
   it('both CSP declarations stay in sync with each other', () => {

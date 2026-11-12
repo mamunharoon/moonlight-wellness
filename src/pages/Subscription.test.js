@@ -254,7 +254,7 @@ describe('Subscription.jsx — explicit-currency native pricing (readiness-gap f
   });
 
   it('uses formatNativeStorePrice (ISO currency code + real price) as the default headline price, with an explicit unavailable fallback instead of a different price', () => {
-    expect(source).toMatch(/import \{ formatNativeStorePrice, formatGoogleMicrosPrice, formatExplicitCurrencyAmount, describeBillingPeriod \} from '\.\.\/lib\/currencyDisplay';/);
+    expect(source).toMatch(/import \{ formatNativeStorePrice, formatGoogleMicrosPrice, describeBillingPeriod \} from '\.\.\/lib\/currencyDisplay';/);
     expect(source).toMatch(/: formatNativeStorePrice\(selectedNativePackage\?\.product\);/);
     expect(source).toMatch(/selectedNativePriceText\s*\n\s*\? selectedNativeBillingPeriod\s*\n\s*\? `\$\{selectedNativePriceText\} per \$\{selectedNativeBillingPeriod\}`\s*\n\s*: selectedNativePriceText\s*\n\s*: 'Price unavailable'/);
   });
@@ -263,9 +263,10 @@ describe('Subscription.jsx — explicit-currency native pricing (readiness-gap f
     expect(source).toMatch(/We couldn't load pricing for this plan right now\. Please try again shortly\./);
   });
 
-  it('the web/Stripe approximate-monthly-price line also uses the explicit-currency formatter, never a hardcoded "AUD $" literal', () => {
+  it('the web/Stripe approximate-monthly-price line also uses the pricing config\'s own US$ formatter, never a hardcoded currency literal', () => {
     expect(source).not.toMatch(/`AUD \$\$\{annualEffectiveMonthly/);
-    expect(source).toMatch(/formatExplicitCurrencyAmount\(annualEffectiveMonthly\(\), CURRENCY\)/);
+    expect(source).not.toMatch(/`US\$\$\{annualEffectiveMonthly/);
+    expect(source).toMatch(/formatPrice\(annualEffectiveMonthly\(\)\)/);
   });
 });
 
