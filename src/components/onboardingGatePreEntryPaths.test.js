@@ -31,3 +31,11 @@ describe('OnboardingGate — public account-deletion resource is reachable pre-e
     expect(block).toMatch(/'\/reset-password'/);
   });
 });
+
+describe('OnboardingGate — click-to-confirm reset landing page is reachable pre-entry', () => {
+  it('/reset-password-confirm is in ALLOWED_PRE_ENTRY_PATHS, alongside /reset-password', () => {
+    const block = allowedPreEntryPathsBlock();
+    expect(block).toMatch(/'\/reset-password-confirm'/);
+    expect(block).toMatch(/'\/reset-password'/);
+  });
+});

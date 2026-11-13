@@ -63,6 +63,7 @@ const Affirmation = lazy(() => import('./pages/Affirmation').then((m) => ({ defa
 const MorningMeditate = lazy(() => import('./pages/MorningMeditate').then((m) => ({ default: m.MorningMeditate })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Auth })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })));
+const ResetPasswordConfirm = lazy(() => import('./pages/ResetPasswordConfirm').then((m) => ({ default: m.ResetPasswordConfirm })));
 // WakeWise Phase 2A — Profile/account-management foundation.
 const ChangePassword = lazy(() => import('./pages/ChangePassword').then((m) => ({ default: m.ChangePassword })));
 // Public, unauthenticated account-deletion resource for Google Play's Data
@@ -309,6 +310,13 @@ function App() {
                 <Route path="change-intention" element={withFallback(<ChangeIntention />)} />
                 <Route path="auth" element={withFallback(<Auth />)} />
                 <Route path="reset-password" element={withFallback(<ResetPassword />)} />
+                {/* Click-to-confirm reset landing page (see
+                    resetPasswordConfirm.js's own doc comment) — the new
+                    email-link target once PROD's template is updated.
+                    Reads token_hash/type and redeems it only on an
+                    explicit tap, then hands off to /reset-password
+                    above exactly like the native deep-link flow does. */}
+                <Route path="reset-password-confirm" element={withFallback(<ResetPasswordConfirm />)} />
                 {/* WakeWise Phase 2A — public, unauthenticated account-
                     deletion resource. Full-bleed, same placement as
                     auth/reset-password above (outside <Layout>, reachable
