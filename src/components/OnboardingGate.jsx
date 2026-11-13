@@ -48,6 +48,11 @@ import { App as CapacitorApp } from '@capacitor/app';
 const ALLOWED_PRE_ENTRY_PATHS = new Set([
   '/auth',
   '/reset-password',
+  // Click-to-confirm reset landing page (resetPasswordConfirm.js) — same
+  // reachable-before-any-session-or-guest-choice reasoning as
+  // /reset-password above; a brand-new/never-opened device following a
+  // password-reset email link must land here, not on Welcome.
+  '/reset-password-confirm',
   '/settings/terms-of-service',
   '/settings/privacy-policy',
   '/settings/account-deletion-policy',
